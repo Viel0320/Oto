@@ -99,7 +99,7 @@ fun HomeAppBar(
             ) {
                 Icon(
                     Icons.Rounded.Tune,
-                    contentDescription = stringResource(R.string.settings_content_description)
+                    contentDescription = stringResource(R.string.settings_title)
                 )
             }
         }

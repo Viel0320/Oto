@@ -85,7 +85,7 @@ fun RelatedBooksView(
 
         if (recentBooks.isNotEmpty()) {
             item(key = "recent:header") {
-                RelatedSectionHeader(stringResource(R.string.player_related_recently_added))
+                RelatedSectionHeader(stringResource(R.string.recently_added_title))
             }
             // M-20 Fix — Configure recent list key (To assign prefix keys to prevent section key collisions)
             items(recentBooks, key = { "recent:${it.id}" }) { book ->

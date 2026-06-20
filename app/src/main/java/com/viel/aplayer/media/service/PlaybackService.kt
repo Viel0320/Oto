@@ -307,7 +307,7 @@ class PlaybackService : MediaSessionService() {
         rebuildTransportButtons(settingsRepository.cachedSettings.playbackSeekStepConfig)
 
         bookmarkButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName(getString(R.string.media_session_add_bookmark))
+            .setDisplayName(getString(R.string.bookmark_add_title))
             .setSessionCommand(SessionCommand(ACTION_BOOKMARK, Bundle.EMPTY))
             .setCustomIconResId(R.drawable.ic_bookmark_add)
             .setEnabled(true)

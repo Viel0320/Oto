@@ -58,7 +58,7 @@ fun ChapterDisplay(
     // Localized Chapter Fallback Copy (Use resources for empty chapter and bookmark accessibility text)
     // Chapter titles usually come from media metadata, but the empty-state fallback and action label are app-authored UI copy.
     val noChaptersText = stringResource(R.string.player_no_chapters)
-    val addBookmarkContentDescription = stringResource(R.string.media_session_add_bookmark)
+    val addBookmarkContentDescription = stringResource(R.string.bookmark_add_title)
 
     Row(
         modifier = modifier.fillMaxWidth(),

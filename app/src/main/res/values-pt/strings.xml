@@ -1,15 +1,11 @@
-<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingQuantity">
-    <!-- Portuguese Locale Resources (Provide Portuguese translations for all default user-visible
-    strings)
-         Complete coverage lets both Android and in-app language selection render a consistent Portuguese
-    UI. -->
+    <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingQuantity">
     <string name="author_label">Autor</string>
     <string name="narrator_label">Narrador</string>
     <string name="summary_label">Resumo</string>
+    <string name="series_label">Série</string>
     <string name="back_content_description">Voltar</string>
     <string name="more_content_description">Mais</string>
     <string name="search_content_description">Pesquisar</string>
-    <string name="settings_content_description">Definições</string>
     <string name="settings_title">Definições</string>
     <string name="clear_history_title">Limpar histórico de pesquisa</string>
     <string name="clear_history_subtitle">Eliminar todos os registos de pesquisa anteriores</string>
@@ -25,16 +21,9 @@
     <string name="home_view_style_list">Lista</string>
     <string name="home_view_style_grid">Grelha</string>
     <string name="home_sort_rule_title">Regra de ordenação</string>
-    <string name="home_sort_rule_author">Autor</string>
-    <string name="home_sort_rule_narrator">Narrador</string>
-    <string name="home_sort_rule_series">Série</string>
     <string name="home_sort_direction_title">Direção de ordenação</string>
     <string name="home_sort_direction_ascending">Ascendente</string>
     <string name="home_sort_direction_descending">Descendente</string>
-    <!-- Home Book Status Filter Resources (Localized labels for the Home view dialog status
-    segment)
-         These strings mirror the default BookStatus filter keys while keeping persisted enum names
-    language-independent. -->
     <string name="home_book_status_filter_title">Estado do livro</string>
     <string name="home_book_status_all">Todos</string>
     <string name="home_book_status_ready">Disponível</string>
@@ -44,10 +33,10 @@
     <string name="import_content_description">Importar multimédia</string>
     <string name="rescan_library_title">Analisar biblioteca novamente</string>
     <string name="rescan_library_subtitle">Iniciar manualmente uma análise completa de todas as
-        pastas autorizadas</string>
+    pastas autorizadas</string>
     <string name="chapter_progress_title">Modo de progresso por capítulo</string>
     <string name="chapter_progress_subtitle">A barra de progresso e as notificações mostram apenas o
-        capítulo atual</string>
+    capítulo atual</string>
     <string name="action_add">Adicionar</string>
     <string name="action_save">Guardar</string>
     <string name="action_cancel">Cancelar</string>
@@ -68,72 +57,65 @@
     <string name="settings_language_portuguese">Português</string>
     <string name="player_widget_name">Leitor APlayer</string>
     <string name="player_widget_description">Widget de leitor 2x2 para o ambiente de trabalho</string>
-    <string name="player_widget_empty_title">APlayer</string>
     <string name="player_widget_empty_subtitle">Pronto para reproduzir</string>
     <string name="player_widget_cover_description">Capa do audiolivro atual</string>
-    <string name="player_widget_skip_backward">Recuar 10 segundos</string>
     <string name="player_widget_play_pause">Reproduzir ou pausar</string>
-    <string name="player_widget_skip_forward">Avançar 30 segundos</string>
     <string name="player_widget_fallback_author">Leitor de audiolivros</string>
     <string name="player_widget_background_cover_description">Capa de fundo</string>
     <string name="player_widget_background_placeholder_description">Marcador de fundo</string>
     <string name="player_widget_seek_backward_description">Recuar</string>
     <string name="player_widget_seek_forward_description">Avançar</string>
     <string name="feedback_playback_cleartext_blocked">A segurança bloqueou a reprodução HTTP sem
-        encriptação. Ative-a primeiro nas definições.</string>
+    encriptação. Ative-a primeiro nas definições.</string>
     <string name="feedback_playback_initial_media_load_failed">Falha ao carregar a fonte multimédia:
-        %1$s</string>
+    %1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">Não foi encontrada nenhuma
-        faixa de áudio reproduzível posterior. A reprodução parou.</string>
+    faixa de áudio reproduzível posterior. A reprodução parou.</string>
     <string name="feedback_playback_stopped_scope">\nReprodução parada: %1$s</string>
     <plurals name="feedback_playback_finished_shutdown_scheduled">
         <item quantity="one">Reprodução terminada. A encerrar em %1$d segundo.</item>
         <item quantity="other">Reprodução terminada. A encerrar em %1$d segundos.</item>
     </plurals>
     <string name="feedback_playback_bookmark_created">Marcador adicionado na posição de reprodução
-        atual</string>
+    atual</string>
     <string name="feedback_playback_remote_progress_save_failed">Falha ao escrever localmente o
-        progresso remoto: %1$s</string>
+    progresso remoto: %1$s</string>
     <string name="feedback_playback_speed_reset">Velocidade de reprodução reposta</string>
     <string name="feedback_playback_speed_changed">Velocidade de reprodução: %1$sx</string>
     <string name="feedback_playback_source_preflight_blocked">%1$s</string>
-    <!-- Playback Preflight Feedback (Localized shell copy for typed playback block reasons emitted
-    by the media domain) -->
     <string name="feedback_playback_source_preflight_missing_root">A raiz da biblioteca está
-        ausente. Não é possível carregar a fonte de mídia.</string>
+    ausente. Não é possível carregar a fonte de mídia.</string>
     <string name="feedback_playback_source_preflight_unavailable_root">A raiz da biblioteca está
-        indisponível. Não é possível carregar a fonte de mídia: %1$s</string>
+    indisponível. Não é possível carregar a fonte de mídia: %1$s</string>
     <string name="feedback_playback_track_unavailable">O ficheiro da faixa atual está indisponível.
-        Verifique se pretende saltar para outra faixa.</string>
+    Verifique se pretende saltar para outra faixa.</string>
     <string name="feedback_settings_local_library_relocated">Localização da biblioteca local
-        atualizada. Análise iniciada.</string>
+    atualizada. Análise iniciada.</string>
     <string name="feedback_settings_local_library_relocation_failed">Falha ao atualizar localização:
-        %1$s</string>
+    %1$s</string>
     <string name="feedback_settings_webdav_updated">Biblioteca WebDAV atualizada</string>
     <string name="feedback_settings_webdav_update_failed">Falha ao atualizar WebDAV: %1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">Ligação de teste WebDAV
-        bem-sucedida</string>
+    bem-sucedida</string>
     <string name="feedback_settings_webdav_connection_failed">Ligação de teste WebDAV falhou: %1$s</string>
-    <!-- WebDAV Connection Failure Details (Localized shell copy for typed endpoint and HTTP failure
-    reasons) -->
     <string name="feedback_settings_cleartext_http_blocked">HTTP sem criptografia está bloqueado
-        pelas configurações globais. Ative-o manualmente nas Configurações para usar este endpoint.</string>
+    pelas configurações globais. Ative-o manualmente nas Configurações para usar este endpoint.</string>
     <string name="feedback_settings_webdav_url_missing_scheme">A URL WebDAV não tem esquema.</string>
     <string name="feedback_settings_webdav_url_missing_host">A URL WebDAV não tem host.</string>
     <string name="feedback_settings_webdav_url_userinfo_not_allowed">A URL WebDAV não deve incluir
-        usuário nem senha. Digite as credenciais nos campos de WebDAV.</string>
+    usuário nem senha. Digite as credenciais nos campos de WebDAV.</string>
     <string name="feedback_settings_webdav_url_unsupported_scheme">A URL WebDAV só aceita http:// ou
-        https://.</string>
+    https://.</string>
     <string name="feedback_settings_webdav_auth_failed">Falha na autenticação. Verifique o nome de
-        usuário e a senha.</string>
+    usuário e a senha.</string>
     <string name="feedback_settings_webdav_forbidden">O servidor negou o acesso.</string>
     <string name="feedback_settings_webdav_not_found">Caminho não encontrado. Verifique a URL e o
-        caminho da biblioteca.</string>
+    caminho da biblioteca.</string>
     <string name="feedback_settings_webdav_http_status">Conexão falhou. Status HTTP: %1$d</string>
     <string name="feedback_settings_abs_server_updated">Servidor ABS atualizado. Sincronização
-        iniciada.</string>
+    iniciada.</string>
     <string name="feedback_settings_abs_server_added">Servidor ABS adicionado. Sincronização
-        iniciada.</string>
+    iniciada.</string>
     <string name="feedback_settings_abs_server_save_failed">Falha ao guardar servidor ABS: %1$s</string>
     <plurals name="feedback_settings_abs_connection_succeeded">
         <item quantity="one">Ligação bem-sucedida. Encontrada %1$d biblioteca disponível.</item>
@@ -141,63 +123,57 @@
     </plurals>
     <string name="feedback_settings_abs_connection_failed">Ligação falhou: %1$s</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
-    <!-- Library Root Sync Feedback (Resource-backed copy for availability status codes returned by
-    sync preflight) -->
     <string name="feedback_message_separator">\u003B\u0020</string>
     <string name="feedback_sync_roots_unavailable_none">Não há raízes de biblioteca sincronizáveis</string>
     <plurals name="feedback_sync_roots_unavailable_multiple">
         <item quantity="one">Uma raiz de biblioteca está indisponível. %1$d raiz ignorada.</item>
         <item quantity="other">Algumas raízes de biblioteca estão indisponíveis. %1$d raízes
-            ignoradas.</item>
+        ignoradas.</item>
     </plurals>
     <string name="feedback_sync_root_unavailable_revoked">Raiz da biblioteca indisponível.
-        Sincronização ignorada: %1$s (autorização expirada)</string>
+    Sincronização ignorada: %1$s (autorização expirada)</string>
     <string name="feedback_sync_root_unavailable_auth_failed">Raiz da biblioteca indisponível.
-        Sincronização ignorada: %1$s (autenticação falhou)</string>
+    Sincronização ignorada: %1$s (autenticação falhou)</string>
     <string name="feedback_sync_root_unavailable_network_unavailable">Raiz da biblioteca
-        indisponível. Sincronização ignorada: %1$s (rede indisponível)</string>
+    indisponível. Sincronização ignorada: %1$s (rede indisponível)</string>
     <string name="feedback_sync_root_unavailable_timeout">Raiz da biblioteca indisponível.
-        Sincronização ignorada: %1$s (tempo de conexão esgotado)</string>
+    Sincronização ignorada: %1$s (tempo de conexão esgotado)</string>
     <string name="feedback_sync_root_unavailable_not_found">Raiz da biblioteca indisponível.
-        Sincronização ignorada: %1$s (caminho não encontrado)</string>
+    Sincronização ignorada: %1$s (caminho não encontrado)</string>
     <string name="feedback_sync_root_unavailable_permission_denied">Raiz da biblioteca indisponível.
-        Sincronização ignorada: %1$s (permissão negada)</string>
+    Sincronização ignorada: %1$s (permissão negada)</string>
     <string name="feedback_sync_root_unavailable_server_error">Raiz da biblioteca indisponível.
-        Sincronização ignorada: %1$s (erro do servidor)</string>
+    Sincronização ignorada: %1$s (erro do servidor)</string>
     <string name="feedback_sync_root_unavailable_unsupported">Raiz da biblioteca indisponível.
-        Sincronização ignorada: %1$s (fonte não suportada)</string>
+    Sincronização ignorada: %1$s (fonte não suportada)</string>
     <string name="feedback_sync_root_unavailable_status_code">Raiz da biblioteca indisponível.
-        Sincronização ignorada: %1$s (%2$s)</string>
+    Sincronização ignorada: %1$s (%2$s)</string>
     <string name="feedback_settings_abs_sync_started">Sincronização ABS iniciada</string>
     <string name="feedback_settings_abs_sync_already_running">A sincronização ABS já está em curso</string>
     <string name="feedback_settings_library_root_removed_playback_stopped">Biblioteca removida.
-        Reprodução atual parada.</string>
+    Reprodução atual parada.</string>
     <string name="feedback_settings_library_root_removed">Biblioteca removida</string>
     <string name="feedback_settings_ssl_certificate_untrusted">Falha na verificação do certificado
-        SSL/TLS. A cadeia de certificados não é confiável.</string>
+    SSL/TLS. A cadeia de certificados não é confiável.</string>
     <string name="feedback_settings_ssl_hostname_mismatch">Falha na verificação do nome do anfitrião
-        SSL/TLS. O domínio não corresponde ao certificado.</string>
+    SSL/TLS. O domínio não corresponde ao certificado.</string>
     <string name="feedback_settings_connection_failed_fallback">Ligação falhou</string>
     <string name="feedback_settings_abs_server_save_failed_fallback">Falha ao guardar servidor ABS</string>
     <string name="feedback_home_book_deleted_source_kept">Livro removido da biblioteca\nFicheiro de
-        origem mantido</string>
+    origem mantido</string>
     <string name="feedback_home_book_deleted_source_missing">Livro removido da biblioteca\nFicheiro
-        de origem em falta ou indisponível</string>
+    de origem em falta ou indisponível</string>
     <string name="feedback_home_read_status_not_started">Marcado como: Não iniciado</string>
     <string name="feedback_home_read_status_in_progress">Marcado como: Em curso</string>
     <string name="feedback_home_read_status_finished">Marcado como: Concluído</string>
     <string name="feedback_home_read_status_updated">Estado atualizado</string>
     <string name="feedback_home_cover_metadata_regeneration_started">A reconstruir capas e
-        metadados…</string>
+    metadados…</string>
     <string name="feedback_home_cover_metadata_regeneration_completed">Capas e metadados
-        reconstruídos</string>
+    reconstruídos</string>
     <string name="feedback_abs_background_sync_root_missing">Sincronização ABS em segundo plano
-        falhou: raiz de biblioteca ABS correspondente não encontrada</string>
+    falhou: raiz de biblioteca ABS correspondente não encontrada</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
-    <!-- Multi-Count ABS Sync Feedback (Split added and failed totals into independently formatted
-    plural fragments)
-         Portuguese needs separate singular handling for the added and failed book counts instead of one
-    combined printf string. -->
     <string name="feedback_abs_background_sync_completed">Sincronização ABS concluída:\u0020</string>
     <plurals name="feedback_abs_background_sync_added_books">
         <item quantity="one">%1$d livro adicionado</item>
@@ -209,14 +185,14 @@
         <item quantity="other">%1$d falharam</item>
     </plurals>
     <string name="feedback_abs_background_sync_failed">Sincronização ABS em segundo plano falhou:
-        %1$s</string>
+    %1$s</string>
     <plurals name="feedback_scan_completed_with_discovered_books">
         <item quantity="one">Sincronização da biblioteca concluída. %1$d livro adicionado.</item>
         <item quantity="other">Sincronização da biblioteca concluída. %1$d livros adicionados.</item>
     </plurals>
     <string name="feedback_scan_completed">Sincronização da biblioteca concluída</string>
     <string name="feedback_scan_library_empty">A biblioteca está vazia. Nenhum livro válido
-        encontrado.</string>
+    encontrado.</string>
     <string name="feedback_scan_already_up_to_date">A biblioteca já está atualizada</string>
     <plurals name="feedback_scan_suffix_updated">
         <item quantity="one">, %1$d livro atualizado</item>
@@ -228,23 +204,23 @@
     </plurals>
     <string name="feedback_scan_blocked_no_available_libraries">Não há bibliotecas disponíveis para sincronização</string>
     <string name="feedback_scan_retry_later">A sincronização falhou temporariamente e será repetida
-        mais tarde</string>
+    mais tarde</string>
     <string name="feedback_scan_failed">Sincronização da biblioteca falhou: %1$s</string>
     <string name="feedback_sleep_motion_tracking_paused">O seguimento de movimento detetou
-        movimento. O temporizador de sono fica pausado por um minuto.</string>
+    movimento. O temporizador de sono fica pausado por um minuto.</string>
     <string name="feedback_sleep_tracking_paused_by_activity">Atividade corporal detetada. O
-        seguimento do sono retoma quando o dispositivo estiver quase imóvel.</string>
+    seguimento do sono retoma quando o dispositivo estiver quase imóvel.</string>
     <string name="feedback_sleep_motion_tracking_resumed">Imobilidade detetada. Temporizador de sono
-        retomado.</string>
+    retomado.</string>
     <string name="feedback_sleep_shake_extended_to_next_chapter">Agitação detetada. Temporizador
-        prolongado até ao fim do próximo capítulo.</string>
+    prolongado até ao fim do próximo capítulo.</string>
     <string name="feedback_sleep_shake_no_next_chapter">Este é o último capítulo. Não é possível
-        prolongar.</string>
+    prolongar.</string>
     <string name="feedback_sleep_shake_countdown_reset">Agitação detetada. Contagem de sono reposta.</string>
     <string name="feedback_sleep_shake_test_countdown_reset">Agitação detetada. Contagem de teste
-        reposta.</string>
+    reposta.</string>
     <string name="feedback_sleep_tracking_countdown_started">Sono estável detetado. Contagem de sono
-        iniciada.</string>
+    iniciada.</string>
     <string name="feedback_sleep_timer_off">Temporizador de sono desligado</string>
     <string name="feedback_sleep_timer_five_seconds">A reprodução irá parar em 5 segundos</string>
     <string name="feedback_sleep_timer_end_of_chapter">A reprodução irá parar no fim deste capítulo</string>
@@ -253,7 +229,7 @@
         <item quantity="other">Temporizador de sono: %1$d minutos</item>
     </plurals>
     <string name="feedback_chapter_physical_file_missing">O ficheiro físico deste capítulo está em
-        falta e não pode ser reproduzido</string>
+    falta e não pode ser reproduzido</string>
     <string name="bookmark_default_title">Marcador</string>
     <string name="settings_library_management_title">Gestão da biblioteca multimédia</string>
     <string name="settings_library_location_with_abs">Localização: %1$s · Biblioteca atual: %2$s</string>
@@ -264,13 +240,10 @@
     </plurals>
     <string name="settings_library_not_synced">Não sincronizado</string>
     <string name="settings_library_error">Erro: %1$s</string>
-    <!-- Library Status Labels (Translate database and availability status codes before they reach
-    Settings UI) -->
     <string name="settings_library_status_active">Ativo</string>
     <string name="settings_library_status_available">Disponível</string>
     <string name="settings_library_status_revoked">Autorização expirada</string>
     <string name="settings_library_status_error">Erro</string>
-    <string name="settings_library_status_unknown">Desconhecido</string>
     <string name="settings_library_status_auth_failed">Autenticação falhou</string>
     <string name="settings_library_status_network_unavailable">Rede indisponível</string>
     <string name="settings_library_status_not_found">Não encontrado</string>
@@ -282,73 +255,69 @@
     <string name="settings_library_status_idle">Ocioso</string>
     <string name="settings_add_library_title">Adicionar biblioteca multimédia</string>
     <string name="settings_add_library_subtitle">Suporta SAF local, WebDAV e servidores
-        Audiobookshelf</string>
+    Audiobookshelf</string>
     <string name="settings_interface_effects_title">Interface</string>
     <string name="settings_theme_mode_title">Modo do tema</string>
     <string name="settings_theme_mode_subtitle">Escolha o modo de cor: sistema, sempre claro ou
-        sempre escuro.</string>
+    sempre escuro.</string>
     <string name="settings_theme_mode_system">Sistema</string>
     <string name="settings_theme_mode_light">Claro</string>
     <string name="settings_theme_mode_dark">Escuro</string>
     <string name="settings_dynamic_color_title">Cor dinâmica Monet</string>
     <string name="settings_dynamic_color_supported_subtitle">Quando ativo, o tema usa cores do papel
-        de parede do sistema</string>
+    de parede do sistema</string>
     <string name="settings_dynamic_color_unsupported_subtitle">A cor dinâmica Monet requer Android
-        8.0 ou posterior</string>
+    8.0 ou posterior</string>
     <string name="settings_amoled_title">Tema escuro AMOLED</string>
     <string name="settings_amoled_subtitle">No modo escuro, usa superfícies totalmente pretas para poupar energia em ecrãs OLED</string>
     <string name="settings_haze_effect_title">Efeito de desfoque experimental</string>
     <string name="settings_haze_effect_subtitle">Ativa desfoque de fundo experimental em ecrãs
-        suportados</string>
+    suportados</string>
     <string name="settings_playback_behavior_title">Comportamento de reprodução</string>
     <string name="settings_network_security_title">Segurança de rede</string>
     <string name="settings_cleartext_title">Permitir tráfego HTTP sem encriptação</string>
     <string name="settings_cleartext_subtitle">Permite reproduzir e carregar fontes http://
-        inseguras. Mantenha desativado para maior segurança.</string>
+    inseguras. Mantenha desativado para maior segurança.</string>
     <string name="settings_insecure_tls_title">Permitir TLS inseguro</string>
     <string name="settings_insecure_tls_subtitle">Permite ignorar a verificação de certificados
-        SSL/TLS autoassinados ou inseguros. Mantenha desativado para maior segurança.</string>
+    SSL/TLS autoassinados ou inseguros. Mantenha desativado para maior segurança.</string>
     <string name="settings_notification_avoidance_title">Evitar notificações</string>
     <string name="settings_notification_avoidance_subtitle">Pausa ao perder foco de áudio e retoma
-        quando o foco regressa, para não perder conteúdo durante a atenuação.</string>
+    quando o foco regressa, para não perder conteúdo durante a atenuação.</string>
     <string name="settings_skip_silence_toggle_title">Saltar silêncios</string>
     <string name="settings_skip_silence_subtitle">Salta automaticamente pausas do narrador,
-        respirações e silêncio no fim de capítulos.</string>
+    respirações e silêncio no fim de capítulos.</string>
     <string name="settings_seek_backward_step_title">Passo de recuo</string>
     <string name="settings_seek_backward_step_subtitle">Escolha quanto o botão de recuo desloca a
-        reprodução.</string>
+    reprodução.</string>
     <string name="settings_seek_forward_step_title">Passo de avanço</string>
     <string name="settings_seek_forward_step_subtitle">Escolha quanto o botão de avanço desloca a
-        reprodução.</string>
+    reprodução.</string>
     <string name="settings_seek_step_seconds_option">%1$ds</string>
     <string name="settings_sleep_timer_title">Temporizador de sono</string>
     <string name="settings_sleep_mode_title">Modo de sono</string>
     <string name="settings_sleep_mode_subtitle">Escolha como o temporizador conta: normal,
-        seguimento de movimento ou seguimento do sono.</string>
+    seguimento de movimento ou seguimento do sono.</string>
     <string name="settings_sleep_mode_regular">Normal</string>
     <string name="settings_sleep_mode_motion_tracking">Movimento</string>
     <string name="settings_sleep_mode_sleep_tracking">Sono</string>
     <string name="settings_sleep_mode_regular_description">Nota: depois de iniciar, a contagem
-        continua e pausa a reprodução ao terminar.</string>
+    continua e pausa a reprodução ao terminar.</string>
     <string name="settings_sleep_mode_motion_tracking_description">Nota: o tempo só diminui quando o
-        dispositivo está imóvel. Ao mover o telefone, a contagem pausa por um minuto.</string>
+    dispositivo está imóvel. Ao mover o telefone, a contagem pausa por um minuto.</string>
     <string name="settings_sleep_mode_sleep_tracking_description">Nota: se o dispositivo ficar quase
-        imóvel por 10 minutos, o sono é inferido e a contagem começa.</string>
+    imóvel por 10 minutos, o sono é inferido e a contagem começa.</string>
     <string name="settings_sleep_fade_title">Reduzir volume durante a contagem de sono</string>
     <string name="settings_sleep_fade_subtitle">Nos últimos 10 segundos de uma contagem ou capítulo,
-        o volume baixa suavemente até ao silêncio.</string>
+    o volume baixa suavemente até ao silêncio.</string>
     <string name="settings_shake_reset_title">Agitar o telefone para repor o temporizador</string>
     <string name="settings_shake_reset_subtitle">Durante o desvanecimento final de 10 segundos, uma
-        agitação suave dá resposta háptica e repõe o temporizador. No modo fim de capítulo, pode
-        prolongar até ao capítulo seguinte com contagem de 15 minutos.</string>
+    agitação suave dá resposta háptica e repõe o temporizador. No modo fim de capítulo, pode
+    prolongar até ao capítulo seguinte com contagem de 15 minutos.</string>
     <string name="settings_auto_rewind_toggle_title">Recuo automático ao pausar</string>
     <string name="settings_auto_rewind_subtitle">Quanto recuar após pausa ou paragem, exceto ao
-        evitar notificações</string>
+    evitar notificações</string>
     <string name="settings_auto_rewind_disabled">Desativado</string>
-    <!-- Settings Toggle Accessibility State (Mirrors row-level switch state labels for Portuguese
-    TalkBack)
-         SettingsToggleItem uses these values as stateDescription so the merged settings row announces one
-    localized state. -->
     <string name="settings_toggle_state_on">Ativado</string>
     <string name="settings_toggle_state_off">Desativado</string>
     <plurals name="settings_seconds_value">
@@ -358,7 +327,7 @@
     <string name="settings_about_title">Acerca de</string>
     <string name="settings_open_source_license_title">Licenças open source</string>
     <string name="settings_open_source_license_subtitle">Ver bibliotecas open source e licenças
-        usadas pela aplicação</string>
+    usadas pela aplicação</string>
     <string name="settings_abs_add_title">Adicionar servidor ABS</string>
     <string name="settings_abs_edit_title">Editar servidor ABS</string>
     <string name="settings_abs_base_url_label">URL base</string>
@@ -368,7 +337,7 @@
     <string name="settings_test_connection">Testar ligação</string>
     <string name="settings_test_connecting">A ligar…</string>
     <string name="settings_abs_login_success">Início de sessão bem-sucedido. Selecione uma
-        biblioteca de livros e confirme.</string>
+    biblioteca de livros e confirme.</string>
     <string name="settings_abs_server_version">Versão do servidor: %1$s</string>
     <string name="settings_abs_selected_library">Biblioteca selecionada: %1$s</string>
     <string name="settings_abs_select_library_title">Selecionar biblioteca de livros</string>
@@ -379,12 +348,12 @@
     <string name="settings_library_base_path_label">Caminho da biblioteca</string>
     <string name="settings_webdav_test_connecting">A testar ligação…</string>
     <string name="settings_webdav_connection_success">Teste de ligação bem-sucedido. Pode guardar a
-        biblioteca.</string>
+    biblioteca.</string>
     <string name="settings_delete_root_title">Remover raiz da biblioteca</string>
     <string name="settings_delete_root_body">Remover esta raiz fará a aplicação perder acesso aos
-        ficheiros físicos. Os registos de livros relacionados serão removidos da biblioteca, mas os
-        ficheiros de áudio no armazenamento não serão eliminados. Remover este diretório e libertar
-        a permissão de acesso?</string>
+    ficheiros físicos. Os registos de livros relacionados serão removidos da biblioteca, mas os
+    ficheiros de áudio no armazenamento não serão eliminados. Remover este diretório e libertar
+    a permissão de acesso?</string>
     <string name="settings_delete_root_confirm">Remover</string>
     <string name="settings_add_library_type_title">Escolher tipo de biblioteca</string>
     <string name="settings_library_type_local_saf">Local (SAF)</string>
@@ -398,34 +367,34 @@
     <string name="settings_root_action_remove">Remover biblioteca</string>
     <string name="about_version_text">Versão %1$s</string>
     <string name="about_app_description">APlayer é um leitor local de audiolivros para ouvintes
-        dedicados. Grandes produtos assentam no open source, e agradecemos aos autores e
-        organizações que tornam esta aplicação possível.</string>
+    dedicados. Grandes produtos assentam no open source, e agradecemos aos autores e
+    organizações que tornam esta aplicação possível.</string>
     <string name="about_developer_credit">por %1$s</string>
     <string name="about_visit_project_homepage_content_description">Visitar página do projeto</string>
     <string name="about_license_details_title">Aviso de licença detalhado</string>
     <string name="about_visit_project_homepage">Visitar página do projeto (GitHub / Maven)</string>
     <string name="about_library_compose_description">Jetpack Compose é um kit declarativo moderno
-        para criar interfaces Android nativas com menos código, boas ferramentas e API Kotlin
-        intuitivas.</string>
+    para criar interfaces Android nativas com menos código, boas ferramentas e API Kotlin
+    intuitivas.</string>
     <string name="about_library_media3_description">Media3 é a pilha multimédia moderna do AndroidX,
-        incluindo ExoPlayer. APlayer usa-a para carregar streams, retomar e reproduzir com suporte
-        de hardware.</string>
+    incluindo ExoPlayer. APlayer usa-a para carregar streams, retomar e reproduzir com suporte
+    de hardware.</string>
     <string name="about_library_room_description">Room abstrai SQLite e mantém metadados locais,
-        progresso de reprodução e pontos de retoma do APlayer.</string>
+    progresso de reprodução e pontos de retoma do APlayer.</string>
     <string name="about_library_haze_description">Haze fornece efeitos de desfoque de alto
-        desempenho para Jetpack Compose. APlayer usa-o em painéis, diálogos, emblemas e superfícies
-        do leitor.</string>
+    desempenho para Jetpack Compose. APlayer usa-o em painéis, diálogos, emblemas e superfícies
+    do leitor.</string>
     <string name="about_library_coil_description">Coil é uma biblioteca rápida de carregamento de
-        imagens Android baseada em Kotlin Coroutines. APlayer usa-a para capas de audiolivros.</string>
+    imagens Android baseada em Kotlin Coroutines. APlayer usa-a para capas de audiolivros.</string>
     <string name="about_library_glance_description">Glance permite criar widgets com API
-        declarativas ao estilo Compose. APlayer usa-o para controlos multimédia eficientes no
-        ambiente de trabalho.</string>
+    declarativas ao estilo Compose. APlayer usa-o para controlos multimédia eficientes no
+    ambiente de trabalho.</string>
     <string name="about_library_coroutines_description">Kotlin Coroutines oferece execução
-        assíncrona leve para análise multimédia, rede e consultas de base de dados.</string>
+    assíncrona leve para análise multimédia, rede e consultas de base de dados.</string>
     <string name="about_library_datastore_description">DataStore é uma substituição moderna de
-        SharedPreferences. APlayer usa-o para guardar definições globais com Flow.</string>
+    SharedPreferences. APlayer usa-o para guardar definições globais com Flow.</string>
     <string name="about_library_workmanager_description">WorkManager agenda trabalho fiável em
-        segundo plano. APlayer usa-o para sincronização e manutenção da biblioteca.</string>
+    segundo plano. APlayer usa-o para sincronização e manutenção da biblioteca.</string>
     <string name="chapter_list_title">Capítulos</string>
     <string name="chapter_list_empty">Sem capítulos disponíveis</string>
     <string name="chapter_file_unavailable_description">Ficheiro indisponível</string>
@@ -435,9 +404,6 @@
     <string name="media_session_forward_10">Avançar 10 segundos</string>
     <string name="media_session_forward_20">Avançar 20 segundos</string>
     <string name="media_session_forward_30">Avançar 30 segundos</string>
-    <string name="media_session_add_bookmark">Adicionar marcador</string>
-    <!-- Core Dialog And Edit Resources: Localized labels and actions for book editing, playback
-    conflict choices, unavailable tracks, and home-row commands. -->
     <string name="edit_book_title">Editar informações do livro</string>
     <string name="title_label">Título do livro</string>
     <string name="edit_book_title_placeholder">Introduzir título do livro</string>
@@ -445,7 +411,6 @@
     <string name="edit_book_narrator_placeholder">Introduzir narrador</string>
     <string name="edit_book_year_label">Ano</string>
     <string name="edit_book_year_placeholder">Introduzir ano de publicação</string>
-    <string name="edit_book_series_label">Série</string>
     <string name="edit_book_series_placeholder">Introduzir nome da série</string>
     <string name="edit_book_description_label">Descrição</string>
     <string name="edit_book_description_placeholder">Introduzir descrição do livro</string>
@@ -464,42 +429,30 @@
     <string name="abs_progress_finished_suffix"> (concluído)</string>
     <string name="track_unavailable_title">Ficheiro da faixa indisponível</string>
     <string name="track_unavailable_body">O ficheiro físico da faixa atual está em falta ou
-        corrompido. Saltar esta faixa e reproduzir a próxima disponível?\n\nNota: saltar de forma
-        forçada pode perturbar o progresso de audição planeado.</string>
+    corrompido. Saltar esta faixa e reproduzir a próxima disponível?\n\nNota: saltar de forma
+    forçada pode perturbar o progresso de audição planeado.</string>
     <string name="track_unavailable_confirm_skip">Confirmar salto</string>
     <string name="home_action_mark_read_status">Marcar estado de leitura</string>
-    <!-- Choice State Accessibility Copy (Localize selectable chip state descriptions)
-         Custom filter and read-status chips read these values through stateDescription so assistive
-    services announce selection state without relying on color, font weight, or accent dots. -->
     <string name="accessibility_choice_selected">Selecionado</string>
     <string name="accessibility_choice_unselected">Não selecionado</string>
     <string name="home_action_edit_subtitle">Editar manualmente título, criadores, descrição e capa</string>
     <string name="home_action_regenerate_title">Reconstruir capas e metadados</string>
     <string name="home_action_regenerate_subtitle">Forçar extração de capa e descrição a partir dos
-        ficheiros de áudio</string>
+    ficheiros de áudio</string>
     <string name="home_action_remove_title">Remover da biblioteca multimédia</string>
     <string name="home_action_remove_subtitle">Remove este livro apenas da lista de reprodução. Os
-        ficheiros de origem no telefone são mantidos.</string>
+    ficheiros de origem no telefone são mantidos.</string>
     <string name="home_action_remove_confirm_title">Remover da biblioteca multimédia?</string>
     <string name="home_action_remove_confirm_body">Remover “%1$s” da biblioteca multimédia do
-        APlayer?\n\nNota: isto é uma eliminação suave. O livro é removido da lista de reprodução,
-        mas os ficheiros de áudio físicos no armazenamento do telefone não são eliminados.</string>
+    APlayer?\n\nNota: isto é uma eliminação suave. O livro é removido da lista de reprodução,
+    mas os ficheiros de áudio físicos no armazenamento do telefone não são eliminados.</string>
     <string name="home_action_remove_confirm_button">Confirmar eliminação</string>
-    <!-- Related Books Header Resources (Localize player recommendation section headings)
-         Creator-name templates stay separate for authors and narrators so each locale can express the
-    relationship accurately. -->
     <string name="player_related_recommended">Recomendado para você</string>
     <string name="player_related_more_by_author">Mais de %1$s</string>
     <string name="player_related_more_by_narrator">Mais narrados por %1$s</string>
-    <string name="player_related_recently_added">Adicionados recentemente</string>
-    <!-- Player, List, And Bookmark UI Resources: Localized player controls, list metadata labels,
-    tabs, bookmark dialogs, and fallback labels that were previously hard-coded in Compose. -->
     <string name="common_unknown">Desconhecido</string>
     <string name="common_unknown_title">Título desconhecido</string>
     <string name="common_new_badge">NOVO</string>
-    <!-- Detail Screen Action Copy (Localize app-owned fallback and playback action labels)
-         The detail screen owns these labels, so resource-backed copy lets TalkBack and locale tests
-    validate non-metadata text. -->
     <string name="detail_title_info_action">Ver detalhes do título</string>
     <string name="detail_author_search_action">Pesquisar autor</string>
     <string name="detail_author_info_action">Ver detalhes do autor</string>
@@ -508,9 +461,6 @@
     <string name="detail_file_not_found">Ficheiro não encontrado</string>
     <string name="detail_continue_at_progress">Continuar em %1$d%%</string>
     <string name="detail_start_listening">Começar a ouvir</string>
-    <!-- Shared Accessibility Action Copy (Back newly labeled gestures with localized resources)
-         Home rows, mini-player covers, playback controls, and bookmark rows already expose these commands
-    through semantics, so resource keys keep compilation, TalkBack, and locale coverage aligned. -->
     <string name="book_open_action">Abrir livro</string>
     <string name="book_play_action">Reproduzir livro</string>
     <string name="book_more_actions_action">Mais ações do livro</string>
@@ -522,8 +472,6 @@
     <string name="sleep_timer_cancel_action">Cancelar temporizador de sono</string>
     <string name="bookmark_open_action">Abrir marcador</string>
     <string name="bookmark_edit_action">Editar marcador</string>
-    <!-- UI Format Templates (Localized punctuation and numeric display patterns, not ordinary
-    prose) -->
     <string name="common_metadata_separator">\u0020\u2022\u0020</string>
     <string name="action_delete">Eliminar</string>
     <string name="media_cover_content_description">Capa</string>
@@ -538,14 +486,9 @@
     <string name="player_tab_subtitles">Legendas</string>
     <string name="player_tab_related">Relacionados</string>
     <string name="player_no_chapters">Sem capítulos</string>
-    <!-- Search, Home, And Playback UI Resources: Localized search screen labels, home-view
-    accessibility text, playback controls, subtitle empty states, and transient snackbar copy that
-    were previously hard-coded in Compose. -->
     <string name="action_ok">OK</string>
     <string name="clear_content_description">Limpar</string>
     <string name="home_view_options_content_description">Opções de vista inicial</string>
-    <!-- Search Placeholder Template (%1$s is fixed query syntax owned by SearchQueryPlanner and
-    must not be translated) -->
     <string name="search_placeholder">Pesquise ou use %1$s</string>
     <string name="search_recent_title">Pesquisas recentes</string>
     <string name="search_clear_all">Limpar tudo</string>
@@ -574,44 +517,38 @@
     <string name="bookmark_delete_body">Eliminar este marcador?</string>
     <string name="bookmark_edit_title">Editar marcador</string>
     <string name="bookmark_update_label">Atualizar marcador:</string>
-    <string name="bookmark_delete_content_description">Eliminar marcador</string>
 
-    <!-- Add Missing Keys (Complement missing i18n keys for the deleted book recovery feature)
-         These strings are added to support the deleted book recovery UI and feedback actions. -->
     <string name="deleted_book_recovery_empty">Nenhum livro excluído pode ser recuperado</string>
     <string name="deleted_book_recovery_failure_abs_remote_deleted">Este item do Audiobookshelf foi
-        excluído no servidor. Restaure-o ou adicione-o novamente no servidor e, em seguida,
-        sincronize o APlayer novamente.</string>
+    excluído no servidor. Restaure-o ou adicione-o novamente no servidor e, em seguida,
+    sincronize o APlayer novamente.</string>
     <string name="deleted_book_recovery_failure_all_files_unavailable">Todos os arquivos de áudio
-        deste livro estão indisponíveis: %1$s</string>
+    deste livro estão indisponíveis: %1$s</string>
     <string name="deleted_book_recovery_failure_missing_book">O registro do livro não existe mais ou
-        já foi restaurado.</string>
+    já foi restaurado.</string>
     <string name="deleted_book_recovery_failure_missing_root">A raiz da biblioteca de mídia para
-        este livro não existe mais.</string>
+    este livro não existe mais.</string>
     <string name="deleted_book_recovery_failure_no_audio_files">Este livro não possui registros de
-        arquivos de áudio recuperáveis.</string>
+    arquivos de áudio recuperáveis.</string>
     <string name="deleted_book_recovery_failure_root_unavailable">A raiz da biblioteca de mídia está
-        indisponível: %1$s</string>
+    indisponível: %1$s</string>
     <string name="deleted_book_recovery_failure_title">Falha na recuperação</string>
     <string name="deleted_book_recovery_failure_unexpected">A recuperação não pôde ser concluída:
-        %1$s</string>
+    %1$s</string>
     <string name="deleted_book_recovery_partial_body">Apenas alguns arquivos de áudio deste livro
-        ainda podem ser lidos. Após a recuperação, o APlayer marcará o livro como parcialmente
-        disponível e o áudio ausente permanecerá impossível de reproduzir.</string>
+    ainda podem ser lidos. Após a recuperação, o APlayer marcará o livro como parcialmente
+    disponível e o áudio ausente permanecerá impossível de reproduzir.</string>
     <string name="deleted_book_recovery_partial_confirm">Confirmar recuperação</string>
     <string name="deleted_book_recovery_partial_title">Alguns arquivos de áudio estão indisponíveis</string>
     <string name="deleted_book_recovery_restore_action">Restaurar livro</string>
     <string name="deleted_book_recovery_settings_subtitle">Restaurar livros removidos do APlayer
-        quando seus arquivos de áudio ainda estiverem disponíveis</string>
+    quando seus arquivos de áudio ainda estiverem disponíveis</string>
     <string name="deleted_book_recovery_title">Recuperação de livros excluídos</string>
     <string name="feedback_deleted_book_recovery_restored_partial">Livro parcialmente recuperado</string>
     <string name="feedback_deleted_book_recovery_restored_ready">Livro recuperado</string>
-    <!-- Title: Deleted Book Recovery Confirmation (Asks for user confirmation before restoring soft-deleted books)
-         Adding localized confirmation text to avoid accidental restore triggers. -->
     <string name="deleted_book_recovery_confirm_title">Recuperar livro</string>
     <string name="deleted_book_recovery_confirm_body">Tem certeza de que deseja recuperar \"%1$s\"?\n\nNota: isso restaurará o livro na sua biblioteca de mídia ativa.</string>
 
-    <!-- Backup and Restore Resources -->
     <string name="settings_backup_restore_title">Backup e restauração</string>
     <string name="settings_export_data_title">Exportar backup de dados</string>
     <string name="settings_export_data_subtitle">Fazer backup do banco de dados local e todas as configurações do app</string>
@@ -627,14 +564,10 @@
     <string name="feedback_settings_export_stream_failed">Falha ao abrir o fluxo de arquivo de destino</string>
     <string name="feedback_settings_import_stream_failed">Falha ao abrir o fluxo de arquivo de backup</string>
     <string name="feedback_settings_import_version_incompatible">Não é possível importar: a versão do banco de dados do backup (%1$d) é mais recente que o app atual (%2$d)</string>
-    <!-- Download Foreground Notification Copy (Mirror the base Media3 manual-cache notification contract)
-         Localized strings keep foreground download status visible without exposing queue internals. -->
     <string name="download_notification_active">Armazenando audiolivros em cache para reprodução offline</string>
     <string name="download_notification_waiting">Aguardando requisitos de download</string>
     <string name="download_notification_failed">Alguns downloads precisam de atenção</string>
     <string name="download_notification_idle">O cache offline está atualizado</string>
-    <!-- Book Download Notification Copy (Expose per-book manual download progress in Android notifications)
-         These strings mirror the base placeholder contract so notification updates can format file counts, percentages, and byte totals in every supported locale. -->
     <string name="download_notification_book_queued">Na fila · %1$d/%2$d arquivos</string>
     <string name="download_notification_book_downloading">Baixando · %1$d/%2$d arquivos · %3$s/%4$s</string>
     <string name="download_notification_book_paused">Pausado · %1$d/%2$d arquivos</string>
@@ -642,8 +575,6 @@
     <string name="download_notification_book_failed">Falha no download · %1$d/%2$d arquivos</string>
     <string name="download_notification_book_progress_files">%1$d/%2$d arquivos</string>
     <string name="download_notification_book_progress_bytes">%1$d/%2$d arquivos · %3$s/%4$s</string>
-    <!-- Detail Download UI Copy (Expose manual offline cache status and commands from the detail top bar)
-         These strings keep notification permission preflight, cache-state labels, and command feedback localized in one resource group. -->
     <string name="detail_download_action_none">Salvar offline</string>
     <string name="detail_download_action_active">Download em andamento</string>
     <string name="detail_download_action_paused">Download pausado</string>
@@ -672,8 +603,6 @@
     <string name="feedback_download_cache_deleted">Cache offline excluído</string>
     <string name="feedback_download_notification_permission_denied">Permissão de notificação é necessária para downloads offline</string>
     <string name="feedback_download_cache_command_failed">Falha na ação de download: %1$s</string>
-    <!-- Download Management Settings Resources (Define settings-hosted manual cache and playback buffer UI copy)
-         These strings support the phase-six management pages without exposing Room or Media3 terms to users. -->
     <string name="settings_download_cache_title">Downloads e cache</string>
     <string name="settings_download_management_title">Gerenciamento de downloads</string>
     <string name="settings_download_management_subtitle">%1$d tarefas de cache manual</string>
@@ -690,7 +619,6 @@
     <string name="download_management_status_paused">Pausado</string>
     <string name="download_management_status_completed">Salvo em cache</string>
     <string name="download_management_status_failed">Falhou</string>
-    <!-- Cache Maintenance UI Copy (Keeps non-primary locales aligned with manual-cache and playback-buffer controls while translations are pending) -->
     <string name="settings_download_wifi_only_title">Downloads apenas via Wi-Fi</string>
     <string name="settings_download_wifi_only_subtitle">Downloads manuais aguardam por redes não medidas</string>
     <string name="settings_cache_playback_capacity_title">Tamanho do buffer</string>
@@ -698,7 +626,6 @@
     <string name="download_management_delete_all_action">Excluir tudo</string>
     <string name="download_management_delete_all_confirm_title">Excluir todos os downloads</string>
     <string name="download_management_delete_all_confirm_body">Tem certeza de que deseja excluir todos os downloads de cache off-line?</string>
-    <!-- About License Additions (Describe runtime dependencies newly listed on the About page) -->
     <string name="about_library_navigation3_description">Navigation 3 fornece blocos de navegação pensados para Compose. APlayer usa-o para manter pilhas de ecrãs e rotas de sobreposição orientadas por estado.</string>
     <string name="about_library_materialkolor_description">MaterialKolor gera esquemas Material You a partir de cores semente. APlayer usa-o para temas dinâmicos baseados no papel de parede e nas capas.</string>
     <string name="about_library_palette_description">AndroidX Palette extrai cores representativas de imagens. APlayer usa-o para derivar acentos de capa antes de gerar superfícies temáticas.</string>

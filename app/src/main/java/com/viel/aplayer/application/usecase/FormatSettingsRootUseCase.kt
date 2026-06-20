@@ -173,6 +173,6 @@ class FormatSettingsRootUseCase(private val context: Context) {
             AudiobookSchema.AvailabilityStatus.SERVER_ERROR -> R.string.settings_library_status_server_error
             AudiobookSchema.AvailabilityStatus.TIMEOUT -> R.string.settings_library_status_timeout
             AudiobookSchema.AvailabilityStatus.UNSUPPORTED -> R.string.settings_library_status_unsupported
-            AudiobookSchema.AvailabilityStatus.UNKNOWN -> R.string.settings_library_status_unknown
+            AudiobookSchema.AvailabilityStatus.UNKNOWN -> R.string.common_unknown
         }
 }

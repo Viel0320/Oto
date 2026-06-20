@@ -60,9 +60,9 @@ fun HomeViewPreferenceDialog(
     // Home Sort Rule Options (Bind sorting pivots to concise labels)
     // The ViewModel applies the same selected enum to grouping, script-clustered ordering, and section header generation.
     val sortRuleOptions = listOf(
-        HomeSortRule.Author to stringResource(R.string.home_sort_rule_author),
-        HomeSortRule.Narrator to stringResource(R.string.home_sort_rule_narrator),
-        HomeSortRule.Series to stringResource(R.string.home_sort_rule_series)
+        HomeSortRule.Author to stringResource(R.string.author_label),
+        HomeSortRule.Narrator to stringResource(R.string.narrator_label),
+        HomeSortRule.Series to stringResource(R.string.series_label)
     )
     // Home Sort Direction Options (Bind in-cluster direction choices to compact labels)
     // Direction only changes ordering inside C/J/K/E/Other clusters, preserving the global mixed-script cluster sequence.

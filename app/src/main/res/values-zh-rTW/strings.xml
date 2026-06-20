@@ -1,13 +1,11 @@
-<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedQuantity">
-    <!-- Taiwan Traditional Chinese Locale Resources (Provide zh-TW copy for every base string)
-         This file preserves full key coverage so language switching never falls back unexpectedly inside the app. -->
+    <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedQuantity">
     <string name="author_label">作者</string>
     <string name="narrator_label">朗讀者</string>
     <string name="summary_label">概要</string>
+    <string name="series_label">系列</string>
     <string name="back_content_description">返回</string>
     <string name="more_content_description">更多</string>
     <string name="search_content_description">搜尋</string>
-    <string name="settings_content_description">設定</string>
     <string name="settings_title">設定</string>
     <string name="clear_history_title">清除搜尋紀錄</string>
     <string name="clear_history_subtitle">刪除所有先前的搜尋紀錄</string>
@@ -23,14 +21,9 @@
     <string name="home_view_style_list">清單</string>
     <string name="home_view_style_grid">格狀</string>
     <string name="home_sort_rule_title">排序規則</string>
-    <string name="home_sort_rule_author">作者</string>
-    <string name="home_sort_rule_narrator">朗讀者</string>
-    <string name="home_sort_rule_series">系列名稱</string>
     <string name="home_sort_direction_title">排序方向</string>
     <string name="home_sort_direction_ascending">遞增</string>
     <string name="home_sort_direction_descending">遞減</string>
-    <!-- Home Book Status Filter Resources (Localized labels for the Home view dialog status segment)
-         These strings mirror the default BookStatus filter keys while keeping persisted enum names language-independent. -->
     <string name="home_book_status_filter_title">書籍狀態</string>
     <string name="home_book_status_all">全部</string>
     <string name="home_book_status_ready">可用</string>
@@ -62,12 +55,9 @@
     <string name="settings_language_portuguese">Português</string>
     <string name="player_widget_name">APlayer 播放器</string>
     <string name="player_widget_description">2x2 桌面播放器小工具</string>
-    <string name="player_widget_empty_title">APlayer</string>
     <string name="player_widget_empty_subtitle">準備播放</string>
     <string name="player_widget_cover_description">目前有聲書封面</string>
-    <string name="player_widget_skip_backward">倒退 10 秒</string>
     <string name="player_widget_play_pause">播放或暫停</string>
-    <string name="player_widget_skip_forward">快轉 30 秒</string>
     <string name="player_widget_fallback_author">有聲書播放器</string>
     <string name="player_widget_background_cover_description">背景封面</string>
     <string name="player_widget_background_placeholder_description">背景預留圖</string>
@@ -77,8 +67,6 @@
     <string name="feedback_playback_initial_media_load_failed">媒體來源載入失敗：%1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">找不到後續可播放音軌，已停止播放</string>
     <string name="feedback_playback_stopped_scope">\n已停止播放：%1$s</string>
-    <!-- Counted Locale Feedback Copy (Mirror counted base resources for Android plural lookups)
-         Chinese copy does not change for singular counts, but using plurals keeps the resource type compatible with Quantity feedback rendering. -->
     <plurals name="feedback_playback_finished_shutdown_scheduled">
         <item quantity="one">播放結束，%1$d 秒後將自動關閉</item>
         <item quantity="other">播放結束，%1$d 秒後將自動關閉</item>
@@ -88,7 +76,6 @@
     <string name="feedback_playback_speed_reset">播放速度已重設</string>
     <string name="feedback_playback_speed_changed">播放速度：%1$s 倍</string>
     <string name="feedback_playback_source_preflight_blocked">%1$s</string>
-    <!-- Playback Preflight Feedback (Localized shell copy for typed playback block reasons emitted by the media domain) -->
     <string name="feedback_playback_source_preflight_missing_root">媒體庫根目錄缺失，無法載入媒體來源。</string>
     <string name="feedback_playback_source_preflight_unavailable_root">媒體庫根目錄不可用，無法載入媒體來源：%1$s</string>
     <string name="feedback_playback_track_unavailable">目前音軌檔案無法使用，請確認是否跳到其他音軌</string>
@@ -98,7 +85,6 @@
     <string name="feedback_settings_webdav_update_failed">修改 WebDAV 失敗：%1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">WebDAV 測試連線成功</string>
     <string name="feedback_settings_webdav_connection_failed">WebDAV 測試連線失敗：%1$s</string>
-    <!-- WebDAV Connection Failure Details (Localized shell copy for typed endpoint and HTTP failure reasons) -->
     <string name="feedback_settings_cleartext_http_blocked">明文 HTTP 已被全域設定封鎖。請先在設定中允許明文 HTTP 後再使用此端點。</string>
     <string name="feedback_settings_webdav_url_missing_scheme">WebDAV URL 缺少通訊協定。</string>
     <string name="feedback_settings_webdav_url_missing_host">WebDAV URL 缺少主機名稱。</string>
@@ -117,7 +103,6 @@
     </plurals>
     <string name="feedback_settings_abs_connection_failed">連線失敗：%1$s</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
-    <!-- Library Root Sync Feedback (Resource-backed copy for availability status codes returned by sync preflight) -->
     <string name="feedback_message_separator">\uFF1B</string>
     <string name="feedback_sync_roots_unavailable_none">沒有可同步的媒體庫根目錄</string>
     <plurals name="feedback_sync_roots_unavailable_multiple">
@@ -151,8 +136,6 @@
     <string name="feedback_home_cover_metadata_regeneration_completed">封面與詮釋資料重建已完成</string>
     <string name="feedback_abs_background_sync_root_missing">ABS 背景同步失敗：找不到對應的 ABS 書庫根</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
-    <!-- Multi-Count ABS Sync Feedback (Split added and failed totals into independently formatted plural fragments)
-         Each count is rendered through its own plural resource so future Chinese variants and fallback locales stay type-compatible. -->
     <string name="feedback_abs_background_sync_completed">ABS 背景同步完成：</string>
     <plurals name="feedback_abs_background_sync_added_books">
         <item quantity="one">成功新增 %1$d 本</item>
@@ -202,20 +185,16 @@
     <string name="settings_library_management_title">媒體庫管理</string>
     <string name="settings_library_location_with_abs">位置：%1$s · 目前書庫：%2$s</string>
     <string name="settings_library_location">位置：%1$s</string>
-    <!-- Counted Settings Copy (Keep settings-row count resources aligned with the default plural contract)
-         These settings strings are rendered directly from Compose, outside FeedbackMessage, so the locale file must expose plural resources too. -->
     <plurals name="settings_library_sync_summary">
         <item quantity="one">最近同步：%1$s · 已匯入：%2$d 本</item>
         <item quantity="other">最近同步：%1$s · 已匯入：%2$d 本</item>
     </plurals>
     <string name="settings_library_not_synced">未同步</string>
     <string name="settings_library_error">錯誤：%1$s</string>
-    <!-- Library Status Labels (Translate database and availability status codes before they reach Settings UI) -->
     <string name="settings_library_status_active">已啟用</string>
     <string name="settings_library_status_available">可用</string>
     <string name="settings_library_status_revoked">授權已過期</string>
     <string name="settings_library_status_error">錯誤</string>
-    <string name="settings_library_status_unknown">未知</string>
     <string name="settings_library_status_auth_failed">身分驗證失敗</string>
     <string name="settings_library_status_network_unavailable">網路不可用</string>
     <string name="settings_library_status_not_found">找不到</string>
@@ -271,8 +250,6 @@
     <string name="settings_auto_rewind_toggle_title">暫停自動倒帶</string>
     <string name="settings_auto_rewind_subtitle">暫停或停止播放後自動倒退的時長，通知避讓除外</string>
     <string name="settings_auto_rewind_disabled">已關閉</string>
-    <!-- Settings Toggle Accessibility State (Mirrors row-level switch state labels for Taiwan Chinese TalkBack)
-         SettingsToggleItem uses these values as stateDescription so the merged settings row announces one localized state. -->
     <string name="settings_toggle_state_on">已開啟</string>
     <string name="settings_toggle_state_off">已關閉</string>
     <plurals name="settings_seconds_value">
@@ -336,7 +313,6 @@
     <string name="edit_book_narrator_placeholder">請輸入朗讀者</string>
     <string name="edit_book_year_label">年份</string>
     <string name="edit_book_year_placeholder">請輸入出版年份</string>
-    <string name="edit_book_series_label">系列</string>
     <string name="edit_book_series_placeholder">請輸入所屬系列</string>
     <string name="edit_book_description_label">簡介描述</string>
     <string name="edit_book_description_placeholder">請輸入書籍簡介</string>
@@ -357,8 +333,6 @@
     <string name="track_unavailable_body">目前收聽的分軌實體檔案不存在或損壞。是否跳過此分軌並播放下一首可用分軌？\n\n注意：強制跳軌可能會打亂原本預定的收聽進度。</string>
     <string name="track_unavailable_confirm_skip">確認跳過</string>
     <string name="home_action_mark_read_status">標記閱讀狀態</string>
-    <!-- Choice State Accessibility Copy (Localize selectable chip state descriptions)
-         Custom filter and read-status chips read these values through stateDescription so assistive services announce selection state without relying on color, font weight, or accent dots. -->
     <string name="accessibility_choice_selected">已選取</string>
     <string name="accessibility_choice_unselected">未選取</string>
     <string name="home_action_edit_subtitle">手動修改書名、創作者、簡介與封面</string>
@@ -378,19 +352,12 @@
     <string name="media_session_forward_10">快轉 10 秒</string>
     <string name="media_session_forward_20">快轉 20 秒</string>
     <string name="media_session_forward_30">快轉 30 秒</string>
-    <string name="media_session_add_bookmark">新增書籤</string>
-    <!-- Related Books Header Resources (Localize player recommendation section headings)
-         Creator-name templates stay separate for authors and narrators so each locale can express the relationship accurately. -->
     <string name="player_related_recommended">為你推薦</string>
     <string name="player_related_more_by_author">%1$s 的更多作品</string>
     <string name="player_related_more_by_narrator">由 %1$s 朗讀的更多作品</string>
-    <string name="player_related_recently_added">最近新增</string>
-    <!-- Player, List, And Bookmark UI Resources: Localized player controls, list metadata labels, tabs, bookmark dialogs, and fallback labels that were previously hard-coded in Compose. -->
     <string name="common_unknown">未知</string>
     <string name="common_unknown_title">未知標題</string>
     <string name="common_new_badge">新</string>
-    <!-- Detail Screen Action Copy (Localize app-owned fallback and playback action labels)
-         The detail screen owns these labels, so resource-backed copy lets TalkBack and locale tests validate non-metadata text. -->
     <string name="detail_title_info_action">查看書名詳細資訊</string>
     <string name="detail_author_search_action">搜尋作者</string>
     <string name="detail_author_info_action">查看作者詳細資訊</string>
@@ -399,8 +366,6 @@
     <string name="detail_file_not_found">找不到檔案</string>
     <string name="detail_continue_at_progress">繼續收聽 %1$d%%</string>
     <string name="detail_start_listening">開始收聽</string>
-    <!-- Shared Accessibility Action Copy (Back newly labeled gestures with localized resources)
-         Home rows, mini-player covers, playback controls, and bookmark rows already expose these commands through semantics, so resource keys keep compilation, TalkBack, and locale coverage aligned. -->
     <string name="book_open_action">開啟書籍</string>
     <string name="book_play_action">播放書籍</string>
     <string name="book_more_actions_action">更多書籍操作</string>
@@ -412,7 +377,6 @@
     <string name="sleep_timer_cancel_action">取消睡眠定時器</string>
     <string name="bookmark_open_action">開啟書籤</string>
     <string name="bookmark_edit_action">編輯書籤</string>
-    <!-- UI Format Templates (Localized punctuation and numeric display patterns, not ordinary prose) -->
     <string name="common_metadata_separator">\u0020\u2022\u0020</string>
     <string name="action_delete">刪除</string>
     <string name="media_cover_content_description">封面</string>
@@ -427,11 +391,9 @@
     <string name="player_tab_subtitles">字幕</string>
     <string name="player_tab_related">相關</string>
     <string name="player_no_chapters">沒有章節</string>
-    <!-- Search, Home, And Playback UI Resources: Localized search screen labels, home-view accessibility text, playback controls, subtitle empty states, and transient snackbar copy that were previously hard-coded in Compose. -->
     <string name="action_ok">確定</string>
     <string name="clear_content_description">清除</string>
     <string name="home_view_options_content_description">首頁檢視選項</string>
-    <!-- Search Placeholder Template (%1$s is fixed query syntax owned by SearchQueryPlanner and must not be translated) -->
     <string name="search_placeholder">搜尋，或使用 %1$s</string>
     <string name="search_recent_title">最近搜尋</string>
     <string name="search_clear_all">全部清除</string>
@@ -460,10 +422,7 @@
     <string name="bookmark_delete_body">確定要刪除此書籤嗎？</string>
     <string name="bookmark_edit_title">編輯書籤</string>
     <string name="bookmark_update_label">更新書籤：</string>
-    <string name="bookmark_delete_content_description">刪除書籤</string>
 
-    <!-- Add Missing Keys (Complement missing i18n keys for the deleted book recovery feature)
-         These strings are added to support the deleted book recovery UI and feedback actions. -->
     <string name="deleted_book_recovery_empty">沒有可復原的已刪除書籍</string>
     <string name="deleted_book_recovery_failure_abs_remote_deleted">此 Audiobookshelf 書籍已在伺服器上刪除。請在伺服器上復原或重新加入，然後再次同步 APlayer。</string>
     <string name="deleted_book_recovery_failure_all_files_unavailable">此書籍的所有音訊檔案均無法使用：%1$s</string>
@@ -481,12 +440,9 @@
     <string name="deleted_book_recovery_title">已刪除書籍復原</string>
     <string name="feedback_deleted_book_recovery_restored_partial">書籍已部分復原</string>
     <string name="feedback_deleted_book_recovery_restored_ready">書籍已復原</string>
-    <!-- Title: Deleted Book Recovery Confirmation (Asks for user confirmation before restoring soft-deleted books)
-         Adding localized confirmation text to avoid accidental restore triggers. -->
     <string name="deleted_book_recovery_confirm_title">復原書籍</string>
     <string name="deleted_book_recovery_confirm_body">確定要復原《%1$s》嗎？\n\n注意：此操作將把書籍重新添加回您的媒體庫中。</string>
 
-    <!-- Backup and Restore Resources -->
     <string name="settings_backup_restore_title">備份與恢復</string>
     <string name="settings_export_data_title">匯出數據備份</string>
     <string name="settings_export_data_subtitle">備份本地數據庫和所有應用設定</string>
@@ -502,8 +458,6 @@
     <string name="feedback_settings_export_stream_failed">無法開啟匯出目標檔案流</string>
     <string name="feedback_settings_import_stream_failed">無法開啟備份輸入檔案流</string>
     <string name="feedback_settings_import_version_incompatible">無法匯入：備份的數據庫版本（%1$d）高於當前應用（%2$d）</string>
-    <!-- Download Foreground Notification Copy (Mirror the base Media3 manual-cache notification contract)
-         Localized strings keep foreground download status visible without exposing queue internals. -->
     <string name="download_notification_active">正在快取有聲書以便離線播放</string>
     <string name="download_notification_waiting">正在等待下載條件</string>
     <string name="download_notification_failed">部分下載需要處理</string>
@@ -515,8 +469,6 @@
     <string name="download_notification_book_failed">下載失敗 · %1$d/%2$d 個檔案</string>
     <string name="download_notification_book_progress_files">%1$d/%2$d 個檔案</string>
     <string name="download_notification_book_progress_bytes">%1$d/%2$d 個檔案 · %3$s/%4$s</string>
-    <!-- Detail Download UI Copy (Expose manual offline cache status and commands from the detail top bar)
-         These strings keep notification permission preflight, cache-state labels, and command feedback localized in one resource group. -->
     <string name="detail_download_action_none">離線快取</string>
     <string name="detail_download_action_active">下載進行中</string>
     <string name="detail_download_action_paused">下載已暫停</string>
@@ -545,8 +497,6 @@
     <string name="feedback_download_cache_deleted">離線快取已刪除</string>
     <string name="feedback_download_notification_permission_denied">離線下載需要通知權限</string>
     <string name="feedback_download_cache_command_failed">下載操作失敗：%1$s</string>
-    <!-- Download Management Settings Resources (Define settings-hosted manual cache and playback buffer UI copy)
-         These strings support the phase-six management pages without exposing Room or Media3 terms to users. -->
     <string name="settings_download_cache_title">下載與快取</string>
     <string name="settings_download_management_title">下載管理</string>
     <string name="settings_download_management_subtitle">%1$d 個手動快取任務</string>
@@ -570,7 +520,6 @@
     <string name="download_management_delete_all_action">刪除全部</string>
     <string name="download_management_delete_all_confirm_title">刪除全部下載</string>
     <string name="download_management_delete_all_confirm_body">確定要刪除所有離線快取下載嗎？</string>
-    <!-- About License Additions (Describe runtime dependencies newly listed on the About page) -->
     <string name="about_library_navigation3_description">Navigation 3 提供面向 Compose 的導覽建構區塊。APlayer 使用它保持頁面堆疊和浮層路由由狀態驅動。</string>
     <string name="about_library_materialkolor_description">MaterialKolor 可從種子色生成 Material You 配色。APlayer 使用它支援桌布和封面感知的動態主題。</string>
     <string name="about_library_palette_description">AndroidX Palette 可從圖片中擷取代表性顏色。APlayer 使用它在生成主題介面前推導封面強調色。</string>

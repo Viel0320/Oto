@@ -78,7 +78,7 @@ fun BookmarkListView(
     // Bookmark rows contain seek, edit, and delete commands, so the row advertises custom actions in addition to the visible delete button.
     val bookmarkOpenActionLabel = stringResource(R.string.bookmark_open_action)
     val bookmarkEditActionLabel = stringResource(R.string.bookmark_edit_action)
-    val bookmarkDeleteActionLabel = stringResource(R.string.bookmark_delete_content_description)
+    val bookmarkDeleteActionLabel = stringResource(R.string.bookmark_delete_title)
 
     // Deletion confirmation overlay (To show alert layout using primitive variables passed from container)
     if (bookmarkToDelete != null) {
@@ -229,7 +229,7 @@ fun BookmarkListView(
                 IconButton(onClick = { onRequestDelete(bookmark) }) {
                     Icon(
                         Icons.Rounded.Delete,
-                        contentDescription = stringResource(R.string.bookmark_delete_content_description),
+                        contentDescription = stringResource(R.string.bookmark_delete_title),
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(20.dp)
                     )

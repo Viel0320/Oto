@@ -101,7 +101,7 @@
                 android:layout_height="36dp"
                 android:layout_weight="1"
                 android:background="@android:color/transparent"
-                android:contentDescription="@string/player_widget_skip_backward"
+                android:contentDescription="@string/media_session_rewind_10"
                 android:padding="6dp"
                 android:scaleType="centerInside"
                 android:src="@drawable/ic_replay_10" />
@@ -124,7 +124,7 @@
                 android:layout_height="36dp"
                 android:layout_weight="1"
                 android:background="@android:color/transparent"
-                android:contentDescription="@string/player_widget_skip_forward"
+                android:contentDescription="@string/media_session_forward_30"
                 android:padding="6dp"
                 android:scaleType="centerInside"
                 android:src="@drawable/ic_forward_30" />

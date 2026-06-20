@@ -1,13 +1,11 @@
 <resources>
-    <!-- Russian Locale Resources (Provide Russian translations for all default user-visible strings)
-         The file mirrors the base resource names to support Android per-app language switching. -->
     <string name="author_label">Автор</string>
     <string name="narrator_label">Чтец</string>
     <string name="summary_label">Описание</string>
+    <string name="series_label">Серия</string>
     <string name="back_content_description">Назад</string>
     <string name="more_content_description">Еще</string>
     <string name="search_content_description">Поиск</string>
-    <string name="settings_content_description">Настройки</string>
     <string name="settings_title">Настройки</string>
     <string name="clear_history_title">Очистить историю поиска</string>
     <string name="clear_history_subtitle">Удалить все предыдущие поисковые запросы</string>
@@ -23,14 +21,9 @@
     <string name="home_view_style_list">Список</string>
     <string name="home_view_style_grid">Сетка</string>
     <string name="home_sort_rule_title">Правило сортировки</string>
-    <string name="home_sort_rule_author">Автор</string>
-    <string name="home_sort_rule_narrator">Чтец</string>
-    <string name="home_sort_rule_series">Серия</string>
     <string name="home_sort_direction_title">Направление сортировки</string>
     <string name="home_sort_direction_ascending">По возрастанию</string>
     <string name="home_sort_direction_descending">По убыванию</string>
-    <!-- Home Book Status Filter Resources (Localized labels for the Home view dialog status segment)
-         These strings mirror the default BookStatus filter keys while keeping persisted enum names language-independent. -->
     <string name="home_book_status_filter_title">Статус книги</string>
     <string name="home_book_status_all">Все</string>
     <string name="home_book_status_ready">Доступно</string>
@@ -62,12 +55,9 @@
     <string name="settings_language_portuguese">Português</string>
     <string name="player_widget_name">Плеер APlayer</string>
     <string name="player_widget_description">Виджет настольного плеера 2x2</string>
-    <string name="player_widget_empty_title">APlayer</string>
     <string name="player_widget_empty_subtitle">Готово к воспроизведению</string>
     <string name="player_widget_cover_description">Обложка текущей аудиокниги</string>
-    <string name="player_widget_skip_backward">Назад на 10 секунд</string>
     <string name="player_widget_play_pause">Воспроизвести или поставить на паузу</string>
-    <string name="player_widget_skip_forward">Вперед на 30 секунд</string>
     <string name="player_widget_fallback_author">Плеер аудиокниг</string>
     <string name="player_widget_background_cover_description">Фоновая обложка</string>
     <string name="player_widget_background_placeholder_description">Фоновый заполнитель</string>
@@ -88,7 +78,6 @@
     <string name="feedback_playback_speed_reset">Скорость воспроизведения сброшена</string>
     <string name="feedback_playback_speed_changed">Скорость воспроизведения: %1$sx</string>
     <string name="feedback_playback_source_preflight_blocked">%1$s</string>
-    <!-- Playback Preflight Feedback (Localized shell copy for typed playback block reasons emitted by the media domain) -->
     <string name="feedback_playback_source_preflight_missing_root">Корень библиотеки отсутствует. Не удалось загрузить медиаисточник.</string>
     <string name="feedback_playback_source_preflight_unavailable_root">Корень библиотеки недоступен. Не удалось загрузить медиаисточник: %1$s</string>
     <string name="feedback_playback_track_unavailable">Файл текущей дорожки недоступен. Проверьте, нужно ли перейти к другой дорожке.</string>
@@ -98,7 +87,6 @@
     <string name="feedback_settings_webdav_update_failed">Не удалось обновить WebDAV: %1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">Тестовое подключение WebDAV успешно</string>
     <string name="feedback_settings_webdav_connection_failed">Тестовое подключение WebDAV не удалось: %1$s</string>
-    <!-- WebDAV Connection Failure Details (Localized shell copy for typed endpoint and HTTP failure reasons) -->
     <string name="feedback_settings_cleartext_http_blocked">Незашифрованный HTTP заблокирован глобальными настройками. Включите его вручную в настройках, чтобы использовать этот адрес.</string>
     <string name="feedback_settings_webdav_url_missing_scheme">В URL WebDAV отсутствует схема.</string>
     <string name="feedback_settings_webdav_url_missing_host">В URL WebDAV отсутствует хост.</string>
@@ -119,7 +107,6 @@
     </plurals>
     <string name="feedback_settings_abs_connection_failed">Подключение не удалось: %1$s</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
-    <!-- Library Root Sync Feedback (Resource-backed copy for availability status codes returned by sync preflight) -->
     <string name="feedback_message_separator">\u003B\u0020</string>
     <string name="feedback_sync_roots_unavailable_none">Нет корней библиотеки для синхронизации</string>
     <plurals name="feedback_sync_roots_unavailable_multiple">
@@ -155,8 +142,6 @@
     <string name="feedback_home_cover_metadata_regeneration_completed">Обложки и метаданные перестроены</string>
     <string name="feedback_abs_background_sync_root_missing">Фоновая синхронизация ABS не удалась: соответствующий корень библиотеки ABS не найден</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
-    <!-- Multi-Count ABS Sync Feedback (Split added and failed totals into independently formatted plural fragments)
-         Russian has multiple plural categories, so each book count must choose its own grammatical form. -->
     <string name="feedback_abs_background_sync_completed">Фоновая синхронизация ABS завершена:\u0020</string>
     <plurals name="feedback_abs_background_sync_added_books">
         <item quantity="one">добавлена %1$d книга</item>
@@ -226,12 +211,10 @@
     </plurals>
     <string name="settings_library_not_synced">Не синхронизировано</string>
     <string name="settings_library_error">Ошибка: %1$s</string>
-    <!-- Library Status Labels (Translate database and availability status codes before they reach Settings UI) -->
     <string name="settings_library_status_active">Активно</string>
     <string name="settings_library_status_available">Доступно</string>
     <string name="settings_library_status_revoked">Авторизация истекла</string>
     <string name="settings_library_status_error">Ошибка</string>
-    <string name="settings_library_status_unknown">Неизвестно</string>
     <string name="settings_library_status_auth_failed">Ошибка аутентификации</string>
     <string name="settings_library_status_network_unavailable">Сеть недоступна</string>
     <string name="settings_library_status_not_found">Не найдено</string>
@@ -287,8 +270,6 @@
     <string name="settings_auto_rewind_toggle_title">Автоперемотка после паузы</string>
     <string name="settings_auto_rewind_subtitle">На сколько отматывать назад после паузы или остановки, кроме избегания уведомлений</string>
     <string name="settings_auto_rewind_disabled">Выкл.</string>
-    <!-- Settings Toggle Accessibility State (Mirrors row-level switch state labels for Russian TalkBack)
-         SettingsToggleItem uses these values as stateDescription so the merged settings row announces one localized state. -->
     <string name="settings_toggle_state_on">Вкл.</string>
     <string name="settings_toggle_state_off">Выкл.</string>
     <plurals name="settings_seconds_value">
@@ -356,8 +337,6 @@
     <string name="media_session_forward_10">Вперед на 10 секунд</string>
     <string name="media_session_forward_20">Вперед на 20 секунд</string>
     <string name="media_session_forward_30">Вперед на 30 секунд</string>
-    <string name="media_session_add_bookmark">Добавить закладку</string>
-    <!-- Core Dialog And Edit Resources: Localized labels and actions for book editing, playback conflict choices, unavailable tracks, and home-row commands. -->
     <string name="edit_book_title">Изменить сведения о книге</string>
     <string name="title_label">Название книги</string>
     <string name="edit_book_title_placeholder">Введите название книги</string>
@@ -365,7 +344,6 @@
     <string name="edit_book_narrator_placeholder">Введите диктора</string>
     <string name="edit_book_year_label">Год</string>
     <string name="edit_book_year_placeholder">Введите год публикации</string>
-    <string name="edit_book_series_label">Серия</string>
     <string name="edit_book_series_placeholder">Введите название серии</string>
     <string name="edit_book_description_label">Описание</string>
     <string name="edit_book_description_placeholder">Введите описание книги</string>
@@ -386,8 +364,6 @@
     <string name="track_unavailable_body">Физический файл текущей дорожки отсутствует или поврежден. Пропустить эту дорожку и воспроизвести следующую доступную?\n\nПримечание: принудительный пропуск может нарушить запланированный прогресс прослушивания.</string>
     <string name="track_unavailable_confirm_skip">Подтвердить пропуск</string>
     <string name="home_action_mark_read_status">Отметить статус чтения</string>
-    <!-- Choice State Accessibility Copy (Localize selectable chip state descriptions)
-         Custom filter and read-status chips read these values through stateDescription so assistive services announce selection state without relying on color, font weight, or accent dots. -->
     <string name="accessibility_choice_selected">Выбрано</string>
     <string name="accessibility_choice_unselected">Не выбрано</string>
     <string name="home_action_edit_subtitle">Вручную изменить название, авторов, описание и обложку</string>
@@ -398,18 +374,12 @@
     <string name="home_action_remove_confirm_title">Удалить из медиатеки?</string>
     <string name="home_action_remove_confirm_body">Удалить «%1$s» из медиатеки APlayer?\n\nПримечание: это мягкое удаление. Книга удаляется из плейлиста, но физические аудиофайлы в памяти телефона не удаляются.</string>
     <string name="home_action_remove_confirm_button">Подтвердить удаление</string>
-    <!-- Related Books Header Resources (Localize player recommendation section headings)
-         Creator-name templates stay separate for authors and narrators so each locale can express the relationship accurately. -->
     <string name="player_related_recommended">Рекомендовано вам</string>
     <string name="player_related_more_by_author">Другие книги автора %1$s</string>
     <string name="player_related_more_by_narrator">Другие книги в озвучке %1$s</string>
-    <string name="player_related_recently_added">Недавно добавлено</string>
-    <!-- Player, List, And Bookmark UI Resources: Localized player controls, list metadata labels, tabs, bookmark dialogs, and fallback labels that were previously hard-coded in Compose. -->
     <string name="common_unknown">Неизвестно</string>
     <string name="common_unknown_title">Неизвестное название</string>
     <string name="common_new_badge">НОВОЕ</string>
-    <!-- Detail Screen Action Copy (Localize app-owned fallback and playback action labels)
-         The detail screen owns these labels, so resource-backed copy lets TalkBack and locale tests validate non-metadata text. -->
     <string name="detail_title_info_action">Показать сведения о названии</string>
     <string name="detail_author_search_action">Искать автора</string>
     <string name="detail_author_info_action">Показать сведения об авторе</string>
@@ -418,8 +388,6 @@
     <string name="detail_file_not_found">Файл не найден</string>
     <string name="detail_continue_at_progress">Продолжить с %1$d%%</string>
     <string name="detail_start_listening">Начать прослушивание</string>
-    <!-- Shared Accessibility Action Copy (Back newly labeled gestures with localized resources)
-         Home rows, mini-player covers, playback controls, and bookmark rows already expose these commands through semantics, so resource keys keep compilation, TalkBack, and locale coverage aligned. -->
     <string name="book_open_action">Открыть книгу</string>
     <string name="book_play_action">Воспроизвести книгу</string>
     <string name="book_more_actions_action">Другие действия с книгой</string>
@@ -431,7 +399,6 @@
     <string name="sleep_timer_cancel_action">Отменить таймер сна</string>
     <string name="bookmark_open_action">Открыть закладку</string>
     <string name="bookmark_edit_action">Редактировать закладку</string>
-    <!-- UI Format Templates (Localized punctuation and numeric display patterns, not ordinary prose) -->
     <string name="common_metadata_separator">\u0020\u2022\u0020</string>
     <string name="action_delete">Удалить</string>
     <string name="media_cover_content_description">Обложка</string>
@@ -446,11 +413,9 @@
     <string name="player_tab_subtitles">Субтитры</string>
     <string name="player_tab_related">Похожие</string>
     <string name="player_no_chapters">Нет глав</string>
-    <!-- Search, Home, And Playback UI Resources: Localized search screen labels, home-view accessibility text, playback controls, subtitle empty states, and transient snackbar copy that were previously hard-coded in Compose. -->
     <string name="action_ok">ОК</string>
     <string name="clear_content_description">Очистить</string>
     <string name="home_view_options_content_description">Параметры вида главной</string>
-    <!-- Search Placeholder Template (%1$s is fixed query syntax owned by SearchQueryPlanner and must not be translated) -->
     <string name="search_placeholder">Ищите или используйте %1$s</string>
     <string name="search_recent_title">Недавние поиски</string>
     <string name="search_clear_all">Очистить все</string>
@@ -479,10 +444,7 @@
     <string name="bookmark_delete_body">Удалить эту закладку?</string>
     <string name="bookmark_edit_title">Изменить закладку</string>
     <string name="bookmark_update_label">Обновить закладку:</string>
-    <string name="bookmark_delete_content_description">Удалить закладку</string>
 
-    <!-- Add Missing Keys (Complement missing i18n keys for the deleted book recovery feature)
-         These strings are added to support the deleted book recovery UI and feedback actions. -->
     <string name="deleted_book_recovery_empty">Нет удаленных книг для восстановления</string>
     <string name="deleted_book_recovery_failure_abs_remote_deleted">Этот элемент Audiobookshelf был удален на сервере. Восстановите или добавьте его заново на сервере, затем снова синхронизируйте APlayer.</string>
     <string name="deleted_book_recovery_failure_all_files_unavailable">Все аудиофайлы для этой книги недоступны: %1$s</string>
@@ -500,12 +462,9 @@
     <string name="deleted_book_recovery_title">Восстановление удаленных книг</string>
     <string name="feedback_deleted_book_recovery_restored_partial">Книга частично восстановлена</string>
     <string name="feedback_deleted_book_recovery_restored_ready">Книга восстановлена</string>
-    <!-- Title: Deleted Book Recovery Confirmation (Asks for user confirmation before restoring soft-deleted books)
-         Adding localized confirmation text to avoid accidental restore triggers. -->
     <string name="deleted_book_recovery_confirm_title">Восстановить книгу</string>
     <string name="deleted_book_recovery_confirm_body">Вы уверены, что хотите восстановить «%1$s»?\n\nПримечание: это восстановит книгу в вашу активную медиатеку.</string>
 
-    <!-- Backup and Restore Resources -->
     <string name="settings_backup_restore_title">Резервное копирование и восстановление</string>
     <string name="settings_export_data_title">Экспорт резервной копии данных</string>
     <string name="settings_export_data_subtitle">Резервное копирование локальной базы данных и всех настроек приложения</string>
@@ -521,14 +480,10 @@
     <string name="feedback_settings_export_stream_failed">Не удалось открыть поток целевого файла</string>
     <string name="feedback_settings_import_stream_failed">Не удалось открыть поток файла резервной копии</string>
     <string name="feedback_settings_import_version_incompatible">Невозможно импортировать: версия базы данных резервной копии (%1$d) новее текущего приложения (%2$d)</string>
-    <!-- Download Foreground Notification Copy (Mirror the base Media3 manual-cache notification contract)
-         Localized strings keep foreground download status visible without exposing queue internals. -->
     <string name="download_notification_active">Кэширование аудиокниг для автономного воспроизведения</string>
     <string name="download_notification_waiting">Ожидание условий для скачивания</string>
     <string name="download_notification_failed">Некоторым загрузкам требуется внимание</string>
     <string name="download_notification_idle">Автономный кэш обновлен</string>
-    <!-- Book Download Notification Copy (Expose per-book manual download progress in Android notifications)
-         These strings mirror the base placeholder contract so notification updates can format file counts, percentages, and byte totals in every supported locale. -->
     <string name="download_notification_book_queued">В очереди · %1$d/%2$d файлов</string>
     <string name="download_notification_book_downloading">Скачивание · %1$d/%2$d файлов · %3$s/%4$s</string>
     <string name="download_notification_book_paused">Приостановлено · %1$d/%2$d файлов</string>
@@ -536,8 +491,6 @@
     <string name="download_notification_book_failed">Ошибка загрузки · %1$d/%2$d файлов</string>
     <string name="download_notification_book_progress_files">%1$d/%2$d файлов</string>
     <string name="download_notification_book_progress_bytes">%1$d/%2$d файлов · %3$s/%4$s</string>
-    <!-- Detail Download UI Copy (Expose manual offline cache status and commands from the detail top bar)
-         These strings keep notification permission preflight, cache-state labels, and command feedback localized in one resource group. -->
     <string name="detail_download_action_none">Кэшировать автономно</string>
     <string name="detail_download_action_active">Выполняется скачивание</string>
     <string name="detail_download_action_paused">Скачивание приостановлено</string>
@@ -566,8 +519,6 @@
     <string name="feedback_download_cache_deleted">Автономный кэш удален</string>
     <string name="feedback_download_notification_permission_denied">Для автономной загрузки требуется разрешение на уведомления</string>
     <string name="feedback_download_cache_command_failed">Ошибка действия загрузки: %1$s</string>
-    <!-- Download Management Settings Resources (Define settings-hosted manual cache and playback buffer UI copy)
-         These strings support the phase-six management pages without exposing Room or Media3 terms to users. -->
     <string name="settings_download_cache_title">Загрузки и кэш</string>
     <string name="settings_download_management_title">Управление загрузками</string>
     <string name="settings_download_management_subtitle">Задач ручного кэширования: %1$d</string>
@@ -584,7 +535,6 @@
     <string name="download_management_status_paused">Приостановлено</string>
     <string name="download_management_status_completed">Кэшировано</string>
     <string name="download_management_status_failed">Ошибка</string>
-    <!-- Cache Maintenance UI Copy (Keeps non-primary locales aligned with manual-cache and playback-buffer controls while translations are pending) -->
     <string name="settings_download_wifi_only_title">Загрузка только по Wi-Fi</string>
     <string name="settings_download_wifi_only_subtitle">Ручные загрузки ожидают подключения к сети без тарификации трафика</string>
     <string name="settings_cache_playback_capacity_title">Размер буфера</string>
@@ -592,7 +542,6 @@
     <string name="download_management_delete_all_action">Удалить все</string>
     <string name="download_management_delete_all_confirm_title">Удалить все загрузки</string>
     <string name="download_management_delete_all_confirm_body">Вы уверены, что хотите удалить все загрузки из автономного кэша?</string>
-    <!-- About License Additions (Describe runtime dependencies newly listed on the About page) -->
     <string name="about_library_navigation3_description">Navigation 3 предоставляет навигационные блоки для Compose. APlayer использует их, чтобы стеки экранов и маршруты оверлеев управлялись состоянием.</string>
     <string name="about_library_materialkolor_description">MaterialKolor создает цветовые схемы Material You из исходных цветов. APlayer использует его для динамических тем на основе обоев и обложек.</string>
     <string name="about_library_palette_description">AndroidX Palette извлекает характерные цвета из изображений. APlayer использует его, чтобы получить акценты обложки перед созданием тематических поверхностей.</string>
