@@ -47,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -67,7 +68,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mikepenz.aboutlibraries.entity.Library
 import com.mikepenz.aboutlibraries.ui.compose.android.produceLibraries
-import com.mikepenz.aboutlibraries.ui.compose.m3.LibrariesContainer
 import com.viel.aplayer.BuildConfig
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.settings.GlassEffectMode
@@ -75,12 +75,13 @@ import com.viel.aplayer.ui.common.APlayerGlassTopBar
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.settings.components.SectionsColumns
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 
 /**
  * Generated open-source licenses view.
- * Loads the Gradle-generated AboutLibraries metadata while preserving the app-owned card styling from the previous About page.
+ * Loads Gradle-generated AboutLibraries metadata and renders it through the app's responsive independent columns.
  */
 @Composable
 fun AboutLibrariesScreen(
@@ -93,6 +94,7 @@ fun AboutLibrariesScreen(
     val uriHandler = LocalUriHandler.current
     val layoutDirection = LocalLayoutDirection.current
     val density = LocalDensity.current
+    val windowClass = LocalAppWindowSizeClass.current
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
     val startPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val endPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
@@ -130,31 +132,11 @@ fun AboutLibrariesScreen(
             if (libraries == null) {
                 LoadingLicensesContent(contentPadding = licenseContentPadding)
             } else {
-                LibrariesContainer(
-                    libraries = libraries,
-                    modifier = Modifier.fillMaxSize(),
+                GeneratedLibrariesColumns(
+                    libraries = libraries?.libraries.orEmpty(),
+                    columnsCount = windowClass.columnsCount,
                     contentPadding = licenseContentPadding,
-                    licenseDialogConfirmText = stringResource(R.string.action_ok),
-                    header = {
-                        item {
-                            BrandHeaderCard(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 8.dp)
-                            )
-                        }
-                    },
-                    divider = {
-                        Spacer(modifier = Modifier.height(10.dp))
-                    },
-                    libraryRow = { _, library, expanded, toggle, _ ->
-                        GeneratedLibraryCard(
-                            library = library,
-                            expanded = expanded,
-                            onToggle = toggle,
-                            onVisitUrl = openProjectUrl
-                        )
-                    }
+                    onVisitUrl = openProjectUrl
                 )
             }
         }
@@ -184,8 +166,41 @@ fun AboutLibrariesScreen(
 }
 
 /**
+ * Responsive independent columns for generated AboutLibraries rows.
+ * Keeps each column's vertical spacing isolated so expanding a card does not push gaps into adjacent columns.
+ */
+@Composable
+private fun GeneratedLibrariesColumns(
+    libraries: List<Library>,
+    columnsCount: Int,
+    contentPadding: PaddingValues,
+    onVisitUrl: (String) -> Unit
+) {
+    val expandedLibraryIds = remember(libraries) { mutableStateMapOf<String, Boolean>() }
+
+    SectionsColumns(
+        columnsCount = columnsCount,
+        itemCount = libraries.size,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = contentPadding,
+        header = {
+            BrandHeaderCard(modifier = Modifier.fillMaxWidth())
+        }
+    ) { libraryIndex ->
+        val library = libraries[libraryIndex]
+        val libraryKey = library.stableAboutKey()
+        val expanded = expandedLibraryIds[libraryKey] == true
+        GeneratedLibraryCard(
+            library = library,
+            expanded = expanded,
+            onToggle = { expandedLibraryIds[libraryKey] = !expanded },
+            onVisitUrl = onVisitUrl
+        )
+    }
+}
+/**
  * Loading placeholder for generated license metadata.
- * Keeps the first-frame layout aligned with the final list while AboutLibraries parses the generated JSON off the main thread.
+ * Keeps the first-frame layout aligned with the final content while AboutLibraries parses the generated JSON off the main thread.
  */
 @Composable
 private fun LoadingLicensesContent(contentPadding: PaddingValues) {
@@ -460,6 +475,14 @@ private fun GeneratedLibraryCard(
         }
     }
 }
+
+/**
+ * Builds a stable key for generated dependency cards.
+ * Keeps expansion state tied to the generated coordinate even when responsive columns are redistributed.
+ */
+private fun Library.stableAboutKey(): String = artifactId.takeIf { it.isNotBlank() }
+    ?: uniqueId.takeIf { it.isNotBlank() }
+    ?: name
 
 /**
  * Resolves the compact license badge text shown on generated cards.

@@ -3,7 +3,6 @@ package com.viel.aplayer.ui.settings
 // Presentation layer should not import infrastructure authentication and virtual file system entities.
 import android.net.Uri
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,8 +21,6 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Cloud
@@ -74,6 +71,7 @@ import com.viel.aplayer.ui.settings.components.InterfaceSettingsSection
 import com.viel.aplayer.ui.settings.components.LibraryDirectoriesSection
 import com.viel.aplayer.ui.settings.components.NetworkSecuritySection
 import com.viel.aplayer.ui.settings.components.PlaybackBehaviorSection
+import com.viel.aplayer.ui.settings.components.SectionsColumns
 import com.viel.aplayer.ui.settings.components.SleepTimerSection
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -179,23 +177,21 @@ fun SettingsScreen(
                 // The list reads bottom system padding from Scaffold, while the measured overlay header supplies its own top content padding.
                 contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime)
             ) { innerPadding ->
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(windowClass.columnsCount),
-                    modifier = Modifier
-                        .fillMaxSize(),
+                SectionsColumns(
+                    columnsCount = windowClass.columnsCount,
+                    itemCount = 8,
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = settingsStartPadding,
                         end = settingsEndPadding,
                         top = settingsTopBarHeight,
                         bottom = innerPadding.calculateBottomPadding()
-                    ),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
+                    )
+                ) { sectionIndex ->
                     // Settings Functional Cluster Order (Render settings by user-facing capability)
-                    // Media sources, appearance, playback behavior, sleep automation, network safety, and app info stay in independent grid cells so wide screens can show multiple clusters per row.
-                    item {
-                        LibraryDirectoriesSection(
+                    // Media sources, appearance, playback behavior, sleep automation, network safety, and app info stay in independent columns so variable section heights do not resize neighboring rows.
+                    when (sectionIndex) {
+                        0 -> LibraryDirectoriesSection(
                             libraryRootDisplays = libraryRootDisplays,
                             onRootClick = onRootClick,
                             onAddLibraryClick = onAddLibraryClick,
@@ -204,21 +200,21 @@ fun SettingsScreen(
                             onDeletedBookRecoveryClick = onDeletedBookRecoveryClick,
                             modifier = Modifier.fillMaxWidth()
                         )
-                    }
-                    item {
-                        // Download & Cache Configuration (Directly displays Wi-Fi only toggle and buffer capacity selector)
-                        DownloadCacheSection(
-                            downloadTaskCount = downloadTaskCount,
-                            isDownloadWifiOnly = isDownloadWifiOnly,
-                            onDownloadWifiOnlyChange = onDownloadWifiOnlyChange,
-                            playbackBufferMaxBytes = playbackBufferMaxBytes,
-                            onPlaybackBufferMaxBytesChange = onPlaybackBufferMaxBytesChange,
-                            onDownloadManagementClick = onDownloadManagementClick,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    item {
-                        InterfaceSettingsSection(
+
+                        1 -> {
+                            // Download & Cache Configuration (Directly displays Wi-Fi only toggle and buffer capacity selector)
+                            DownloadCacheSection(
+                                downloadTaskCount = downloadTaskCount,
+                                isDownloadWifiOnly = isDownloadWifiOnly,
+                                onDownloadWifiOnlyChange = onDownloadWifiOnlyChange,
+                                playbackBufferMaxBytes = playbackBufferMaxBytes,
+                                onPlaybackBufferMaxBytesChange = onPlaybackBufferMaxBytesChange,
+                                onDownloadManagementClick = onDownloadManagementClick,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        2 -> InterfaceSettingsSection(
                             appLanguage = appLanguage,
                             onLanguageClick = onLanguageClick,
                             themeMode = themeMode,
@@ -231,9 +227,8 @@ fun SettingsScreen(
                             onGlassEffectModeChange = onGlassEffectModeChange,
                             modifier = Modifier.fillMaxWidth()
                         )
-                    }
-                    item {
-                        PlaybackBehaviorSection(
+
+                        3 -> PlaybackBehaviorSection(
                             isChapterProgressMode = isChapterProgressMode,
                             onChapterProgressModeChange = onChapterProgressModeChange,
                             isSkipSilenceEnabled = isSkipSilenceEnabled,
@@ -247,9 +242,8 @@ fun SettingsScreen(
                             onNotificationAvoidanceEnabledChange = onNotificationAvoidanceEnabledChange,
                             modifier = Modifier.fillMaxWidth()
                         )
-                    }
-                    item {
-                        SleepTimerSection(
+
+                        4 -> SleepTimerSection(
                             sleepMode = sleepMode,
                             onSleepModeChange = onSleepModeChange,
                             isSleepFadeOutEnabled = isSleepFadeOutEnabled,
@@ -258,9 +252,8 @@ fun SettingsScreen(
                             onShakeToResetEnabledChange = onShakeToResetEnabledChange,
                             modifier = Modifier.fillMaxWidth()
                         )
-                    }
-                    item {
-                        NetworkSecuritySection(
+
+                        5 -> NetworkSecuritySection(
                             isCleartextTrafficAllowed = isCleartextTrafficAllowed,
                             onCleartextTrafficAllowedChange = onCleartextTrafficAllowedChange,
                             // Insecure TLS Callback (Forward transport-risk setting to the dedicated security section)
@@ -269,16 +262,14 @@ fun SettingsScreen(
                             onAllowInsecureTlsChange = onAllowInsecureTlsChange,
                             modifier = Modifier.fillMaxWidth()
                         )
-                    }
-                    item {
-                        BackupRestoreSection(
+
+                        6 -> BackupRestoreSection(
                             onExportClick = onExportClick,
                             onImportClick = onImportClick,
                             modifier = Modifier.fillMaxWidth()
                         )
-                    }
-                    item {
-                        AboutSection(
+
+                        7 -> AboutSection(
                             onAboutLibrariesClick = onAboutLibrariesClick,
                             modifier = Modifier.fillMaxWidth()
                         )
