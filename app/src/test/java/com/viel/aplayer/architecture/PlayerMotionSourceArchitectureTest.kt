@@ -55,24 +55,32 @@ class PlayerMotionSourceArchitectureTest {
     }
 
     /**
-     * Locks the full-player cover contract after cover swipe gestures were removed.
+     * Locks the simplified full-player cover contract after the mini-origin bridge was removed.
      *
-     * The cover may still render temporary mini-origin artwork during shared motion, but that
-     * bridge must wait for the target visibility scope to settle before the main artwork takes over.
+     * The cover still uses the Mini->Player target scope for shared-element geometry, but the
+     * artwork layer must render the current original image directly without reintroducing the old
+     * thumbnail bridge, settle-state gate, or custom crossfade path.
      */
     @Test
-    fun fullPlayerCoverArtworkBridgeWaitsForOverlayVisibilityToSettle() {
+    fun fullPlayerCoverArtworkUsesDirectRenderingAfterBridgeRemoval() {
         val playerCoverSource = resolveSourceRoot()
             .resolve("ui/common/PlayerCover.kt")
             .readText()
 
-        // Cover Artwork Bridge Gate (Prevent mini-player thumbnails from outliving the transition)
-        // The full-player artwork no longer owns cover gestures, so this contract only verifies
-        // that the temporary mini-origin artwork bridge waits for the target visibility scope to settle.
+        // Direct Artwork Rendering Contract (Preserve shared geometry without resurrecting bridge state)
+        // The full-player cover should keep the mini-player target scope as its fallback transition
+        // boundary, while the bitmap layer renders the current original cover without transitional thumbnails.
         assertTrue(playerCoverSource.contains("LocalMini2PlayerTargetScope"))
-        assertTrue(playerCoverSource.contains("transition.currentState == EnterExitState.Visible"))
-        assertTrue(playerCoverSource.contains("transition.targetState == EnterExitState.Visible"))
-        assertTrue(playerCoverSource.contains("val useTransitionArtwork = miniBridgeIdentity != null"))
+        assertTrue(playerCoverSource.contains("sharedElementVisibilityScope ?: mini2PlayerTargetScope"))
+        assertTrue(playerCoverSource.contains("Modifier.sharedElement("))
+        assertTrue(playerCoverSource.contains("CoverImage("))
+        assertTrue(playerCoverSource.contains("variant = CoverImageVariant.Original"))
+        assertFalse(playerCoverSource.contains("MiniPlayerCoverBridgeIdentity"))
+        assertFalse(playerCoverSource.contains("transitionCoverPath"))
+        assertFalse(playerCoverSource.contains("useTransitionArtwork"))
+        assertFalse(playerCoverSource.contains("CrossfadingCoverImage"))
+        assertFalse(playerCoverSource.contains("transition.currentState"))
+        assertFalse(playerCoverSource.contains("transition.targetState"))
         assertFalse(playerCoverSource.contains("gesturesEnabled"))
         assertFalse(playerCoverSource.contains("effectiveGesturesEnabled"))
     }
