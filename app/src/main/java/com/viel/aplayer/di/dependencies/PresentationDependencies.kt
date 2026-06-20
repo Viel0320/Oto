@@ -84,7 +84,7 @@ interface DetailScreenDependencies {
 
     /**
      * Application Event Sink (Detail feedback command seam)
-     * Download command outcomes are emitted as resource-backed transient feedback from the ViewModel.
+     * Download command outcomes are emitted as resource-backed feedback facts from the ViewModel.
      */
     val appEventSink: AppEventSink
 }

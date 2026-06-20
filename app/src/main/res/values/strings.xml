@@ -87,6 +87,7 @@
     <string name="feedback_playback_cleartext_blocked">Security blocked cleartext HTTP playback. Enable it in settings first.</string>
     <string name="feedback_playback_initial_media_load_failed">Media source failed to load: %1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">No later playable audio track was found. Playback stopped.</string>
+    <string name="feedback_playback_stopped_scope">\nPlayback stopped: %1$s</string>
     <!-- Counted Feedback Copy (Use Android plural rules for user-visible counts)
          These feedback messages carry runtime quantities, so Android should choose the singular, plural, or locale-specific form instead of formatting a plain string. -->
     <plurals name="feedback_playback_finished_shutdown_scheduled">
@@ -196,7 +197,8 @@
         <item quantity="one">, %1$d of them was partially imported</item>
         <item quantity="other">, %1$d of them were partially imported</item>
     </plurals>
-    <string name="feedback_scan_blocked_no_directory_roots">No local or WebDAV library roots are available for sync</string>
+    <!-- Scan Blocked Feedback (Reports the no-available-library outcome without exposing access-form distinctions) -->
+    <string name="feedback_scan_blocked_no_available_libraries">No library is available for sync</string>
     <string name="feedback_scan_retry_later">Media library sync failed temporarily and will retry later</string>
     <string name="feedback_scan_failed">Media library sync failed: %1$s</string>
     <string name="feedback_sleep_motion_tracking_paused">Motion tracking paused the sleep timer after movement was detected. It will stay paused for one minute.</string>

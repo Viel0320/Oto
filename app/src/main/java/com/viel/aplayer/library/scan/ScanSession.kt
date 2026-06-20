@@ -59,16 +59,24 @@ class ScanSession(
         }
 
     private suspend fun executeChecked(command: ScanCommand): ScanOutcome {
-        val directoryRootUpdates = rootStatusAdapter.refreshPermissionStatuses()
+        val rootUpdates = rootStatusAdapter.refreshPermissionStatuses()
+        val hasAvailableLibrary = rootUpdates.any { update -> update.isSyncAvailable }
+        val unavailableRootUpdates = rootUpdates.filterNot { update -> update.isSyncAvailable }
+        val directoryRootUpdates = rootUpdates
             .filter { update -> update.root.isDirectorySyncRoot() }
-        val unavailableDirectoryUpdates = directoryRootUpdates.filterNot { update -> update.isSyncAvailable }
         val availableDirectoryRootIds = directoryRootUpdates
             .filter { update -> update.isSyncAvailable }
             .map { update -> update.root.id }
             .toSet()
 
         if (availableDirectoryRootIds.isEmpty()) {
-            return ScanOutcomePolicy.blocked(unavailableDirectoryUpdates)
+            if (hasAvailableLibrary && unavailableRootUpdates.isEmpty()) {
+                return ScanOutcomePolicy.noScanWorkRequired()
+            }
+            return ScanOutcomePolicy.blocked(
+                unavailableRoots = unavailableRootUpdates,
+                hasAvailableLibrary = hasAvailableLibrary
+            )
         }
 
         val session = importAdapter.rescan(
@@ -85,7 +93,7 @@ class ScanSession(
         return ScanOutcomePolicy.fromCompletedSession(
             session = session,
             isLibraryEmpty = librarySnapshotAdapter.isLibraryEmpty(),
-            skippedRoots = unavailableDirectoryUpdates
+            skippedRoots = unavailableRootUpdates
         )
     }
 

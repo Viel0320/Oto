@@ -9,9 +9,12 @@ import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryReadMode
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryResult
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.AppShellEvent
+import com.viel.aplayer.event.feedback.FeedbackCategory
+import com.viel.aplayer.event.feedback.FeedbackContext
 import com.viel.aplayer.event.feedback.FeedbackDeliveryResult
 import com.viel.aplayer.event.feedback.FeedbackMessage
-import com.viel.aplayer.event.feedback.TransientFeedbackFact
+import com.viel.aplayer.event.feedback.FeedbackTopic
+import com.viel.aplayer.event.feedback.FeedbackFact
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -166,6 +169,11 @@ class DeletedBookRecoveryViewModelTest {
         val feedbackFact = fakeEventSink.emittedFeedback.first()
         val message = feedbackFact.message as FeedbackMessage.Resource
         assertEquals(com.viel.aplayer.R.string.feedback_deleted_book_recovery_restored_ready, message.resId)
+        // Recovery feedback must classify as RECOVERY and stay keyed to the restored book.
+        val identity = feedbackFact.outcome.identity
+        assertEquals(FeedbackCategory.RECOVERY, identity.category)
+        assertEquals(FeedbackTopic.DeletedBookRecovery, identity.topic)
+        assertEquals(FeedbackContext.Book("book-123"), identity.context)
     }
 
     private class FakeDeletedBookRecoveryReadModel : DeletedBookRecoveryReadModel {
@@ -196,15 +204,11 @@ class DeletedBookRecoveryViewModelTest {
 
     private class FakeAppEventSink : AppEventSink {
         override val events: SharedFlow<AppShellEvent> = MutableSharedFlow()
-        val emittedFeedback = mutableListOf<TransientFeedbackFact>()
+        val emittedFeedback = mutableListOf<FeedbackFact>()
 
-        override fun emitFeedback(fact: TransientFeedbackFact): FeedbackDeliveryResult {
+        override fun emitFeedback(fact: FeedbackFact): FeedbackDeliveryResult {
             emittedFeedback.add(fact)
             return FeedbackDeliveryResult.Delivered(fact)
-        }
-
-        override fun showTrackUnavailableDialog(bookId: String, queueIndex: Int): Boolean {
-            return true
         }
     }
 }

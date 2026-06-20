@@ -76,6 +76,7 @@
     <string name="feedback_playback_cleartext_blocked">セキュリティにより平文 HTTP 再生がブロックされました。先に設定で有効にしてください。</string>
     <string name="feedback_playback_initial_media_load_failed">メディアソースの読み込みに失敗しました：%1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">後続の再生可能な音声トラックが見つかりません。再生を停止しました。</string>
+    <string name="feedback_playback_stopped_scope">\n再生を停止しました：%1$s</string>
     <plurals name="feedback_playback_finished_shutdown_scheduled">
         <item quantity="one">再生が終了しました。%1$d 秒後に自動終了します。</item>
         <item quantity="other">再生が終了しました。%1$d 秒後に自動終了します。</item>
@@ -176,7 +177,7 @@
         <item quantity="one">、そのうち %1$d 冊は部分的にインポートされました</item>
         <item quantity="other">、そのうち %1$d 冊は部分的にインポートされました</item>
     </plurals>
-    <string name="feedback_scan_blocked_no_directory_roots">同期可能なローカルまたは WebDAV ライブラリルートがありません</string>
+    <string name="feedback_scan_blocked_no_available_libraries">同期に利用できるライブラリがありません</string>
     <string name="feedback_scan_retry_later">メディアライブラリ同期が一時的に失敗しました。後で再試行します。</string>
     <string name="feedback_scan_failed">メディアライブラリ同期に失敗しました：%1$s</string>
     <string name="feedback_sleep_motion_tracking_paused">モーショントラッキングが動きを検出し、睡眠タイマーを一分間一時停止しました。</string>

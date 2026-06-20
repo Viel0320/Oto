@@ -19,7 +19,8 @@ sealed interface PlaybackDomainEvent {
      */
     data class SourcePreflightBlocked(
         val reason: PlaybackSourcePreflightBlockReason,
-        val rootName: String? = null
+        val rootName: String? = null,
+        val bookTitle: String? = null
     ) : PlaybackDomainEvent
 
     /**
@@ -27,28 +28,36 @@ sealed interface PlaybackDomainEvent {
      *
      * Represents the security decision as a playback fact rather than a direct UI command.
      */
-    data object CleartextPlaybackBlocked : PlaybackDomainEvent
+    data class CleartextPlaybackBlocked(val bookTitle: String? = null) : PlaybackDomainEvent
 
     /**
      * Track Unavailable (Current queue item failed reachability checks during runtime playback)
      *
-     * The app shell can pair this event with both a toast and the existing skip-confirmation dialog.
+     * The app shell uses the message presentation to choose either transient copy or the existing
+     * skip-confirmation dialog from the same feedback source.
      */
-    data class TrackUnavailable(val bookId: String, val queueIndex: Int) : PlaybackDomainEvent
+    data class TrackUnavailable(
+        val bookId: String,
+        val queueIndex: Int,
+        val bookTitle: String? = null
+    ) : PlaybackDomainEvent
 
     /**
      * Initial Media Load Failed (The selected media item failed before producing playback)
      *
      * Initial failures are reported without marking the file missing because runtime recovery has not started.
      */
-    data class InitialMediaLoadFailed(val errorMessage: String) : PlaybackDomainEvent
+    data class InitialMediaLoadFailed(
+        val errorMessage: String,
+        val bookTitle: String? = null
+    ) : PlaybackDomainEvent
 
     /**
      * No Available Track After Failure (Self-healing could not find a later playable queue item)
      *
      * Keeps the exhausted failover result in the playback domain while presentation owns the notification.
      */
-    data object NoAvailableTrackAfterFailure : PlaybackDomainEvent
+    data class NoAvailableTrackAfterFailure(val bookTitle: String? = null) : PlaybackDomainEvent
 
     /**
      * Playback Finished Shutdown Scheduled (The service will close after the completed queue grace period)
@@ -120,8 +129,8 @@ sealed interface PlaybackDomainEventDeliveryResult {
 /**
  * Default Playback Domain Event Sink (Buffered event stream for playback recovery bursts)
  *
- * Runtime errors can emit a toast and dialog-worthy fact close together, so the buffer absorbs short
- * bursts while the application bridge collector is active and reports drops when no bridge is attached.
+ * Runtime recovery can emit several domain facts close together, so the buffer absorbs short bursts
+ * while the application bridge collector is active and reports drops when no bridge is attached.
  */
 class DefaultPlaybackDomainEventSink : PlaybackDomainEventSink {
     private val _events = MutableSharedFlow<PlaybackDomainEvent>(

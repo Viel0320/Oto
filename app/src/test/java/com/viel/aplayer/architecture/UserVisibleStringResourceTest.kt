@@ -121,30 +121,6 @@ class UserVisibleStringResourceTest {
     }
 
     @Test
-    fun rawTextFeedbackEntryPointsStayExplicitAndNarrow() {
-        val violations = kotlinSourceFiles(repoFile("app/src/main/java"))
-            .mapNotNull { file ->
-                val relativePath = file.repoRelativePath()
-                val text = file.readText(Charsets.UTF_8)
-                if (relativePath !in allowedRawTextFiles && rawTextCallRegex.containsMatchIn(text)) {
-                    relativePath
-                } else {
-                    null
-                }
-            }
-
-        // Raw Feedback Compatibility Guard (Prevents new UI feedback from bypassing resource-backed FeedbackMessage keys)
-        // The only allowed rawText locations are the compatibility factory and the legacy String overload bridge.
-        assertTrue(
-            buildString {
-                appendLine("FeedbackMessages.rawText must stay limited to explicit compatibility entry points.")
-                violations.forEach { violation -> appendLine("- $violation") }
-            },
-            violations.isEmpty()
-        )
-    }
-
-    @Test
     fun settingsComponentCopyUsesResourceLookups() {
         val violations = kotlinSourceFiles(repoFile("app/src/main/java/com/viel/aplayer/ui/settings/components"))
             .flatMap { file ->
@@ -355,12 +331,6 @@ class UserVisibleStringResourceTest {
             "values-pt"
         )
 
-        private val allowedRawTextFiles = setOf(
-            "app/src/main/java/com/viel/aplayer/event/feedback/FeedbackMessage.kt",
-            "app/src/main/java/com/viel/aplayer/event/AppEventSink.kt"
-        )
-
-        private val rawTextCallRegex = Regex("""\brawText\s*\(""")
         private val editSavePathUnknownFallbackRegex = Regex("""title\.ifBlank\s*\{\s*"Unknown"\s*}""")
         private val printfPlaceholderRegex = Regex("""%\d+\$[sd]""")
         private val detailComponentHardCodedCopyRegex = Regex(

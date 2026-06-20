@@ -2,8 +2,11 @@ package com.viel.aplayer.library.scan
 
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.ScanSessionEntity
+import com.viel.aplayer.event.feedback.FeedbackContext
+import com.viel.aplayer.event.feedback.FeedbackFact
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.aplayer.library.availability.buildUnavailableRootsSyncMessage
 import java.io.IOException
@@ -22,11 +25,11 @@ enum class ScanOutcomeKind {
 
 /**
  * Scan Outcome (Command-level scan result contract)
- * Carries the persisted session when one exists plus the user-facing message and WorkManager result mapping for background callers.
+ * Carries the persisted session when one exists plus the user-facing feedback fact and WorkManager result mapping for background callers.
  */
 data class ScanOutcome(
     val kind: ScanOutcomeKind,
-    val message: FeedbackMessage?,
+    val feedback: FeedbackFact?,
     val session: ScanSessionEntity? = null,
     val cause: Throwable? = null
 )
@@ -82,26 +85,47 @@ object ScanOutcomePolicy {
         }
         return ScanOutcome(
             kind = kind,
-            message = message,
+            feedback = LibraryAccessFeedbackFacts.rescanCompleted(message, skippedRootsContext(skippedRoots)),
             session = session
         )
     }
 
     /**
-     * Blocked Scan Mapping (Builds a shared no-work outcome for unavailable or missing roots)
-     * The scanner command can complete without retry when there is no reachable directory root to traverse.
+     * Blocked Scan Mapping (Builds a shared no-work outcome when no library can be used)
+     *
+     * The scanner still protects its importer from no-work commands, but the rendered feedback stays
+     * access-form-neutral so users do not see separate local, WebDAV, or catalog-backed library wording.
      */
-    fun blocked(unavailableRoots: List<LibraryRootAvailabilityUpdate>): ScanOutcome {
-        val message = if (unavailableRoots.isEmpty()) {
-            FeedbackMessages.scanBlockedNoDirectoryRoots()
+    fun blocked(
+        unavailableRoots: List<LibraryRootAvailabilityUpdate>,
+        hasAvailableLibrary: Boolean
+    ): ScanOutcome {
+        val message = if (!hasAvailableLibrary) {
+            FeedbackMessages.scanBlockedNoAvailableLibraries()
         } else {
             buildUnavailableRootsSyncMessage(unavailableRoots)
         }
         return ScanOutcome(
             kind = ScanOutcomeKind.BLOCKED,
-            message = message
+            feedback = LibraryAccessFeedbackFacts.rescanBlocked(message, skippedRootsContext(unavailableRoots))
         )
     }
+
+    /**
+     * No Scan Work Required Mapping (Reports a successful no-op when another library access form is available)
+     *
+     * Catalog-backed libraries can be available even when the directory importer has no SAF or WebDAV root
+     * to traverse. This outcome avoids telling the listener that no library is available while keeping the
+     * scan command result non-failing.
+     */
+    fun noScanWorkRequired(): ScanOutcome =
+        ScanOutcome(
+            kind = ScanOutcomeKind.SUCCESS,
+            feedback = LibraryAccessFeedbackFacts.rescanCompleted(
+                message = FeedbackMessages.scanAlreadyUpToDate(),
+                context = FeedbackContext.Global
+            )
+        )
 
     /**
      * Failure Mapping (Classifies scan exceptions for Worker retry and user feedback)
@@ -116,10 +140,27 @@ object ScanOutcomePolicy {
         }
         return ScanOutcome(
             kind = kind,
-            message = message,
+            feedback = LibraryAccessFeedbackFacts.rescanFailed(message),
             cause = error
         )
     }
+
+    /**
+     * Skipped Roots Context (Keys rescan feedback to a single skipped root when one is identifiable)
+     *
+     * A lone skipped root keeps its stable, non-sensitive [FeedbackContext.LibraryRoot] identity; multiple
+     * skipped roots fall back to [FeedbackContext.Global] because the message reports only a count.
+     */
+    private fun skippedRootsContext(skippedRoots: List<LibraryRootAvailabilityUpdate>): FeedbackContext =
+        if (skippedRoots.size == 1) {
+            val root = skippedRoots.first().root
+            LibraryAccessFeedbackFacts.libraryRootContext(
+                rootId = root.id,
+                accessForm = LibraryAccessFeedbackFacts.accessFormOf(root.sourceType)
+            )
+        } else {
+            FeedbackContext.Global
+        }
 }
 
 /**

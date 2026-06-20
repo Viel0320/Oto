@@ -36,7 +36,7 @@ import com.viel.aplayer.di.dependencies.AbsSyncWorkerDependencies
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.AppShellEvent
 import com.viel.aplayer.event.feedback.FeedbackDeliveryResult
-import com.viel.aplayer.event.feedback.TransientFeedbackFact
+import com.viel.aplayer.event.feedback.FeedbackFact
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -436,9 +436,8 @@ class AbsSyncWorkerCancellationTest {
 
     private class FakeAppEventSink : AppEventSink {
         override val events: SharedFlow<AppShellEvent> = MutableSharedFlow()
-        override fun emitFeedback(fact: TransientFeedbackFact): FeedbackDeliveryResult =
+        override fun emitFeedback(fact: FeedbackFact): FeedbackDeliveryResult =
             FeedbackDeliveryResult.Delivered(fact)
-        override fun showTrackUnavailableDialog(bookId: String, queueIndex: Int): Boolean = false
     }
 
     private class FakeCatalogStore(

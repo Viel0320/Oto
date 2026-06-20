@@ -205,10 +205,12 @@ class PlaybackManager private constructor(context: Context) {
                         }
                         "EVENT_TRACK_UNAVAILABLE" -> {
                             // Damaged Track Intercept (Extract payload and publish a playback-domain recovery event)
-                            // The app-level bridge decides whether this domain event becomes a dialog, toast, or both.
+                            // The app-level bridge uses the feedback presentation to choose one renderer.
                             val bookId = args.getString("bookId") ?: ""
                             val queueIndex = args.getInt("queueIndex", -1)
-                            playbackEventSink.emit(PlaybackDomainEvent.TrackUnavailable(bookId, queueIndex))
+                            val bookTitle = args.getString("bookTitle")
+                                ?: currentPlan?.takeIf { it.bookId == bookId }?.title
+                            playbackEventSink.emit(PlaybackDomainEvent.TrackUnavailable(bookId, queueIndex, bookTitle))
                         }
                     }
                     return com.google.common.util.concurrent.Futures.immediateFuture(
@@ -281,7 +283,7 @@ class PlaybackManager private constructor(context: Context) {
             when (val preflight = playbackSourcePreflight.check(finalPlan, settings)) {
                 PlaybackSourcePreflightResult.Available -> Unit
                 PlaybackSourcePreflightResult.CleartextHttpBlocked -> {
-                    playbackEventSink.emit(PlaybackDomainEvent.CleartextPlaybackBlocked)
+                    playbackEventSink.emit(PlaybackDomainEvent.CleartextPlaybackBlocked(bookTitle = plan.title))
                     PlaybackWorkflowLogger.warn("playbackManager cleartext preflight blocked: bookId=${plan.bookId}")
                     return@launch
                 }
@@ -289,7 +291,8 @@ class PlaybackManager private constructor(context: Context) {
                     playbackEventSink.emit(
                         PlaybackDomainEvent.SourcePreflightBlocked(
                             reason = preflight.reason,
-                            rootName = preflight.rootName
+                            rootName = preflight.rootName,
+                            bookTitle = plan.title
                         )
                     )
                     PlaybackWorkflowLogger.warn("playbackManager source preflight blocked: bookId=${plan.bookId}, reason=${preflight.reason}")
@@ -640,7 +643,8 @@ class PlaybackManager private constructor(context: Context) {
                 PlaybackWorkflowLogger.warn("playbackManager no next available track: bookId=$bookId, queueIndex=$queueIndex")
                 // Failover Exhausted Event (Notify the app layer that recovery cannot continue)
                 // The media manager reports the domain outcome while UI rendering remains outside playback-core.
-                playbackEventSink.emit(PlaybackDomainEvent.NoAvailableTrackAfterFailure)
+                val bookTitle = currentPlan?.takeIf { it.bookId == bookId }?.title
+                playbackEventSink.emit(PlaybackDomainEvent.NoAvailableTrackAfterFailure(bookTitle))
             }
         }
     }

@@ -11,7 +11,7 @@ import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
 import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
 import com.viel.aplayer.event.AppEventSink
-import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.logger.AbsSettingsLogger
 import com.viel.aplayer.shared.settings.AppLanguage
@@ -215,12 +215,19 @@ class SettingsConnectionHandler(
                 )
             }.onSuccess {
                 _webDavConnectionState.value = WebDavConnectionUiState(isTesting = false, testSucceeded = true)
-                appEventSink.showToast(FeedbackMessages.settingsWebDavConnectionSucceeded())
+                appEventSink.emitFeedback(
+                    LibraryAccessFeedbackFacts.webDavConnectionSucceeded(draftId = editingRootId ?: NEW_DRAFT_ID)
+                )
             }.onFailure { error ->
                 // Title: Map WebDAV Connection Failure (Delegate parsing logic to FormatSettingsRootUseCase)
                 val friendlyMessage = formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
                 _webDavConnectionState.value = WebDavConnectionUiState(isTesting = false, testSucceeded = false, lastError = friendlyMessage)
-                appEventSink.showToast(FeedbackMessages.settingsWebDavConnectionFailed(friendlyMessage))
+                appEventSink.emitFeedback(
+                    LibraryAccessFeedbackFacts.webDavConnectionFailed(
+                        draftId = editingRootId ?: NEW_DRAFT_ID,
+                        friendlyMessage = friendlyMessage
+                    )
+                )
             }
         }
     }
@@ -285,7 +292,12 @@ class SettingsConnectionHandler(
             }.onSuccess { outcome ->
                 lastSuccessfulAbsConnection = outcome.snapshot
                 AbsSettingsLogger.logAddServerSuccess(baseUrl, username, libraryId, outcome.rootId)
-                appEventSink.showToast(FeedbackMessages.settingsAbsServerSaved(editing = editingRootId != null))
+                appEventSink.emitFeedback(
+                    LibraryAccessFeedbackFacts.absServerSaved(
+                        rootId = outcome.rootId,
+                        editing = editingRootId != null
+                    )
+                )
                 _absConnectionState.value = AbsConnectionUiState()
                 launchAutoAbsSync(outcome.rootId)
             }.onFailure { error ->
@@ -300,7 +312,7 @@ class SettingsConnectionHandler(
                     errorClass = error::class.java.simpleName,
                     message = redactedMessage
                 )
-                appEventSink.showToast(FeedbackMessages.settingsAbsServerSaveFailed(redactedMessage))
+                appEventSink.emitFeedback(LibraryAccessFeedbackFacts.absServerSaveFailed(redactedMessage))
             }
         }
     }
@@ -344,7 +356,12 @@ class SettingsConnectionHandler(
                     libraryCount = result.result.bookLibraries.size,
                     serverVersion = result.result.serverVersion
                 )
-                appEventSink.showToast(FeedbackMessages.settingsAbsConnectionSucceeded(result.result.bookLibraries.size))
+                appEventSink.emitFeedback(
+                    LibraryAccessFeedbackFacts.absConnectionSucceeded(
+                        draftId = editingRootId ?: NEW_DRAFT_ID,
+                        libraryCount = result.result.bookLibraries.size
+                    )
+                )
             }.onFailure { error ->
                 lastSuccessfulAbsConnection = null
                 // Title: Format ABS Test Connection Failure (Combine formatting and redacting via FormatSettingsRootUseCase)
@@ -365,7 +382,12 @@ class SettingsConnectionHandler(
                     errorClass = error::class.java.simpleName,
                     message = friendlyMessage
                 )
-                appEventSink.showToast(FeedbackMessages.settingsAbsConnectionFailed(friendlyMessage))
+                appEventSink.emitFeedback(
+                    LibraryAccessFeedbackFacts.absConnectionFailed(
+                        draftId = editingRootId ?: NEW_DRAFT_ID,
+                        friendlyMessage = friendlyMessage
+                    )
+                )
             }
         }
     }
@@ -380,10 +402,10 @@ class SettingsConnectionHandler(
         scope.launch {
             when (val inspection = settingsRootCommands.inspectManualAbsSync(rootId)) {
                 SettingsAbsSyncInspection.MissingRoot -> {
-                    appEventSink.showToast(FeedbackMessages.absBackgroundSyncRootMissing())
+                    appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncRootMissing())
                 }
                 is SettingsAbsSyncInspection.Blocked -> {
-                    appEventSink.showToast(FeedbackMessages.settingsRootUnavailableSyncBlocked(inspection.message))
+                    appEventSink.emitFeedback(inspection.fact)
                 }
                 is SettingsAbsSyncInspection.Ready -> {
                     val start = AbsSettingsLogger.mark()
@@ -396,9 +418,9 @@ class SettingsConnectionHandler(
                     val scheduled = settingsRootCommands.startManualAbsSync(inspection.rootId)
                     if (scheduled) {
                         AbsSettingsLogger.logManualSyncFinished(rootId = inspection.rootId, costMs = AbsSettingsLogger.elapsedMs(start))
-                        appEventSink.showToast(FeedbackMessages.settingsAbsSyncStarted())
+                        appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncStarted(inspection.rootId))
                     } else {
-                        appEventSink.showToast(FeedbackMessages.settingsAbsSyncAlreadyRunning())
+                        appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncAlreadyRunning(inspection.rootId))
                     }
                 }
             }
@@ -414,7 +436,14 @@ class SettingsConnectionHandler(
     private fun launchAutoAbsSync(rootId: String) {
         val scheduled = settingsRootCommands.startAutoAbsSync(rootId)
         if (!scheduled) {
-            appEventSink.showToast(FeedbackMessages.settingsAbsSyncAlreadyRunning())
+            appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncAlreadyRunning(rootId))
         }
+    }
+
+    private companion object {
+        // Draft Library Access Id (Stable identity for an unsaved connection being tested)
+        // Editing an existing root reuses its id; a brand-new configuration shares one draft slot so its
+        // own retries aggregate without colliding with a saved root's identity.
+        private const val NEW_DRAFT_ID = "new"
     }
 }

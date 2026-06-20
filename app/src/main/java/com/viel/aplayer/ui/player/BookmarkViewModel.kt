@@ -5,7 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.application.library.player.PlayerBookmarkItem
-import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.event.feedback.BookManagementFeedbackFacts
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -77,7 +77,8 @@ class BookmarkViewModel(
     fun saveBookmarkFromDialog(bookId: String, position: Long, title: String) {
         addBookmark(bookId, position, title.ifBlank { defaultBookmarkTitle() })
         dismissBookmarkDialogs()
-        appEventSink.showToast(FeedbackMessages.playbackBookmarkCreated())
+        // Bookmark feedback is keyed by book so it converges with the media-session BookmarkCreated path.
+        appEventSink.emitFeedback(BookManagementFeedbackFacts.bookmarkCreated(bookId))
     }
 
     private fun defaultBookmarkTitle(): String {

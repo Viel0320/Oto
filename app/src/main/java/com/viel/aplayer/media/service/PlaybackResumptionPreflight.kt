@@ -25,14 +25,15 @@ internal class PlaybackResumptionPreflight(
         when (val result = playbackSourcePreflight.check(plan, settings)) {
             PlaybackSourcePreflightResult.Available -> Unit
             PlaybackSourcePreflightResult.CleartextHttpBlocked -> {
-                playbackEventSink.emit(PlaybackDomainEvent.CleartextPlaybackBlocked)
+                playbackEventSink.emit(PlaybackDomainEvent.CleartextPlaybackBlocked(bookTitle = plan.title))
                 throw UnsupportedOperationException("Playback resumption blocked by cleartext policy")
             }
             is PlaybackSourcePreflightResult.Blocked -> {
                 playbackEventSink.emit(
                     PlaybackDomainEvent.SourcePreflightBlocked(
                         reason = result.reason,
-                        rootName = result.rootName
+                        rootName = result.rootName,
+                        bookTitle = plan.title
                     )
                 )
                 throw UnsupportedOperationException("Playback resumption blocked by source preflight")

@@ -7,6 +7,7 @@ import com.viel.aplayer.application.usecase.LibraryRootSettingsSnapshot
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.root.LibraryRootGateway
 import com.viel.aplayer.data.scan.ScanScheduler
+import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
 import com.viel.aplayer.library.availability.isSyncAvailable
 import kotlinx.coroutines.flow.Flow
@@ -64,7 +65,12 @@ class DefaultSettingsRootModule(
         if (!preflight.isSyncAvailable) {
             // Manual ABS Sync Availability Guard (Block plan inspection when the selected root is unreachable)
             // Plan inspection calls the remote Audiobookshelf server, so the refreshed root status must pass before any catalog request leaves the app.
-            return SettingsAbsSyncInspection.Blocked(buildRootUnavailableSyncMessage(preflight))
+            return SettingsAbsSyncInspection.Blocked(
+                LibraryAccessFeedbackFacts.syncBlocked(
+                    rootId = preflight.root.id,
+                    detailMessage = buildRootUnavailableSyncMessage(preflight)
+                )
+            )
         }
         val root = preflight.root
         // Manual ABS Sync Plan Projection (Convert ABS plan details into settings-scoped confirmation data)

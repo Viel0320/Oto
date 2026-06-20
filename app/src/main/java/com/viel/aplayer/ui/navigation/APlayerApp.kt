@@ -14,7 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -25,6 +27,7 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.savedstate.compose.LocalSavedStateRegistryOwner
 import com.viel.aplayer.application.library.home.toDetailBookItem
+import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.shared.settings.ThemeMode
@@ -39,7 +42,7 @@ import com.viel.aplayer.ui.edit.EditBookRoute
 import com.viel.aplayer.ui.edit.EditBookViewModel
 import com.viel.aplayer.ui.home.LibraryViewModel
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
-import com.viel.aplayer.ui.navigation.shell.DefaultAppFeedbackRenderer
+import com.viel.aplayer.ui.navigation.shell.DefaultAppFeedbackRenderRouter
 import com.viel.aplayer.ui.navigation.shell.dispatch
 import com.viel.aplayer.ui.player.BookmarkViewModel
 import com.viel.aplayer.ui.player.PlaybackViewModel
@@ -104,9 +107,12 @@ fun APlayerApp(
     val appEventSink = remember(appShellDependencies) {
         appShellDependencies.appEventSink
     }
-    val appFeedbackRenderer = remember {
-        DefaultAppFeedbackRenderer
+    val appFeedbackRenderRouter = remember {
+        DefaultAppFeedbackRenderRouter
     }
+    // TODO: Replace this single dialog slot with an identity-aware queue or merge policy before adding
+    // more strong-interaction feedback sources that can arrive while another dialog is still visible.
+    var feedbackDialogMessage by remember { mutableStateOf<FeedbackMessage?>(null) }
     // Async Settings Load (Use collectAsStateWithLifecycle to load AppSettings, seeding it with the pre-cached value)
     // Avoids running a blocking runBlocking read on the main thread during cold start, preventing thread lock/ANR.
     val initialSettings by settingsReadModel.settingsFlow.collectAsStateWithLifecycle(
@@ -373,15 +379,16 @@ fun APlayerApp(
             }
         }
 
-        // App Event Collection (Single app-shell renderer for transient feedback)
+        // App Event Collection (Single app-shell render router for feedback facts)
         // Consumes process-wide AppShellEvent values so Home, Settings, scan, ABS sync, and playback no longer expose parallel event streams.
-        // Localized Feedback Dispatch (Resolve transient feedback through the same context used by Compose)
+        // Localized Feedback Dispatch (Resolve feedback messages through the same context used by Compose)
         // Toast resources follow the in-app language on Android 12L because the renderer now receives the localized configuration context instead of the Activity base context.
-        LaunchedEffect(appEventSink, appFeedbackRenderer, playbackViewModel, localizedContext) {
+        LaunchedEffect(appEventSink, appFeedbackRenderRouter, playbackViewModel, localizedContext) {
             appEventSink.events.collect { event ->
-                appFeedbackRenderer.render(event).dispatch(
+                appFeedbackRenderRouter.route(event).dispatch(
                     context = localizedContext,
-                    onTrackUnavailableDialog = playbackViewModel::showTrackUnavailableDialog
+                    onTrackUnavailableDialog = playbackViewModel::showTrackUnavailableDialog,
+                    onGenericDialog = { message -> feedbackDialogMessage = message }
                 )
             }
         }
@@ -757,8 +764,8 @@ fun APlayerApp(
                     onLaunchSafRootPicker = { homeAddLibraryRootLauncher.launch(null) }
                 )
 
-                // Track Unavailable Confirm Dialog (Avoid Interruptions)
-                // Secondary confirmation dialog for track unavailability, shown only when the full-screen player is expanded (isFullPlayerVisible) to prevent interrupting user interaction on other screens.
+                // Track Unavailable Confirm Dialog (App-Level Mount)
+                // Playback-service recovery feedback is rendered at the app shell so it remains visible from mini-player, background-resume, and non-player routes.
                 val trackUnavailableState by playbackViewModel.trackUnavailableDialogState.collectAsStateWithLifecycle()
                 // ABS Progress Conflict Dialog State (Surface server-vs-device resume choices at the app shell)
                 // The dialog remains hosted near other one-shot player dialogs while all conflict resolution commands stay inside PlayerViewModel.
@@ -766,9 +773,10 @@ fun APlayerApp(
                 APlayerAppDialogHost(
                     hazeState = hazeState,
                     glassEffectMode = activeGlassEffectMode,
-                    isFullPlayerVisible = playerSettings.isFullPlayerVisible,
+                    feedbackDialogMessage = feedbackDialogMessage,
                     absProgressConflictState = absProgressConflictState,
                     trackUnavailableState = trackUnavailableState,
+                    onDismissFeedbackDialog = { feedbackDialogMessage = null },
                     onDismissAbsProgressConflict = { playbackViewModel.dismissAbsProgressConflictDialog() },
                     onAcceptRemoteAbsProgressConflict = { playbackViewModel.acceptRemoteAbsProgressConflict() },
                     onAcceptLocalAbsProgressConflict = { playbackViewModel.acceptLocalAbsProgressConflict() },

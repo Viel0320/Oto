@@ -152,18 +152,18 @@ class ScanSchedulerImpl(
                 )
             }
             ScanOutcomeKind.BLOCKED ->
-                ScanWorkflowLogger.warn("scanService blocked: trigger=$trigger, message=${outcome.message?.mergeKey}")
+                ScanWorkflowLogger.warn("scanService blocked: trigger=$trigger, feedback=${outcome.feedback?.outcome?.identity?.topic}")
             ScanOutcomeKind.RETRY ->
-                ScanWorkflowLogger.warn("scanService retry: trigger=$trigger, message=${outcome.message?.mergeKey}", outcome.cause)
+                ScanWorkflowLogger.warn("scanService retry: trigger=$trigger, feedback=${outcome.feedback?.outcome?.identity?.topic}", outcome.cause)
             ScanOutcomeKind.FAILED ->
-                ScanWorkflowLogger.error("scanService failed: trigger=$trigger, message=${outcome.message?.mergeKey}", outcome.cause)
+                ScanWorkflowLogger.error("scanService failed: trigger=$trigger, feedback=${outcome.feedback?.outcome?.identity?.topic}", outcome.cause)
         }
     }
 
     private fun emitScanOutcomeFeedback(outcome: ScanOutcome) {
-        // Outcome Feedback Emission (Publishes the policy-selected user message once per scan command)
-        // Both manual scans and WorkManager-triggered scans now use the same outcome text instead of separate service/worker mappings.
-        outcome.message?.let { message -> appEventSink.showToast(message) }
+        // Outcome Feedback Emission (Publishes the policy-selected feedback fact once per scan command)
+        // Both manual scans and WorkManager-triggered scans now use the same outcome fact instead of separate service/worker mappings.
+        outcome.feedback?.let { feedback -> appEventSink.emitFeedback(feedback) }
     }
 
     override fun close() {

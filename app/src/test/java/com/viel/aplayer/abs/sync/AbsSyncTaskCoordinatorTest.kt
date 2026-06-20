@@ -19,9 +19,14 @@ import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.AppShellEvent
+import com.viel.aplayer.event.feedback.FeedbackCategory
+import com.viel.aplayer.event.feedback.FeedbackContext
 import com.viel.aplayer.event.feedback.FeedbackDeliveryResult
 import com.viel.aplayer.event.feedback.FeedbackMessage
-import com.viel.aplayer.event.feedback.TransientFeedbackFact
+import com.viel.aplayer.event.feedback.FeedbackSeverity
+import com.viel.aplayer.event.feedback.FeedbackTopic
+import com.viel.aplayer.event.feedback.LibraryAccessForm
+import com.viel.aplayer.event.feedback.FeedbackFact
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -118,12 +123,23 @@ class AbsSyncTaskCoordinatorTest {
             assertEquals(AbsSyncTaskOrigin.AUTO_ADD, result.origin)
             assertEquals("Remote failed with Bearer <redacted>", result.errorMessage)
 
-            val toast = appEventSink.feedbackFacts.single().message
+            val fact = appEventSink.feedbackFacts.single()
+            val toast = fact.message
             assertTrue(toast is FeedbackMessage.Resource)
             assertEquals(
                 listOf("Remote failed with Bearer <redacted>"),
                 (toast as FeedbackMessage.Resource).args
             )
+            // Background ABS sync failure must classify as a library-access sync outcome keyed to the
+            // specific root so it never absorbs another root's sync feedback.
+            val identity = fact.outcome.identity
+            assertEquals(FeedbackCategory.LIBRARY_ACCESS, identity.category)
+            assertEquals(FeedbackTopic.LibrarySync, identity.topic)
+            assertEquals(
+                FeedbackContext.LibraryRoot(ROOT_ID, LibraryAccessForm.AUDIOBOOKSHELF),
+                identity.context
+            )
+            assertEquals(FeedbackSeverity.FAILED, fact.outcome.severity)
         } finally {
             // Failure Test Cleanup (Cancels both producer and consumer scopes after assertions complete)
             // This keeps later tests isolated from the coordinator's application-style background scope.
@@ -336,16 +352,14 @@ class AbsSyncTaskCoordinatorTest {
     private class RecordingAppEventSink : AppEventSink {
         private val _events = MutableSharedFlow<AppShellEvent>()
         override val events: SharedFlow<AppShellEvent> = _events
-        val feedbackFacts = CopyOnWriteArrayList<TransientFeedbackFact>()
+        val feedbackFacts = CopyOnWriteArrayList<FeedbackFact>()
 
-        override fun emitFeedback(fact: TransientFeedbackFact): FeedbackDeliveryResult {
+        override fun emitFeedback(fact: FeedbackFact): FeedbackDeliveryResult {
             // Feedback Recording Fixture (Captures coordinator toast requests without Android rendering)
             // The test asserts message facts directly so localization and shell collectors stay out of scope.
             feedbackFacts += fact
             return FeedbackDeliveryResult.Delivered(fact)
         }
-
-        override fun showTrackUnavailableDialog(bookId: String, queueIndex: Int): Boolean = false
     }
 
     private class FakeCatalogStore : AbsCatalogStore {

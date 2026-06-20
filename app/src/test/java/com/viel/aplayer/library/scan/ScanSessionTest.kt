@@ -18,7 +18,7 @@ import java.io.IOException
 class ScanSessionTest {
 
     @Test
-    fun `blocked command should not start import when no directory root is available`() = runBlocking {
+    fun `blocked command should not start import when no scan-capable library is available`() = runBlocking {
         val importCalls = mutableListOf<Set<String>>()
         val session = scanSession(
             roots = listOf(
@@ -46,6 +46,68 @@ class ScanSessionTest {
         assertEquals(ScanOutcomeKind.BLOCKED, outcome.kind)
         assertNull(outcome.session)
         assertTrue(importCalls.isEmpty())
+        val message = outcome.feedback!!.message as FeedbackMessage.Resource
+        assertEquals(R.string.feedback_sync_root_unavailable_timeout, message.resId)
+    }
+
+    @Test
+    fun `blocked command reports no available library only after all access forms fail`() = runBlocking {
+        val importCalls = mutableListOf<Set<String>>()
+        val session = scanSession(
+            roots = listOf(
+                rootUpdate(
+                    id = "saf-1",
+                    sourceType = AudiobookSchema.LibrarySourceType.SAF,
+                    availabilityStatus = AudiobookSchema.AvailabilityStatus.REVOKED
+                ),
+                rootUpdate(
+                    id = "webdav-1",
+                    sourceType = AudiobookSchema.LibrarySourceType.WEBDAV,
+                    availabilityStatus = AudiobookSchema.AvailabilityStatus.TIMEOUT
+                ),
+                rootUpdate(
+                    id = "abs-1",
+                    sourceType = AudiobookSchema.LibrarySourceType.ABS,
+                    availabilityStatus = AudiobookSchema.AvailabilityStatus.AUTH_FAILED
+                )
+            ),
+            importBlock = { _, allowedRootIds ->
+                importCalls += allowedRootIds
+                scanEntity()
+            }
+        )
+
+        val outcome = session.execute(ScanCommand(AudiobookSchema.ScanTrigger.USER))
+
+        assertEquals(ScanOutcomeKind.BLOCKED, outcome.kind)
+        assertTrue(importCalls.isEmpty())
+        val message = outcome.feedback!!.message as FeedbackMessage.Resource
+        assertEquals(R.string.feedback_scan_blocked_no_available_libraries, message.resId)
+    }
+
+    @Test
+    fun `available abs root prevents no-library feedback when directory importer has no work`() = runBlocking {
+        val importCalls = mutableListOf<Set<String>>()
+        val session = scanSession(
+            roots = listOf(
+                rootUpdate(
+                    id = "abs-1",
+                    sourceType = AudiobookSchema.LibrarySourceType.ABS,
+                    availabilityStatus = AudiobookSchema.AvailabilityStatus.AVAILABLE
+                )
+            ),
+            importBlock = { _, allowedRootIds ->
+                importCalls += allowedRootIds
+                scanEntity()
+            }
+        )
+
+        val outcome = session.execute(ScanCommand(AudiobookSchema.ScanTrigger.USER))
+
+        assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
+        assertTrue(importCalls.isEmpty())
+        val message = outcome.feedback!!.message as FeedbackMessage.Resource
+        assertEquals(R.string.feedback_scan_already_up_to_date, message.resId)
     }
 
     @Test
@@ -81,8 +143,9 @@ class ScanSessionTest {
 
         val outcome = session.execute(ScanCommand(AudiobookSchema.ScanTrigger.COLD_START))
 
-        // Root Eligibility State (Separates directory scan roots from ABS catalog roots)
-        // Only available SAF/WebDAV roots should reach ScanSessionRunner, while skipped directory roots remain in the outcome policy.
+        // Root Eligibility State (Separates importer roots from global availability feedback)
+        // Only available SAF/WebDAV roots should reach ScanSessionRunner, while unavailable roots from
+        // any access form remain in the outcome policy.
         assertEquals(RescanType.COLD_START_LIGHT, capturedType)
         assertEquals(setOf("saf-1"), capturedRoots)
         assertEquals(ScanOutcomeKind.PARTIAL, outcome.kind)
@@ -108,7 +171,7 @@ class ScanSessionTest {
         // Library Snapshot Adapter (Keeps post-import catalog reads outside command state)
         // ScanSession asks for only the empty-library fact required by ScanOutcomePolicy.
         assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
-        val message = outcome.message as FeedbackMessage.Resource
+        val message = outcome.feedback!!.message as FeedbackMessage.Resource
         assertEquals(R.string.feedback_scan_library_empty, message.resId)
     }
 
@@ -160,7 +223,7 @@ class ScanSessionTest {
         // Infrastructure IO failures become retry outcomes before Worker or foreground adapters see them.
         assertEquals(ScanOutcomeKind.RETRY, outcome.kind)
         assertTrue(outcome.cause is IOException)
-        val message = outcome.message as FeedbackMessage.Resource
+        val message = outcome.feedback!!.message as FeedbackMessage.Resource
         assertEquals(R.string.feedback_scan_retry_later, message.resId)
     }
 

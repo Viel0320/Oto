@@ -2,8 +2,8 @@ package com.viel.aplayer.ui.settings
 
 import android.content.Context
 import com.viel.aplayer.application.playback.PlayerPlaybackController
-import com.viel.aplayer.event.feedback.FeedbackMessage
-import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.event.feedback.FeedbackFact
+import com.viel.aplayer.event.feedback.PlaybackControlFeedbackFacts
 import com.viel.aplayer.logger.SecureLog
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlaybackState
@@ -34,9 +34,9 @@ class SleepTimerManager(
     private val isSleepFadeOutEnabled: () -> Boolean,
     private val isShakeToResetEnabled: () -> Boolean,
     private val sleepMode: () -> com.viel.aplayer.shared.settings.SleepMode,
-    // Application Feedback Callback (Reports timer tips without routing through playback-core events)
-    // The timer engine still controls playback volume and pause, but user messages go through the app-level sink.
-    private val onShowToast: (FeedbackMessage) -> Unit,
+    // Application Feedback Callback (Reports timer outcomes without routing through playback-core events)
+    // The timer engine still controls playback volume and pause, but user feedback goes through the app-level sink.
+    private val onFeedback: (FeedbackFact) -> Unit,
     private val selectedSleepTimer: () -> Int,
     // Timer Event Callbacks (Notify outer UI state coordinator)
     private val onTimerReset: () -> Unit,
@@ -121,7 +121,7 @@ class SleepTimerManager(
                         // Movement Toast Notification (Alert listener on movement detection)
                         if (!isDeviceMoving) {
                             if (sleepMode() == com.viel.aplayer.shared.settings.SleepMode.MotionTracking) {
-                                showToast(FeedbackMessages.sleepMotionTrackingPaused())
+                                emitFeedback(PlaybackControlFeedbackFacts.sleepMotionTrackingPaused())
                             }
                         }
                         isDeviceMoving = true
@@ -132,7 +132,7 @@ class SleepTimerManager(
                         // Sleep Mode Reset (Reset sleep state on movement)
                         if (sleepMode() == com.viel.aplayer.shared.settings.SleepMode.SleepTracking && hasUserFallenAsleep) {
                             hasUserFallenAsleep = false
-                            showToast(FeedbackMessages.sleepTrackingPausedByActivity())
+                            emitFeedback(PlaybackControlFeedbackFacts.sleepTrackingPausedByActivity())
                         }
                     } else {
                         // Cooldown Stabilization Period (Prevent premature static states)
@@ -142,7 +142,7 @@ class SleepTimerManager(
                                 // Static Toast Notification (Alert listener on static state recovery)
                                 if (isDeviceMoving) {
                                     if (sleepMode() == com.viel.aplayer.shared.settings.SleepMode.MotionTracking) {
-                                        showToast(FeedbackMessages.sleepMotionTrackingResumed())
+                                        emitFeedback(PlaybackControlFeedbackFacts.sleepMotionTrackingResumed())
                                     }
                                 }
                                 isDeviceMoving = false
@@ -196,11 +196,11 @@ class SleepTimerManager(
         }
     }
 
-    // Timer Feedback Dispatch (Decouple toast UI actions via the app event sink callback)
-    // Sends lightweight timer messages through PlayerViewModel so playback-core classes remain event-free.
-    private fun showToast(message: FeedbackMessage) {
+    // Timer Feedback Dispatch (Decouple feedback from playback-core via the app event sink callback)
+    // Sends typed timer facts through PlayerViewModel so playback-core classes remain event-free.
+    private fun emitFeedback(fact: FeedbackFact) {
         scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-            onShowToast(message)
+            onFeedback(fact)
         }
     }
 
@@ -228,22 +228,22 @@ class SleepTimerManager(
                 // Execute Chapter Skip (Apply shake reset to subsequent boundary)
                 triggerVibration()
                 skippedChapterStartMs = currentChapter.startPositionMs
-                showToast(FeedbackMessages.sleepShakeExtendedToNextChapter())
+                emitFeedback(PlaybackControlFeedbackFacts.sleepShakeExtendedToNextChapter())
                 setSleepTimer(-2, currentPlayback, currentMetadata, isShakeReset = true)
             } else {
                 // Fallback Terminal Boundary (Maintain standard pause at final track end)
                 triggerVibration()
-                showToast(FeedbackMessages.sleepShakeNoNextChapter())
+                emitFeedback(PlaybackControlFeedbackFacts.sleepShakeNoNextChapter())
             }
         } else if (currentSelected > 0) {
             // Regular Minute Mode (Reset countdown duration to initial configured length)
             triggerVibration()
-            showToast(FeedbackMessages.sleepShakeCountdownReset())
+            emitFeedback(PlaybackControlFeedbackFacts.sleepShakeCountdownReset())
             setSleepTimer(currentSelected, currentPlayback, currentMetadata, isShakeReset = true)
         } else if (currentSelected == -1) {
             // Diagnostics Test Mode (Reset debugging 5-second countdown)
             triggerVibration()
-            showToast(FeedbackMessages.sleepShakeTestCountdownReset())
+            emitFeedback(PlaybackControlFeedbackFacts.sleepShakeTestCountdownReset())
             setSleepTimer(currentSelected, currentPlayback, currentMetadata, isShakeReset = true)
         }
     }
@@ -458,7 +458,7 @@ class SleepTimerManager(
                                             // Static Duration Threshold: Accumulate 10 minutes of static frames to confirm sleep state.
                                             if (timeInStaticMs >= 600000L) {
                                                 hasUserFallenAsleep = true
-                                                showToast(FeedbackMessages.sleepTrackingCountdownStarted())
+                                                emitFeedback(PlaybackControlFeedbackFacts.sleepTrackingCountdownStarted())
                                             }
                                         } else {
                                             timeInStaticMs = 0L

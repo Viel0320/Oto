@@ -77,6 +77,7 @@
     <string name="feedback_playback_cleartext_blocked">La sécurité a bloqué la lecture HTTP non chiffrée. Activez-la d’abord dans les paramètres.</string>
     <string name="feedback_playback_initial_media_load_failed">Échec du chargement de la source média : %1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">Aucune piste audio lisible suivante n’a été trouvée. Lecture arrêtée.</string>
+    <string name="feedback_playback_stopped_scope">\nLecture arrêtée : %1$s</string>
     <plurals name="feedback_playback_finished_shutdown_scheduled">
         <item quantity="one">Lecture terminée. Arrêt dans %1$d seconde.</item>
         <item quantity="other">Lecture terminée. Arrêt dans %1$d secondes.</item>
@@ -177,7 +178,7 @@
         <item quantity="one">, dont %1$d importé partiellement</item>
         <item quantity="other">, dont %1$d importés partiellement</item>
     </plurals>
-    <string name="feedback_scan_blocked_no_directory_roots">Aucune racine locale ou WebDAV disponible pour la synchronisation</string>
+    <string name="feedback_scan_blocked_no_available_libraries">Aucune bibliothèque disponible pour la synchronisation</string>
     <string name="feedback_scan_retry_later">La synchronisation a échoué temporairement et réessaiera plus tard</string>
     <string name="feedback_scan_failed">Synchronisation de la médiathèque échouée : %1$s</string>
     <string name="feedback_sleep_motion_tracking_paused">Le suivi de mouvement a détecté un mouvement. Le minuteur de sommeil reste en pause une minute.</string>

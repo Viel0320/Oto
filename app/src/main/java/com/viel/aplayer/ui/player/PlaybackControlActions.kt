@@ -1,7 +1,5 @@
 package com.viel.aplayer.ui.player
 
-import com.viel.aplayer.event.feedback.FeedbackMessage
-
 data class PlaybackControlActions(
     val onPlayPauseClick: () -> Unit = {},
     val onSkipForward: () -> Unit = {},
@@ -15,10 +13,10 @@ data class PlaybackControlActions(
     val onNextChapter: () -> Unit = {},
     val onPreviousChapter: () -> Unit = {},
     /**
-     * Resource Feedback Callback (Dispatches player-control tips through localized message keys)
+     * Missing Chapter Intent (Reports a tapped chapter whose backing file is gone)
      *
-     * Player controls produce feedback facts instead of raw copy so Toast rendering and localization stay
-     * centralized in the app shell.
+     * Leaf chapter rows raise this intent with the book id; the command owner publishes the recovery
+     * feedback fact, keeping feedback classification out of the composable.
      */
-    val onShowToast: (FeedbackMessage) -> Unit = {},
+    val onMissingChapterClick: (bookId: String) -> Unit = {},
 )

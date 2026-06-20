@@ -76,6 +76,7 @@
     <string name="feedback_playback_cleartext_blocked">Klartext-HTTP-Wiedergabe wurde aus Sicherheitsgründen blockiert. Aktivieren Sie sie zuerst in den Einstellungen.</string>
     <string name="feedback_playback_initial_media_load_failed">Medienquelle konnte nicht geladen werden: %1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">Kein weiterer abspielbarer Audiotitel gefunden. Wiedergabe gestoppt.</string>
+    <string name="feedback_playback_stopped_scope">\nWiedergabe gestoppt: %1$s</string>
     <plurals name="feedback_playback_finished_shutdown_scheduled">
         <item quantity="one">Wiedergabe beendet. Herunterfahren in %1$d Sekunde.</item>
         <item quantity="other">Wiedergabe beendet. Herunterfahren in %1$d Sekunden.</item>
@@ -176,7 +177,7 @@
         <item quantity="one">, davon %1$d teilweise importiert</item>
         <item quantity="other">, davon %1$d teilweise importiert</item>
     </plurals>
-    <string name="feedback_scan_blocked_no_directory_roots">Keine lokalen oder WebDAV-Bibliothekswurzeln für die Synchronisierung verfügbar</string>
+    <string name="feedback_scan_blocked_no_available_libraries">Keine Bibliothek für die Synchronisierung verfügbar</string>
     <string name="feedback_scan_retry_later">Synchronisierung vorübergehend fehlgeschlagen und wird später erneut versucht</string>
     <string name="feedback_scan_failed">Synchronisierung der Medienbibliothek fehlgeschlagen: %1$s</string>
     <string name="feedback_sleep_motion_tracking_paused">Bewegung erkannt. Der Sleeptimer bleibt eine Minute pausiert.</string>

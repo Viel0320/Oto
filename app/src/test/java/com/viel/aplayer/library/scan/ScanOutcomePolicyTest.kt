@@ -4,7 +4,12 @@ import com.viel.aplayer.R
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
+import com.viel.aplayer.event.feedback.FeedbackCategory
+import com.viel.aplayer.event.feedback.FeedbackContext
 import com.viel.aplayer.event.feedback.FeedbackMessage
+import com.viel.aplayer.event.feedback.FeedbackSeverity
+import com.viel.aplayer.event.feedback.FeedbackTopic
+import com.viel.aplayer.event.feedback.LibraryAccessForm
 import com.viel.aplayer.library.availability.AvailabilityResult
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import org.junit.Assert.assertEquals
@@ -28,10 +33,16 @@ class ScanOutcomePolicyTest {
         // Both manual scans and WorkManager observe this same success category and user-facing message.
         assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
         assertEquals(session, outcome.session)
-        val message = outcome.message as FeedbackMessage.Quantity
+        val feedback = outcome.feedback!!
+        val message = feedback.message as FeedbackMessage.Quantity
         assertEquals(R.plurals.feedback_scan_completed_with_discovered_books, message.resId)
         assertEquals(2, message.quantity)
         assertEquals(listOf(2), message.args)
+        // A clean scan with no skipped roots stays a global library-access rescan outcome.
+        val identity = feedback.outcome.identity
+        assertEquals(FeedbackCategory.LIBRARY_ACCESS, identity.category)
+        assertEquals(FeedbackTopic.Rescan, identity.topic)
+        assertEquals(FeedbackContext.Global, identity.context)
     }
 
     @Test
@@ -56,7 +67,8 @@ class ScanOutcomePolicyTest {
         // Partial Scan Outcome (Preserves soft failures inside one command result)
         // The policy keeps partial imports and skipped roots together so callers avoid emitting competing scan messages.
         assertEquals(ScanOutcomeKind.PARTIAL, outcome.kind)
-        val message = outcome.message as FeedbackMessage.Composite
+        val feedback = outcome.feedback!!
+        val message = feedback.message as FeedbackMessage.Composite
         assertTrue(message.parts.any { part ->
             part is FeedbackMessage.Quantity &&
                 part.resId == R.plurals.feedback_scan_suffix_updated &&
@@ -76,6 +88,12 @@ class ScanOutcomePolicyTest {
                 part.resId == R.string.feedback_sync_root_unavailable_timeout &&
                 part.args == listOf("Remote Shelf")
         })
+        // Single Skipped Root Identity (One skipped root keys feedback to that stable, non-sensitive root)
+        // The display name stays a render argument while the rootId and access form form the identity.
+        val identity = feedback.outcome.identity
+        assertEquals(FeedbackCategory.LIBRARY_ACCESS, identity.category)
+        assertEquals(FeedbackTopic.Rescan, identity.topic)
+        assertEquals(FeedbackContext.LibraryRoot("root-1", LibraryAccessForm.WEBDAV), identity.context)
     }
 
     @Test
@@ -95,15 +113,37 @@ class ScanOutcomePolicyTest {
     }
 
     @Test
-    fun `blocked scan without reachable roots maps to blocked outcome without session`() {
-        val outcome = ScanOutcomePolicy.blocked(emptyList())
+    fun `blocked scan without any available library maps to neutral no-library feedback`() {
+        val outcome = ScanOutcomePolicy.blocked(
+            unavailableRoots = emptyList(),
+            hasAvailableLibrary = false
+        )
 
         // Blocked Scan Outcome (Represents a valid no-work command instead of a runner failure)
-        // No ScanSessionEntity exists because the runner should not start when no directory root is available.
+        // No ScanSessionEntity exists because the runner should not start when no usable library is available.
         assertEquals(ScanOutcomeKind.BLOCKED, outcome.kind)
         assertNull(outcome.session)
-        val message = outcome.message as FeedbackMessage.Resource
-        assertEquals(R.string.feedback_scan_blocked_no_directory_roots, message.resId)
+        val feedback = outcome.feedback!!
+        val message = feedback.message as FeedbackMessage.Resource
+        assertEquals(R.string.feedback_scan_blocked_no_available_libraries, message.resId)
+        // Blocked rescan stays a library-access rescan outcome; no skipped root means a global context.
+        val identity = feedback.outcome.identity
+        assertEquals(FeedbackCategory.LIBRARY_ACCESS, identity.category)
+        assertEquals(FeedbackTopic.Rescan, identity.topic)
+        assertEquals(FeedbackContext.Global, identity.context)
+        assertEquals(FeedbackSeverity.BLOCKED, feedback.outcome.severity)
+    }
+
+    @Test
+    fun `scan with available non-scanned library reports successful no-work result`() {
+        val outcome = ScanOutcomePolicy.noScanWorkRequired()
+
+        assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
+        val feedback = outcome.feedback!!
+        val message = feedback.message as FeedbackMessage.Resource
+        assertEquals(R.string.feedback_scan_already_up_to_date, message.resId)
+        assertEquals(FeedbackContext.Global, feedback.outcome.identity.context)
+        assertEquals(FeedbackSeverity.COMPLETED, feedback.outcome.severity)
     }
 
     @Test
@@ -115,8 +155,8 @@ class ScanOutcomePolicyTest {
         // WorkManager adapters can use these categories without duplicating exception mapping logic.
         assertEquals(ScanOutcomeKind.RETRY, retry.kind)
         assertEquals(ScanOutcomeKind.FAILED, failed.kind)
-        val retryMessage = retry.message as FeedbackMessage.Resource
-        val failedMessage = failed.message as FeedbackMessage.Resource
+        val retryMessage = retry.feedback!!.message as FeedbackMessage.Resource
+        val failedMessage = failed.feedback!!.message as FeedbackMessage.Resource
         assertEquals(R.string.feedback_scan_retry_later, retryMessage.resId)
         assertEquals(R.string.feedback_scan_failed, failedMessage.resId)
         assertEquals(listOf("bad state"), failedMessage.args)

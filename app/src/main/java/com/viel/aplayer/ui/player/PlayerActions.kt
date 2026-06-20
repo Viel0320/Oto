@@ -78,7 +78,7 @@ fun rememberActions(
                 },
                 onNextChapter = { playbackViewModel.skipToNextChapter() },
                 onPreviousChapter = { playbackViewModel.skipToPreviousChapter() },
-                onShowToast = { msg -> playbackViewModel.showToast(msg) }
+                onMissingChapterClick = { bookId -> playbackViewModel.reportMissingChapterFile(bookId) }
             ),
             bookmarks = BookmarkActions(
                 onDelete = { bookmark -> bookmarkViewModel.deleteBookmark(bookmark) },

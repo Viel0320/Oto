@@ -8,7 +8,7 @@ import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryItem
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryResult
-import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.event.feedback.RecoveryFeedbackFacts
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -108,10 +108,10 @@ class DeletedBookRecoveryViewModel(application: Application) : AndroidViewModel(
     private fun handleRecoveryResult(bookId: String, result: DeletedBookRecoveryResult) {
         when (result) {
             DeletedBookRecoveryResult.RestoredReady -> {
-                appEventSink.showToast(FeedbackMessages.deletedBookRecoveryRestoredReady())
+                appEventSink.emitFeedback(RecoveryFeedbackFacts.deletedBookRecoveryRestoredReady(bookId))
             }
             DeletedBookRecoveryResult.RestoredPartial -> {
-                appEventSink.showToast(FeedbackMessages.deletedBookRecoveryRestoredPartial())
+                appEventSink.emitFeedback(RecoveryFeedbackFacts.deletedBookRecoveryRestoredPartial(bookId))
             }
             is DeletedBookRecoveryResult.PartialFilesUnavailable -> {
                 dialogState.value = DeletedBookRecoveryDialogState.PartialConfirmation(

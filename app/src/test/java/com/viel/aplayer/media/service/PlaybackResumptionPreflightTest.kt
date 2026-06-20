@@ -35,7 +35,8 @@ class PlaybackResumptionPreflightTest {
             listOf(
                 PlaybackDomainEvent.SourcePreflightBlocked(
                     reason = PlaybackSourcePreflightBlockReason.MissingRoot,
-                    rootName = null
+                    rootName = null,
+                    bookTitle = "Resume Fixture"
                 )
             ),
             eventSink.emittedEvents
@@ -59,7 +60,8 @@ class PlaybackResumptionPreflightTest {
             listOf(
                 PlaybackDomainEvent.SourcePreflightBlocked(
                     reason = PlaybackSourcePreflightBlockReason.UnavailableRoot,
-                    rootName = ROOT_NAME
+                    rootName = ROOT_NAME,
+                    bookTitle = "Resume Fixture"
                 )
             ),
             eventSink.emittedEvents
@@ -84,7 +86,7 @@ class PlaybackResumptionPreflightTest {
         // Cleartext Resume Policy Regression (Blocks insecure HTTP roots before MediaSession creates resumable media items)
         // The dedicated cleartext event keeps security-policy feedback distinct from generic playback loader failures.
         assertTrue(error is UnsupportedOperationException)
-        assertEquals(listOf(PlaybackDomainEvent.CleartextPlaybackBlocked), eventSink.emittedEvents)
+        assertEquals(listOf(PlaybackDomainEvent.CleartextPlaybackBlocked("Resume Fixture")), eventSink.emittedEvents)
     }
 
     private fun playbackResumptionPreflight(

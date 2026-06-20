@@ -9,8 +9,9 @@ import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.application.library.player.PlayerLibraryMetadata
 import com.viel.aplayer.application.library.player.PlayerRelatedData
 import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
-import com.viel.aplayer.event.feedback.FeedbackMessage
-import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
+import com.viel.aplayer.event.feedback.PlaybackControlFeedbackFacts
+import com.viel.aplayer.event.feedback.RecoveryFeedbackFacts
 import com.viel.aplayer.media.PlaybackMediaId
 import com.viel.aplayer.media.PlaybackSeekStepPolicy
 import com.viel.aplayer.media.subtitle.SubtitleParser
@@ -69,7 +70,8 @@ class PlaybackViewModel(
     data class TrackUnavailableDialogState(
         val show: Boolean = false,
         val bookId: String = "",
-        val queueIndex: Int = -1
+        val queueIndex: Int = -1,
+        val bookTitle: String = ""
     )
 
     private val _trackUnavailableDialog = MutableStateFlow(TrackUnavailableDialogState())
@@ -448,7 +450,9 @@ class PlaybackViewModel(
                 clearPendingAbsProgressConflict()
                 loadBookAfterProgressDecision(request.bookId, request.playWhenReady, request.requestStartMs)
             }.onFailure { error ->
-                showToast(FeedbackMessages.playbackRemoteProgressSaveFailed(error.message))
+                appEventSink.emitFeedback(
+                    LibraryAccessFeedbackFacts.remoteProgressSaveFailed(request.bookId, error.message)
+                )
             }
         }
     }
@@ -552,7 +556,12 @@ class PlaybackViewModel(
         )
     }
 
-    fun setPlaybackSpeed(speed: Float) = playbackDelegate.setPlaybackSpeed(speed)
+    fun setPlaybackSpeed(speed: Float) {
+        playbackDelegate.setPlaybackSpeed(speed)
+        // Speed feedback is produced by the command owner after the change; the leaf control only raises
+        // intent. Rapid taps collapse to the final value through the delivery policy's provisional hold.
+        appEventSink.emitFeedback(PlaybackControlFeedbackFacts.playbackSpeedChanged(speed))
+    }
 
     fun cyclePlaybackSpeed() {
         val speed = playbackState.value.playbackSpeed
@@ -562,13 +571,23 @@ class PlaybackViewModel(
 
     fun resetPlaybackSpeed() = setPlaybackSpeed(1.0f)
 
-    fun showToast(message: FeedbackMessage) {
-        // Title: Display feedback toast (Invokes non-nullable event sink directly)
-        appEventSink.showToast(message)
+    /**
+     * Report Missing Chapter File (Publishes the recovery feedback fact for a tapped missing chapter)
+     *
+     * The chapter row raises the intent with the book id; this command owner classifies it as a
+     * playback-content recovery outcome before the app shell renders it.
+     */
+    fun reportMissingChapterFile(bookId: String) {
+        appEventSink.emitFeedback(RecoveryFeedbackFacts.chapterPhysicalFileMissing(bookId))
     }
 
-    fun showTrackUnavailableDialog(bookId: String, queueIndex: Int) {
-        _trackUnavailableDialog.value = TrackUnavailableDialogState(true, bookId, queueIndex)
+    fun showTrackUnavailableDialog(bookId: String, queueIndex: Int, bookTitle: String?) {
+        _trackUnavailableDialog.value = TrackUnavailableDialogState(
+            show = true,
+            bookId = bookId,
+            queueIndex = queueIndex,
+            bookTitle = bookTitle.orEmpty()
+        )
     }
 
     fun dismissTrackUnavailableDialog() {

@@ -6,7 +6,7 @@ import android.media.AudioManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.event.feedback.FeedbackMessage
+import com.viel.aplayer.event.feedback.PlaybackControlFeedbackFacts
 import com.viel.aplayer.ui.settings.FullPlayerOpenSource
 import com.viel.aplayer.ui.settings.PlayerSettingsManager
 import com.viel.aplayer.ui.settings.PlayerSettingsState
@@ -40,7 +40,7 @@ class PlayerSettingsViewModel(
         playbackController = { playerDependencies.playerPlaybackController },
         audioManager = { audioManager },
         contextProvider = { application },
-        onShowToast = { message -> showToast(message) }
+        onFeedback = { fact -> emitFeedback(fact) }
     )
 
     val settingsState: StateFlow<PlayerSettingsState> = settingsManager.settingsState
@@ -71,6 +71,9 @@ class PlayerSettingsViewModel(
         currentMetadata: () -> BookMetadataState
     ) {
         settingsManager.setSleepTimer(minutes, currentPlayback, currentMetadata)
+        // Selection feedback is produced by the command owner after the timer state changes; rapid taps
+        // collapse to the final value through the delivery policy's provisional hold.
+        appEventSink.emitFeedback(PlaybackControlFeedbackFacts.sleepTimerSelected(minutes))
     }
 
     // Cycle sleep timer (Increments selected sleep minutes sequentially)
@@ -123,8 +126,8 @@ class PlayerSettingsViewModel(
         }
     }
 
-    fun showToast(message: FeedbackMessage) {
-        appEventSink.showToast(message)
+    private fun emitFeedback(fact: com.viel.aplayer.event.feedback.FeedbackFact) {
+        appEventSink.emitFeedback(fact)
     }
 
     /**

@@ -1,8 +1,13 @@
 package com.viel.aplayer.event
 
 import com.viel.aplayer.R
+import com.viel.aplayer.event.feedback.FeedbackCategory
+import com.viel.aplayer.event.feedback.FeedbackContext
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.event.feedback.FeedbackRenderMode
+import com.viel.aplayer.event.feedback.FeedbackSeverity
+import com.viel.aplayer.event.feedback.FeedbackTopic
 import com.viel.aplayer.media.PlaybackDomainEvent
 import com.viel.aplayer.media.PlaybackSourcePreflightBlockReason
 import org.junit.Assert.assertEquals
@@ -10,38 +15,65 @@ import org.junit.Test
 
 class PlaybackFeedbackMappingTest {
     @Test
-    fun `playback facts map to resource feedback keys`() {
-        // Playback Message Key Mapping (Locks the bridge to resource-backed feedback instead of hard-coded copy)
-        // The app shell can localize this key later while media callers keep emitting domain facts.
-        val message = PlaybackDomainEvent.PlaybackFinishedShutdownScheduled(delaySeconds = 5)
-            .toFeedbackMessage()
+    fun `shutdown scheduled maps to quantity message and playback session shutdown outcome`() {
+        // The bridge must preserve the delay quantity for plural rendering and classify the outcome as a
+        // playback-control session shutdown, not a content recovery.
+        val fact = PlaybackDomainEvent.PlaybackFinishedShutdownScheduled(delaySeconds = 5).toFeedbackFact()
 
-        val resource = message as FeedbackMessage.Quantity
-        // Counted Playback Feedback Mapping (Keep shutdown delay feedback on Android plural resources)
-        // The bridge must preserve the delay quantity separately from format arguments so localized plural rules can render the toast.
+        val resource = fact.message as FeedbackMessage.Quantity
         assertEquals(R.plurals.feedback_playback_finished_shutdown_scheduled, resource.resId)
         assertEquals(5, resource.quantity)
-        assertEquals(listOf(5), resource.args)
+
+        val identity = fact.outcome.identity
+        assertEquals(FeedbackCategory.PLAYBACK_CONTROL, identity.category)
+        assertEquals(FeedbackTopic.PlaybackSessionShutdown, identity.topic)
+        assertEquals(FeedbackContext.PlaybackControl, identity.context)
     }
 
     @Test
-    fun `playback source preflight maps typed block reasons to resource feedback`() {
-        // Typed Preflight Mapping (Keeps media-domain failure reasons language-neutral)
-        // The bridge translates a stable reason plus root name into the localized app-shell feedback key.
-        val message = PlaybackDomainEvent.SourcePreflightBlocked(
+    fun `source preflight maps typed block reason to resource message and recovery outcome`() {
+        val fact = PlaybackDomainEvent.SourcePreflightBlocked(
             reason = PlaybackSourcePreflightBlockReason.UnavailableRoot,
             rootName = "Shelf"
-        ).toFeedbackMessage()
+        ).toFeedbackFact()
 
-        val resource = message as FeedbackMessage.Resource
+        val resource = fact.message as FeedbackMessage.Resource
         assertEquals(R.string.feedback_playback_source_preflight_unavailable_root, resource.resId)
         assertEquals(listOf("Shelf"), resource.args)
+
+        val identity = fact.outcome.identity
+        assertEquals(FeedbackCategory.RECOVERY, identity.category)
+        assertEquals(FeedbackTopic.PlaybackSourcePreflight, identity.topic)
+        // The display name must not leak into the aggregation identity.
+        assertEquals(FeedbackContext.MissingObject, identity.context)
+        assertEquals(FeedbackSeverity.BLOCKED, fact.outcome.severity)
+        assertEquals(FeedbackRenderMode.DIALOG, fact.renderMode)
+    }
+
+    @Test
+    fun `track unavailable keeps book and queue context for recovery aggregation`() {
+        val fact = PlaybackDomainEvent.TrackUnavailable(bookId = "book-7", queueIndex = 3).toFeedbackFact()
+
+        val identity = fact.outcome.identity
+        assertEquals(FeedbackCategory.RECOVERY, identity.category)
+        assertEquals(FeedbackTopic.PlaybackContentAvailability, identity.topic)
+        assertEquals(FeedbackContext.PlaybackContent("book-7", 3), identity.context)
+        assertEquals(FeedbackSeverity.BLOCKED, fact.outcome.severity)
+        assertEquals(FeedbackRenderMode.DIALOG, fact.renderMode)
+    }
+
+    @Test
+    fun `bookmark created maps to book management outcome keyed by book`() {
+        val fact = PlaybackDomainEvent.BookmarkCreated(bookId = "book-9", positionMs = 1000L).toFeedbackFact()
+
+        val identity = fact.outcome.identity
+        assertEquals(FeedbackCategory.BOOK_MANAGEMENT, identity.category)
+        assertEquals(FeedbackTopic.BookmarkCreation, identity.topic)
+        assertEquals(FeedbackContext.Book("book-9"), identity.context)
     }
 
     @Test
     fun `settings root unavailable feedback preserves resource backed detail`() {
-        // Settings Detail Preservation (Avoids wrapping already localized sync preflight feedback in raw text)
-        // Manual sync callers now pass the resource-backed detail through unchanged so availability codes stay typed.
         val detail = FeedbackMessage.Resource(
             R.string.feedback_sync_root_unavailable_not_found,
             listOf("Shelf")

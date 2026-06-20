@@ -1,7 +1,9 @@
 package com.viel.aplayer.event
 
-import com.viel.aplayer.event.feedback.FeedbackMessage
-import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.event.feedback.BookManagementFeedbackFacts
+import com.viel.aplayer.event.feedback.FeedbackFact
+import com.viel.aplayer.event.feedback.PlaybackControlFeedbackFacts
+import com.viel.aplayer.event.feedback.RecoveryFeedbackFacts
 import com.viel.aplayer.media.PlaybackDomainEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -12,7 +14,7 @@ import kotlinx.coroutines.launch
  * Playback Domain Event Bridge (Translates media-core facts into app-shell feedback)
  *
  * Media modules emit playback-domain events only; this adapter is the application-layer seam that decides
- * which facts become Toasts or dialogs for the current UI shell.
+ * which render mode each fact uses for the current UI shell.
  */
 class PlaybackDomainEventBridge(
     scope: CoroutineScope,
@@ -22,18 +24,16 @@ class PlaybackDomainEventBridge(
     private val job: Job = scope.launch {
         playbackEvents.collect { event ->
             when (event) {
-                PlaybackDomainEvent.CleartextPlaybackBlocked,
+                is PlaybackDomainEvent.CleartextPlaybackBlocked,
                 is PlaybackDomainEvent.InitialMediaLoadFailed,
-                PlaybackDomainEvent.NoAvailableTrackAfterFailure,
+                is PlaybackDomainEvent.NoAvailableTrackAfterFailure,
                 is PlaybackDomainEvent.PlaybackFinishedShutdownScheduled,
                 is PlaybackDomainEvent.BookmarkCreated,
                 is PlaybackDomainEvent.SourcePreflightBlocked ->
-                    appEventSink.showToast(event.toFeedbackMessage())
+                    appEventSink.emitFeedback(event.toFeedbackFact())
 
-                is PlaybackDomainEvent.TrackUnavailable -> {
-                    appEventSink.showToast(event.toFeedbackMessage())
-                    appEventSink.showTrackUnavailableDialog(event.bookId, event.queueIndex)
-                }
+                is PlaybackDomainEvent.TrackUnavailable ->
+                    appEventSink.emitFeedback(event.toFeedbackFact())
             }
         }
     }
@@ -50,25 +50,26 @@ class PlaybackDomainEventBridge(
 }
 
 /**
- * Playback Feedback Mapping (Converts media facts into resource-backed feedback keys)
+ * Playback Feedback Mapping (Converts media facts into typed feedback facts)
  *
- * Keeping this mapping beside the bridge concentrates playback wording policy outside media-core callers
- * and leaves final localized text rendering to the app shell.
+ * Keeping this mapping beside the bridge concentrates playback feedback classification outside media-core
+ * callers. Each fact carries both the resource-backed message and the aggregation outcome the delivery
+ * policy reasons about; final localized text rendering still happens in the app shell.
  */
-internal fun PlaybackDomainEvent.toFeedbackMessage(): FeedbackMessage =
+internal fun PlaybackDomainEvent.toFeedbackFact(): FeedbackFact =
     when (this) {
-        PlaybackDomainEvent.CleartextPlaybackBlocked ->
-            FeedbackMessages.playbackCleartextBlocked()
+        is PlaybackDomainEvent.CleartextPlaybackBlocked ->
+            RecoveryFeedbackFacts.cleartextPlaybackBlocked(bookTitle)
         is PlaybackDomainEvent.InitialMediaLoadFailed ->
-            FeedbackMessages.playbackInitialMediaLoadFailed(errorMessage)
-        PlaybackDomainEvent.NoAvailableTrackAfterFailure ->
-            FeedbackMessages.playbackNoAvailableTrackAfterFailure()
+            RecoveryFeedbackFacts.initialMediaLoadFailed(errorMessage, bookTitle)
+        is PlaybackDomainEvent.NoAvailableTrackAfterFailure ->
+            RecoveryFeedbackFacts.noAvailableTrackAfterFailure(bookTitle)
         is PlaybackDomainEvent.PlaybackFinishedShutdownScheduled ->
-            FeedbackMessages.playbackFinishedShutdownScheduled(delaySeconds)
+            PlaybackControlFeedbackFacts.playbackFinishedShutdownScheduled(delaySeconds)
         is PlaybackDomainEvent.BookmarkCreated ->
-            FeedbackMessages.playbackBookmarkCreated()
+            BookManagementFeedbackFacts.bookmarkCreated(bookId)
         is PlaybackDomainEvent.SourcePreflightBlocked ->
-            FeedbackMessages.playbackSourcePreflightBlocked(reason, rootName)
+            RecoveryFeedbackFacts.sourcePreflightBlocked(reason, rootName, bookTitle)
         is PlaybackDomainEvent.TrackUnavailable ->
-            FeedbackMessages.playbackTrackUnavailable()
+            RecoveryFeedbackFacts.trackUnavailable(bookId, queueIndex, bookTitle)
     }

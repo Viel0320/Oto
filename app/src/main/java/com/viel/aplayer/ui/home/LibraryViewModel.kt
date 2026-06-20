@@ -9,7 +9,7 @@ import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.application.library.home.HomeBookItem
 import com.viel.aplayer.application.library.home.HomeCatalogSortPolicy
 import com.viel.aplayer.application.library.home.matchesHomeBookStatus
-import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.event.feedback.BookManagementFeedbackFacts
 import com.viel.aplayer.shared.settings.AppSettings
 import com.viel.aplayer.shared.settings.HomeBookStatusFilter
 import com.viel.aplayer.shared.settings.HomeFilter
@@ -175,29 +175,33 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             // Book Deletion Coordination (Use the application use case to remove the book and stop playback safely)
             val fileExists = bookManagementUseCase.deleteBook(bookId)
 
-            // Deletion Feedback Dispatch (Send home deletion status through the application event sink)
-            // This keeps Toast rendering outside the ViewModel while avoiding another feature-local event stream.
-            appEventSink.showToast(FeedbackMessages.homeBookDeleted(sourceFileKept = fileExists))
+            // Deletion Feedback Dispatch (Send home deletion outcome through the application event sink)
+            // This keeps Toast rendering outside the ViewModel while keying the outcome to the deleted book.
+            appEventSink.emitFeedback(
+                BookManagementFeedbackFacts.bookDeleted(bookId, sourceFileKept = fileExists)
+            )
         }
     }
 
-    // Update Reading State: Updates user progress status in database and dispatches feedback toasts.
+    // Update Reading State: Updates user progress status in database and dispatches feedback.
     // Update Book Read Status: Change readStatus parameter type to type-safe ReadStatus enum.
     fun updateBookReadStatus(bookId: String, readStatus: LibraryReadStatus) {
         viewModelScope.launch {
             // Home Read Status Command (Routes manual status changes through the home scene use case)
             homeLibraryUseCases.updateReadStatus(bookId, readStatus)
-            appEventSink.showToast(FeedbackMessages.homeReadStatusUpdated(readStatus))
+            appEventSink.emitFeedback(
+                BookManagementFeedbackFacts.readStatusChanged(bookId, readStatus)
+            )
         }
     }
 
     // Reconstruct Metadata cache: Rebuilds localized graphics cover cache and maps raw values asynchronously.
     fun forceRegenerateCoverAndMetadata(bookId: String) {
         viewModelScope.launch {
-            appEventSink.showToast(FeedbackMessages.homeCoverMetadataRegenerationStarted())
+            appEventSink.emitFeedback(BookManagementFeedbackFacts.coverMetadataRegenerationStarted())
             // Home Metadata Refresh Command (Keeps regeneration behind the home scene command surface)
             homeLibraryUseCases.regenerateCoverAndMetadata(bookId)
-            appEventSink.showToast(FeedbackMessages.homeCoverMetadataRegenerationCompleted())
+            appEventSink.emitFeedback(BookManagementFeedbackFacts.coverMetadataRegenerationCompleted())
         }
     }
 

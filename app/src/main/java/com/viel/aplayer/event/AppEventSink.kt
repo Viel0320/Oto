@@ -2,66 +2,49 @@ package com.viel.aplayer.event
 
 import com.viel.aplayer.event.feedback.DropReason
 import com.viel.aplayer.event.feedback.FeedbackDeliveryDecision
+import com.viel.aplayer.event.feedback.FeedbackDeliveryPolicy
 import com.viel.aplayer.event.feedback.FeedbackDeliveryResult
-import com.viel.aplayer.event.feedback.FeedbackMessage
-import com.viel.aplayer.event.feedback.FeedbackMessages
-import com.viel.aplayer.event.feedback.TransientFeedbackDeliveryPolicy
-import com.viel.aplayer.event.feedback.TransientFeedbackFact
+import com.viel.aplayer.event.feedback.FeedbackFact
+import com.viel.aplayer.event.feedback.FeedbackRenderMode
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 
 /**
- * Application Event Sink (Centralizes transient UI feedback delivery)
+ * Application Event Sink (Centralizes app-shell feedback delivery)
  *
  * This interface gives ViewModels, application services, and infrastructure coordinators one app-level
- * event entry point so they no longer route toast commands through playback-core classes.
+ * event entry point so they emit feedback facts instead of routing Toast or Dialog commands directly.
  */
 interface AppEventSink {
     val events: SharedFlow<AppShellEvent>
 
     /**
-     * Emit Transient Feedback Fact (Publishes resource-keyed feedback through the shared policy)
+     * Emit Feedback Fact (Publishes one resource-keyed feedback fact through the selected render mode)
      *
      * Returning the structured delivery result lets callers and tests distinguish delivered, merged, and
      * dropped feedback without depending on SharedFlow implementation details.
      */
-    fun emitFeedback(fact: TransientFeedbackFact): FeedbackDeliveryResult
+    fun emitFeedback(fact: FeedbackFact): FeedbackDeliveryResult
 
-    /**
-     * Toast Feedback Shortcut (Keeps callers away from concrete AppShellEvent construction)
-     *
-     * Application callers describe a resource-backed message; the app shell remains responsible for
-     * resolving localized text and rendering the actual Toast widget.
-     */
-    fun showToast(message: FeedbackMessage): FeedbackDeliveryResult =
-        emitFeedback(TransientFeedbackFact(message))
-
-    /**
-     * Legacy Toast Shortcut (Keeps unmigrated callers explicit and searchable)
-     *
-     * Raw text remains supported during incremental migration, but resource-backed message keys should be
-     * preferred for new feedback paths.
-     */
-    fun showToast(message: String): FeedbackDeliveryResult = showToast(FeedbackMessages.rawText(message))
-
-    /**
-     * Track Recovery Dialog Shortcut (Represents the only app-shell dialog event currently shared by playback)
-     *
-     * The shortcut keeps media adapters from importing UI event classes while preserving the existing dialog trigger.
-     */
-    fun showTrackUnavailableDialog(bookId: String, queueIndex: Int): Boolean
 }
 
 /**
- * Default Application Event Sink (Buffered hot stream for process-wide one-shot events)
+ * Default Application Event Sink (Buffered hot stream for process-wide feedback events)
  *
- * A small overflow buffer absorbs short bursts while the Compose app shell collector is active; feedback
- * emitted without a collector is reported as dropped instead of pretending tryEmit guaranteed visibility.
+ * A small overflow buffer absorbs short bursts while the Compose app shell collector is active. Every
+ * feedback fact enters the same delivery policy before its mutually exclusive render mode decides whether
+ * the shell consumes it as a Toast or a Dialog.
  */
 class DefaultAppEventSink(
-    private val feedbackPolicy: TransientFeedbackDeliveryPolicy = TransientFeedbackDeliveryPolicy()
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
+    private val deliveryPolicy: FeedbackDeliveryPolicy = FeedbackDeliveryPolicy()
 ) : AppEventSink {
     private val _events = MutableSharedFlow<AppShellEvent>(
         replay = 0,
@@ -71,24 +54,45 @@ class DefaultAppEventSink(
 
     override val events: SharedFlow<AppShellEvent> = _events.asSharedFlow()
 
-    override fun emitFeedback(fact: TransientFeedbackFact): FeedbackDeliveryResult =
+    override fun emitFeedback(fact: FeedbackFact): FeedbackDeliveryResult {
         if (_events.subscriptionCount.value == 0) {
-            FeedbackDeliveryResult.Dropped(fact, DropReason.NO_COLLECTOR)
-        } else {
-            when (val decision = feedbackPolicy.evaluate(fact)) {
-                FeedbackDeliveryDecision.Deliver -> {
-                    if (_events.tryEmit(AppShellEvent.ShowToast(fact.message))) {
-                        FeedbackDeliveryResult.Delivered(fact)
-                    } else {
-                        FeedbackDeliveryResult.Dropped(fact, DropReason.STREAM_REJECTED)
-                    }
-                }
-                FeedbackDeliveryDecision.Merged -> FeedbackDeliveryResult.Merged(fact)
-                is FeedbackDeliveryDecision.Dropped -> FeedbackDeliveryResult.Dropped(fact, decision.reason)
+            return FeedbackDeliveryResult.Dropped(fact, DropReason.NO_COLLECTOR)
+        }
+        return when (val decision = deliveryPolicy.evaluate(fact)) {
+            FeedbackDeliveryDecision.Deliver -> emitFeedbackRender(fact, fact.renderMode)
+            FeedbackDeliveryDecision.Merged -> FeedbackDeliveryResult.Merged(fact)
+            is FeedbackDeliveryDecision.Dropped -> FeedbackDeliveryResult.Dropped(fact, decision.reason)
+            is FeedbackDeliveryDecision.Hold -> {
+                scheduleRelease(fact, decision)
+                FeedbackDeliveryResult.Held(fact)
             }
         }
+    }
 
-    override fun showTrackUnavailableDialog(bookId: String, queueIndex: Int): Boolean =
-        _events.subscriptionCount.value > 0 &&
-            _events.tryEmit(AppShellEvent.ShowTrackUnavailableDialog(bookId, queueIndex))
+    /**
+     * Schedule Provisional Release (Renders a held provisional only if it survives the hold)
+     *
+     * The delayed task runs on the injected scope so graph teardown can cancel any unrendered provisional.
+     * A provisional replaced by a newer one or cancelled by a final resolves to merged in the delivery
+     * policy and never reaches the stream.
+     */
+    private fun scheduleRelease(fact: FeedbackFact, hold: FeedbackDeliveryDecision.Hold) {
+        scope.launch {
+            delay(hold.holdMs)
+            if (_events.subscriptionCount.value == 0) return@launch
+            if (deliveryPolicy.releasePending(fact, hold.generation) == FeedbackDeliveryDecision.Deliver) {
+                emitFeedbackRender(fact, fact.renderMode)
+            }
+        }
+    }
+
+    private fun emitFeedbackRender(
+        fact: FeedbackFact,
+        renderMode: FeedbackRenderMode
+    ): FeedbackDeliveryResult =
+        if (_events.tryEmit(AppShellEvent.RenderFeedback(fact, renderMode))) {
+            FeedbackDeliveryResult.Delivered(fact)
+        } else {
+            FeedbackDeliveryResult.Dropped(fact, DropReason.STREAM_REJECTED)
+        }
 }

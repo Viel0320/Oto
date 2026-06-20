@@ -33,7 +33,7 @@ class LibrarySyncWorker(
             // Worker Fallback Outcome (Uses the shared scan policy when failure happens before ScanScheduler returns)
             // This keeps WorkManager retry/failure semantics in one policy even for dependency resolution or early command failures.
             val outcome = ScanOutcomePolicy.fromFailure(e)
-            ScanWorkflowLogger.warn("librarySyncWorker fallback outcome=${outcome.kind}: message=${outcome.message}", e)
+            ScanWorkflowLogger.warn("librarySyncWorker fallback outcome=${outcome.kind}: feedback=${outcome.feedback?.outcome?.identity?.topic}", e)
             outcome.toWorkerResult()
         }
     }

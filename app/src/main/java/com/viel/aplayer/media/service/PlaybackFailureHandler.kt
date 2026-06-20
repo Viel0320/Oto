@@ -59,6 +59,7 @@ class PlaybackFailureHandler(
         val mediaParts = PlaybackMediaId.parse(mediaItem.mediaId) ?: return
         val bookId = mediaParts.bookId
         val queueIndex = player.currentMediaItemIndex.coerceAtLeast(0)
+        val bookTitle = mediaItem.mediaMetadata.title?.toString()
         
         // Debounce Validation (Ensures each failing segment goes through the validation logic only once to avoid crashing loop)
         val skipKey = "$bookId:$queueIndex"
@@ -71,7 +72,7 @@ class PlaybackFailureHandler(
             if (currentUri.startsWith("http://")) {
                 val isAllowed = settingsRepository.settingsFlow.first().isCleartextTrafficAllowed
                 if (!isAllowed) {
-                    playbackEventSink.emit(PlaybackDomainEvent.CleartextPlaybackBlocked)
+                    playbackEventSink.emit(PlaybackDomainEvent.CleartextPlaybackBlocked(bookTitle = bookTitle))
                     player.pause()
                     player.stop()
                     // Release Warning Boundary (Sanitize cleartext playback policy diagnostics)
@@ -91,7 +92,7 @@ class PlaybackFailureHandler(
             
             // Track Recovery Event (Publish a playback-domain fact for the app bridge)
             // The bridge pairs this with the existing skip-confirmation dialog without importing UI models here.
-            playbackEventSink.emit(PlaybackDomainEvent.TrackUnavailable(bookId, queueIndex))
+            playbackEventSink.emit(PlaybackDomainEvent.TrackUnavailable(bookId, queueIndex, bookTitle))
             com.viel.aplayer.logger.PlaybackFailureLogger.logTrackMarkedUnavailable(skipKey)
         }
     }
@@ -107,7 +108,8 @@ class PlaybackFailureHandler(
             val message = error.localizedMessage?.takeIf { it.isNotBlank() }
                 ?: error.message?.takeIf { it.isNotBlank() }
                 ?: "未知错误"
-            playbackEventSink.emit(PlaybackDomainEvent.InitialMediaLoadFailed(message))
+            val bookTitle = player.currentMediaItem?.mediaMetadata?.title?.toString()
+            playbackEventSink.emit(PlaybackDomainEvent.InitialMediaLoadFailed(message, bookTitle))
             // Release Warning Boundary (Sanitize initial media load failure diagnostics)
             // Media3 messages can carry source URLs or provider paths, so the retained warning uses SecureLog.
             SecureLog.warn("FailureHandler", "媒体源载入前失败，已跳过播放中恢复流程: code=${error.errorCode}, message=$message", error)

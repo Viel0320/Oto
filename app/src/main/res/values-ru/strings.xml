@@ -76,6 +76,7 @@
     <string name="feedback_playback_cleartext_blocked">Незашифрованное HTTP-воспроизведение заблокировано безопасностью. Сначала включите его в настройках.</string>
     <string name="feedback_playback_initial_media_load_failed">Не удалось загрузить источник медиа: %1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">Следующая доступная аудиодорожка не найдена. Воспроизведение остановлено.</string>
+    <string name="feedback_playback_stopped_scope">\nВоспроизведение остановлено: %1$s</string>
     <plurals name="feedback_playback_finished_shutdown_scheduled">
         <item quantity="one">Воспроизведение завершено. Отключение через %1$d секунду.</item>
         <item quantity="few">Воспроизведение завершено. Отключение через %1$d секунды.</item>
@@ -192,7 +193,7 @@
         <item quantity="many">, из них частично импортировано: %1$d</item>
         <item quantity="other">, из них частично импортировано: %1$d</item>
     </plurals>
-    <string name="feedback_scan_blocked_no_directory_roots">Нет локальных или WebDAV-корней для синхронизации</string>
+    <string name="feedback_scan_blocked_no_available_libraries">Нет доступных библиотек для синхронизации</string>
     <string name="feedback_scan_retry_later">Синхронизация временно не удалась и будет повторена позже</string>
     <string name="feedback_scan_failed">Синхронизация медиатеки не удалась: %1$s</string>
     <string name="feedback_sleep_motion_tracking_paused">Обнаружено движение. Таймер сна приостановлен на одну минуту.</string>

@@ -11,7 +11,7 @@ import kotlinx.coroutines.SupervisorJob
 import java.io.Closeable
 
 /**
- * UI Event Graph (Owns process-wide transient feedback streams and bridges)
+ * UI Event Graph (Owns process-wide feedback render streams and bridges)
  * Keeps app-shell feedback wiring separate from data, media, and remote catalog construction.
  */
 internal class UiEventGraph : Closeable {
@@ -20,7 +20,8 @@ internal class UiEventGraph : Closeable {
     val appEventSink: AppEventSink by lazy {
         // Application Event Sink Initialization (Centralizes app-shell feedback dispatch)
         // Replaces PlaybackManager as the accidental shared event bus for ViewModels, workers, and services.
-        DefaultAppEventSink()
+        // The shared event bridge scope runs pending provisional releases and is cancelled at teardown.
+        DefaultAppEventSink(scope = eventBridgeScope)
     }
 
     val playbackDomainEventSink: PlaybackDomainEventSink by lazy {

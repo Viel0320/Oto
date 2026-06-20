@@ -11,7 +11,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 /**
- * Feedback Message Rendering Test (Exercises Android resource resolution for transient feedback)
+ * Feedback Message Rendering Test (Exercises Android resource resolution for feedback messages)
  * Robolectric keeps the test on the real Resources path so plural selection is verified where Toast copy is rendered.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -73,6 +73,32 @@ class FeedbackMessageRenderingTest {
         assertEquals(
             "\u518D\u751F\u901F\u5EA6\u3092\u30EA\u30BB\u30C3\u30C8\u3057\u307E\u3057\u305F",
             FeedbackMessages.playbackSpeedReset().render(localizedContext)
+        )
+    }
+
+    @Test
+    fun `playback blocking feedback appends stopped playback scope when title is available`() {
+        val context = RuntimeEnvironment.getApplication()
+
+        // Stopped Playback Scope Rendering (Locks the impact text onto the shared message source)
+        // Generic dialog messages are still regular FeedbackMessage values, but their rendered copy must
+        // name the affected book when the media domain can provide it.
+        assertEquals(
+            "Security blocked cleartext HTTP playback. Enable it in settings first.\nPlayback stopped: Book A",
+            FeedbackMessages.playbackCleartextBlocked("Book A").render(context)
+        )
+    }
+
+    @Test
+    fun `semantic track unavailable feedback keeps routing payload while rendering stopped scope`() {
+        val context = RuntimeEnvironment.getApplication()
+
+        // Semantic Playback Message Rendering (Preserves dialog routing while adding impact copy)
+        // TrackUnavailable cannot be wrapped in Composite because the app shell pattern-matches this type
+        // to open the skip-confirmation dialog.
+        assertEquals(
+            "The current track file is unavailable. Check whether you want to skip to another track.\nPlayback stopped: Book A",
+            FeedbackMessages.playbackTrackUnavailable("book-1", 2, "Book A").render(context)
         )
     }
 }

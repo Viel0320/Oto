@@ -3,7 +3,7 @@ package com.viel.aplayer.abs.sync
 // Resource Cleanup Support: Import Closeable, CancellationException, and cancel extensions for proper background scope lifecycle management.
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.event.AppEventSink
-import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
 import com.viel.aplayer.library.availability.isSyncAvailable
@@ -73,7 +73,7 @@ class AbsSyncTaskCoordinator(
                             errorMessage = errMsg
                         )
                     )
-                    appEventSink.showToast(FeedbackMessages.absBackgroundSyncRootMissing())
+                    appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncRootMissing())
                     return@launch
                 }
                 if (preflight != null && !preflight.isSyncAvailable) {
@@ -90,7 +90,9 @@ class AbsSyncTaskCoordinator(
                             errorMessage = errMsg
                         )
                     )
-                    appEventSink.showToast(FeedbackMessages.absBackgroundSyncUnavailable(feedback))
+                    appEventSink.emitFeedback(
+                        LibraryAccessFeedbackFacts.syncBlocked(rootId = root.id, detailMessage = feedback)
+                    )
                     return@launch
                 }
                 val summary = synchronizer.syncRootWithSummary(root)
@@ -103,8 +105,12 @@ class AbsSyncTaskCoordinator(
                         errorMessage = null
                     )
                 )
-                appEventSink.showToast(
-                    FeedbackMessages.absBackgroundSyncCompleted(summary.addedBooks, summary.failedItems)
+                appEventSink.emitFeedback(
+                    LibraryAccessFeedbackFacts.syncCompleted(
+                        rootId = root.id,
+                        addedBooks = summary.addedBooks,
+                        failedItems = summary.failedItems
+                    )
                 )
             } catch (error: CancellationException) {
                 // Coroutine Cancellation Propagation (Treat lifecycle cancellation as coordinator control flow)
@@ -121,7 +127,9 @@ class AbsSyncTaskCoordinator(
                         errorMessage = errMsg.redactAbsError()
                     )
                 )
-                appEventSink.showToast(FeedbackMessages.absBackgroundSyncFailed(errMsg.redactAbsError()))
+                appEventSink.emitFeedback(
+                    LibraryAccessFeedbackFacts.syncFailed(rootId, errMsg.redactAbsError())
+                )
             } finally {
                 synchronized(lock) {
                     runningRootIds -= rootId

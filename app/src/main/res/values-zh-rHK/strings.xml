@@ -76,6 +76,7 @@
     <string name="feedback_playback_cleartext_blocked">安全攔截：未授權明文 HTTP 播放。請先在設定中啟用。</string>
     <string name="feedback_playback_initial_media_load_failed">媒體來源載入失敗：%1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">找不到後續可播放音軌，已停止播放</string>
+    <string name="feedback_playback_stopped_scope">\n已停止播放：%1$s</string>
     <!-- Counted Locale Feedback Copy (Mirror counted base resources for Android plural lookups)
          Chinese copy does not change for singular counts, but using plurals keeps the resource type compatible with Quantity feedback rendering. -->
     <plurals name="feedback_playback_finished_shutdown_scheduled">
@@ -178,7 +179,7 @@
         <item quantity="one">，其中 %1$d 本為部分匯入</item>
         <item quantity="other">，其中 %1$d 本為部分匯入</item>
     </plurals>
-    <string name="feedback_scan_blocked_no_directory_roots">沒有可同步的本機或 WebDAV 庫根</string>
+    <string name="feedback_scan_blocked_no_available_libraries">沒有可用的書庫</string>
     <string name="feedback_scan_retry_later">媒體庫同步暫時失敗，稍後會重試</string>
     <string name="feedback_scan_failed">媒體庫同步失敗：%1$s</string>
     <string name="feedback_sleep_motion_tracking_paused">動作追蹤偵測到移動，睡眠定時器已暫停一分鐘</string>

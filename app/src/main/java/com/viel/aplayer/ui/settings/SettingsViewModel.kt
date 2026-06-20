@@ -6,12 +6,13 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.R
 import com.viel.aplayer.application.download.ManualDownloadTaskItem
 import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.application.usecase.BackupManifest
-import com.viel.aplayer.event.feedback.FeedbackMessage
-import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.event.feedback.DataTransferFeedbackFacts
+import com.viel.aplayer.event.feedback.DownloadCacheFeedbackFacts
+import com.viel.aplayer.event.feedback.FeedbackFact
+import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.logger.AbsLogSanitizer
 import com.viel.aplayer.logger.AbsSettingsLogger
 import com.viel.aplayer.shared.settings.AppSettings
@@ -131,10 +132,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             runCatching {
                 settingsLibraryMaintenanceUseCase.updateSafRootAndScheduleSync(id, newUri)
             }.onSuccess {
-                appEventSink.showToast(FeedbackMessages.settingsLocalLibraryRelocated())
+                appEventSink.emitFeedback(LibraryAccessFeedbackFacts.localLibraryRelocated(id))
             }.onFailure { error ->
                 com.viel.aplayer.logger.ScanWorkflowLogger.error("onSafRootRelocated failed", error)
-                appEventSink.showToast(FeedbackMessages.settingsLocalLibraryRelocationFailed(error.message))
+                appEventSink.emitFeedback(
+                    LibraryAccessFeedbackFacts.localLibraryRelocationFailed(id, error.message)
+                )
             }
         }
     }
@@ -159,9 +162,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     basePath = basePath
                 )
             }.onSuccess {
-                appEventSink.showToast(FeedbackMessages.settingsWebDavUpdated())
+                appEventSink.emitFeedback(LibraryAccessFeedbackFacts.webDavRootUpdated(id))
             }.onFailure { error ->
-                appEventSink.showToast(FeedbackMessages.settingsWebDavUpdateFailed(error.message))
+                appEventSink.emitFeedback(
+                    LibraryAccessFeedbackFacts.webDavRootUpdateFailed(id, error.message)
+                )
             }
         }
     }
@@ -172,7 +177,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             AbsSettingsLogger.logDeleteServerStart(rootId = root.rootId, sourceType = root.sourceType)
             val playbackWasStopped = libraryRootManagementUseCase.deleteLibraryRoot(root.rootId)
             AbsSettingsLogger.logDeleteServerFinished(rootId = root.rootId, playbackStopped = playbackWasStopped)
-            appEventSink.showToast(FeedbackMessages.settingsLibraryRootRemoved(playbackWasStopped))
+            appEventSink.emitFeedback(
+                LibraryAccessFeedbackFacts.rootRemoved(
+                    rootId = root.rootId,
+                    sourceType = root.sourceType,
+                    playbackWasStopped = playbackWasStopped
+                )
+            )
         }
     }
 
@@ -184,30 +195,29 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val manifest = runCatching {
                 exportUserDataUseCase.buildManifest(libraryRootDisplays.value.map { it.locationText })
             }.getOrElse { error ->
-                appEventSink.showToast(
-                    FeedbackMessage.Resource(
-                        R.string.feedback_settings_export_failed,
-                        listOf(error.message ?: "Unknown error")
-                    )
+                appEventSink.emitFeedback(
+                    DataTransferFeedbackFacts.exportFailed(error.message ?: "Unknown error")
                 )
                 return@launch
             }
             val outputStream = context.contentResolver.openOutputStream(uri)
             if (outputStream == null) {
-                appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_export_stream_failed))
+                appEventSink.emitFeedback(DataTransferFeedbackFacts.exportStreamFailed())
                 return@launch
             }
             runCatching {
                 exportUserDataUseCase.execute(outputStream, manifest)
             }.onSuccess { result ->
                 if (result.isSuccess) {
-                    appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_export_success))
+                    appEventSink.emitFeedback(DataTransferFeedbackFacts.exportSucceeded())
                 } else {
                     val msg = result.exceptionOrNull()?.message ?: "Unknown error"
-                    appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_export_failed, listOf(msg)))
+                    appEventSink.emitFeedback(DataTransferFeedbackFacts.exportFailed(msg))
                 }
             }.onFailure { error ->
-                appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_export_failed, listOf(error.message ?: "")))
+                appEventSink.emitFeedback(
+                    DataTransferFeedbackFacts.exportFailed(error.message ?: "")
+                )
             }
         }
     }
@@ -227,26 +237,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val context = getApplication<Application>()
             val inputStream = context.contentResolver.openInputStream(uri)
             if (inputStream == null) {
-                appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_import_stream_failed))
+                appEventSink.emitFeedback(DataTransferFeedbackFacts.importStreamFailed())
                 return@launch
             }
             // Version guard: reject backups from a newer database schema.
             val manifest = inputStream.use { importUserDataUseCase.peekManifest(it) }
             if (manifest != null && !importUserDataUseCase.isManifestCompatible(manifest)) {
-                appEventSink.showToast(
-                    FeedbackMessage.Resource(
-                        R.string.feedback_settings_import_version_incompatible,
-                        listOf(
-                            manifest.databaseVersion,
-                            importUserDataUseCase.currentDatabaseVersion
-                        )
+                appEventSink.emitFeedback(
+                    DataTransferFeedbackFacts.importVersionIncompatible(
+                        backupVersion = manifest.databaseVersion,
+                        currentVersion = importUserDataUseCase.currentDatabaseVersion
                     )
                 )
                 return@launch
             }
             val dataStream = context.contentResolver.openInputStream(uri)
             if (dataStream == null) {
-                appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_import_stream_failed))
+                appEventSink.emitFeedback(DataTransferFeedbackFacts.importStreamFailed())
                 return@launch
             }
             runCatching {
@@ -261,38 +268,44 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     Runtime.getRuntime().exit(0)
                 } else {
                     val msg = result.exceptionOrNull()?.message ?: "Unknown error"
-                    appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_import_failed, listOf(msg)))
+                    appEventSink.emitFeedback(DataTransferFeedbackFacts.importFailed(msg))
                 }
             }.onFailure { error ->
-                appEventSink.showToast(FeedbackMessage.Resource(R.string.feedback_settings_import_failed, listOf(error.message ?: "")))
+                appEventSink.emitFeedback(
+                    DataTransferFeedbackFacts.importFailed(error.message ?: "")
+                )
             }
         }
     }
 
     fun pauseDownload(bookId: String) {
         runDownloadCommand(
-            successMessage = FeedbackMessages.downloadCachePaused(),
+            bookId = bookId,
+            successFact = DownloadCacheFeedbackFacts.paused(bookId),
             action = { downloadController.pauseDownload(bookId) }
         )
     }
 
     fun downloadBook(bookId: String) {
         runDownloadCommand(
-            successMessage = FeedbackMessages.downloadCacheQueued(),
+            bookId = bookId,
+            successFact = DownloadCacheFeedbackFacts.queued(bookId),
             action = { downloadController.downloadBook(bookId) }
         )
     }
 
     fun resumeDownload(bookId: String) {
         runDownloadCommand(
-            successMessage = FeedbackMessages.downloadCacheResumed(),
+            bookId = bookId,
+            successFact = DownloadCacheFeedbackFacts.resumed(bookId),
             action = { downloadController.resumeDownload(bookId) }
         )
     }
 
     fun deleteDownload(bookId: String) {
         runDownloadCommand(
-            successMessage = FeedbackMessages.downloadCacheDeleted(),
+            bookId = bookId,
+            successFact = DownloadCacheFeedbackFacts.deleted(bookId),
             action = { downloadController.deleteDownload(bookId) }
         )
     }
@@ -304,28 +317,33 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
      */
     fun deleteAllDownloads() {
         runDownloadCommand(
-            successMessage = FeedbackMessages.downloadCacheDeleted(),
+            bookId = null,
+            successFact = DownloadCacheFeedbackFacts.deletedAll(),
             action = { settingsDependencies.cacheMaintenanceCommands.deleteAllManualDownloads() }
         )
     }
 
     fun onDownloadNotificationPermissionDenied() {
-        appEventSink.showToast(FeedbackMessages.downloadNotificationPermissionDenied())
+        appEventSink.emitFeedback(DownloadCacheFeedbackFacts.notificationPermissionDenied())
     }
 
     // Title: Run Download Management Command (Apply manual cache operations from settings pages)
-    // Uses resource-backed feedback after the command has updated Media3/Room state.
+    // Uses typed cache-task facts after the command has updated Media3/Room state; bulk commands pass a
+    // null book id so failures fall back to the app-wide download cache identity.
     private fun runDownloadCommand(
-        successMessage: FeedbackMessage,
+        bookId: String?,
+        successFact: FeedbackFact,
         action: suspend () -> Unit
     ) {
         viewModelScope.launch {
             runCatching {
                 action()
             }.onSuccess {
-                appEventSink.showToast(successMessage)
+                appEventSink.emitFeedback(successFact)
             }.onFailure { error ->
-                appEventSink.showToast(FeedbackMessages.downloadCacheCommandFailed(AbsLogSanitizer.compact(error.message)))
+                appEventSink.emitFeedback(
+                    DownloadCacheFeedbackFacts.commandFailed(bookId, AbsLogSanitizer.compact(error.message))
+                )
             }
         }
     }

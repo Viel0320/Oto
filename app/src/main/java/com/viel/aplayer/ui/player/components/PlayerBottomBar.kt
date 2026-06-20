@@ -31,10 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,14 +50,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.aplayer.R
-import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.player.PlaybackControlActions
 import com.viel.aplayer.ui.player.PlayerScreenMode
-import kotlinx.coroutines.delay
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Slot-based bottom bar scaffold for the player screen.
@@ -150,37 +144,6 @@ fun BottomNavTabs(
     val playbackSpeedResetActionLabel = stringResource(R.string.playback_speed_reset_action)
     val sleepTimerCycleActionLabel = stringResource(R.string.sleep_timer_cycle_action)
     val sleepTimerCancelActionLabel = stringResource(R.string.sleep_timer_cancel_action)
-
-    // Speed feedback remains tied to the control that changes speed, even after the control moves from the transport row into bottom navigation.
-    var lastSpeed by remember { mutableFloatStateOf(playbackSpeed) }
-    LaunchedEffect(playbackSpeed) {
-        if (playbackSpeed != lastSpeed) {
-            delay(1500.milliseconds)
-            val message = if (playbackSpeed == 1.0f) {
-                FeedbackMessages.playbackSpeedReset()
-            } else {
-                FeedbackMessages.playbackSpeedChanged(formatPlaybackSpeedForFeedback(playbackSpeed))
-            }
-            playbackActions.onShowToast(message)
-            lastSpeed = playbackSpeed
-        }
-    }
-
-    // Sleep feedback follows the relocated sleep action so timer changes still produce one debounced localized toast.
-    var lastTimer by remember { mutableIntStateOf(selectedSleepTimer) }
-    LaunchedEffect(selectedSleepTimer) {
-        if (selectedSleepTimer != lastTimer) {
-            delay(1500.milliseconds)
-            val message = when (selectedSleepTimer) {
-                0 -> FeedbackMessages.sleepTimerOff()
-                -1 -> FeedbackMessages.sleepTimerFiveSeconds()
-                -2 -> FeedbackMessages.sleepTimerEndOfChapter()
-                else -> FeedbackMessages.sleepTimerMinutes(selectedSleepTimer)
-            }
-            playbackActions.onShowToast(message)
-            lastTimer = selectedSleepTimer
-        }
-    }
 
     PlayerBottomBar(
         modifier = modifier,
@@ -554,11 +517,4 @@ fun BottomNavTabButton(
             content()
         }
     }
-}
-
-private fun formatPlaybackSpeedForFeedback(speed: Float): String {
-    // Playback Speed Formatting (Keep feedback arguments copy-neutral)
-    // Trims the trailing decimal from whole-number speeds while preserving fractional values such as 0.75 or 1.25.
-    val text = speed.toString()
-    return text.trimEnd('0').trimEnd('.')
 }

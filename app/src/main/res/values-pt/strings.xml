@@ -85,6 +85,7 @@
         %1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">Não foi encontrada nenhuma
         faixa de áudio reproduzível posterior. A reprodução parou.</string>
+    <string name="feedback_playback_stopped_scope">\nReprodução parada: %1$s</string>
     <plurals name="feedback_playback_finished_shutdown_scheduled">
         <item quantity="one">Reprodução terminada. A encerrar em %1$d segundo.</item>
         <item quantity="other">Reprodução terminada. A encerrar em %1$d segundos.</item>
@@ -225,8 +226,7 @@
         <item quantity="one">, %1$d deles parcialmente importado</item>
         <item quantity="other">, %1$d deles parcialmente importados</item>
     </plurals>
-    <string name="feedback_scan_blocked_no_directory_roots">Não há raízes locais ou WebDAV
-        disponíveis para sincronização</string>
+    <string name="feedback_scan_blocked_no_available_libraries">Não há bibliotecas disponíveis para sincronização</string>
     <string name="feedback_scan_retry_later">A sincronização falhou temporariamente e será repetida
         mais tarde</string>
     <string name="feedback_scan_failed">Sincronização da biblioteca falhou: %1$s</string>

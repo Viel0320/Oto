@@ -17,7 +17,7 @@ interface AppShellDependencies {
     val settingsReadModel: AppSettingsReadModel
 
     /**
-     * Application Event Sink (App shell transient feedback stream)
+     * Application Event Sink (App shell feedback render stream)
      * Gives the shell one stream to render Toasts and dialogs from process-wide events.
      */
     val appEventSink: AppEventSink

@@ -7,7 +7,7 @@ import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.runCatchingCancellable
 import com.viel.aplayer.di.dependencies.AbsSyncWorkerDependencies
-import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.library.LibraryRootStore
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
 import com.viel.aplayer.library.availability.isSyncAvailable
@@ -34,11 +34,13 @@ class AbsSyncWorker(
             AbsSyncLogger.logWorkerFailure(
                 rootId = rootId,
                 errorClass = "RootUnavailable",
-                message = message.mergeKey
+                message = "ROOT_UNAVAILABLE:${preflight.availability.status}"
             )
             // Worker Feedback Dispatch (Use the app-level sink instead of the playback event bus)
             // WorkManager runs outside the UI lifecycle, so user-facing sync messages must go through the process-wide feedback seam.
-            workerDependencies.appEventSink.showToast(FeedbackMessages.absBackgroundSyncUnavailable(message))
+            workerDependencies.appEventSink.emitFeedback(
+                LibraryAccessFeedbackFacts.syncBlocked(rootId = rootId, detailMessage = message)
+            )
             return Result.failure()
         }
         // Worker Retry Boundary Delegation (Route catalog execution through the cancellable retry adapter)

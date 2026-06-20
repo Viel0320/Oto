@@ -10,9 +10,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
+import com.viel.aplayer.event.feedback.FeedbackMessage
+import com.viel.aplayer.event.feedback.render
 import com.viel.aplayer.shared.formatDate
 import com.viel.aplayer.shared.formatTime
 import com.viel.aplayer.shared.settings.GlassEffectMode
@@ -21,23 +24,46 @@ import com.viel.aplayer.ui.player.PlaybackViewModel
 import dev.chrisbanes.haze.HazeState
 
 /**
- * APlayer App Dialog Host (Derives app-level playback dialogs from ViewModel state)
+ * APlayer App Dialog Host (Derives app-level feedback and playback dialogs from shell state)
  *
- * Keeps global playback confirmation dialogs out of APlayerApp while preserving the app-level HazeState sampling source used by top-level overlays.
+ * Keeps global feedback dialogs and playback confirmations out of APlayerApp while preserving the
+ * app-level HazeState sampling source used by top-level overlays.
  */
 @Composable
 fun APlayerAppDialogHost(
     hazeState: HazeState?,
     glassEffectMode: GlassEffectMode,
-    isFullPlayerVisible: Boolean,
+    feedbackDialogMessage: FeedbackMessage?,
     absProgressConflictState: PlaybackViewModel.AbsProgressConflictDialogState,
     trackUnavailableState: PlaybackViewModel.TrackUnavailableDialogState,
+    onDismissFeedbackDialog: () -> Unit,
     onDismissAbsProgressConflict: () -> Unit,
     onAcceptRemoteAbsProgressConflict: () -> Unit,
     onAcceptLocalAbsProgressConflict: () -> Unit,
     onDismissTrackUnavailable: () -> Unit,
     onSkipToNextAvailableTrack: (String, Int) -> Unit
 ) {
+    if (feedbackDialogMessage != null) {
+        val context = LocalContext.current
+        APlayerDialogTemplate(
+            onDismissRequest = onDismissFeedbackDialog,
+            hazeState = hazeState,
+            glassEffectMode = glassEffectMode,
+            scrollable = true,
+            body = {
+                Text(
+                    text = feedbackDialogMessage.render(context),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            actions = {
+                TextButton(onClick = onDismissFeedbackDialog) {
+                    Text(stringResource(R.string.action_ok))
+                }
+            }
+        )
+    }
+
     if (absProgressConflictState.show) {
         APlayerDialogTemplate(
             onDismissRequest = onDismissAbsProgressConflict,
@@ -102,7 +128,7 @@ fun APlayerAppDialogHost(
         )
     }
 
-    if (trackUnavailableState.show && isFullPlayerVisible) {
+    if (trackUnavailableState.show) {
         APlayerDialogTemplate(
             onDismissRequest = onDismissTrackUnavailable,
             hazeState = hazeState,
@@ -117,8 +143,11 @@ fun APlayerAppDialogHost(
             body = {
                 // Track Unavailable Body (Explain the forced skip consequence before mutating playback)
                 // The dialog stays app-level because unavailable-track events originate from playback service feedback rather than a specific page surface.
+                val stoppedScope = trackUnavailableState.bookTitle.trim().takeIf { it.isNotBlank() }?.let { title ->
+                    stringResource(R.string.feedback_playback_stopped_scope, title)
+                }.orEmpty()
                 Text(
-                    text = stringResource(R.string.track_unavailable_body),
+                    text = stringResource(R.string.track_unavailable_body) + stoppedScope,
                     style = MaterialTheme.typography.bodyMedium
                 )
             },

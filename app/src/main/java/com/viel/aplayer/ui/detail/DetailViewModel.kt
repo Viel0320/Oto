@@ -8,8 +8,8 @@ import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.application.download.BookCacheStatus
 import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.application.library.detail.DetailSnapshot
-import com.viel.aplayer.event.feedback.FeedbackMessage
-import com.viel.aplayer.event.feedback.FeedbackMessages
+import com.viel.aplayer.event.feedback.DownloadCacheFeedbackFacts
+import com.viel.aplayer.event.feedback.FeedbackFact
 import com.viel.aplayer.logger.AbsLogSanitizer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -263,49 +263,57 @@ class DetailViewModel(application: Application) : AndroidViewModel(application) 
 
     fun downloadBook(bookId: String) {
         runDownloadCommand(
-            successMessage = FeedbackMessages.downloadCacheQueued(),
+            bookId = bookId,
+            successFact = DownloadCacheFeedbackFacts.queued(bookId),
             action = { downloadController.downloadBook(bookId) }
         )
     }
 
     fun pauseDownload(bookId: String) {
         runDownloadCommand(
-            successMessage = FeedbackMessages.downloadCachePaused(),
+            bookId = bookId,
+            successFact = DownloadCacheFeedbackFacts.paused(bookId),
             action = { downloadController.pauseDownload(bookId) }
         )
     }
 
     fun resumeDownload(bookId: String) {
         runDownloadCommand(
-            successMessage = FeedbackMessages.downloadCacheResumed(),
+            bookId = bookId,
+            successFact = DownloadCacheFeedbackFacts.resumed(bookId),
             action = { downloadController.resumeDownload(bookId) }
         )
     }
 
     fun deleteDownload(bookId: String) {
         runDownloadCommand(
-            successMessage = FeedbackMessages.downloadCacheDeleted(),
+            bookId = bookId,
+            successFact = DownloadCacheFeedbackFacts.deleted(bookId),
             action = { downloadController.deleteDownload(bookId) }
         )
     }
 
     fun onDownloadNotificationPermissionDenied() {
-        appEventSink.showToast(FeedbackMessages.downloadNotificationPermissionDenied())
+        appEventSink.emitFeedback(DownloadCacheFeedbackFacts.notificationPermissionDenied())
     }
 
     // Download Command Runner (Serialize UI-triggered download actions through one feedback path)
-    // Successful commands emit resource-backed facts, while failures stay sanitized at the transient feedback boundary.
+    // Successful commands emit a typed cache-task fact, while failures stay keyed to the same book and
+    // sanitized at the feedback fact boundary.
     private fun runDownloadCommand(
-        successMessage: FeedbackMessage,
+        bookId: String,
+        successFact: FeedbackFact,
         action: suspend () -> Unit
     ) {
         viewModelScope.launch {
             runCatching {
                 action()
             }.onSuccess {
-                appEventSink.showToast(successMessage)
+                appEventSink.emitFeedback(successFact)
             }.onFailure { error ->
-                appEventSink.showToast(FeedbackMessages.downloadCacheCommandFailed(AbsLogSanitizer.compact(error.message)))
+                appEventSink.emitFeedback(
+                    DownloadCacheFeedbackFacts.commandFailed(bookId, AbsLogSanitizer.compact(error.message))
+                )
             }
         }
     }

@@ -76,6 +76,7 @@
     <string name="feedback_playback_cleartext_blocked">La seguridad bloqueó la reproducción HTTP sin cifrar. Actívala primero en ajustes.</string>
     <string name="feedback_playback_initial_media_load_failed">No se pudo cargar la fuente multimedia: %1$s</string>
     <string name="feedback_playback_no_available_track_after_failure">No se encontró ninguna pista de audio reproducible posterior. La reproducción se detuvo.</string>
+    <string name="feedback_playback_stopped_scope">\nReproducción detenida: %1$s</string>
     <plurals name="feedback_playback_finished_shutdown_scheduled">
         <item quantity="one">Reproducción terminada. Se cerrará en %1$d segundo.</item>
         <item quantity="other">Reproducción terminada. Se cerrará en %1$d segundos.</item>
@@ -176,7 +177,7 @@
         <item quantity="one">, %1$d de ellos importado parcialmente</item>
         <item quantity="other">, %1$d de ellos importados parcialmente</item>
     </plurals>
-    <string name="feedback_scan_blocked_no_directory_roots">No hay raíces locales o WebDAV disponibles para sincronizar</string>
+    <string name="feedback_scan_blocked_no_available_libraries">No hay bibliotecas disponibles para sincronizar</string>
     <string name="feedback_scan_retry_later">La sincronización falló temporalmente y se reintentará más tarde</string>
     <string name="feedback_scan_failed">Sincronización de biblioteca fallida: %1$s</string>
     <string name="feedback_sleep_motion_tracking_paused">El seguimiento de movimiento detectó actividad. El temporizador de sueño queda pausado un minuto.</string>

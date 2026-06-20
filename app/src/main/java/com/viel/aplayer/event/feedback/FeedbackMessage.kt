@@ -9,13 +9,22 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.media.PlaybackSourcePreflightBlockReason
 
 /**
- * Feedback Message (Resource-backed transient copy contract)
+ * Feedback Message (Shared source for app-shell feedback rendering)
  *
- * Callers emit a stable message key plus formatting arguments, while Android resource resolution stays
- * in the app-shell renderer where localization belongs.
+ * Callers emit one stable message source plus formatting or routing arguments. Android resource
+ * resolution and render-mode-specific rendering stay in the app shell, so the same message can be
+ * consumed as either a Toast or a Dialog without duplicating producer facts.
  */
 sealed interface FeedbackMessage {
-    val mergeKey: String
+    /**
+     * Default Render Mode (Fallback rendering mode for message producers)
+     *
+     * Most feedback renders as Toast by default. Fact factories only override this when a specific
+     * workflow requires strong in-app interaction.
+     */
+    val defaultRenderMode: FeedbackRenderMode
+        get() = FeedbackRenderMode.TOAST
+
 
     /**
      * Resource Message (Defers localized text lookup to the rendering layer)
@@ -26,16 +35,7 @@ sealed interface FeedbackMessage {
     data class Resource(
         @field:StringRes val resId: Int,
         val args: List<Any> = emptyList()
-    ) : FeedbackMessage {
-        override val mergeKey: String = buildString {
-            append("res:")
-            append(resId)
-            args.forEach { arg ->
-                append(':')
-                append(arg)
-            }
-        }
-    }
+    ) : FeedbackMessage
 
     /**
      * Quantity Resource Message (Defers counted localized text lookup to Android plural rules)
@@ -47,48 +47,35 @@ sealed interface FeedbackMessage {
         @field:PluralsRes val resId: Int,
         val quantity: Int,
         val args: List<Any> = listOf(quantity)
-    ) : FeedbackMessage {
-        override val mergeKey: String = buildString {
-            append("plural:")
-            append(resId)
-            append(':')
-            append(quantity)
-            args.forEach { arg ->
-                append(':')
-                append(arg)
-            }
-        }
-    }
+    ) : FeedbackMessage
 
     /**
-     * Raw Text Message (Compatibility path for callers not yet migrated to resource keys)
+     * Composite Message (Combines localized fragments into one feedback fact)
      *
-     * Keeping this explicit marker prevents legacy text from looking like localized feedback and makes
-     * remaining migration work searchable.
+     * Scan summaries can keep each phrase resource-backed while still emitting one message source.
      */
-    data class RawText(val value: String) : FeedbackMessage {
-        override val mergeKey: String = "raw:$value"
-    }
+    data class Composite(val parts: List<FeedbackMessage>) : FeedbackMessage
 
     /**
-     * Composite Message (Combines localized fragments into one transient feedback fact)
+     * Playback Track Unavailable Message (Identifies a failed queue item for Toast or Dialog rendering)
      *
-     * Scan summaries can keep each phrase resource-backed while still emitting a single Toast command.
+     * Toast rendering resolves this to the short unavailable-track copy; Dialog rendering uses the same
+     * payload to open the app-owned recovery confirmation.
      */
-    data class Composite(val parts: List<FeedbackMessage>) : FeedbackMessage {
-        override val mergeKey: String = parts.joinToString(separator = "|") { part -> part.mergeKey }
-    }
+    data class PlaybackTrackUnavailable(
+        val bookId: String,
+        val queueIndex: Int,
+        val bookTitle: String? = null
+    ) : FeedbackMessage
 }
 
 /**
- * Feedback Message Factory (Centralizes the resource keys used by transient feedback callers)
+ * Feedback Message Factory (Centralizes the resource keys used by feedback producers)
  *
  * This object keeps playback and settings feedback names stable while allowing the app shell to render
- * the final localized text elsewhere.
+ * the final localized text or strong-interaction dialog elsewhere from the same message source.
  */
 object FeedbackMessages {
-    fun rawText(value: String): FeedbackMessage = FeedbackMessage.RawText(value)
-
     fun messageSeparator(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_message_separator)
 
@@ -127,14 +114,23 @@ object FeedbackMessages {
         }
     }
 
-    fun playbackCleartextBlocked(): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_playback_cleartext_blocked)
+    fun playbackCleartextBlocked(bookTitle: String? = null): FeedbackMessage =
+        withStoppedPlaybackScope(
+            message = FeedbackMessage.Resource(R.string.feedback_playback_cleartext_blocked),
+            bookTitle = bookTitle
+        )
 
-    fun playbackInitialMediaLoadFailed(errorMessage: String): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_playback_initial_media_load_failed, listOf(errorMessage))
+    fun playbackInitialMediaLoadFailed(errorMessage: String, bookTitle: String? = null): FeedbackMessage =
+        withStoppedPlaybackScope(
+            message = FeedbackMessage.Resource(R.string.feedback_playback_initial_media_load_failed, listOf(errorMessage)),
+            bookTitle = bookTitle
+        )
 
-    fun playbackNoAvailableTrackAfterFailure(): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_playback_no_available_track_after_failure)
+    fun playbackNoAvailableTrackAfterFailure(bookTitle: String? = null): FeedbackMessage =
+        withStoppedPlaybackScope(
+            message = FeedbackMessage.Resource(R.string.feedback_playback_no_available_track_after_failure),
+            bookTitle = bookTitle
+        )
 
     fun playbackFinishedShutdownScheduled(delaySeconds: Int): FeedbackMessage =
         FeedbackMessage.Quantity(R.plurals.feedback_playback_finished_shutdown_scheduled, delaySeconds)
@@ -156,9 +152,11 @@ object FeedbackMessages {
 
     fun playbackSourcePreflightBlocked(
         reason: PlaybackSourcePreflightBlockReason,
-        rootName: String?
+        rootName: String?,
+        bookTitle: String? = null
     ): FeedbackMessage =
-        when (reason) {
+        withStoppedPlaybackScope(
+            message = when (reason) {
             PlaybackSourcePreflightBlockReason.MissingRoot ->
                 FeedbackMessage.Resource(R.string.feedback_playback_source_preflight_missing_root)
             PlaybackSourcePreflightBlockReason.UnavailableRoot ->
@@ -166,10 +164,18 @@ object FeedbackMessages {
                     R.string.feedback_playback_source_preflight_unavailable_root,
                     listOf(rootName.orEmpty())
                 )
-        }
+            },
+            bookTitle = bookTitle
+        )
 
-    fun playbackTrackUnavailable(): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_playback_track_unavailable)
+    /**
+     * Playback Track Unavailable (Creates the shared unavailable-track message source)
+     *
+     * The message carries routing payload for Dialog rendering while still resolving to the existing
+     * Toast copy when consumed with Toast render mode.
+     */
+    fun playbackTrackUnavailable(bookId: String, queueIndex: Int, bookTitle: String? = null): FeedbackMessage =
+        FeedbackMessage.PlaybackTrackUnavailable(bookId, queueIndex, bookTitle)
 
     fun settingsLocalLibraryRelocated(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_settings_local_library_relocated)
@@ -245,7 +251,7 @@ object FeedbackMessages {
     fun downloadNotificationPermissionDenied(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_download_notification_permission_denied)
 
-    // Download Command Failure Feedback (Keep transient command failures resource-backed)
+    // Download Command Failure Feedback (Keep command failures resource-backed)
     // The error detail is passed as sanitized UI feedback input instead of hard-coded ViewModel text.
     fun downloadCacheCommandFailed(errorMessage: String?): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_download_cache_command_failed, listOf(errorMessage ?: ""))
@@ -325,8 +331,14 @@ object FeedbackMessages {
     fun scanCompletedSuffixPartial(partialCount: Int): FeedbackMessage =
         FeedbackMessage.Quantity(R.plurals.feedback_scan_suffix_partial, partialCount)
 
-    fun scanBlockedNoDirectoryRoots(): FeedbackMessage =
-        FeedbackMessage.Resource(R.string.feedback_scan_blocked_no_directory_roots)
+    /**
+     * Scan Blocked Without Available Libraries (Access-form-neutral no-work feedback)
+     *
+     * The scan command may internally distinguish enumerable roots from catalog-backed roots, but the
+     * listener only needs to know that no library is currently available for this sync attempt.
+     */
+    fun scanBlockedNoAvailableLibraries(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_scan_blocked_no_available_libraries)
 
     fun scanRetryLater(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_scan_retry_later)
@@ -372,18 +384,77 @@ object FeedbackMessages {
 
     fun chapterPhysicalFileMissing(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_chapter_physical_file_missing)
+
+    // Data Transfer Feedback (Resource keys for portable app-data export and import)
+    // Wording and keys are unchanged from the previous inline SettingsViewModel messages; the data
+    // transfer fact factory now owns classification while these keep localization centralized.
+    fun settingsExportSuccess(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_settings_export_success)
+
+    fun settingsExportStreamFailed(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_settings_export_stream_failed)
+
+    fun settingsExportFailed(errorMessage: String?): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_settings_export_failed, listOf(errorMessage ?: ""))
+
+    fun settingsImportStreamFailed(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_settings_import_stream_failed)
+
+    fun settingsImportVersionIncompatible(backupVersion: Int, currentVersion: Int): FeedbackMessage =
+        FeedbackMessage.Resource(
+            R.string.feedback_settings_import_version_incompatible,
+            listOf(backupVersion, currentVersion)
+        )
+
+    fun settingsImportFailed(errorMessage: String?): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_settings_import_failed, listOf(errorMessage ?: ""))
+
+    /**
+     * Stopped Playback Scope (Appends the affected book title to blocking playback dialogs)
+     *
+     * Dialog feedback often reports a source or policy failure, but the user also needs the playback
+     * impact. Keeping the scope append inside the message factory preserves a single renderable message
+     * source for both generic dialogs and specialized recovery dialogs.
+     */
+    private fun withStoppedPlaybackScope(message: FeedbackMessage, bookTitle: String?): FeedbackMessage {
+        val scopedTitle = bookTitle?.trim().orEmpty()
+        if (scopedTitle.isBlank()) return message
+        return FeedbackMessage.Composite(
+            listOf(
+                message,
+                FeedbackMessage.Resource(R.string.feedback_playback_stopped_scope, listOf(scopedTitle))
+            )
+        )
+    }
+
+    /**
+     * Render Stopped Playback Scope (Formats the affected book title for semantic playback messages)
+     *
+     * Specialized messages such as track-unavailable must remain routeable by type, so they cannot be
+     * wrapped in [FeedbackMessage.Composite]. Rendering uses the same scope resource as generic dialog
+     * feedback to keep copy consistent.
+     */
+    fun renderStoppedPlaybackScope(message: String, bookTitle: String?, context: Context): String {
+        val scopedTitle = bookTitle?.trim().orEmpty()
+        if (scopedTitle.isBlank()) return message
+        return message + context.getString(R.string.feedback_playback_stopped_scope, scopedTitle)
+    }
 }
 
 /**
  * Feedback Message Rendering (Resolves resource-backed feedback at the app-shell edge)
  *
  * Rendering is intentionally outside event producers so media, workers, and ViewModels emit facts rather
- * than localized presentation text.
+ * than localized render text.
  */
 fun FeedbackMessage.render(context: Context): String =
     when (this) {
-        is FeedbackMessage.RawText -> value
         is FeedbackMessage.Resource -> context.getString(resId, *args.toTypedArray())
         is FeedbackMessage.Quantity -> context.resources.getQuantityString(resId, quantity, *args.toTypedArray())
         is FeedbackMessage.Composite -> parts.joinToString(separator = "") { part -> part.render(context) }
+        is FeedbackMessage.PlaybackTrackUnavailable -> FeedbackMessages.renderStoppedPlaybackScope(
+            message = context.getString(R.string.feedback_playback_track_unavailable),
+            bookTitle = bookTitle,
+            context = context
+        )
     }
