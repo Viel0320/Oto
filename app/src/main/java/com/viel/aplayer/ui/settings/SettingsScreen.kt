@@ -298,7 +298,7 @@ fun SettingsDialogHost(
     getWebDavCredentials: (credentialId: String) -> SettingsCredential?,
     getAbsCredential: suspend (credentialId: String) -> SettingsCredential?,
     onAbsSync: (rootId: String) -> Unit,
-    onRescan: () -> Unit,
+    onRescan: (rootId: String) -> Unit,
     onDeleteLibraryRoot: (SettingsRootItem) -> Unit,
     onLaunchSafRootPicker: () -> Unit,
     onImportConfirm: (Uri) -> Unit = {}
@@ -605,7 +605,7 @@ fun SettingsDialogHost(
                                 if (isAbsRoot) {
                                     onAbsSync(rootForAction.rootId)
                                 } else {
-                                    onRescan()
+                                    onRescan(rootForAction.rootId)
                                 }
                                 controller.dialogState = SettingsDialogState.None
                             }

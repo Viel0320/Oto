@@ -82,8 +82,14 @@ class DefaultSettingsRootModule(
         return startAbsSyncTask(rootId, AbsSyncTaskOrigin.AUTO_ADD)
     }
 
-    override fun scheduleUserSync() {
-        scanScheduler.scheduleLibrarySync(USER_TRIGGER)
+    /**
+     * Queues a manual scan for the root selected by the settings action menu.
+     *
+     * Passing the root id through the application layer prevents a row-level rescan from expanding
+     * into an all-root USER scan at the scheduler boundary.
+     */
+    override fun scheduleUserSync(rootId: String) {
+        scanScheduler.scheduleLibrarySync(USER_TRIGGER, rootIds = setOf(rootId))
     }
 
     private companion object {

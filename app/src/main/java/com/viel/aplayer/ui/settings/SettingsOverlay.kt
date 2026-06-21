@@ -391,7 +391,7 @@ fun SettingsOverlay(
                                 settingsViewModel.connectionHandler.getAbsCredential(credentialId)
                             },
                             onAbsSync = { rootId -> settingsViewModel.connectionHandler.syncAbsRoot(rootId) },
-                            onRescan = { settingsViewModel.connectionHandler.triggerRescan() },
+                            onRescan = { rootId -> settingsViewModel.connectionHandler.triggerRescan(rootId) },
                             onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
                             onLaunchSafRootPicker = { libraryRootLauncher.launch(null) },
                             onImportConfirm = { uri -> settingsViewModel.importUserData(uri) }

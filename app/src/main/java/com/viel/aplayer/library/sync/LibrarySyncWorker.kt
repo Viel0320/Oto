@@ -13,14 +13,24 @@ class LibrarySyncWorker(
     workerParams: WorkerParameters
 ) : CoroutineWorker(context, workerParams) {
 
+    /**
+     * Executes one WorkManager-backed library sync command.
+     *
+     * Cold-start work normally has no root scope, but rootIds are still forwarded so any future
+     * background root command keeps the same scanner contract as direct user-priority scheduling.
+     */
     override suspend fun doWork(): Result {
         return try {
             val trigger = inputData.getString("trigger") ?: "USER"
+            val rootIds = inputData.getStringArray("rootIds")
+                ?.filter { rootId -> rootId.isNotBlank() }
+                ?.toSet()
+                .orEmpty()
 
             val workerDependencies = com.viel.aplayer.APlayerApplication.getLibrarySyncWorkerDependencies(applicationContext)
             val scanScheduler = workerDependencies.scanScheduler
 
-            scanScheduler.syncLibrary(trigger).toWorkerResult()
+            scanScheduler.syncLibrary(trigger, rootIds = rootIds).toWorkerResult()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

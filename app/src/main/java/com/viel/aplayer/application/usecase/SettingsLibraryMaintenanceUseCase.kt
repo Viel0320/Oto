@@ -18,12 +18,24 @@ class SettingsLibraryMaintenanceUseCase(
     private val cacheEvictionCoordinator: CacheEvictionCoordinator,
     private val missingBookFileRecoveryChecker: MissingBookFileRecoveryChecker
 ) {
+    /**
+     * Replaces one SAF root and queues only that root for user-priority reconciliation.
+     *
+     * Cache eviction and missing-file recovery remain scoped to the edited root before the scan lane
+     * revalidates the directory contents.
+     */
     suspend fun updateSafRootAndScheduleSync(id: String, newUri: Uri) = withContext(Dispatchers.IO) {
         libraryRootGateway.updateSafLibraryRoot(id, newUri)
         clearRootCacheAndRecover(rootId = id)
-        scanScheduler.scheduleLibrarySync("USER")
+        scanScheduler.scheduleLibrarySync("USER", rootIds = setOf(id))
     }
 
+    /**
+     * Replaces one WebDAV root and queues only that root for user-priority reconciliation.
+     *
+     * The network requirement is preserved for command intent, while the scheduler keeps the actual
+     * user scan in its root-scoped priority lane.
+     */
     suspend fun updateWebDavRootAndScheduleSync(
         id: String,
         url: String,
@@ -41,7 +53,7 @@ class SettingsLibraryMaintenanceUseCase(
             basePath = basePath
         )
         clearRootCacheAndRecover(rootId = id)
-        scanScheduler.scheduleLibrarySync("USER", requiresNetwork = true)
+        scanScheduler.scheduleLibrarySync("USER", requiresNetwork = true, rootIds = setOf(id))
     }
 
     suspend fun clearRootCacheAndRecover(rootId: String) = withContext(Dispatchers.IO) {

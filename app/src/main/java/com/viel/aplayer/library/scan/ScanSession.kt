@@ -10,10 +10,14 @@ import com.viel.aplayer.library.orchestrator.RescanType
 
 /**
  * Stable ingestion request shape.
- * Keeps trigger interpretation inside the scan module so UI and Worker callers do not duplicate rescan mode decisions.
+ *
+ * User-initiated commands must carry explicit root ids so the scan state machine can keep manual
+ * registration and rescan work scoped to the source the user acted on. Cold-start commands keep an
+ * empty target set because they are the only library-wide directory scan entry.
  */
 data class ScanCommand(
-    val trigger: AudiobookSchema.ScanTrigger
+    val trigger: AudiobookSchema.ScanTrigger,
+    val targetRootIds: Set<String> = emptySet()
 )
 
 /**
@@ -29,7 +33,11 @@ fun interface ScanRootStatusAdapter {
  * Runs the heavy directory inventory and import transaction path after ScanSession has selected the allowed directory roots.
  */
 fun interface ScanImportAdapter {
-    suspend fun rescan(type: RescanType, allowedRootIds: Set<String>): ScanSessionEntity
+    suspend fun rescan(
+        type: RescanType,
+        targetRootIds: Set<String>,
+        allowedRootIds: Set<String>
+    ): ScanSessionEntity
 }
 
 /**
@@ -59,9 +67,10 @@ class ScanSession(
 
     private suspend fun executeChecked(command: ScanCommand): ScanOutcome {
         val rootUpdates = rootStatusAdapter.refreshPermissionStatuses()
-        val hasAvailableLibrary = rootUpdates.any { update -> update.isSyncAvailable }
-        val unavailableRootUpdates = rootUpdates.filterNot { update -> update.isSyncAvailable }
-        val directoryRootUpdates = rootUpdates
+        val scopedRootUpdates = command.scopedRootUpdates(rootUpdates)
+        val hasAvailableLibrary = scopedRootUpdates.any { update -> update.isSyncAvailable }
+        val unavailableRootUpdates = scopedRootUpdates.filterNot { update -> update.isSyncAvailable }
+        val directoryRootUpdates = scopedRootUpdates
             .filter { update -> update.root.isDirectorySyncRoot() }
         val availableDirectoryRootIds = directoryRootUpdates
             .filter { update -> update.isSyncAvailable }
@@ -80,6 +89,7 @@ class ScanSession(
 
         val session = importAdapter.rescan(
             type = command.toRescanType(),
+            targetRootIds = command.targetRootIds,
             allowedRootIds = availableDirectoryRootIds
         )
         if (session.status != AudiobookSchema.ScanStatus.COMPLETED) {
@@ -95,9 +105,24 @@ class ScanSession(
     }
 
     private fun ScanCommand.toRescanType(): RescanType =
-        if (trigger == AudiobookSchema.ScanTrigger.COLD_START) {
-            RescanType.COLD_START_LIGHT
-        } else {
-            RescanType.USER_GLOBAL
+        when (trigger) {
+            AudiobookSchema.ScanTrigger.COLD_START -> RescanType.COLD_START_LIGHT
+            AudiobookSchema.ScanTrigger.ADD_LIBRARY_ROOT -> RescanType.NEW_LIBRARY_ROOT
+            AudiobookSchema.ScanTrigger.USER -> RescanType.USER_ROOTS
         }
+
+    /**
+     * Narrows availability preflight to the requested roots for user commands.
+     *
+     * The empty target set is intentionally library-wide only for cold-start work; a user command
+     * without root ids is treated as having no scan target instead of silently falling back to a
+     * global scan.
+     */
+    private fun ScanCommand.scopedRootUpdates(
+        rootUpdates: List<LibraryRootAvailabilityUpdate>
+    ): List<LibraryRootAvailabilityUpdate> {
+        if (trigger == AudiobookSchema.ScanTrigger.COLD_START) return rootUpdates
+        if (targetRootIds.isEmpty()) return emptyList()
+        return rootUpdates.filter { update -> update.root.id in targetRootIds }
+    }
 }

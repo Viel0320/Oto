@@ -10,6 +10,7 @@ import com.viel.aplayer.data.cache.CacheEvictionCoordinator
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AppDatabase
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.scan.ScanScheduler
 import com.viel.aplayer.library.LibraryRootStore
@@ -114,6 +115,12 @@ class LibraryRootGatewayImpl(
         )
     }
 
+    /**
+     * Registers one SAF root and scans only the newly persisted root.
+     *
+     * The legacy trigger argument is no longer allowed to widen add-root ingestion into a USER
+     * global scan; the persisted root id becomes the scan scope immediately after registration.
+     */
     override fun addLibraryRootAndScheduleSync(uri: Uri, trigger: String) {
         scope.launch {
             runCatching {
@@ -121,14 +128,23 @@ class LibraryRootGatewayImpl(
                     uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
-                setLibraryRoot(uri)
-                scanScheduler.syncLibrary(trigger)
+                val root = setLibraryRoot(uri)
+                scanScheduler.syncLibrary(
+                    trigger = AudiobookSchema.ScanTrigger.ADD_LIBRARY_ROOT.name,
+                    rootIds = setOf(root.id)
+                )
             }.onFailure { error ->
                 ScanWorkflowLogger.error("libraryRootService add SAF root failed", error)
             }
         }
     }
 
+    /**
+     * Registers one WebDAV root and scans only the newly persisted root.
+     *
+     * The returned LibraryRootEntity supplies the scope id so remote additions do not rescan
+     * unrelated local or remote roots while the user waits for the new source to appear.
+     */
     override fun addWebDavLibraryRootAndScheduleSync(
         url: String,
         username: String,
@@ -139,8 +155,11 @@ class LibraryRootGatewayImpl(
     ) {
         scope.launch {
             runCatching {
-                addWebDavLibraryRoot(url, username, password, displayName, basePath)
-                scanScheduler.syncLibrary(trigger)
+                val root = addWebDavLibraryRoot(url, username, password, displayName, basePath)
+                scanScheduler.syncLibrary(
+                    trigger = AudiobookSchema.ScanTrigger.ADD_LIBRARY_ROOT.name,
+                    rootIds = setOf(root.id)
+                )
             }.onFailure { error ->
                 ScanWorkflowLogger.error("libraryRootService add WebDAV root failed", error)
             }

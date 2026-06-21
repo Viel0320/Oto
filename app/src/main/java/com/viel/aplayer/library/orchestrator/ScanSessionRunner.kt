@@ -15,6 +15,7 @@ import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.cache.DirectoryListingCache
 import com.viel.aplayer.library.vfs.cache.NoOpDirectoryListingCache
 import com.viel.aplayer.media.parser.MetadataResolver
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -27,6 +28,7 @@ import java.util.UUID
 enum class RescanType {
     COLD_START_LIGHT,
     USER_GLOBAL,
+    USER_ROOTS,
     NEW_LIBRARY_ROOT
 }
 
@@ -87,13 +89,14 @@ class ScanSessionRunner(
      */
     suspend fun rescan(
         type: RescanType,
-        rootId: String? = null,
+        targetRootIds: Set<String> = emptySet(),
         allowedRootIds: Set<String>? = null
     ): ScanSessionEntity = withContext(Dispatchers.IO) {
         val scanId = UUID.randomUUID().toString()
         val trigger = when (type) {
             RescanType.COLD_START_LIGHT -> AudiobookSchema.ScanTrigger.COLD_START
             RescanType.USER_GLOBAL -> AudiobookSchema.ScanTrigger.USER
+            RescanType.USER_ROOTS -> AudiobookSchema.ScanTrigger.USER
             RescanType.NEW_LIBRARY_ROOT -> AudiobookSchema.ScanTrigger.ADD_LIBRARY_ROOT
         }
         val session = ScanSessionEntity(
@@ -104,9 +107,10 @@ class ScanSessionRunner(
         )
         scanSessionDao.insertSession(session)
 
-        val result = runCatching {
+        val result = try {
             val roots = when (type) {
-                RescanType.NEW_LIBRARY_ROOT -> rootId?.let { rootDao.getRootById(it) }?.let(::listOf).orEmpty()
+                RescanType.USER_ROOTS,
+                RescanType.NEW_LIBRARY_ROOT -> targetRootIds.mapNotNull { rootId -> rootDao.getRootById(rootId) }
                 else -> rootDao.getActiveRootsOnce()
             }
                 .filter { root -> root.isDirectorySyncRoot() }
@@ -116,7 +120,12 @@ class ScanSessionRunner(
                 books = bookDao.getAllBooksOnce()
             )
 
-            scopeOrchestrator.execute(scanId, roots, existingIndex, type)
+            Result.success(scopeOrchestrator.execute(scanId, roots, existingIndex, type))
+        } catch (error: CancellationException) {
+            scanSessionDao.markAbandoned(scanId)
+            throw error
+        } catch (error: Throwable) {
+            Result.failure(error)
         }
 
         result.onSuccess { importResult ->

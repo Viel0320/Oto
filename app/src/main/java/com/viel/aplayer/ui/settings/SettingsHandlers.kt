@@ -386,8 +386,14 @@ class SettingsConnectionHandler(
         }
     }
 
-    fun triggerRescan() {
-        settingsRootCommands.scheduleUserSync()
+    /**
+     * Starts a user-priority rescan for the selected local or WebDAV root.
+     *
+     * SettingsScreen already separates ABS sync from directory rescans, so this handler receives
+     * only roots that should be processed by the directory import pipeline.
+     */
+    fun triggerRescan(rootId: String) {
+        settingsRootCommands.scheduleUserSync(rootId)
     }
 
     private fun launchAutoAbsSync(rootId: String) {

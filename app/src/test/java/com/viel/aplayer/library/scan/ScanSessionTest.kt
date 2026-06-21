@@ -33,13 +33,18 @@ class ScanSessionTest {
                     availabilityStatus = AudiobookSchema.AvailabilityStatus.AVAILABLE
                 )
             ),
-            importBlock = { _, allowedRootIds ->
+            importBlock = { _, _, allowedRootIds ->
                 importCalls += allowedRootIds
                 scanEntity()
             }
         )
 
-        val outcome = session.execute(ScanCommand(AudiobookSchema.ScanTrigger.USER))
+        val outcome = session.execute(
+            ScanCommand(
+                trigger = AudiobookSchema.ScanTrigger.USER,
+                targetRootIds = setOf("webdav-1", "abs-1")
+            )
+        )
 
         assertEquals(ScanOutcomeKind.BLOCKED, outcome.kind)
         assertNull(outcome.session)
@@ -69,13 +74,18 @@ class ScanSessionTest {
                     availabilityStatus = AudiobookSchema.AvailabilityStatus.AUTH_FAILED
                 )
             ),
-            importBlock = { _, allowedRootIds ->
+            importBlock = { _, _, allowedRootIds ->
                 importCalls += allowedRootIds
                 scanEntity()
             }
         )
 
-        val outcome = session.execute(ScanCommand(AudiobookSchema.ScanTrigger.USER))
+        val outcome = session.execute(
+            ScanCommand(
+                trigger = AudiobookSchema.ScanTrigger.USER,
+                targetRootIds = setOf("saf-1", "webdav-1", "abs-1")
+            )
+        )
 
         assertEquals(ScanOutcomeKind.BLOCKED, outcome.kind)
         assertTrue(importCalls.isEmpty())
@@ -94,13 +104,18 @@ class ScanSessionTest {
                     availabilityStatus = AudiobookSchema.AvailabilityStatus.AVAILABLE
                 )
             ),
-            importBlock = { _, allowedRootIds ->
+            importBlock = { _, _, allowedRootIds ->
                 importCalls += allowedRootIds
                 scanEntity()
             }
         )
 
-        val outcome = session.execute(ScanCommand(AudiobookSchema.ScanTrigger.USER))
+        val outcome = session.execute(
+            ScanCommand(
+                trigger = AudiobookSchema.ScanTrigger.USER,
+                targetRootIds = setOf("abs-1")
+            )
+        )
 
         assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
         assertTrue(importCalls.isEmpty())
@@ -131,7 +146,7 @@ class ScanSessionTest {
                     availabilityStatus = AudiobookSchema.AvailabilityStatus.AVAILABLE
                 )
             ),
-            importBlock = { type, allowedRootIds ->
+            importBlock = { type, _, allowedRootIds ->
                 capturedType = type
                 capturedRoots = allowedRootIds
                 completedSession
@@ -148,6 +163,104 @@ class ScanSessionTest {
     }
 
     @Test
+    fun `user command with target root should use root-scoped rescan type`() = runBlocking {
+        var capturedType: RescanType? = null
+        var capturedTargets: Set<String> = emptySet()
+        var capturedAllowedRoots: Set<String> = emptySet()
+        val session = scanSession(
+            roots = listOf(
+                rootUpdate(
+                    id = "saf-1",
+                    sourceType = AudiobookSchema.LibrarySourceType.SAF,
+                    availabilityStatus = AudiobookSchema.AvailabilityStatus.AVAILABLE
+                ),
+                rootUpdate(
+                    id = "saf-2",
+                    sourceType = AudiobookSchema.LibrarySourceType.SAF,
+                    availabilityStatus = AudiobookSchema.AvailabilityStatus.AVAILABLE
+                ),
+                rootUpdate(
+                    id = "webdav-1",
+                    sourceType = AudiobookSchema.LibrarySourceType.WEBDAV,
+                    availabilityStatus = AudiobookSchema.AvailabilityStatus.TIMEOUT
+                )
+            ),
+            importBlock = { type, targetRootIds, allowedRootIds ->
+                capturedType = type
+                capturedTargets = targetRootIds
+                capturedAllowedRoots = allowedRootIds
+                scanEntity(discovered = 1)
+            }
+        )
+
+        val outcome = session.execute(
+            ScanCommand(
+                trigger = AudiobookSchema.ScanTrigger.USER,
+                targetRootIds = setOf("saf-2")
+            )
+        )
+
+        assertEquals(RescanType.USER_ROOTS, capturedType)
+        assertEquals(setOf("saf-2"), capturedTargets)
+        assertEquals(setOf("saf-2"), capturedAllowedRoots)
+        assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
+    }
+
+    @Test
+    fun `add library command with target root should use new-root rescan type`() = runBlocking {
+        var capturedType: RescanType? = null
+        var capturedTargets: Set<String> = emptySet()
+        val session = scanSession(
+            roots = listOf(
+                rootUpdate(
+                    id = "new-root",
+                    sourceType = AudiobookSchema.LibrarySourceType.SAF,
+                    availabilityStatus = AudiobookSchema.AvailabilityStatus.AVAILABLE
+                )
+            ),
+            importBlock = { type, targetRootIds, _ ->
+                capturedType = type
+                capturedTargets = targetRootIds
+                scanEntity(discovered = 1)
+            }
+        )
+
+        val outcome = session.execute(
+            ScanCommand(
+                trigger = AudiobookSchema.ScanTrigger.ADD_LIBRARY_ROOT,
+                targetRootIds = setOf("new-root")
+            )
+        )
+
+        assertEquals(RescanType.NEW_LIBRARY_ROOT, capturedType)
+        assertEquals(setOf("new-root"), capturedTargets)
+        assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
+    }
+
+    @Test
+    fun `user command without target roots should not fall back to global import`() = runBlocking {
+        val importCalls = mutableListOf<Set<String>>()
+        val session = scanSession(
+            roots = listOf(
+                rootUpdate(
+                    id = "saf-1",
+                    sourceType = AudiobookSchema.LibrarySourceType.SAF,
+                    availabilityStatus = AudiobookSchema.AvailabilityStatus.AVAILABLE
+                )
+            ),
+            importBlock = { _, _, allowedRootIds ->
+                importCalls += allowedRootIds
+                scanEntity(discovered = 1)
+            }
+        )
+
+        val outcome = session.execute(ScanCommand(trigger = AudiobookSchema.ScanTrigger.USER))
+
+        assertEquals(ScanOutcomeKind.BLOCKED, outcome.kind)
+        assertTrue(importCalls.isEmpty())
+    }
+
+    @Test
     fun `completed empty library should use library snapshot adapter for outcome message`() = runBlocking {
         val session = scanSession(
             roots = listOf(
@@ -157,11 +270,16 @@ class ScanSessionTest {
                     availabilityStatus = AudiobookSchema.AvailabilityStatus.AVAILABLE
                 )
             ),
-            importBlock = { _, _ -> scanEntity() },
+            importBlock = { _, _, _ -> scanEntity() },
             isLibraryEmpty = true
         )
 
-        val outcome = session.execute(ScanCommand(AudiobookSchema.ScanTrigger.USER))
+        val outcome = session.execute(
+            ScanCommand(
+                trigger = AudiobookSchema.ScanTrigger.USER,
+                targetRootIds = setOf("saf-1")
+            )
+        )
 
         assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
         val message = outcome.feedback!!.message as FeedbackMessage.Resource
@@ -180,14 +298,19 @@ class ScanSessionTest {
                     availabilityStatus = AudiobookSchema.AvailabilityStatus.AVAILABLE
                 )
             ),
-            importBlock = { _, _ -> abandonedSession },
+            importBlock = { _, _, _ -> abandonedSession },
             librarySnapshotBlock = {
                 librarySnapshotCalls += 1
                 false
             }
         )
 
-        val outcome = session.execute(ScanCommand(AudiobookSchema.ScanTrigger.USER))
+        val outcome = session.execute(
+            ScanCommand(
+                trigger = AudiobookSchema.ScanTrigger.USER,
+                targetRootIds = setOf("saf-1")
+            )
+        )
 
         assertEquals(ScanOutcomeKind.FAILED, outcome.kind)
         assertNull(outcome.session)
@@ -205,10 +328,15 @@ class ScanSessionTest {
                     availabilityStatus = AudiobookSchema.AvailabilityStatus.AVAILABLE
                 )
             ),
-            importBlock = { _, _ -> throw IOException("storage unavailable") }
+            importBlock = { _, _, _ -> throw IOException("storage unavailable") }
         )
 
-        val outcome = session.execute(ScanCommand(AudiobookSchema.ScanTrigger.USER))
+        val outcome = session.execute(
+            ScanCommand(
+                trigger = AudiobookSchema.ScanTrigger.USER,
+                targetRootIds = setOf("saf-1")
+            )
+        )
 
         assertEquals(ScanOutcomeKind.RETRY, outcome.kind)
         assertTrue(outcome.cause is IOException)
@@ -218,7 +346,7 @@ class ScanSessionTest {
 
     private fun scanSession(
         roots: List<LibraryRootAvailabilityUpdate>,
-        importBlock: suspend (RescanType, Set<String>) -> ScanSessionEntity,
+        importBlock: suspend (RescanType, Set<String>, Set<String>) -> ScanSessionEntity,
         isLibraryEmpty: Boolean = false,
         librarySnapshotBlock: suspend () -> Boolean = { isLibraryEmpty }
     ): ScanSession =

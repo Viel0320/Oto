@@ -10,8 +10,8 @@ import java.util.concurrent.TimeUnit
 /**
  * Centralizes WorkManager queue semantics for app background commands.
  *
- * Keeps unique-work names, replacement rules, constraints, and retry backoff in one module so manual
- * sync, root-edit sync, cold-start debounce, and remote ABS sync cannot drift independently.
+ * Keeps unique-work names, replacement rules, constraints, and retry backoff in one module so
+ * WorkManager-backed cold-start sync and remote ABS sync cannot drift independently.
  */
 object WorkSchedulingPolicy {
     private const val LIBRARY_SYNC_WORK_NAME = "LibrarySyncWork"
@@ -20,10 +20,11 @@ object WorkSchedulingPolicy {
     private const val COLD_START_INITIAL_DELAY_SECONDS = 2L
 
     /**
-     * Differentiates cold-start debounce from user/root-edit refreshes.
+     * Differentiates cold-start debounce from fallback non-cold refreshes.
      *
-     * Cold-start scans keep the first queued job to avoid duplicate boot-time work, while user and
-     * configuration-change scans replace stale queued inputs so the newest root settings win.
+     * Cold-start scans keep the first queued job to avoid duplicate boot-time work. User root scans
+     * normally bypass WorkManager and use ScanSchedulerImpl's priority lane, but the non-cold branch
+     * remains replaceable for defensive fallback callers.
      */
     fun librarySync(trigger: AudiobookSchema.ScanTrigger, requiresNetwork: Boolean): UniqueWorkSchedulingPolicy =
         UniqueWorkSchedulingPolicy(

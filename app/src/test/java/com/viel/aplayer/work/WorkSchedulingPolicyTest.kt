@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 
 class WorkSchedulingPolicyTest {
     @Test
-    fun `cold start library sync keeps debounce queue while user sync replaces stale work`() {
+    fun `cold start library sync keeps debounce queue while fallback user sync remains replaceable`() {
         val coldStart = WorkSchedulingPolicy.librarySync(
             trigger = AudiobookSchema.ScanTrigger.COLD_START,
             requiresNetwork = false

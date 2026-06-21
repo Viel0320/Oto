@@ -95,8 +95,6 @@ interface HomeLibraryReadModel {
 interface HomeLibraryUseCases {
     fun scheduleColdStartSync()
 
-    fun scheduleUserSync()
-
     fun addLocalRootAndScheduleSync(uri: Uri)
 
 
@@ -146,10 +144,6 @@ class DefaultHomeLibraryUseCases(
 ) : HomeLibraryUseCases {
     override fun scheduleColdStartSync() {
         scanScheduler.scheduleLibrarySync(COLD_START_TRIGGER)
-    }
-
-    override fun scheduleUserSync() {
-        scanScheduler.scheduleLibrarySync(USER_TRIGGER)
     }
 
     override fun addLocalRootAndScheduleSync(uri: Uri) {

@@ -15,18 +15,25 @@ interface ScanScheduler {
     /**
      * Direct sync command.
      * Triggers database updates and file rescan operations immediately, returning the shared scan outcome contract.
+     * User-originated commands pass rootIds so the scanner does not fall back to library-wide work.
      *
      * @param trigger Origin indicating sync cause (e.g. "USER", "SYSTEM", "BACKGROUND")
+     * @param rootIds Explicit directory roots affected by a user command; cold-start scans leave it empty.
      */
-    suspend fun syncLibrary(trigger: String = "USER"): ScanOutcome
+    suspend fun syncLibrary(trigger: String = "USER", rootIds: Set<String> = emptySet()): ScanOutcome
 
     /**
-     * Background WorkManager dispatch.
-     * Dispatches rescan jobs asynchronously while preserving trigger-specific replacement and
-     * network-constraint semantics at the scheduler seam.
+     * Asynchronous scan dispatch.
+     * Cold-start work keeps WorkManager timing, while user commands enter the root-scoped priority
+     * lane so repeated manual actions can run newest-first instead of being collapsed.
      *
      * @param trigger Origin indicating sync cause
      * @param requiresNetwork True when the queued scan was caused by a remote-only root mutation.
+     * @param rootIds Explicit directory roots affected by a user command; cold-start scans leave it empty.
      */
-    fun scheduleLibrarySync(trigger: String = "USER", requiresNetwork: Boolean = false)
+    fun scheduleLibrarySync(
+        trigger: String = "USER",
+        requiresNetwork: Boolean = false,
+        rootIds: Set<String> = emptySet()
+    )
 }

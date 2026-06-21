@@ -151,13 +151,16 @@ class SettingsRootModuleTest {
     }
 
     @Test
-    fun scheduleUserSyncDelegatesToTheScanScheduler() {
+    fun scheduleUserSyncDelegatesRootScopedScanToTheScheduler() {
         val scheduler = FakeScanScheduler()
         val module = moduleFor(scanScheduler = scheduler)
 
-        module.scheduleUserSync()
+        module.scheduleUserSync(ROOT_ID)
 
-        assertEquals(listOf(ScheduledScan(trigger = "USER", requiresNetwork = false)), scheduler.scheduledScans)
+        assertEquals(
+            listOf(ScheduledScan(trigger = "USER", requiresNetwork = false, rootIds = setOf(ROOT_ID))),
+            scheduler.scheduledScans
+        )
     }
 
     private fun moduleFor(
@@ -231,10 +234,10 @@ class SettingsRootModuleTest {
     private class FakeScanScheduler : ScanScheduler {
         val scheduledScans = mutableListOf<ScheduledScan>()
 
-        override suspend fun syncLibrary(trigger: String): ScanOutcome = unexpected("syncLibrary")
+        override suspend fun syncLibrary(trigger: String, rootIds: Set<String>): ScanOutcome = unexpected("syncLibrary")
 
-        override fun scheduleLibrarySync(trigger: String, requiresNetwork: Boolean) {
-            scheduledScans += ScheduledScan(trigger = trigger, requiresNetwork = requiresNetwork)
+        override fun scheduleLibrarySync(trigger: String, requiresNetwork: Boolean, rootIds: Set<String>) {
+            scheduledScans += ScheduledScan(trigger = trigger, requiresNetwork = requiresNetwork, rootIds = rootIds)
         }
     }
 
@@ -254,7 +257,8 @@ class SettingsRootModuleTest {
 
     private data class ScheduledScan(
         val trigger: String,
-        val requiresNetwork: Boolean
+        val requiresNetwork: Boolean,
+        val rootIds: Set<String>
     )
 
     private data class StartedAbsTask(

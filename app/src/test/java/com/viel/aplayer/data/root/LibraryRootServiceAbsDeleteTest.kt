@@ -278,10 +278,10 @@ class LibraryRootServiceAbsDeleteTest {
         )
 
     private object NoOpScanScheduler : ScanScheduler {
-        override suspend fun syncLibrary(trigger: String): ScanOutcome =
+        override suspend fun syncLibrary(trigger: String, rootIds: Set<String>): ScanOutcome =
             ScanOutcome(kind = ScanOutcomeKind.SUCCESS, feedback = null)
 
-        override fun scheduleLibrarySync(trigger: String, requiresNetwork: Boolean) = Unit
+        override fun scheduleLibrarySync(trigger: String, requiresNetwork: Boolean, rootIds: Set<String>) = Unit
     }
 
     private companion object {

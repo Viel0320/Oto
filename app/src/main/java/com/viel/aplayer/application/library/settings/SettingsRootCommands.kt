@@ -67,7 +67,7 @@ interface SettingsRootCommands {
 
     /**
      * Queue a manual library scan.
-     * Centralizes the USER trigger string so settings UI actions do not know scheduler protocol details.
+     * Centralizes the USER trigger string while keeping the scan scoped to the root selected in the settings list.
      */
-    fun scheduleUserSync()
+    fun scheduleUserSync(rootId: String)
 }

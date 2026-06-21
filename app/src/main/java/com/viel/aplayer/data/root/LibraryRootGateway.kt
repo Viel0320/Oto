@@ -78,7 +78,7 @@ interface LibraryRootGateway {
 
     /**
      * Immediate ingestion sequence.
-     * Registers a local SAF root and immediately schedules an incremental sync scan.
+     * Registers a local SAF root and immediately starts an ADD_LIBRARY_ROOT scan scoped to the new root id.
      */
     fun addLibraryRootAndScheduleSync(uri: Uri, trigger: String = "USER")
 
@@ -91,7 +91,7 @@ interface LibraryRootGateway {
      * @param password Login password
      * @param displayName Label visible in settings UI
      * @param basePath Target remote mount folder sub-path
-     * @param trigger Event source (e.g. USER, SYSTEM)
+     * @param trigger Legacy caller label retained for source compatibility; the implementation scopes the scan to the new root id.
      */
     fun addWebDavLibraryRootAndScheduleSync(
         url: String,
