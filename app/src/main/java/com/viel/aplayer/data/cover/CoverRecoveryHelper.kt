@@ -1,4 +1,4 @@
-package com.viel.aplayer.media.parser
+package com.viel.aplayer.data.cover
 
 import android.os.SystemClock
 import androidx.media3.common.util.UnstableApi
@@ -13,6 +13,8 @@ import com.viel.aplayer.library.FileRef
 import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.logger.ScanWorkflowLogger
 import com.viel.aplayer.media.manifest.ManifestSidecarSupport
+import com.viel.aplayer.media.parser.CoverExtractor
+import com.viel.aplayer.media.parser.MetadataResolver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -38,7 +40,7 @@ class CoverRecoveryHelper(
     private val fileReader: VfsFileInterface,
     private val absItemMirrorDao: AbsItemMirrorDao,
     private val absCoverStoreProvider: () -> AbsCoverStore?
-) {
+) : CoverSelfHealer {
     // 封面重建会触发 VFS 读流、图片解码和主色提取，因此继续用信号量限制全局并发。
     private val regenerationSemaphore = Semaphore(MAX_CONCURRENT_COVER_REGENERATIONS)
     // 所有内嵌封面字节都统一通过 metadataResolver 向各格式 parser 请求，
@@ -57,7 +59,7 @@ class CoverRecoveryHelper(
     // 只复用很短时间内刚探测过的结果，不引入新的持久化状态，也不会改变丢失封面的自愈语义。
     private val coverPresenceCache = java.util.concurrent.ConcurrentHashMap<String, CoverPresenceSnapshot>()
 
-    fun checkAndTriggerCoverRegeneration(book: BookEntity) {
+    override fun checkAndTriggerCoverRegeneration(book: BookEntity) {
         val bookId = book.id
         if (alreadyAttempted.containsKey(bookId)) return
         if (pendingRegenerations.contains(bookId)) return
@@ -91,7 +93,7 @@ class CoverRecoveryHelper(
         }
     }
 
-    suspend fun forceRegenerateCover(bookId: String): Boolean =
+    override suspend fun forceRegenerateCover(bookId: String): Boolean =
         kotlinx.coroutines.withContext(Dispatchers.IO) {
             alreadyAttempted.remove(bookId)
             try {

@@ -17,12 +17,14 @@ import com.viel.aplayer.shared.settings.HomeSortDirection
 import com.viel.aplayer.shared.settings.HomeSortRule
 import com.viel.aplayer.shared.settings.HomeViewStyle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
     // Home Screen Dependency View (Resolve only home scene, settings, deletion use cases, and feedback needed by Home)
@@ -164,8 +166,18 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     init {
-        // Cold Start Scan Queue (Submitted to the home scene use case to hide WorkManager trigger details)
-        homeLibraryUseCases.scheduleColdStartSync()
+        // Deferred Cold Start Scan (Let the first shelf frame render before scheduling WorkManager sync)
+        // Cold-start scanning no longer contends with first-screen catalog loading for cold-start I/O and the DB.
+        viewModelScope.launch {
+            delay(COLD_START_SCAN_DELAY_MS.milliseconds)
+            homeLibraryUseCases.scheduleColdStartSync()
+        }
+        // Deferred Cover Self-Heal Sweep (Replace per-emission inline cover probing with one background sweep)
+        // Runs after the shelf is visible; actual regeneration stays on CoverRecoveryHelper's own background scope.
+        viewModelScope.launch {
+            delay(COVER_RECOVERY_SWEEP_DELAY_MS.milliseconds)
+            homeLibraryUseCases.recoverMissingCovers()
+        }
         // Home Filter Startup Policy (Preserve explicit and persisted category selection)
         // Cold start no longer rewrites HOME_FILTER from library contents, so in-progress books cannot override the user's saved Home category.
     }
@@ -259,6 +271,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     // Sets the active dialog state to None, closing any visible dialog.
     fun dismissDialog() {
         _homeDialogState.value = HomeDialogState.None
+    }
+
+    private companion object {
+        // Cold-start scan waits for the first frame so WorkManager scheduling does not steal cold-start I/O.
+        private const val COLD_START_SCAN_DELAY_MS = 2_000L
+        // Cover sweep runs slightly earlier than the scan; it is cheap and only re-checks cached artwork presence.
+        private const val COVER_RECOVERY_SWEEP_DELAY_MS = 1_000L
     }
 
 }

@@ -4,9 +4,9 @@ import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.core.net.toUri
 import androidx.media3.common.util.UnstableApi
+import com.viel.aplayer.data.cover.CoverRecoveryHelper
 import com.viel.aplayer.data.cover.CoverUriResolver
 import com.viel.aplayer.data.dao.BookDao
-import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

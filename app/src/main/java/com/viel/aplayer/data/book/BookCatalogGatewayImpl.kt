@@ -1,13 +1,11 @@
 package com.viel.aplayer.data.book
 
-import androidx.annotation.OptIn
-import androidx.media3.common.util.UnstableApi
+import com.viel.aplayer.data.cover.CoverRecoveryGateway
 import com.viel.aplayer.data.dao.BookDao
 import com.viel.aplayer.data.dao.BookMinWithProgress
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookWithProgress
-import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
@@ -17,13 +15,14 @@ import kotlinx.coroutines.withContext
 /**
  * Book Catalog Service (Implements BookCatalogGateway)
  *
- * Owns read/search/file-inventory projections only. Every list flow runs through [checkCovers] so cover
- * self-healing stays attached to catalog reads without leaking into metadata, bookmark, or chapter seams.
+ * Owns read/search/file-inventory projections only. Search and filter flows still run through [checkCovers] so
+ * cover self-healing stays attached to those on-demand reads, while the first-frame [audiobooks] stream is kept
+ * probe-free and relies on CoverRecoveryGateway's deferred background sweep instead. Self-heal triggers go through
+ * the data-layer CoverRecoveryGateway rather than the media-layer helper directly.
  */
-@OptIn(UnstableApi::class)
 class BookCatalogGatewayImpl(
     private val bookDao: BookDao,
-    private val coverRecoveryHelper: CoverRecoveryHelper
+    private val coverRecoveryGateway: CoverRecoveryGateway
 ) : BookCatalogGateway {
 
     /**
@@ -32,19 +31,23 @@ class BookCatalogGatewayImpl(
      * filesystem probes off the UI collector thread.
      */
     private fun Flow<List<BookMinWithProgress>>.checkCovers(): Flow<List<BookWithProgress>> = this.map { list ->
-        list.map { it.toBookWithProgress() }.onEach { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it.book) }
+        list.map { it.toBookWithProgress() }.onEach { coverRecoveryGateway.triggerRecovery(it.book) }
     }.flowOn(Dispatchers.IO)
 
     override val audiobooks: Flow<List<BookWithProgress>>
-        get() = bookDao.getAllBooksWithProgress().checkCovers()
+        get() = bookDao.getAllBooksWithProgress().map { list ->
+            // First-frame catalog stream skips inline cover probing on purpose; missing covers are healed by
+            // CoverRecoveryGateway's deferred background sweep so the home shelf is not blocked by per-book File.exists checks.
+            list.map { it.toBookWithProgress() }
+        }.flowOn(Dispatchers.IO)
 
     override suspend fun getBookById(id: String): BookEntity? = withContext(Dispatchers.IO) {
-        bookDao.getBookById(id)?.also { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it) }
+        bookDao.getBookById(id)?.also { coverRecoveryGateway.triggerRecovery(it) }
     }
 
     override fun observeBookById(id: String): Flow<BookEntity?> {
         return bookDao.observeBookById(id).map { book ->
-            book?.also { coverRecoveryHelper.checkAndTriggerCoverRegeneration(it) }
+            book?.also { coverRecoveryGateway.triggerRecovery(it) }
         }.flowOn(Dispatchers.IO)
     }
 

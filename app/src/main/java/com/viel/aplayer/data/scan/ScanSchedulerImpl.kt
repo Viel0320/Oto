@@ -1,11 +1,10 @@
 package com.viel.aplayer.data.scan
 
 import android.content.Context
-import androidx.annotation.OptIn
-import androidx.media3.common.util.UnstableApi
 import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.viel.aplayer.data.cover.CoverRecoveryGateway
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.event.AppEventSink
@@ -20,7 +19,6 @@ import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.library.vfs.cache.DirectoryListingCache
 import com.viel.aplayer.library.vfs.cache.NoOpDirectoryListingCache
 import com.viel.aplayer.logger.ScanWorkflowLogger
-import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import com.viel.aplayer.work.WorkSchedulingPolicy
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -38,10 +36,9 @@ import kotlinx.coroutines.withContext
  * 1. Eradicate God-Class Repositories: Integrates with LibraryRootStore and ScanSessionRunner in the M6c phase, breaking all ties to the bloated BookLibraryRepository.
  * 2. Re-anchor Serial Scans Lock: Manages a private Mutex internally to coordinate COLD_START_LIGHT and USER_GLOBAL scan modes safely.
  */
-@OptIn(UnstableApi::class)
 class ScanSchedulerImpl(
     context: Context,
-    private val coverRecoveryHelper: CoverRecoveryHelper,
+    private val coverRecoveryGateway: CoverRecoveryGateway,
     // Shared VFS Facade (Dependency injection reference)
     // Reference to the module's single VFS reader, avoiding internal self-initialization.
     private val vfsFileInterface: VfsFileInterface,
@@ -131,7 +128,7 @@ class ScanSchedulerImpl(
                     context = appContext,
                     vfsFileInterface = vfsFileInterface,
                     directoryListingCache = directoryListingCache,
-                    triggerCoverRegeneration = coverRecoveryHelper::checkAndTriggerCoverRegeneration
+                    triggerCoverRegeneration = coverRecoveryGateway::triggerRecovery
                 ).rescan(type, allowedRootIds = allowedRootIds)
             },
             librarySnapshotAdapter = {

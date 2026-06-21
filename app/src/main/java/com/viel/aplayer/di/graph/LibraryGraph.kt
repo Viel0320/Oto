@@ -47,6 +47,9 @@ import com.viel.aplayer.data.cleanup.RemotePlaybackCleanupGatewayImpl
 import com.viel.aplayer.data.cover.AndroidCoverUriResolver
 import com.viel.aplayer.data.cover.CoverAssetGateway
 import com.viel.aplayer.data.cover.CoverAssetGatewayImpl
+import com.viel.aplayer.data.cover.CoverRecoveryGateway
+import com.viel.aplayer.data.cover.CoverRecoveryGatewayImpl
+import com.viel.aplayer.data.cover.CoverRecoveryHelper
 import com.viel.aplayer.data.cover.CoverUriResolver
 import com.viel.aplayer.data.metadata.MetadataRefreshGateway
 import com.viel.aplayer.data.metadata.MetadataRefreshGatewayImpl
@@ -64,7 +67,6 @@ import com.viel.aplayer.library.availability.AvailabilityChecker
 import com.viel.aplayer.media.PlaybackPlanGateway
 import com.viel.aplayer.media.PlaybackPlanGatewayImpl
 import com.viel.aplayer.media.parser.CoverExtractor
-import com.viel.aplayer.media.parser.CoverRecoveryHelper
 import com.viel.aplayer.media.parser.MetadataResolver
 import com.viel.aplayer.media.subtitle.SubtitleFileResolver
 import kotlinx.coroutines.CoroutineScope
@@ -152,12 +154,23 @@ internal class LibraryGraph(
     private val bookCatalogGatewayLazy = lazy {
         BookCatalogGatewayImpl(
             bookDao = data.database.bookDao(),
-            coverRecoveryHelper = coverRecoveryHelper
+            coverRecoveryGateway = coverRecoveryGatewayLazy.value
         )
     }
 
     private val bookMetadataGatewayLazy = lazy {
         BookMetadataGatewayImpl(bookDao = data.database.bookDao())
+    }
+
+    /**
+     * Cover Recovery Wiring (Batch self-heal seam for the home cold-start sweep)
+     * Reuses the shared CoverRecoveryHelper background scope so the deferred sweep only adds a catalog snapshot read.
+     */
+    private val coverRecoveryGatewayLazy: Lazy<CoverRecoveryGateway> = lazy {
+        CoverRecoveryGatewayImpl(
+            bookDao = data.database.bookDao(),
+            coverSelfHealer = coverRecoveryHelper
+        )
     }
 
     private val bookmarkGatewayLazy = lazy {
@@ -243,7 +256,7 @@ internal class LibraryGraph(
         // Media Scanner Service: Runs directory crawl passes to locate added/deleted books.
         ScanSchedulerImpl(
             context = context,
-            coverRecoveryHelper = coverRecoveryHelper,
+            coverRecoveryGateway = coverRecoveryGatewayLazy.value,
             vfsFileInterface = media.vfsFileInterface,
             directoryListingCache = media.directoryListingCache,
             appEventSink = uiEvents.appEventSink
@@ -315,7 +328,7 @@ internal class LibraryGraph(
         MetadataRefreshGatewayImpl(
             bookDao = data.database.bookDao(),
             chapterDao = data.database.chapterDao(),
-            coverRecoveryHelper = coverRecoveryHelper,
+            coverRecoveryGateway = coverRecoveryGatewayLazy.value,
             metadataResolver = metadataResolver,
             database = data.database
         )
@@ -428,7 +441,8 @@ internal class LibraryGraph(
             scanScheduler = scanScheduler,
             libraryRootGateway = libraryRootGateway,
             metadataRefreshGateway = metadataRefreshGateway,
-            searchHistoryGateway = searchHistoryGateway
+            searchHistoryGateway = searchHistoryGateway,
+            coverRecoveryGateway = coverRecoveryGatewayLazy.value
         )
     }
 

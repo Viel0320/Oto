@@ -11,6 +11,7 @@ import com.viel.aplayer.application.library.toLibraryReadStatus
 import com.viel.aplayer.application.library.toSchemaReadStatus
 import com.viel.aplayer.data.book.BookCatalogGateway
 import com.viel.aplayer.data.book.BookMetadataGateway
+import com.viel.aplayer.data.cover.CoverRecoveryGateway
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.metadata.MetadataRefreshGateway
 import com.viel.aplayer.data.root.LibraryRootGateway
@@ -104,6 +105,12 @@ interface HomeLibraryUseCases {
 
     suspend fun regenerateCoverAndMetadata(bookId: String)
 
+    /**
+     * Recover Missing Covers (Deferred home-start cover self-heal sweep)
+     * Home triggers this shortly after first paint so the catalog stream no longer probes covers inline on every emission.
+     */
+    suspend fun recoverMissingCovers()
+
     suspend fun clearSearchHistory()
 }
 
@@ -139,7 +146,8 @@ class DefaultHomeLibraryUseCases(
     private val scanScheduler: ScanScheduler,
     private val libraryRootGateway: LibraryRootGateway,
     private val metadataRefreshGateway: MetadataRefreshGateway,
-    private val searchHistoryGateway: SearchHistoryGateway
+    private val searchHistoryGateway: SearchHistoryGateway,
+    private val coverRecoveryGateway: CoverRecoveryGateway
 ) : HomeLibraryUseCases {
     override fun scheduleColdStartSync() {
         scanScheduler.scheduleLibrarySync(COLD_START_TRIGGER)
@@ -162,6 +170,10 @@ class DefaultHomeLibraryUseCases(
 
     override suspend fun regenerateCoverAndMetadata(bookId: String) {
         metadataRefreshGateway.forceRegenerateCoverAndMetadata(bookId)
+    }
+
+    override suspend fun recoverMissingCovers() {
+        coverRecoveryGateway.recoverMissingCovers()
     }
 
     override suspend fun clearSearchHistory() {
