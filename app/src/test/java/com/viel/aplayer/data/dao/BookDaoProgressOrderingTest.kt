@@ -5,7 +5,9 @@ import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
+import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -56,6 +58,31 @@ class BookDaoProgressOrderingTest {
         }
     }
 
+    @Test
+    fun `home catalog projection should join progress and hide deleted books`() = runBlocking {
+        val database = Room.inMemoryDatabaseBuilder(
+            RuntimeEnvironment.getApplication(),
+            AppDatabase::class.java
+        )
+            .allowMainThreadQueries()
+            .build()
+        try {
+            database.seedHomeCatalogRows()
+
+            val rows = database.bookDao().observeHomeCatalogRows().first()
+
+            // Home Projection Query Contract (Read shelf rows without Room relation fan-out)
+            // The active rows stay title ordered, deleted rows are hidden, missing progress defaults to zero, and joined progress preserves the legacy ceil percentage.
+            assertEquals(listOf("book-no-progress", "book-with-progress"), rows.map { row -> row.id })
+            assertEquals(0, rows.first { row -> row.id == "book-no-progress" }.progressPercent)
+            assertEquals(0L, rows.first { row -> row.id == "book-no-progress" }.lastPlayedAt)
+            assertEquals(34, rows.first { row -> row.id == "book-with-progress" }.progressPercent)
+            assertEquals(12_345L, rows.first { row -> row.id == "book-with-progress" }.lastPlayedAt)
+        } finally {
+            database.close()
+        }
+    }
+
     private suspend fun AppDatabase.seedProgressBook() {
         libraryRootDao().insertRoot(
             LibraryRootEntity(
@@ -88,6 +115,57 @@ class BookDaoProgressOrderingTest {
                     fileSize = 1024L,
                     lastModified = 1L
                 )
+            )
+        )
+    }
+
+    /**
+     * Home Catalog Projection Fixture (Seeds active, progressed, and deleted books)
+     *
+     * Keeps the query test focused on the new Home projection semantics without requiring file rows or playback plans.
+     */
+    private suspend fun AppDatabase.seedHomeCatalogRows() {
+        libraryRootDao().insertRoot(
+            LibraryRootEntity(
+                id = ROOT_ID,
+                sourceType = AudiobookSchema.LibrarySourceType.SAF,
+                sourceUri = "content://library-root",
+                displayName = "Local Library"
+            )
+        )
+        bookDao().insertBook(
+            BookEntity(
+                id = "book-with-progress",
+                rootId = ROOT_ID,
+                sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
+                title = "B Progressed",
+                totalDurationMs = 3_000L,
+                readStatus = AudiobookSchema.ReadStatus.IN_PROGRESS
+            )
+        )
+        bookDao().insertProgress(
+            BookProgressEntity(
+                bookId = "book-with-progress",
+                globalPositionMs = 1_001L,
+                lastPlayedAt = 12_345L
+            )
+        )
+        bookDao().insertBook(
+            BookEntity(
+                id = "book-no-progress",
+                rootId = ROOT_ID,
+                sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
+                title = "A Empty",
+                totalDurationMs = 3_000L
+            )
+        )
+        bookDao().insertBook(
+            BookEntity(
+                id = "book-deleted",
+                rootId = ROOT_ID,
+                sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
+                title = "C Deleted",
+                status = AudiobookSchema.BookStatus.DELETED
             )
         )
     }

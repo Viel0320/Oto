@@ -11,8 +11,9 @@ import com.viel.aplayer.application.library.toLibraryReadStatus
 import com.viel.aplayer.application.library.toSchemaReadStatus
 import com.viel.aplayer.data.book.BookCatalogGateway
 import com.viel.aplayer.data.book.BookMetadataGateway
+import com.viel.aplayer.data.book.HomeCatalogRow
 import com.viel.aplayer.data.cover.CoverRecoveryGateway
-import com.viel.aplayer.data.entity.BookWithProgress
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.metadata.MetadataRefreshGateway
 import com.viel.aplayer.data.root.LibraryRootGateway
 import com.viel.aplayer.data.scan.ScanScheduler
@@ -123,9 +124,9 @@ class DefaultHomeLibraryReadModel(
     private val libraryRootGateway: LibraryRootGateway
 ) : HomeLibraryReadModel {
     override val audiobooks: Flow<List<HomeBookItem>>
-        get() = bookCatalogGateway.audiobooks.map { books ->
-            // Home Catalog Projection Mapping (Keep Room relationship rows behind the home adapter)
-            // Home UI needs only renderable catalog fields and progress flags, so the adapter strips persistence wrappers here.
+        get() = bookCatalogGateway.homeCatalogRows.map { books ->
+            // Home Catalog Projection Mapping (Keep data-layer SQL rows behind the home adapter)
+            // Home UI needs only renderable catalog fields and progress flags, so the adapter strips persistence enums here.
             books.map { it.toHomeBookItem() }
         }
 
@@ -187,32 +188,32 @@ class DefaultHomeLibraryUseCases(
 }
 
 /**
- * Home Book Projection Mapping (Translate BookWithProgress into the home scene item)
- * Localizes BookWithProgress knowledge inside the adapter while preserving every raw field the Home ViewModel needs for filtering, sorting, grouping, and recents.
+ * Home Book Projection Mapping (Translate the lightweight catalog row into the home scene item)
+ * Localizes data-layer projection knowledge inside the adapter while preserving every raw field the Home ViewModel needs for filtering, sorting, grouping, and recents.
  */
-private fun BookWithProgress.toHomeBookItem(): HomeBookItem {
+private fun HomeCatalogRow.toHomeBookItem(): HomeBookItem {
     return HomeBookItem(
-        id = book.id,
-        rootId = book.rootId,
-        sourceType = book.sourceType.toLibraryBookSourceType(),
-        status = book.status.toLibraryBookStatus(),
-        title = book.title,
-        author = book.author,
-        narrator = book.narrator,
-        description = book.description,
-        year = book.year,
-        series = book.series,
-        totalDurationMs = book.totalDurationMs,
-        totalFileSize = book.totalFileSize,
-        coverPath = book.coverPath,
-        thumbnailPath = book.thumbnailPath,
-        lastScannedAt = book.lastScannedAt,
-        addedAt = book.addedAt,
-        readStatus = book.readStatus.toLibraryReadStatus(),
+        id = id,
+        rootId = rootId,
+        sourceType = sourceType.toLibraryBookSourceType(),
+        status = status.toLibraryBookStatus(),
+        title = title,
+        author = author,
+        narrator = narrator,
+        description = "",
+        year = year,
+        series = series,
+        totalDurationMs = totalDurationMs,
+        totalFileSize = totalFileSize,
+        coverPath = coverPath,
+        thumbnailPath = thumbnailPath,
+        lastScannedAt = lastScannedAt,
+        addedAt = addedAt,
+        readStatus = readStatus.toLibraryReadStatus(),
         progressPercent = progressPercent,
-        lastPlayedAt = progress?.lastPlayedAt ?: 0L,
-        isFinished = isFinished,
-        isInProgress = isInProgress,
-        isNotStarted = isNotStarted
+        lastPlayedAt = lastPlayedAt,
+        isFinished = readStatus == AudiobookSchema.ReadStatus.FINISHED,
+        isInProgress = readStatus == AudiobookSchema.ReadStatus.IN_PROGRESS,
+        isNotStarted = readStatus == AudiobookSchema.ReadStatus.NOT_STARTED
     )
 }

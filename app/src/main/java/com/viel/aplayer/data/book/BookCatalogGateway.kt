@@ -1,9 +1,11 @@
 package com.viel.aplayer.data.book
 
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookWithProgress
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /**
  * Book Catalog Gateway (Application-facing audiobook read and inventory seam)
@@ -18,6 +20,15 @@ interface BookCatalogGateway {
      * Reactively observes all audiobooks stored in the local database with playback progress projections.
      */
     val audiobooks: Flow<List<BookWithProgress>>
+
+    /**
+     * Home Catalog Rows Stream (Observe the shelf projection without Room relation rows)
+     *
+     * Real data services override this with a SQL join projection so Home can avoid the heavier
+     * BookWithProgress relation graph on first paint. The default keeps existing lightweight test doubles source-compatible.
+     */
+    val homeCatalogRows: Flow<List<HomeCatalogRow>>
+        get() = audiobooks.map { books -> books.map { book -> book.toHomeCatalogRow() } }
 
     /**
      * Query Book Entity by ID (Synchronous fetch)
@@ -107,4 +118,60 @@ interface BookCatalogGateway {
      * Synchronously fetches all database file records, including audio tracks and manifest sidecars for the book.
      */
     suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity>
+}
+
+/**
+ * Home Catalog Row (Data-layer projection for the Home shelf)
+ *
+ * Carries only fields rendered or organized by Home, plus precomputed progress values from SQL, so callers do not need
+ * Room relation wrappers or full persistence entities to build the first-screen catalog.
+ */
+data class HomeCatalogRow(
+    val id: String,
+    val rootId: String,
+    val sourceType: AudiobookSchema.SourceType,
+    val status: AudiobookSchema.BookStatus,
+    val title: String,
+    val author: String,
+    val narrator: String,
+    val year: String,
+    val series: String,
+    val totalDurationMs: Long,
+    val totalFileSize: Long,
+    val coverPath: String?,
+    val thumbnailPath: String?,
+    val lastScannedAt: Long,
+    val addedAt: Long,
+    val readStatus: AudiobookSchema.ReadStatus,
+    val progressPercent: Int,
+    val lastPlayedAt: Long
+)
+
+/**
+ * Home Catalog Fallback Projection (Converts the legacy relation row for tests and transitional callers)
+ *
+ * Production Home reads override [BookCatalogGateway.homeCatalogRows] with a dedicated SQL projection; this fallback only
+ * preserves the same semantics for existing in-memory gateway fakes.
+ */
+private fun BookWithProgress.toHomeCatalogRow(): HomeCatalogRow {
+    return HomeCatalogRow(
+        id = book.id,
+        rootId = book.rootId,
+        sourceType = book.sourceType,
+        status = book.status,
+        title = book.title,
+        author = book.author,
+        narrator = book.narrator,
+        year = book.year,
+        series = book.series,
+        totalDurationMs = book.totalDurationMs,
+        totalFileSize = book.totalFileSize,
+        coverPath = book.coverPath,
+        thumbnailPath = book.thumbnailPath,
+        lastScannedAt = book.lastScannedAt,
+        addedAt = book.addedAt,
+        readStatus = book.readStatus,
+        progressPercent = progressPercent,
+        lastPlayedAt = progress?.lastPlayedAt ?: 0L
+    )
 }

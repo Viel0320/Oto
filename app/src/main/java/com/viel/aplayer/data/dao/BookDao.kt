@@ -8,6 +8,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Relation
 import androidx.room.Transaction
+import com.viel.aplayer.data.book.HomeCatalogRow
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
@@ -126,6 +127,43 @@ interface BookDao {
         ORDER BY title ASC
     """)
     fun getAllBooksWithProgress(): Flow<List<BookMinWithProgress>>
+
+    /**
+     * Home Catalog Projection Stream (Reads the shelf fields and progress in one query)
+     *
+     * Avoids Room @Relation fan-out for the first-screen catalog by joining the single progress row directly and
+     * computing Home's progress percentage in SQL. Heavy fields intentionally stay out of the projection.
+     */
+    @Query("""
+        SELECT
+            books.id AS id,
+            books.rootId AS rootId,
+            books.sourceType AS sourceType,
+            books.status AS status,
+            books.title AS title,
+            books.author AS author,
+            books.narrator AS narrator,
+            books.year AS year,
+            books.series AS series,
+            books.totalDurationMs AS totalDurationMs,
+            books.totalFileSize AS totalFileSize,
+            books.coverPath AS coverPath,
+            books.thumbnailPath AS thumbnailPath,
+            books.lastScannedAt AS lastScannedAt,
+            books.addedAt AS addedAt,
+            books.readStatus AS readStatus,
+            CASE
+                WHEN books.totalDurationMs > 0 AND book_progress.globalPositionMs IS NOT NULL
+                THEN MIN(100, MAX(0, CAST(((book_progress.globalPositionMs * 100) + books.totalDurationMs - 1) / books.totalDurationMs AS INTEGER)))
+                ELSE 0
+            END AS progressPercent,
+            COALESCE(book_progress.lastPlayedAt, 0) AS lastPlayedAt
+        FROM books
+        LEFT JOIN book_progress ON book_progress.bookId = books.id
+        WHERE books.status != 'DELETED'
+        ORDER BY books.title ASC
+    """)
+    fun observeHomeCatalogRows(): Flow<List<HomeCatalogRow>>
 
     /**
      * Deleted Books Recovery Stream (Projects soft-deleted catalog rows for manual recovery)

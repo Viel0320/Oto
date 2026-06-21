@@ -41,6 +41,9 @@ class BookCatalogGatewayImpl(
             list.map { it.toBookWithProgress() }
         }.flowOn(Dispatchers.IO)
 
+    override val homeCatalogRows: Flow<List<HomeCatalogRow>>
+        get() = bookDao.observeHomeCatalogRows().flowOn(Dispatchers.IO)
+
     override suspend fun getBookById(id: String): BookEntity? = withContext(Dispatchers.IO) {
         bookDao.getBookById(id)?.also { coverRecoveryGateway.triggerRecovery(it) }
     }
