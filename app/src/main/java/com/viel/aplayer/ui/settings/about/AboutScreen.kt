@@ -288,8 +288,9 @@ private fun BrandHeaderCard(modifier: Modifier = Modifier) {
 }
 
 /**
- * Generated library card styled like the previous manually curated license rows.
- * Keeps AboutLibraries as the source of truth while restoring the app-owned card, badge, and inline license presentation.
+ * Generated library card styled as a compact notice sheet.
+ * The collapsed layout mirrors system license rows by keeping title/version, description, and license in separated bands,
+ * while the expanded section remains app-owned so generated license text and project links stay discoverable.
  */
 @Composable
 private fun GeneratedLibraryCard(
@@ -303,6 +304,7 @@ private fun GeneratedLibraryCard(
     val developerName = library.primaryDeveloperName()
     val description = library.descriptionText()
     val licenseText = library.licenseDetailsText()
+    val versionLabel = library.versionLabel()
     val projectUrl = library.projectUrl()
 
     Card(
@@ -310,98 +312,93 @@ private fun GeneratedLibraryCard(
             .fillMaxWidth()
             .clickable { onToggle() }
             .animateContentSize(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (expanded) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
-            } else {
-                MaterialTheme.colorScheme.surface
-            }
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
         ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(
             width = 1.dp,
             color = if (expanded) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.46f)
             } else {
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.62f)
             }
         )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     Text(
                         text = library.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(MaterialTheme.colorScheme.secondaryContainer)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = licenseLabel,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                fontSize = 10.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
 
+                    if (versionLabel != null) {
                         Text(
-                            text = stringResource(R.string.about_developer_credit, developerName),
+                            text = versionLabel,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
+                            modifier = Modifier.padding(top = 5.dp),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
 
-                if (projectUrl != null) {
-                    IconButton(
-                        onClick = { onVisitUrl(projectUrl) },
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
-                            contentDescription = stringResource(R.string.about_visit_project_homepage_content_description),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = developerName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.36f))
 
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 maxLines = if (expanded) Int.MAX_VALUE else 2,
                 overflow = TextOverflow.Ellipsis,
-                lineHeight = 20.sp
+                lineHeight = 18.sp
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.36f))
+
+            Text(
+                text = licenseLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                textAlign = TextAlign.End,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             AnimatedVisibility(
@@ -412,7 +409,7 @@ private fun GeneratedLibraryCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp)
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
                 ) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
@@ -503,6 +500,12 @@ private fun Library.primaryDeveloperName(): String = developers.firstNotNullOfOr
 } ?: organization?.name?.takeIf { it.isNotBlank() }
     ?: uniqueId.substringBefore(':').takeIf { it.isNotBlank() }
     ?: name
+
+/**
+ * Resolves the version text shown at the end of the library title row.
+ * Generated metadata may omit artifact versions for locally merged entries, so blank values are hidden instead of reserving space.
+ */
+private fun Library.versionLabel(): String? = artifactVersion?.takeIf { it.isNotBlank() }
 
 /**
  * Resolves the short body text shown before expansion.
