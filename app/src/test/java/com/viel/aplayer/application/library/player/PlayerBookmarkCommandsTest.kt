@@ -1,5 +1,11 @@
 package com.viel.aplayer.application.library.player
 
+import com.viel.aplayer.data.availability.BookAvailabilityGateway
+import com.viel.aplayer.data.book.BookCatalogGateway
+import com.viel.aplayer.data.book.BookDeletionGateway
+import com.viel.aplayer.data.book.BookMetadataGateway
+import com.viel.aplayer.data.book.BookmarkGateway
+import com.viel.aplayer.data.book.ChapterGateway
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
@@ -8,12 +14,6 @@ import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.entity.BookmarkEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.ChapterWithBookFile
-import com.viel.aplayer.data.availability.BookAvailabilityGateway
-import com.viel.aplayer.data.book.BookCatalogGateway
-import com.viel.aplayer.data.book.BookDeletionGateway
-import com.viel.aplayer.data.book.BookMetadataGateway
-import com.viel.aplayer.data.book.BookmarkGateway
-import com.viel.aplayer.data.book.ChapterGateway
 import com.viel.aplayer.data.progress.ProgressGateway
 import com.viel.aplayer.data.subtitle.SubtitleGateway
 import com.viel.aplayer.media.subtitle.SubtitleLine

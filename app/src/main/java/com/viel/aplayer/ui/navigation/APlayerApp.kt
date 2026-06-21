@@ -256,46 +256,97 @@ fun APlayerApp(
                 }
             }
         )
-        // EditBookViewModel Lifecycle (Host Lifecycle Management)
-        // Instantiate the independent ViewModel for editing book metadata, which is hosted and destroyed by the current Activity.
-        val editViewModel: EditBookViewModel = viewModel(
-            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                // Title: Initialize EditBookViewModel with Custom Factory (Ensures dependencies are correctly provided and avoids default empty constructor lookup)
-                // Description: Explicitly constructs EditBookViewModel with the active application instance.
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                    return EditBookViewModel(application) as T
-                }
-            }
-        )
-        
-        // SearchViewModel Lifecycle (Host Lifecycle Management)
-        // Instantiate the non-independent SearchViewModel, hosted and destroyed by the current Activity.
-        val searchViewModel: SearchViewModel = viewModel(
-            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                // Title: Initialize SearchViewModel with Custom Factory (Ensures dependencies are correctly provided and avoids default empty constructor lookup)
-                // Description: Explicitly constructs SearchViewModel with the active application instance.
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                    return SearchViewModel(application) as T
-                }
-            }
-        )
+        var shouldMountEdit by remember { mutableStateOf(false) }
+        var pendingEditBookId by remember { mutableStateOf<String?>(null) }
+        var shouldMountSearch by remember { mutableStateOf(false) }
+        var pendingSearchQuery by remember { mutableStateOf<String?>(null) }
+        var shouldMountSettings by remember { mutableStateOf(openDownloadManagementRequest) }
+        var pendingOpenSettingsOverlay by remember { mutableStateOf(openDownloadManagementRequest) }
 
-        // SettingsViewModel Lifecycle (Host Lifecycle Management)
-        // Instantiate the settings ViewModel hosted and destroyed by MainActivity.
-        val settingsViewModel: SettingsViewModel = viewModel(
-            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                // Title: Initialize SettingsViewModel with Custom Factory (Ensures dependencies are correctly provided and avoids default empty constructor lookup)
-                // Description: Explicitly constructs SettingsViewModel with the active application instance.
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                    return SettingsViewModel(application) as T
+        // Lazy Edit ViewModel Mount (Avoid constructing edit metadata dependencies during Home's first composition)
+        // The ViewModel is created only after Home, Detail, or another overlay requests an edit session.
+        val editViewModel: EditBookViewModel? = if (shouldMountEdit) {
+            viewModel(
+                factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                    // Title: Initialize EditBookViewModel with Custom Factory (Ensures dependencies are correctly provided and avoids default empty constructor lookup)
+                    // Description: Explicitly constructs EditBookViewModel with the active application instance.
+                    @Suppress("UNCHECKED_CAST")
+                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                        return EditBookViewModel(application) as T
+                    }
                 }
+            )
+        } else {
+            null
+        }
+
+        // Lazy Search ViewModel Mount (Avoid opening search history DataStore before the search overlay is requested)
+        // Home and Detail route intents set pending state; the ViewModel consumes it once Compose has mounted the search scene.
+        val searchViewModel: SearchViewModel? = if (shouldMountSearch) {
+            viewModel(
+                factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                    // Title: Initialize SearchViewModel with Custom Factory (Ensures dependencies are correctly provided and avoids default empty constructor lookup)
+                    // Description: Explicitly constructs SearchViewModel with the active application instance.
+                    @Suppress("UNCHECKED_CAST")
+                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                        return SearchViewModel(application) as T
+                    }
+                }
+            )
+        } else {
+            null
+        }
+
+        // Lazy Settings ViewModel Mount (Keep root management, ABS connection, and download-management dependencies out of first composition)
+        // External notification intents and explicit settings/add-library actions request the mount before invoking settings commands.
+        val settingsViewModel: SettingsViewModel? = if (shouldMountSettings) {
+            viewModel(
+                factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                    // Title: Initialize SettingsViewModel with Custom Factory (Ensures dependencies are correctly provided and avoids default empty constructor lookup)
+                    // Description: Explicitly constructs SettingsViewModel with the active application instance.
+                    @Suppress("UNCHECKED_CAST")
+                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                        return SettingsViewModel(application) as T
+                    }
+                }
+            )
+        } else {
+            null
+        }
+
+        LaunchedEffect(editViewModel, pendingEditBookId) {
+            val bookId = pendingEditBookId
+            if (editViewModel != null && bookId != null) {
+                editViewModel.startEdit(bookId)
+                pendingEditBookId = null
             }
-        )
-        val absConnectionState by settingsViewModel.absConnectionState.collectAsStateWithLifecycle()
-        val webDavConnectionState by settingsViewModel.webDavConnectionState.collectAsStateWithLifecycle()
+        }
+
+        LaunchedEffect(searchViewModel, pendingSearchQuery) {
+            val query = pendingSearchQuery
+            if (searchViewModel != null && query != null) {
+                searchViewModel.setVisible(true)
+                if (query.isNotBlank()) {
+                    searchViewModel.onQueryChange(TextFieldValue(query))
+                }
+                pendingSearchQuery = null
+            }
+        }
+
+        LaunchedEffect(openDownloadManagementRequest) {
+            if (openDownloadManagementRequest) {
+                shouldMountSettings = true
+                pendingOpenSettingsOverlay = true
+            }
+        }
+
+        LaunchedEffect(settingsViewModel, pendingOpenSettingsOverlay) {
+            if (settingsViewModel != null && pendingOpenSettingsOverlay) {
+                settingsViewModel.setVisible(true)
+                pendingOpenSettingsOverlay = false
+            }
+        }
+
         // Home Add Library Dialog Controller (Reuse Settings modal state outside the Settings overlay)
         // The empty Home FAB opens the same SettingsDialogHost add-library flow without showing the full settings page or duplicating source-specific forms.
         val homeAddLibraryDialogController = rememberSettingsDialogController()
@@ -303,9 +354,9 @@ fun APlayerApp(
             contract = ActivityResultContracts.OpenDocumentTree()
         ) { uri ->
             uri?.let { selectedRoot ->
-                // Home SAF Root Submission (Route local folder registration through SettingsViewModel)
-                // Using the settings command path keeps Home FAB behavior aligned with Settings add-library and avoids restoring the old direct SAF-only import shortcut.
-                settingsViewModel.onLibraryRootSelected(selectedRoot)
+                // Home SAF Root Submission (Route local folder registration through the home command seam)
+                // This keeps the empty-state picker from creating SettingsViewModel when the user chooses a local folder.
+                libraryViewModel.addLocalRootAndScheduleSync(selectedRoot)
             }
         }
 
@@ -351,14 +402,6 @@ fun APlayerApp(
                 // full player must open directly on the main playback surface without shared mini motion.
                 playerSettingsViewModel.openFullPlayerFromDirect()
                 onOpenPlayerOverlayConsumed()
-            }
-        }
-
-        // Process Download Notification Intent (Open settings before routing to the task-management sub-page)
-        // SettingsOverlay owns local settings sub-page navigation, while the app shell only makes sure the overlay is visible.
-        LaunchedEffect(openDownloadManagementRequest) {
-            if (openDownloadManagementRequest) {
-                settingsViewModel.setVisible(true)
             }
         }
 
@@ -533,7 +576,6 @@ fun APlayerApp(
                         settingsViewModel = playerSettingsViewModel,
                         detailViewModel = detailViewModel,
                         canStartNavigation = canStartNavigation,
-                        searchViewModel = searchViewModel,
                         // NavHost Haze Source Mount (Let the navigation host own route-level sampling)
                         // This lets HomeAppBar live as a sibling overlay above NavDisplay while still sampling the route content.
                         appHazeState = hazeState,
@@ -554,17 +596,24 @@ fun APlayerApp(
                         // Settings Navigation Callback (To open settings overlay on request)
                         // Binds setting launch request event to change settings overlay visibility.
                         onNavigateToSettings = {
-                            settingsViewModel.setVisible(true)
+                            shouldMountSettings = true
+                            pendingOpenSettingsOverlay = true
+                        },
+                        onNavigateToSearch = {
+                            shouldMountSearch = true
+                            pendingSearchQuery = ""
                         },
                         onAddLibraryRequested = {
                             // Home Empty-State Add Library Entry (Open Settings source-type picker in place)
                             // This keeps the existing Home FAB affordance while reusing the Settings add-library dialog and all provider-specific follow-up logic.
+                            shouldMountSettings = true
                             homeAddLibraryDialogController.dialogState = SettingsDialogState.AddLibraryType
                         },
                         onEditBookRequested = { bookId ->
                             // Home Action Menu Edit Entry (Open the edit overlay from the selected catalog row)
                             // Home and Detail both route shared action-dialog edit intents into the same app-owned EditBookViewModel lifecycle.
-                            editViewModel.startEdit(bookId)
+                            shouldMountEdit = true
+                            pendingEditBookId = bookId
                         },
                         onOpenDetail = detailTransitionGate::request,
                         onHomeViewStyleSelected = libraryViewModel::setHomeViewStyle,
@@ -594,13 +643,14 @@ fun APlayerApp(
                         }
                     },
                     onNavigateToSearch = { query ->
-                        searchViewModel.setVisible(true)
-                        searchViewModel.onQueryChange(TextFieldValue(query))
+                        shouldMountSearch = true
+                        pendingSearchQuery = query
                     },
                     onEditBookRequested = { bookId ->
                         // Detail Action Menu Edit Entry (Open the edit overlay from the selected detail projection)
                         // Detail now owns a shared action dialog, while the app shell keeps EditBookViewModel lifecycle and route ownership centralized.
-                        editViewModel.startEdit(bookId)
+                        shouldMountEdit = true
+                        pendingEditBookId = bookId
                     },
                     onUpdateReadStatus = { bookId, status ->
                         // Detail Action Menu Read Status Update (Reuse the library scene command path)
@@ -639,73 +689,77 @@ fun APlayerApp(
                  * Mount Edit Overlay (Mount the metadata edit sheet beside detail overlays)
                  * Relocated EditBookRoute back into the app shell coordinate system so edit overlays can animate above details page.
                  */
-                EditBookRoute(
-                    editViewModel = editViewModel,
-                    glassEffectMode = activeGlassEffectMode,
-                    hazeState = hazeState,
-                    onSaveSuccess = {
-                        // Edit Save Success (Reactive Flow Refresh)
-                        // After saving successfully, the responsive flow will automatically refresh and redraw the details page via the Room Flow, so there is no need to execute extra UI dirty operations to force a refresh.
-                    }
-                )
+                if (editViewModel != null) {
+                    EditBookRoute(
+                        editViewModel = editViewModel,
+                        glassEffectMode = activeGlassEffectMode,
+                        hazeState = hazeState,
+                        onSaveSuccess = {
+                            // Edit Save Success (Reactive Flow Refresh)
+                            // After saving successfully, the responsive flow will automatically refresh and redraw the details page via the Room Flow, so there is no need to execute extra UI dirty operations to force a refresh.
+                        }
+                    )
+                }
 
                 // Search Stable Haze Target (Keep SearchRoute bound to the app-level sampler)
                 // Visible pages now register themselves into this same source, so Search no longer switches state when Detail or Player becomes the background.
-                SearchRoute(
-                    searchViewModel = searchViewModel,
-                    hazeState = hazeState,
-                    glassEffectMode = activeGlassEffectMode,
-                    /*
-                     * Search Detail Source Selector (Search-result source handoff)
-                     *
-                     * Activates only when Detail was opened from Search so the selected search
-                     * result thumbnail can exit without touching Home recent or Home list sources.
-                     */
-                    activeSearchDetailBookId = if (
-                        detailUiState.isVisible &&
-                        detailUiState.entrySource == DetailEntrySource.Search
-                    ) {
-                        detailUiState.book?.bookId
-                    } else {
-                        null
-                    },
-                    onNavigateToDetail = { bookId ->
-                        // Retrieve Cached Detail Book (Fetch pre-mapped detail item for navigation)
-                        // Instead of finding and mapping on the fly, retrieve the pre-calculated projection directly by ID.
-                        val book = detailBookItems[bookId]
-                        detailTransitionGate.request(
-                            DetailOpenRequest(
-                                book = book,
-                                /*
-                                 * Search Detail Entry Source (Search motion channel tagging)
-                                 *
-                                 * Marks this selection as Search-originated so Detail binds to the
-                                 * search2detail cover key instead of any Home artwork channel.
-                                 */
-                                entrySource = DetailEntrySource.Search
-                            ),
-                            beforeExecute = {
-                                /*
-                                 * Search Source Lifetime (Close search only when the handoff starts)
-                                 *
-                                 * If Detail re-entry is queued behind an exit animation, keeping Search
-                                 * composed preserves the selected result thumbnail as the source endpoint.
-                                 */
-                                searchViewModel.setVisible(false)
-                            }
-                        )
-                    },
-                    onLoadBook = { bookId ->
-                        searchViewModel.setVisible(false)
-                        playbackViewModel.loadBook(bookId)
-                    },
-                    onNavigateToPlayer = {
-                        // Search Direct Playback Open (Keep search playback outside mini motion)
-                        // Search currently owns a dedicated Search->Detail transition only; direct
-                        // playback should open the full player without claiming the mini source.
-                        playerSettingsViewModel.openFullPlayerFromDirect()
-                    }
-                )
+                if (searchViewModel != null) {
+                    SearchRoute(
+                        searchViewModel = searchViewModel,
+                        hazeState = hazeState,
+                        glassEffectMode = activeGlassEffectMode,
+                        /*
+                         * Search Detail Source Selector (Search-result source handoff)
+                         *
+                         * Activates only when Detail was opened from Search so the selected search
+                         * result thumbnail can exit without touching Home recent or Home list sources.
+                         */
+                        activeSearchDetailBookId = if (
+                            detailUiState.isVisible &&
+                            detailUiState.entrySource == DetailEntrySource.Search
+                        ) {
+                            detailUiState.book?.bookId
+                        } else {
+                            null
+                        },
+                        onNavigateToDetail = { bookId ->
+                            // Retrieve Cached Detail Book (Fetch pre-mapped detail item for navigation)
+                            // Instead of finding and mapping on the fly, retrieve the pre-calculated projection directly by ID.
+                            val book = detailBookItems[bookId]
+                            detailTransitionGate.request(
+                                DetailOpenRequest(
+                                    book = book,
+                                    /*
+                                     * Search Detail Entry Source (Search motion channel tagging)
+                                     *
+                                     * Marks this selection as Search-originated so Detail binds to the
+                                     * search2detail cover key instead of any Home artwork channel.
+                                     */
+                                    entrySource = DetailEntrySource.Search
+                                ),
+                                beforeExecute = {
+                                    /*
+                                     * Search Source Lifetime (Close search only when the handoff starts)
+                                     *
+                                     * If Detail re-entry is queued behind an exit animation, keeping Search
+                                     * composed preserves the selected result thumbnail as the source endpoint.
+                                     */
+                                    searchViewModel.setVisible(false)
+                                }
+                            )
+                        },
+                        onLoadBook = { bookId ->
+                            searchViewModel.setVisible(false)
+                            playbackViewModel.loadBook(bookId)
+                        },
+                        onNavigateToPlayer = {
+                            // Search Direct Playback Open (Keep search playback outside mini motion)
+                            // Search currently owns a dedicated Search->Detail transition only; direct
+                            // playback should open the full player without claiming the mini source.
+                            playerSettingsViewModel.openFullPlayerFromDirect()
+                        }
+                    )
+                }
                             }
                         }
                     }
@@ -713,56 +767,60 @@ fun APlayerApp(
 
                 // Settings Overlay Mount (Let Settings own its page and dialog haze sampling)
                 // App-level haze remains available to Home and Search, while SettingsOverlay keeps long-lived settings glass state private to that page.
-                SettingsOverlay(
-                    settingsViewModel = settingsViewModel,
-                    glassEffectMode = activeGlassEffectMode,
-                    openDownloadManagementRequest = openDownloadManagementRequest,
-                    onOpenDownloadManagementConsumed = onOpenDownloadManagementConsumed
-                )
+                if (settingsViewModel != null) {
+                    val absConnectionState by settingsViewModel.absConnectionState.collectAsStateWithLifecycle()
+                    val webDavConnectionState by settingsViewModel.webDavConnectionState.collectAsStateWithLifecycle()
+                    SettingsOverlay(
+                        settingsViewModel = settingsViewModel,
+                        glassEffectMode = activeGlassEffectMode,
+                        openDownloadManagementRequest = openDownloadManagementRequest,
+                        onOpenDownloadManagementConsumed = onOpenDownloadManagementConsumed
+                    )
 
-                // Home Add Library Dialog Host (Share Settings add-library dialogs with the empty Home FAB)
-                // Hosting this beside the Settings overlay lets Home open the source-type picker directly while reusing SAF, WebDAV, and Audiobookshelf form handling from SettingsDialogHost.
-                SettingsDialogHost(
-                    controller = homeAddLibraryDialogController,
-                    glassEffectMode = activeGlassEffectMode,
-                    settingsDialogHazeState = if (activeGlassEffectMode == GlassEffectMode.Haze) hazeState else null,
-                    appLanguage = effectiveAppLanguage,
-                    // Title: Delegate App Dialog Host Configuration Updates (Route settings changes to handler parameters)
-                    onAppLanguageChange = { settingsViewModel.preferencesHandler.updateAppLanguage(it) },
-                    webDavConnectionState = webDavConnectionState,
-                    onWebDavConnectionTest = { url, username, password, basePath, editingRootId ->
-                        settingsViewModel.connectionHandler.testWebDavConnection(url, username, password, basePath, editingRootId)
-                    },
-                    onResetWebDavConnectionState = {
-                        settingsViewModel.connectionHandler.resetWebDavConnectionState()
-                    },
-                    onWebDavRootSubmitted = { url, username, password, displayName, basePath ->
-                        settingsViewModel.connectionHandler.onWebDavRootSubmitted(url, username, password, displayName, basePath)
-                    },
-                    onWebDavRootUpdated = { id, url, username, password, displayName, basePath ->
-                        settingsViewModel.updateWebDavRoot(id, url, username, password, displayName, basePath)
-                    },
-                    absConnectionState = absConnectionState,
-                    onAbsConnectionTest = { baseUrl, username, password, editingRootId ->
-                        settingsViewModel.connectionHandler.testAbsConnection(baseUrl, username, password, editingRootId)
-                    },
-                    onResetAbsConnectionState = {
-                        settingsViewModel.connectionHandler.resetAbsConnectionState()
-                    },
-                    onAbsRootSubmitted = { baseUrl, username, password, libraryId, libraryName, editingRootId ->
-                        settingsViewModel.connectionHandler.addAbsServerWithPassword(baseUrl, username, password, libraryId, libraryName, editingRootId)
-                    },
-                    getWebDavCredentials = { credentialId ->
-                        settingsViewModel.connectionHandler.getWebDavCredentials(credentialId)
-                    },
-                    getAbsCredential = { credentialId ->
-                        settingsViewModel.connectionHandler.getAbsCredential(credentialId)
-                    },
-                    onAbsSync = { rootId -> settingsViewModel.connectionHandler.syncAbsRoot(rootId) },
-                    onRescan = { settingsViewModel.connectionHandler.triggerRescan() },
-                    onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
-                    onLaunchSafRootPicker = { homeAddLibraryRootLauncher.launch(null) }
-                )
+                    // Home Add Library Dialog Host (Share Settings add-library dialogs with the empty Home FAB)
+                    // Hosting this beside the Settings overlay lets Home open the source-type picker directly while reusing SAF, WebDAV, and Audiobookshelf form handling from SettingsDialogHost.
+                    SettingsDialogHost(
+                        controller = homeAddLibraryDialogController,
+                        glassEffectMode = activeGlassEffectMode,
+                        settingsDialogHazeState = if (activeGlassEffectMode == GlassEffectMode.Haze) hazeState else null,
+                        appLanguage = effectiveAppLanguage,
+                        // Title: Delegate App Dialog Host Configuration Updates (Route settings changes to handler parameters)
+                        onAppLanguageChange = { settingsViewModel.preferencesHandler.updateAppLanguage(it) },
+                        webDavConnectionState = webDavConnectionState,
+                        onWebDavConnectionTest = { url, username, password, basePath, editingRootId ->
+                            settingsViewModel.connectionHandler.testWebDavConnection(url, username, password, basePath, editingRootId)
+                        },
+                        onResetWebDavConnectionState = {
+                            settingsViewModel.connectionHandler.resetWebDavConnectionState()
+                        },
+                        onWebDavRootSubmitted = { url, username, password, displayName, basePath ->
+                            settingsViewModel.connectionHandler.onWebDavRootSubmitted(url, username, password, displayName, basePath)
+                        },
+                        onWebDavRootUpdated = { id, url, username, password, displayName, basePath ->
+                            settingsViewModel.updateWebDavRoot(id, url, username, password, displayName, basePath)
+                        },
+                        absConnectionState = absConnectionState,
+                        onAbsConnectionTest = { baseUrl, username, password, editingRootId ->
+                            settingsViewModel.connectionHandler.testAbsConnection(baseUrl, username, password, editingRootId)
+                        },
+                        onResetAbsConnectionState = {
+                            settingsViewModel.connectionHandler.resetAbsConnectionState()
+                        },
+                        onAbsRootSubmitted = { baseUrl, username, password, libraryId, libraryName, editingRootId ->
+                            settingsViewModel.connectionHandler.addAbsServerWithPassword(baseUrl, username, password, libraryId, libraryName, editingRootId)
+                        },
+                        getWebDavCredentials = { credentialId ->
+                            settingsViewModel.connectionHandler.getWebDavCredentials(credentialId)
+                        },
+                        getAbsCredential = { credentialId ->
+                            settingsViewModel.connectionHandler.getAbsCredential(credentialId)
+                        },
+                        onAbsSync = { rootId -> settingsViewModel.connectionHandler.syncAbsRoot(rootId) },
+                        onRescan = { settingsViewModel.connectionHandler.triggerRescan() },
+                        onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
+                        onLaunchSafRootPicker = { homeAddLibraryRootLauncher.launch(null) }
+                    )
+                }
 
                 // Track Unavailable Confirm Dialog (App-Level Mount)
                 // Playback-service recovery feedback is rendered at the app shell so it remains visible from mini-player, background-resume, and non-player routes.

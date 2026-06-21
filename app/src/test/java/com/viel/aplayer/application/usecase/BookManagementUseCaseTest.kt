@@ -2,10 +2,10 @@ package com.viel.aplayer.application.usecase
 
 import com.viel.aplayer.application.download.ManualDownloadCleanupGateway
 import com.viel.aplayer.application.playback.PlaybackStopper
-import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.availability.BookAvailabilityGateway
 import com.viel.aplayer.data.book.BookDeletionGateway
 import com.viel.aplayer.data.cleanup.RemotePlaybackCleanupGateway
+import com.viel.aplayer.data.entity.BookFileEntity
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

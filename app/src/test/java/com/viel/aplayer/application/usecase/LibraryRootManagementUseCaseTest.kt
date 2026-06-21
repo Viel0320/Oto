@@ -3,14 +3,14 @@ package com.viel.aplayer.application.usecase
 import android.net.Uri
 import com.viel.aplayer.application.download.ManualDownloadCleanupGateway
 import com.viel.aplayer.application.playback.PlaybackStopper
+import com.viel.aplayer.data.book.BookCatalogGateway
+import com.viel.aplayer.data.book.BookRootInventoryGateway
+import com.viel.aplayer.data.cleanup.LibraryResourceCleanupGateway
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookWithProgress
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.book.BookCatalogGateway
-import com.viel.aplayer.data.book.BookRootInventoryGateway
-import com.viel.aplayer.data.cleanup.LibraryResourceCleanupGateway
 import com.viel.aplayer.data.root.LibraryRootGateway
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import kotlinx.coroutines.flow.Flow

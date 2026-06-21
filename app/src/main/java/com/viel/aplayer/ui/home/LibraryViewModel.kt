@@ -1,6 +1,7 @@
 package com.viel.aplayer.ui.home
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
@@ -202,6 +203,14 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 BookManagementFeedbackFacts.readStatusChanged(bookId, readStatus)
             )
         }
+    }
+
+    /**
+     * Add Local Root From Home (Submit the empty-state SAF picker result through the home command seam)
+     * This keeps the app shell from creating the full SettingsViewModel just to register a local library root.
+     */
+    fun addLocalRootAndScheduleSync(uri: Uri) {
+        homeLibraryUseCases.addLocalRootAndScheduleSync(uri)
     }
 
     // Reconstruct Metadata cache: Rebuilds localized graphics cover cache and maps raw values asynchronously.

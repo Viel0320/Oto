@@ -52,7 +52,6 @@ fun APlayerNavHost(
     settingsViewModel: PlayerSettingsViewModel,
     detailViewModel: DetailViewModel,
     canStartNavigation: () -> Boolean,
-    searchViewModel: com.viel.aplayer.ui.search.SearchViewModel,
     // App Backdrop Source (Own the route content sampling surface inside the navigation host)
     // Mounting the source around NavDisplay lets Home chrome live as a sibling overlay that samples the route content instead of being captured inside it.
     appHazeState: HazeState? = null,
@@ -77,6 +76,9 @@ fun APlayerNavHost(
     // Settings Navigation Event (To delegate settings launch routing to upper controller)
     // Abstract callback parameter to notify parent overlay scope when user requests setting screen.
     onNavigateToSettings: () -> Unit,
+    // Search Navigation Event (Delegate search overlay creation to the app shell)
+    // The search ViewModel is no longer required for Home's first composition; it is mounted only when search is opened.
+    onNavigateToSearch: () -> Unit,
     // Home Add Library Event (Delegate empty-state source creation to the app shell)
     // The NavHost only bridges the Home FAB intent; SettingsDialogHost and activity result launchers remain owned by APlayerApp.
     onAddLibraryRequested: () -> Unit,
@@ -177,7 +179,7 @@ fun APlayerNavHost(
                 hazeState = resolvedHomeTopBarHazeState,
                 onNavigateToSearch = {
                     if (canStartNavigation()) {
-                        searchViewModel.setVisible(true)
+                        onNavigateToSearch()
                     }
                 },
                 onHomeViewOptionsClick = {

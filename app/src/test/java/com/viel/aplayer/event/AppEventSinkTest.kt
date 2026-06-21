@@ -5,14 +5,14 @@ import com.viel.aplayer.event.feedback.FeedbackAggregationIdentity
 import com.viel.aplayer.event.feedback.FeedbackCategory
 import com.viel.aplayer.event.feedback.FeedbackContext
 import com.viel.aplayer.event.feedback.FeedbackDeliveryResult
+import com.viel.aplayer.event.feedback.FeedbackFact
 import com.viel.aplayer.event.feedback.FeedbackLifecycle
 import com.viel.aplayer.event.feedback.FeedbackMessages
 import com.viel.aplayer.event.feedback.FeedbackOutcome
 import com.viel.aplayer.event.feedback.FeedbackRenderMode
-import com.viel.aplayer.event.feedback.RecoveryFeedbackFacts
 import com.viel.aplayer.event.feedback.FeedbackSeverity
 import com.viel.aplayer.event.feedback.FeedbackTopic
-import com.viel.aplayer.event.feedback.FeedbackFact
+import com.viel.aplayer.event.feedback.RecoveryFeedbackFacts
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppEventSinkTest {
@@ -63,7 +64,7 @@ class AppEventSinkTest {
         assertTrue(result is FeedbackDeliveryResult.Held)
         assertEquals(0, received.size)
 
-        advanceTimeBy(400)
+        advanceTimeBy(400.milliseconds)
         runCurrent()
         assertEquals(1, received.size)
         val event = received.first() as AppShellEvent.RenderFeedback
@@ -83,7 +84,7 @@ class AppEventSinkTest {
         runCurrent()
 
         // The held provisional's scheduled release must not add a second toast.
-        advanceTimeBy(400)
+        advanceTimeBy(400.milliseconds)
         runCurrent()
         assertEquals(1, received.size)
     }
@@ -132,7 +133,7 @@ class AppEventSinkTest {
         assertTrue(result is FeedbackDeliveryResult.Held)
         assertEquals(0, received.size)
 
-        advanceTimeBy(400)
+        advanceTimeBy(400.milliseconds)
         runCurrent()
 
         assertEquals(1, received.size)

@@ -3,7 +3,6 @@ package com.viel.aplayer.ui.common.theme
 import android.app.WallpaperManager
 import android.content.Context
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 
 // =====================================================================
 // Wallpaper Seed Extraction

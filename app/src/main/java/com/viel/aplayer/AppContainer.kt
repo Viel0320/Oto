@@ -457,9 +457,9 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
         data = data,
         media = media,
         uiEvents = uiEvents,
-        // Management Download Cleanup Wiring (Give LibraryGraph only the book-scoped manual cache cleanup seam)
-        // BookManagementUseCase and LibraryRootManagementUseCase can remove Media3 records without seeing queue or cache statistics APIs.
-        manualDownloadCleanupGateway = download.manualDownloadCleanupGateway,
+        // Management Download Cleanup Wiring (Pass a provider so startup does not construct download cleanup services)
+        // BookManagementUseCase and LibraryRootManagementUseCase still receive only the book-scoped cleanup seam when a deletion actually needs it.
+        manualDownloadCleanupGatewayProvider = { download.manualDownloadCleanupGateway },
         // ABS Cover Store provider lambda (Provide a lazy accessor to AbsCoverCache to bypass circular initialization ordering)
         // Since AbsGraph is created after LibraryGraph, passing a lambda allows lazy resolution when CoverRecoveryHelper needs to retrieve ABS covers.
         absCoverStoreProvider = { abs.absCoverCache }

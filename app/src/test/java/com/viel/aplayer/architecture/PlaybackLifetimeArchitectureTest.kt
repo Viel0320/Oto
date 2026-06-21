@@ -85,10 +85,10 @@ class PlaybackLifetimeArchitectureTest {
 
         // Management Download Cleanup Wiring (Ensure production graph routes cleanup through the narrow download seam)
         // The composition root should pass DownloadGraph's cleanup gateway into LibraryGraph, and LibraryGraph should forward it to both management use cases.
-        assertTrue(appContainer.contains("manualDownloadCleanupGateway = download.manualDownloadCleanupGateway"))
+        assertTrue(appContainer.contains("manualDownloadCleanupGatewayProvider = { download.manualDownloadCleanupGateway }"))
         assertTrue(libraryGraph.contains("LibraryRootManagementUseCase("))
         assertTrue(libraryGraph.contains("BookManagementUseCase("))
-        assertTrue(libraryGraph.contains("manualDownloadCleanupGateway = manualDownloadCleanupGateway"))
+        assertTrue(libraryGraph.contains("manualDownloadCleanupGateway = manualDownloadCleanupGatewayProvider()"))
     }
 
     @Test

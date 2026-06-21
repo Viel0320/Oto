@@ -84,7 +84,7 @@ internal class LibraryGraph(
     val data: DataGraph,
     val media: MediaGraph,
     val uiEvents: UiEventGraph,
-    private val manualDownloadCleanupGateway: ManualDownloadCleanupGateway,
+    private val manualDownloadCleanupGatewayProvider: () -> ManualDownloadCleanupGateway,
     private val absCoverStoreProvider: () -> AbsCoverStore?
 ) : Closeable {
     val coverExtractor: CoverExtractor by lazy {
@@ -471,7 +471,7 @@ internal class LibraryGraph(
             bookCatalogGateway = bookCatalogGateway,
             bookRootInventoryGateway = bookRootInventoryGateway,
             libraryRootGateway = libraryRootGateway,
-            manualDownloadCleanupGateway = manualDownloadCleanupGateway,
+            manualDownloadCleanupGateway = manualDownloadCleanupGatewayProvider(),
             libraryResourceCleanupGateway = libraryResourceCleanupGateway
         )
     }
@@ -486,7 +486,7 @@ internal class LibraryGraph(
             remotePlaybackCleanupGateway = remotePlaybackCleanupGateway,
             // Manual Download Cleanup Wiring (Route book deletion through the narrow L1 cache cleanup seam)
             // LibraryGraph receives only ManualDownloadCleanupGateway, so deletion can clear offline tasks without depending on the full download controller surface.
-            manualDownloadCleanupGateway = manualDownloadCleanupGateway
+            manualDownloadCleanupGateway = manualDownloadCleanupGatewayProvider()
         )
     }
 

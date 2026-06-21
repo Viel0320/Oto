@@ -35,7 +35,9 @@ import com.viel.aplayer.logger.DownloadSyncLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 
 /**
  * Application class responsible for initializing the global dependency container.
@@ -80,25 +82,41 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         // Async Warmup (Warm up database/settings components on background thread during application startup)
         // Dispatches the pre-caching of preferences and progress recovery self-healing to a dedicated background thread.
         appScope.launch {
-            // Title: Settings Read Model Pre-cache (Triggers settings load during early application warmup)
-            processContainer.settingsReadModel
-            // Download Recovery Gate (Reconcile manual downloads only when Room reports recoverable work)
-            // This keeps normal startup from constructing DownloadManager, while interrupted downloads can restore their durable book-level state.
-            runCatching {
-                processContainer.downloadRecoveryService.recoverIfNeeded()
-            }.onFailure { error ->
-                DownloadSyncLogger.logRecoveryFailure(error::class.java.simpleName, error.message)
+            supervisorScope {
+                // Parallel Startup Maintenance (Run independent persistence-only warmups without serializing cold-start I/O)
+                // Each child keeps its own failure handling so a download repair issue cannot block settings pre-cache or ABS freshness scheduling.
+                val settingsWarmup = async {
+                    // Title: Settings Read Model Pre-cache (Triggers settings load during early application warmup)
+                    processContainer.settingsReadModel
+                }
+                val downloadRecovery = async {
+                    // Download Recovery Gate (Reconcile manual downloads only when Room reports recoverable work)
+                    // This keeps normal startup from constructing DownloadManager, while interrupted downloads can restore their durable book-level state.
+                    runCatching {
+                        processContainer.downloadRecoveryService.recoverIfNeeded()
+                    }.onFailure { error ->
+                        DownloadSyncLogger.logRecoveryFailure(error::class.java.simpleName, error.message)
+                    }
+                }
+                val orphanCleanup = async {
+                    // Manual Cache Orphan Cleanup Scheduling (Queue background L1 cleanup without resolving DownloadManager)
+                    // WorkManager coalesces repeated startup requests, while the worker compares cache keys against durable download metadata.
+                    runCatching {
+                        ManualDownloadOrphanCleanupScheduler(this@APlayerApplication).enqueue()
+                    }.onFailure { error ->
+                        DownloadSyncLogger.logOrphanCleanupFailure(error::class.java.simpleName, error.message)
+                    }
+                }
+                val startupWarmup = async {
+                    // Startup Warmup Coordinator (Gate remote ABS work before local progress recovery)
+                    // Cold start now enqueues stale ABS roots through root-scoped WorkManager instead of performing authorize progress refreshes inline on every process creation.
+                    createStartupWarmup(processContainer).run()
+                }
+                settingsWarmup.await()
+                downloadRecovery.await()
+                orphanCleanup.await()
+                startupWarmup.await()
             }
-            // Manual Cache Orphan Cleanup Scheduling (Queue background L1 cleanup without resolving DownloadManager)
-            // WorkManager coalesces repeated startup requests, while the worker compares cache keys against durable download metadata.
-            runCatching {
-                ManualDownloadOrphanCleanupScheduler(this@APlayerApplication).enqueue()
-            }.onFailure { error ->
-                DownloadSyncLogger.logOrphanCleanupFailure(error::class.java.simpleName, error.message)
-            }
-            // Startup Warmup Coordinator (Gate remote ABS work before local progress recovery)
-            // Cold start now enqueues stale ABS roots through root-scoped WorkManager instead of performing authorize progress refreshes inline on every process creation.
-            createStartupWarmup(processContainer).run()
         }
     }
 

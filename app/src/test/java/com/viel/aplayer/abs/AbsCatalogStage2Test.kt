@@ -27,17 +27,17 @@ import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
 import com.viel.aplayer.abs.sync.AbsItemMirrorEntity
 import com.viel.aplayer.abs.sync.AbsSyncStateEntity
 import com.viel.aplayer.abs.sync.isAbsPlayableBook
+import com.viel.aplayer.data.book.BookCatalogGateway
+import com.viel.aplayer.data.book.BookDeletionGateway
+import com.viel.aplayer.data.book.BookMetadataGateway
+import com.viel.aplayer.data.book.BookmarkGateway
+import com.viel.aplayer.data.book.ChapterGateway
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
-import com.viel.aplayer.data.book.BookCatalogGateway
-import com.viel.aplayer.data.book.BookDeletionGateway
-import com.viel.aplayer.data.book.BookMetadataGateway
-import com.viel.aplayer.data.book.BookmarkGateway
-import com.viel.aplayer.data.book.ChapterGateway
 import com.viel.aplayer.data.progress.ProgressGateway
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -665,7 +665,7 @@ class AbsCatalogStage2Test {
         override fun updateMetadata(bookId: String, title: String?, author: String?, narrator: String?, description: String?, duration: Long) = Unit
         override fun getChapters(bookId: String): Flow<List<com.viel.aplayer.data.entity.ChapterWithBookFile>> = flowOf(emptyList())
         override suspend fun getChaptersForBookSync(bookId: String): List<com.viel.aplayer.data.entity.ChapterWithBookFile> = emptyList()
-        override fun saveChapters(bookId: String, chapters: List<com.viel.aplayer.data.entity.ChapterEntity>) = Unit
+        override fun saveChapters(bookId: String, chapters: List<ChapterEntity>) = Unit
         override fun getBookmarks(bookId: String): Flow<List<com.viel.aplayer.data.entity.BookmarkEntity>> = flowOf(emptyList())
         override suspend fun addBookmark(bookId: String, position: Long, title: String) = Unit
         override suspend fun updateBookmark(bookmark: com.viel.aplayer.data.entity.BookmarkEntity) = Unit
