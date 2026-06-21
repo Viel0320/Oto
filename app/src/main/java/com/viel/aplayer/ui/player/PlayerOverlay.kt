@@ -38,9 +38,10 @@ import com.viel.aplayer.ui.common.theme.LocalAmoled
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.motion.LocalAnimatedVisibilityScope
-import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceBookId
+import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceCover
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
+import com.viel.aplayer.ui.motion.Mini2PlayerSourceCover
 import com.viel.aplayer.ui.navigation.PlayerNavigationActions
 import com.viel.aplayer.ui.player.miniplayer.CompactMediaPlayer
 import com.viel.aplayer.ui.player.miniplayer.PillCompactMediaPlayer
@@ -136,17 +137,24 @@ fun PlayerOverlay(
         else -> PlayerOverlayState.Hidden
     }
     /*
-     * Mini Cover Source Identity Capture (Expansion-only bridge metadata)
+     * Mini Cover Source Snapshot (Expansion-only bridge metadata)
      *
      * The mini cover shared element uses a stable motion key that intentionally does not include
-     * bookId. Capture the visible mini bookId before expansion so the full-player target can decide
-     * whether a thumbnail bridge is required instead of assuming every mini-origin transition needs
-     * one.
+     * bookId. Capture the visible mini cover (book id plus the exact small-thumbnail request inputs)
+     * before expansion so the full-player target can bridge through the source thumbnail when the
+     * playback target differs, instead of hard-cutting its own artwork mid-flight.
      */
-    var mini2PlayerSourceBookId by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(overlayState, metadata.id) {
+    var mini2PlayerSourceCover by remember { mutableStateOf<Mini2PlayerSourceCover?>(null) }
+    LaunchedEffect(overlayState, metadata.id, metadata.coverLastUpdated) {
         if (overlayState == PlayerOverlayState.Mini && metadata.id.isNotBlank()) {
-            mini2PlayerSourceBookId = metadata.id
+            mini2PlayerSourceCover = Mini2PlayerSourceCover(
+                bookId = metadata.id,
+                coverPath = CoverImageSourceSelector.small(
+                    thumbnailPath = metadata.thumbnailPath,
+                    coverPath = metadata.coverPath
+                ),
+                coverLastUpdated = metadata.coverLastUpdated
+            )
         }
     }
 
@@ -272,10 +280,10 @@ fun PlayerOverlay(
                         } else {
                             null
                         },
-                        LocalMini2PlayerSourceBookId provides if (
+                        LocalMini2PlayerSourceCover provides if (
                             settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer
                         ) {
-                            mini2PlayerSourceBookId
+                            mini2PlayerSourceCover
                         } else {
                             null
                         },

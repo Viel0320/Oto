@@ -55,32 +55,49 @@ class PlayerMotionSourceArchitectureTest {
     }
 
     /**
-     * Locks the simplified full-player cover contract after the mini-origin bridge was removed.
+     * Locks the flicker-free mini-origin bridge contract for the full-player cover.
      *
-     * The cover still uses the Mini->Player target scope for shared-element geometry, but the
-     * artwork layer must render the current original image directly without reintroducing the old
-     * thumbnail bridge, settle-state gate, or custom crossfade path.
+     * The mismatched-book bridge was reintroduced after the earlier direct-rendering simplification,
+     * but on a flicker-free footing: it replays the captured mini source thumbnail while the shared
+     * element flies and fades the target original in under a zero-initialized alpha gate only after
+     * the transition settles. The old fragile shape (a transition cover threaded through parameters
+     * into the double-layer CrossfadingCoverImage whose gate started at 1f) must not come back.
      */
     @Test
-    fun fullPlayerCoverArtworkUsesDirectRenderingAfterBridgeRemoval() {
+    fun fullPlayerCoverUsesFlickerFreeMiniOriginBridge() {
         val playerCoverSource = resolveSourceRoot()
             .resolve("ui/common/PlayerCover.kt")
             .readText()
 
-        // Direct Artwork Rendering Contract (Preserve shared geometry without resurrecting bridge state)
-        // The full-player cover should keep the mini-player target scope as its fallback transition
-        // boundary, while the bitmap layer renders the current original cover without transitional thumbnails.
+        // Shared Geometry Contract (Keep the mini-player target scope and the cover shared element)
+        // Matched-book and route-owned covers still rely on this geometry for their seamless morph.
         assertTrue(playerCoverSource.contains("LocalMini2PlayerTargetScope"))
         assertTrue(playerCoverSource.contains("sharedElementVisibilityScope ?: mini2PlayerTargetScope"))
         assertTrue(playerCoverSource.contains("Modifier.sharedElement("))
         assertTrue(playerCoverSource.contains("CoverImage("))
-        assertTrue(playerCoverSource.contains("variant = CoverImageVariant.Original"))
+        assertTrue(playerCoverSource.contains("CoverImageVariant.Original"))
+
+        // Flicker-Free Bridge Contract (Source thumbnail handoff under a settle + ready alpha gate)
+        // The bridge consumes the captured mini source cover, flies the source thumbnail, and gates
+        // the original fade on a zero-initialized alpha so a not-yet-decoded target cannot flash in.
+        assertTrue(playerCoverSource.contains("LocalMini2PlayerSourceCover"))
+        assertTrue(playerCoverSource.contains("CoverImageVariant.ThumbnailSmall"))
+        assertTrue(playerCoverSource.contains("Animatable(0f)"))
+
+        // Entry-Gated Bridge Contract (Only the first mini->player entry may bridge)
+        // A later book or cover change inside the already-visible full player must render directly
+        // instead of replaying the captured mini source artwork.
+        assertTrue(playerCoverSource.contains("resolveInitialMiniOriginBridgeSource("))
+        assertTrue(playerCoverSource.contains("transition.targetState == EnterExitState.Visible"))
+        assertTrue(playerCoverSource.contains("transition.currentState != EnterExitState.Visible"))
+
+        // No Fragile Path Regression (The removed parameter-threaded crossfade must stay gone)
+        // The original flicker came from threading a transition cover into a double-layer crossfading
+        // image whose alpha gate started at 1f; that exact shape must not return.
         assertFalse(playerCoverSource.contains("MiniPlayerCoverBridgeIdentity"))
         assertFalse(playerCoverSource.contains("transitionCoverPath"))
         assertFalse(playerCoverSource.contains("useTransitionArtwork"))
         assertFalse(playerCoverSource.contains("CrossfadingCoverImage"))
-        assertFalse(playerCoverSource.contains("transition.currentState"))
-        assertFalse(playerCoverSource.contains("transition.targetState"))
         assertFalse(playerCoverSource.contains("gesturesEnabled"))
         assertFalse(playerCoverSource.contains("effectiveGesturesEnabled"))
     }
