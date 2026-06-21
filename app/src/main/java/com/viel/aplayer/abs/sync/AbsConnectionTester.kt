@@ -30,10 +30,6 @@ class AbsConnectionTester(
         AbsAuthLogger.logStatusStart(baseUrl)
         val status = runCatching {
             apiClient.status(baseUrl).also { dto ->
-                // Server Version Validation (Early failure check)
-                // The server version must be validated immediately after the status call.
-                // This ensures that unsupported, older versions of the server are rejected
-                // at the connection stage, preventing half-compatibility issues later in synchronization or playback.
                 ensureSupportedAbsServerVersion(dto.serverVersion)
             }
         }

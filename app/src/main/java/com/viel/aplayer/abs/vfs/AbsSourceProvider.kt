@@ -105,9 +105,6 @@ class AbsSourceProvider(
             )
         }
         val openStart = AbsStreamLogger.mark()
-        // Stream Open Parameters (Distinguish logical path vs byte offset)
-        // Record both the logical file path (sourcePath) and the requested network byte offset when opening the stream.
-        // This distinction is critical for diagnosing seek behaviors versus standard sequential playback.
         AbsStreamLogger.logOpenStart(rootId = file.root.id, sourcePath = file.metadata.sourcePath, offset = offset)
         return withContext(Dispatchers.IO) {
             val response = executeRequest(
@@ -144,8 +141,6 @@ class AbsSourceProvider(
                     errorClass = "AbsApiError",
                     message = "RANGE_IGNORED"
                 )
-                // Offset Range Enforcement (Reject ignored Range requests before returning a stream)
-                // A 200 response after a non-zero offset means playback would resume from byte zero, so the caller must fail fast instead of replaying earlier audio.
                 throw AbsApiError(
                     code = "RANGE_IGNORED",
                     httpStatus = response.code,
@@ -284,8 +279,6 @@ class AbsSourceProvider(
             AbsAuthLogger.logMissingCredential(path = "AbsSourceProvider.executeRequest", rootId = file.root.id, credentialId = file.root.credentialId)
         }
         val url = resolveContentUrl(credential.baseUrl, file.root, file.metadata.sourcePath)
-        // ABS Stream Cleartext Gate (Reject HTTP media reads before bearer credentials are attached)
-        // The VFS stream path does not go through RealAbsApiClient, so it must enforce the same global policy before GET and HEAD requests.
         UnsafeNetworkPolicy.requireCleartextHttpAllowed(
             url = url.toString(),
             settings = settingsProvider(),
@@ -303,8 +296,6 @@ class AbsSourceProvider(
             client.newCall(requestBuilder.build()).execute()
         } catch (error: IOException) {
             val failure = RemoteAvailabilityMappingPolicy.fromTransportException(error)
-            // ABS Media Transport Failure Mapping (Aligns stream GET/HEAD errors with the ABS REST client policy)
-            // The media provider keeps its stream-specific logs and messages while sharing timeout/connectivity status classification.
             AbsStreamLogger.logRequestFailure(method = method, url = url.toString(), errorClass = error.javaClass.simpleName, message = error.message)
             throw AbsApiError(
                 code = failure.errorCode,
@@ -318,8 +309,6 @@ class AbsSourceProvider(
             val credentialId = requireNotNull(file.root.credentialId) {
                 "Missing ABS credential id for root ${file.root.id}"
             }
-            // Stream Auth Refresh Notification (Refresh credentials for later attempts and fail the current media request)
-            // Media3 download state remains deterministic because the caller receives one typed 401 failure instead of an implicit retry.
             val refreshResult = tokenRefreshClient.refreshToken(credentialId)
             throw AbsAuthExpiredException(
                 credentialId = credentialId,
@@ -331,16 +320,12 @@ class AbsSourceProvider(
     }
 
     internal fun resolveContentUrl(baseUrl: String, root: LibraryRootEntity, contentUrl: String): HttpUrl {
-        // Use unified AbsUrlResolver to retrieve the structured base URL.
         val base = AbsUrlResolver.resolveBaseUrl(baseUrl)
         val source = contentUrl.trim()
         if (source.startsWith("/api/")) {
             val resolved = base.newBuilder()
                 .addEncodedPathSegments(source.removePrefix("/"))
                 .build()
-            // URL Resolution Trace (Log resolved relative API URLs)
-            // Log the resolved destination URL when a relative `/api/...` path is encountered.
-            // Since this is the most common format for ABS content URLs, tracking the resolution helps isolate base path or segment concatenation bugs.
             AbsStreamLogger.logResolveContentUrl(baseUrl = baseUrl, sourcePath = contentUrl, resolvedUrl = resolved.toString())
             return resolved
         }
@@ -371,24 +356,18 @@ class AbsSourceProvider(
     }
 
     private fun Response.isTrustedOffsetResponse(offset: Long): Boolean {
-        // Offset Range Response Contract (Accept only responses that prove the requested byte offset was honored)
-        // Some proxies return HTTP 200 for a Range request; accepting those would corrupt resume and seek playback by streaming from the beginning.
         if (code == HTTP_PARTIAL_CONTENT) return true
         val contentRange = header("Content-Range") ?: return false
         return contentRange.startsWith("bytes $offset-")
     }
 
     private fun boundedRangeEnd(offset: Long, length: Int): Long? {
-        // ABS Range Bound Guard (Prevent wrapped byte intervals in HTTP headers)
-        // Saturating the inclusive range end keeps pathological metadata probes from emitting malformed Range headers when offset plus length crosses Long.MAX_VALUE.
         if (offset < 0L || length <= 0) return null
         val delta = length.toLong() - 1L
         return if (offset > Long.MAX_VALUE - delta) Long.MAX_VALUE else offset + delta
     }
 
     private fun Response.toAbsApiError(method: String): AbsApiError {
-        // ABS Media HTTP Failure Mapping (Delegates shared HTTP status classification to the remote availability policy)
-        // Stream request exceptions retain AbsApiError while using the same mapping table as ABS catalog/session requests.
         val availabilityStatus = RemoteAvailabilityMappingPolicy.fromHttpStatus(
             statusCode = code,
             protocol = RemoteAvailabilityProtocol.ABS
@@ -411,8 +390,6 @@ class AbsSourceProvider(
 }
 
 private object NoOpAbsTokenRefreshClient : AbsTokenRefreshClient {
-    // Missing Refresh Client (Preserves explicit failure semantics in tests or manually injected source providers)
-    // Production construction injects RealAbsApiClient, while null-context tests can still assert typed auth failures.
     override suspend fun refreshToken(credentialId: String): AbsTokenRefreshResult = AbsTokenRefreshResult.Failed
 }
 

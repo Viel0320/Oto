@@ -8,7 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Subtitle Service (Dedicated subtitle sidecar loader)
+ * Dedicated subtitle sidecar loader.
  *
  * Wraps SubtitleFileResolver behind a small application service so subtitle loading stays separate from
  * cover asset persistence and metadata refresh modules.
@@ -18,8 +18,6 @@ class SubtitleGatewayImpl(
     private val subtitleResolver: SubtitleFileResolver
 ) : SubtitleGateway {
     override suspend fun loadSubtitlesForBookFile(bookFileId: String): List<SubtitleLine> = withContext(Dispatchers.IO) {
-        // Subtitle Resolver Delegation (Keep VFS subtitle parsing localized behind SubtitleGateway)
-        // Playback UI callers receive parsed subtitle lines through the facade without importing cover-domain services.
         subtitleResolver.loadSubtitlesForBookFile(bookFileId)
     }
 }

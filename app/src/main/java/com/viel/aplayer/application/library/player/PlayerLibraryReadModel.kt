@@ -6,7 +6,7 @@ import com.viel.aplayer.media.subtitle.SubtitleLine
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Player Chapter Item (Room-free chapter projection for playback UI)
+ * Room-free chapter projection for playback UI.
  * Carries timeline and availability fields needed by player controls without exposing Room relation models.
  */
 data class PlayerChapterItem(
@@ -24,7 +24,7 @@ data class PlayerChapterItem(
 )
 
 /**
- * Player Bookmark Item (Room-free bookmark projection for playback UI)
+ * Room-free bookmark projection for playback UI.
  * Preserves stable anchor fields so the player adapter can update or delete bookmarks without leaking the database entity upward.
  */
 data class PlayerBookmarkItem(
@@ -41,7 +41,7 @@ data class PlayerBookmarkItem(
 )
 
 /**
- * Player Related Book (Room-free recommendation row for the player scene)
+ * Room-free recommendation row for the player scene.
  * Contains only the fields rendered by the related-books panel and the id needed to start playback.
  */
 data class PlayerRelatedBook(
@@ -57,7 +57,7 @@ data class PlayerRelatedBook(
 )
 
 /**
- * Player Related Section (Recommendation group projection)
+ * Recommendation group projection.
  * Keeps author and narrator grouping local to the player scene instead of reusing data-layer progress rows.
  */
 data class PlayerRelatedSection(
@@ -66,7 +66,7 @@ data class PlayerRelatedSection(
 )
 
 /**
- * Player Related Data (Full related-books panel projection)
+ * Full related-books panel projection.
  * Bundles same-author, same-narrator, recent, and heuristic rows as player-scene types.
  */
 data class PlayerRelatedData(
@@ -77,7 +77,7 @@ data class PlayerRelatedData(
 )
 
 /**
- * Player Chapter Timeline (Timeline helpers over player-scene chapter projections)
+ * Timeline helpers over player-scene chapter projections.
  * Keeps chapter math in the player boundary so UI code does not convert projections back into Room entities.
  */
 object PlayerChapterTimeline {
@@ -125,7 +125,7 @@ object PlayerChapterTimeline {
 }
 
 /**
- * Player Library Metadata (Scene-level playback metadata projection)
+ * Scene-level playback metadata projection.
  * Combines the selected book row, chapter rows, bookmark rows, and subtitle rows so PlayerViewModel receives one stable metadata stream.
  */
 data class PlayerLibraryMetadata(
@@ -142,7 +142,7 @@ data class PlayerLibraryMetadata(
 )
 
 /**
- * Player Restored Progress Snapshot (Cold-start compact-player progress projection)
+ * Cold-start compact-player progress projection.
  * Carries only the book identity and global position needed to restore UI preview state without exposing persistence entities to PlayerViewModel.
  */
 data class PlayerRestoredProgressSnapshot(
@@ -151,7 +151,7 @@ data class PlayerRestoredProgressSnapshot(
 )
 
 /**
- * Player Book Preview (Cold-start compact-player projection)
+ * Cold-start compact-player projection.
  * Supplies only book-row fields that the mini-player needs before real playback preparation starts.
  */
 data class PlayerBookPreview(
@@ -166,12 +166,12 @@ data class PlayerBookPreview(
 )
 
 /**
- * Player Library Read Model (Player-scene read and refresh surface)
+ * Player-scene read and refresh surface.
  * Groups playback-page metadata, subtitle loading, cover polling, progress restoration, related reads, and current-track availability behind one narrow interface.
  */
 interface PlayerLibraryReadModel {
     /**
-     * Observe Metadata (Selected-book metadata stream)
+     * Selected-book metadata stream.
      * Emits one player-scoped metadata projection assembled from the underlying book, chapter, bookmark, and subtitle sources.
      */
     fun observeMetadata(
@@ -180,7 +180,7 @@ interface PlayerLibraryReadModel {
     ): Flow<PlayerLibraryMetadata>
 
     /**
-     * Related Data Stream (Recommendation read model)
+     * Recommendation read model.
      * Keeps related-catalog lookups inside the player scene module instead of constructing recommendation use cases in PlayerViewModel.
      */
     fun relatedData(
@@ -190,31 +190,31 @@ interface PlayerLibraryReadModel {
     ): Flow<PlayerRelatedData>
 
     /**
-     * Last Played Snapshot (Cold-start progress lookup)
+     * Cold-start progress lookup.
      * Returns the persisted playback checkpoint needed to show the compact player after app startup.
      */
     suspend fun getLastPlayedSnapshot(): PlayerRestoredProgressSnapshot?
 
     /**
-     * Book Preview Lookup (Cold-start compact-player lookup)
+     * Cold-start compact-player lookup.
      * Returns the book-row projection required to restore mini-player metadata without preparing media files.
      */
     suspend fun getBookPreview(bookId: String): PlayerBookPreview?
 
     /**
-     * Subtitle Load (Active-file subtitle lookup)
+     * Active-file subtitle lookup.
      * Loads external subtitle cues for the currently selected playback file through the player scene boundary.
      */
     suspend fun loadSubtitlesForBookFile(bookFileId: String): List<SubtitleLine>
 
     /**
-     * Display Cover Lookup (Cover polling projection)
+     * Cover polling projection.
      * Returns the thumbnail-first cover path used after playback plan loading without exposing the whole book entity to helper classes.
      */
     suspend fun findDisplayCoverPath(bookId: String): String?
 
     /**
-     * Current Playback Availability Refresh (Active-track reachability check)
+     * Active-track reachability check.
      * Revalidates the current playback file status and returns whether the compact player can remain attached to this book.
      */
     suspend fun refreshCurrentPlaybackAvailability(bookId: String): Boolean

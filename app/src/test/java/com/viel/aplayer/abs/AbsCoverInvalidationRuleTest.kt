@@ -17,8 +17,6 @@ class AbsCoverInvalidationRuleTest {
             syncedAt = 2000L
         )
 
-        // Initial sync timestamp validation. When a new book obtains cover cache paths during its first sync, lastScannedAt must be set to syncedAt.
-        // Otherwise, UI cache keys remain 0, providing no invalidation signal between default placeholders and newly loaded covers.
         assertEquals(2000L, resolved)
     }
 
@@ -31,8 +29,6 @@ class AbsCoverInvalidationRuleTest {
             syncedAt = 2000L
         )
 
-        // Empty cover timestamp suppression. If a new book has no cached cover assets, do not fabricate a cover update timestamp.
-        // This ensures default placeholder drawables are not falsely considered as containing loadable cover files.
         assertEquals(0L, resolved)
     }
 
@@ -51,8 +47,6 @@ class AbsCoverInvalidationRuleTest {
             syncedAt = 2000L
         )
 
-        // Timestamp preservation rule. Do not update lastScannedAt during ABS synchronization cycles if the cover paths remain unchanged.
-        // Constantly refreshing the timestamp would invalidate UI cache keys pointlessly, damaging the Coil cache hit rate.
         assertEquals(1000L, resolved)
     }
 
@@ -77,7 +71,6 @@ class AbsCoverInvalidationRuleTest {
             syncedAt = 3000L
         )
 
-        // Cover path variation invalidation. Any modification in the original or thumbnail cover paths indicates that the UI must generate a new key to load the updated image.
         assertEquals(2000L, changedCover)
         assertEquals(3000L, changedThumbnail)
     }
@@ -98,7 +91,6 @@ class AbsCoverInvalidationRuleTest {
             remoteVersionChanged = true
         )
 
-        // Remote version invalidation. ABS can replace cover bytes while retaining stable local cache paths, so a changed remote version must refresh the UI cache key.
         assertEquals(4000L, resolved)
     }
 

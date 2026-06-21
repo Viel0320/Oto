@@ -6,7 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Directory Children Cache Schema (Persists direct child snapshots for a scanned directory)
+ * Persists direct child snapshots for a scanned directory.
  * Stores only normalized VFS metadata owned by a library root, allowing WebDAV scans to reuse child listings without
  * persisting provider-native handles, credentials, or complete remote URLs.
  */
@@ -27,7 +27,7 @@ import androidx.room.PrimaryKey
 )
 data class DirectoryChildCacheEntity(
     /**
-     * Directory Child Cache Key (Uniquely identifies one child within a parent directory snapshot)
+     * Uniquely identifies one child within a parent directory snapshot.
      * Combines rootId, parentSourcePath, and sourcePath so repeated scans replace the exact same VFS child record.
      */
     @PrimaryKey

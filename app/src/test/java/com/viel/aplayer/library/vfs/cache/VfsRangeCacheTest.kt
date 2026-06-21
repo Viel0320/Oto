@@ -14,8 +14,6 @@ class VfsRangeCacheTest {
         val cache = VfsRangeCache(cacheDir = createTempDirectory("range-cache").toFile())
         val key = sampleKey()
 
-        // Range Cache Round Trip (Verifies metadata-sized byte blocks persist by hashed key)
-        // Missing blocks must return null, while written blocks should read back the exact byte payload.
         assertNull(cache.read(key))
         cache.write(key, byteArrayOf(1, 2, 3))
         assertArrayEquals(byteArrayOf(1, 2, 3), cache.read(key))
@@ -31,8 +29,6 @@ class VfsRangeCacheTest {
 
         cache.write(key, byteArrayOf(1, 2, 3, 4, 5))
 
-        // Single Block Limit (Prevents playback-sized payloads from entering the metadata range cache)
-        // Blocks larger than the configured limit must be ignored rather than truncated or partially persisted.
         assertNull(cache.read(key))
     }
 
@@ -48,8 +44,6 @@ class VfsRangeCacheTest {
         cache.write(sampleKey(source = "two"), byteArrayOf(2, 2, 2, 2))
         cache.trimToSize()
 
-        // Total Cache Budget (Keeps the range cache directory bounded by removing old blocks)
-        // With a six-byte budget and two four-byte blocks, at least one block must be trimmed.
         val remaining = listOfNotNull(cache.read(sampleKey(source = "one")), cache.read(sampleKey(source = "two")))
         assertEquals(1, remaining.size)
     }
@@ -66,8 +60,6 @@ class VfsRangeCacheTest {
         cache.write(key, byteArrayOf(4, 5, 6))
         now += com.viel.aplayer.data.cache.OnlineSourceCachePolicy.ONLINE_METADATA_RANGE_TTL_MS + 1L
 
-        // Range Cache TTL Fallback (Prevents remote byte blocks from being reused indefinitely)
-        // Even provider-versioned blocks must expire eventually so metadata caches recover from stale or misreported upstream version data.
         assertNull(cache.read(key))
     }
 
@@ -83,8 +75,6 @@ class VfsRangeCacheTest {
 
         val deleted = cache.evictRoot(rootOne)
 
-        // Root Scoped Eviction (Keeps unrelated library roots intact during root deletion)
-        // Eviction matches only cache files prefixed by the hashed root id.
         assertEquals(1, deleted)
         assertNull(cache.read(first))
         assertArrayEquals(byteArrayOf(2), cache.read(second))

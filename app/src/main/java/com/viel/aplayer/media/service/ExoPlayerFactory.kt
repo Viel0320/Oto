@@ -24,7 +24,7 @@ import com.viel.aplayer.media.VfsPlaybackDataSource
 import com.viel.aplayer.media.cache.ManualCachePlaybackDataSource
 
 /**
- * ExoPlayer Core Production Factory (Constructs and configures highly optimized ExoPlayer media engine instances)
+ * Constructs and configures highly optimized ExoPlayer media engine instances.
  * Manages low-level configuration of renderers, extractor options, buffer strategies (LoadControl), and virtual VFS data sources.
  * Decouples complex multi-track and custom focus logic from the playback service domain, adhering to Single Responsibility Principle.
  */
@@ -32,8 +32,8 @@ import com.viel.aplayer.media.cache.ManualCachePlaybackDataSource
 object ExoPlayerFactory {
 
     /**
-     * Modular Audio Player Factory (Builds and configures an optimized ExoPlayer instance tailored for audiobook playback)
-     * Refactoring completely removed the AudioSinkCreationListener reflection callbacks, returning to native Media3 architecture.
+     * Builds and configures an optimized ExoPlayer instance tailored for audiobook playback.
+     * Keeps audio rendering on the native Media3 pipeline without exposing AudioSink internals.
      *
      * @param context Application runtime context
      * @param listener Global playback status and exception event observer
@@ -46,41 +46,32 @@ object ExoPlayerFactory {
         listener: Player.Listener,
         isAutomaticAudioFocusAllowed: Boolean
     ): ExoPlayer {
-        
+
         val settings = AppSettingsRepository.getInstance(context.applicationContext).cachedSettings
 
-        // 1. Buffer Configuration (Caps remote playback buffering by memory size only)
-        // The removed playback disk cache is replaced by ExoPlayer's RAM buffer, and loading stops when the target byte budget is reached.
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                SIZE_ONLY_BUFFER_DURATION_MS, // Effective no-op duration floor because byte budget owns the loading stop condition
-                SIZE_ONLY_BUFFER_DURATION_MS, // Effective no-op duration ceiling so long low-bitrate books are not capped by seconds
-                1000,  // Playback start buffer (1 second) to achieve rapid low-latency initial startup
-                2000   // Rebuffer recovery threshold (2 seconds) to recover quickly and prevent rapid play/pause loops
+                SIZE_ONLY_BUFFER_DURATION_MS,
+                SIZE_ONLY_BUFFER_DURATION_MS,
+                1000,
+                2000
             )
             .setPrioritizeTimeOverSizeThresholds(false)
             .setTargetBufferBytes(settings.playbackBufferMaxBytes.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
             .build()
 
-        // 2. Renderer Customization (Builds a specialized renderers factory to disable container metadata I/O and support decoder fallback)
         val renderersFactory = object : DefaultRenderersFactory(context) {
             override fun buildAudioSink(
                 context: Context,
                 enableFloatOutput: Boolean,
                 enableAudioTrackPlaybackParams: Boolean
             ): AudioSink {
-                /**
-                 * Sonic Processor Initialization (Instantiates the audio speed processor for dynamic playback rate adjustments)
-                 * Refactored to completely remove reflection callbacks exposing internal AudioSink settings to external components,
-                 * ensuring stability by adhering strictly to the official Media3 audio rendering pipeline.
-                 */
                 val sonicProcessor = SonicAudioProcessor()
-                
-                // Registers the Sonic processor within the default AudioSink rendering chain
+
                 val sink = DefaultAudioSink.Builder(context)
                     .setAudioProcessors(arrayOf(sonicProcessor))
                     .build()
-                
+
                 return sink
             }
 
@@ -91,23 +82,15 @@ object ExoPlayerFactory {
                 extensionRendererMode: Int,
                 out: ArrayList<Renderer>
             ) {
-                // Suppresses standard metadata track creation, preventing ExoPlayer from parsing container-level metadata
-                // Optimizes performance by avoiding redundant file I/O operations for built-in container tags
             }
         }.apply {
-            // Enables automatic fallback to software decoders if hardware decoders fail, enhancing format compatibility
             setEnableDecoderFallback(true)
         }
 
-        // 3. Extractor Options (Configures media extractors optimized for long-duration audiobooks)
         val extractorsFactory = DefaultExtractorsFactory()
-            // Enables MP3 frame indexing for fast seeking and disables container ID3 extraction to prevent redundant disk reads
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING or Mp3Extractor.FLAG_DISABLE_ID3_METADATA)
-            // Enables fast constant-bitrate seeking for ADTS format files
             .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
 
-        // 4. Data Source Binding (Route playback through L1 manual cache before streaming from VFS)
-        // Uncached remote playback now falls back to upstream reads only; LoadControl owns the in-memory buffer and no disk cache is written.
         val downloadRuntimeDependencies = APlayerApplication.getDownloadRuntimeDependencies(context)
         val vfsPlaybackDependencies = APlayerApplication.getVfsPlaybackDependencies(context)
         val manualCacheDataSourceFactory = ManualCachePlaybackDataSource.Factory(
@@ -118,24 +101,20 @@ object ExoPlayerFactory {
         )
         val mediaSourceFactory = DefaultMediaSourceFactory(manualCacheDataSourceFactory, extractorsFactory)
 
-        // 5. Player Assembly (Builds and returns the fully assembled ExoPlayer core instance)
         return ExoPlayer.Builder(context, renderersFactory)
             .setAudioAttributes(
                 AudioAttributes.Builder()
-                    .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH) // Sets the audio type to SPEECH for optimal mix attributes during audiobook narration
+                    .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
                     .setUsage(C.USAGE_MEDIA)
                     .build(),
-                isAutomaticAudioFocusAllowed // Controls whether ExoPlayer handles system audio focus dynamically based on notification settings
+                isAutomaticAudioFocusAllowed
             )
             .setLoadControl(loadControl)
             .setMediaSourceFactory(mediaSourceFactory)
-            // Default Short Seek Increments (Match AppSettings fallback values before DataStore emits)
-            // PlaybackService hot-reloads user-selected values after startup, while the factory keeps first-frame behavior aligned with product defaults.
             .setSeekBackIncrementMs(10000)
             .setSeekForwardIncrementMs(20000)
             .build()
             .apply {
-                // Attaches the global lifecycle and error state event listener
                 addListener(listener)
             }
     }

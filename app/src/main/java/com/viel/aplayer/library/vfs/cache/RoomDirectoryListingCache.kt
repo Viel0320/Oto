@@ -9,7 +9,7 @@ import com.viel.aplayer.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.aplayer.logger.CacheDiagnosticsLogger
 
 /**
- * Room Directory Listing Cache (Persists WebDAV direct child snapshots for scanner reuse)
+ * Persists WebDAV direct child snapshots for scanner reuse.
  * Limits cache reads and writes to WebDAV roots so SAF permissions and ABS catalog mirrors continue to use their live provider paths.
  */
 class RoomDirectoryListingCache(
@@ -21,13 +21,11 @@ class RoomDirectoryListingCache(
 ) : DirectoryListingCache {
 
     /**
-     * Read Cached Children (Returns WebDAV child metadata snapshots when rows exist)
+     * Returns WebDAV child metadata snapshots when rows exist.
      * A null return keeps the VFS miss path explicit, causing callers to query the provider and refresh the Room snapshot.
      */
     override suspend fun getChildren(directory: VfsNode): List<SourceFileMetadata>? {
         if (!directory.isWebDavDirectory()) return null
-        // Directory Cache Timing Source (Uses injectable elapsed time for JVM-safe diagnostics)
-        // The cache behavior depends only on DAO results, so timing collection is kept replaceable for unit tests.
         val startedAtElapsedMs = elapsedRealtimeMillis()
         val rows = directoryChildCacheDao.getChildren(
             rootId = directory.root.id,
@@ -58,13 +56,11 @@ class RoomDirectoryListingCache(
     }
 
     /**
-     * Replace Cached Children (Stores the latest WebDAV provider result for one parent directory)
+     * Stores the latest WebDAV provider result for one parent directory.
      * Writes only direct children under the current directory sourcePath and records a shared cachedAt timestamp for that snapshot.
      */
     override suspend fun replaceChildren(directory: VfsNode, children: List<SourceFileMetadata>) {
         if (!directory.isWebDavDirectory()) return
-        // Directory Cache Write Timing Source (Separates diagnostics timing from Android runtime APIs)
-        // This keeps Room snapshot persistence testable on the JVM while preserving elapsed-time metrics on device.
         val startedAtElapsedMs = elapsedRealtimeMillis()
         val cachedAt = currentTimeMillis()
         val rows = children.map { child ->
@@ -91,7 +87,7 @@ class RoomDirectoryListingCache(
     }
 
     /**
-     * Evict Root Children (Deletes WebDAV listing snapshots associated with one root)
+     * Deletes WebDAV listing snapshots associated with one root.
      * Provides an explicit cleanup hook while Room foreign-key cascades remain the final deletion guard.
      */
     override suspend fun evictRoot(rootId: String) {
@@ -105,8 +101,6 @@ class RoomDirectoryListingCache(
         CacheDiagnosticsLogger.hashIdentifier("${root.id}:${metadata.sourcePath}")
 
     private fun VfsNode.minimumFreshCachedAt(): Long {
-        // Directory Listing Freshness Window (Turns expired rows into cache misses before VFS replay)
-        // The lower bound lives in the WebDAV cache adapter so callers keep the simple hit-or-refresh contract.
         return OnlineSourceCachePolicy.minCachedAt(
             nowMillis = currentTimeMillis(),
             ttlMillis = maxCacheAgeMillis

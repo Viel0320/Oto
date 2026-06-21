@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.player.miniplayer
 
-// Setup Haze Integration (Import dev.chrisbanes.haze libraries) Import HazeState and modifiers.
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.Animatable
@@ -69,7 +68,6 @@ fun PillCompactMediaPlayer(
     coverPath: String? = null,
     coverLastUpdated: Long = 0L,
     actions: MiniPlayerActions = MiniPlayerActions(),
-    // Setup HazeState Parameter (Map backdrop parameter to HazeState) Changed LayerBackdrop to HazeState.
     hazeState: HazeState? = null,
     onClick: () -> Unit = {},
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
@@ -79,12 +77,6 @@ fun PillCompactMediaPlayer(
     val mini2PlayerSourceScope = LocalMini2PlayerSourceScope.current
     val windowClass = LocalAppWindowSizeClass.current
 
-    /*
-     * Pill Bounds Corner Radius Transition (Dynamic stadium shape morphing)
-     * Transition the outer card shape from stadium (100.dp) down to the target full screen's 28.dp.
-     * Prevents flat shapes or straight corners during intermediate animation frames.
-     */
-    // Align transition durations: Set pill outer stadium bounds corner radius transition to 300ms.
     val animatedCornerRadius by mini2PlayerSourceScope?.transition?.animateDp(
         label = "pill_bounds_corner_radius",
         transitionSpec = { tween(300) }
@@ -93,12 +85,6 @@ fun PillCompactMediaPlayer(
     }
         ?: remember { mutableStateOf(100.dp) }
 
-    /*
-     * Pill Cover Corner Radius Transition (Stretches disk shapes into squares)
-     * Morph the compact rotating disk artwork corner radius (100.dp for circle)
-     * down to the full screen's rounded square artwork corner radius (24.dp).
-     */
-    // Align transition durations: Set rotating disk cover corner radius transition to 300ms.
     val animatedCoverCornerRadius by mini2PlayerSourceScope?.transition?.animateDp(
         label = "pill_cover_corner_radius",
         transitionSpec = { tween(300) }
@@ -110,12 +96,6 @@ fun PillCompactMediaPlayer(
     val boundsModifier = if (sharedTransitionScope != null && mini2PlayerSourceScope != null) {
         with(sharedTransitionScope) {
             Modifier.sharedBounds(
-                /*
-                 * Pill Player Bounds Key (Centralized shared bounds identity)
-                 *
-                 * Resolves the wide-screen pill mini-player bounds key through SharedElementKeys
-                 * with the current book ID, matching the book-scoped mini-to-full player transition.
-                */
                 sharedContentState = rememberSharedContentState(key = SharedElementKeys.playerBounds()),
                 animatedVisibilityScope = mini2PlayerSourceScope,
                 clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(animatedCornerRadius))
@@ -125,17 +105,12 @@ fun PillCompactMediaPlayer(
         Modifier
     }
 
-    // Setup Haze Mode Switch (Check if Haze mode is configured) Aligned to renamed Haze option.
     val isBlurMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
     val pillShape = RoundedCornerShape(animatedCornerRadius)
-    // Localized Player Accessibility Copy (Keep mini-player icon labels aligned with the selected app language)
-    // The pill variant has no visible text, so content descriptions are the only user-facing copy in this component.
     val coverContentDescription = stringResource(R.string.media_cover_content_description)
     val playPauseContentDescription = stringResource(
         if (isPlaying) R.string.playback_pause_content_description else R.string.playback_play_content_description
     )
-    // Pill Mini Player Assistive Actions (Name cover click and hide gestures)
-    // The pill layout exposes only artwork and transport icons, so cover semantics must carry the open and hide commands explicitly.
     val openMiniPlayerActionLabel = stringResource(R.string.mini_player_open_action)
     val hideMiniPlayerActionLabel = stringResource(R.string.mini_player_hide_action)
 
@@ -153,15 +128,12 @@ fun PillCompactMediaPlayer(
         }
     }
 
-    // Theme Aware Rotation Border (Use LocalDarkTheme to resolve active theme state instead of system defaults) Read theme preference state.
     val isDark = LocalDarkTheme.current
 
     Surface(
         onClick = onClick,
         modifier = modifier
             .then(boundsModifier)
-            // Clean Layout Modifiers (Remove redundant fillMaxWidth, wrapContentWidth, and hardcoded widthIn constraints to allow natural capsule width wrap)
-            // The parent layout container manages position alignment, so wrapping constraints internally is redundant and hampers responsive layouts.
             .padding(horizontal = windowClass.screenHorizontalPadding)
             .navigationBarsPadding()
             .let {
@@ -195,20 +167,11 @@ fun PillCompactMediaPlayer(
                     .align(Alignment.Center),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Transition Key Consistency Validation (Prevent invalid or empty shared transition keys)
-                // Ensures that the bookId is non-blank before attempting to apply the shared element transition.
-                // If the bookId is empty, falls back to a normal transition.
                 val isKeyConsistent = bookId.isNotBlank()
 
                 val coverModifier = if (isKeyConsistent && sharedTransitionScope != null && mini2PlayerSourceScope != null) {
                     with(sharedTransitionScope) {
                         Modifier.sharedElement(
-                            /*
-                             * Pill Player Cover Key (Centralized artwork identity)
-                             *
-                             * Resolves the pill artwork key through SharedElementKeys so it stays
-                             * aligned with full-player MainCoverView key generation.
-                            */
                             rememberSharedContentState(key = SharedElementKeys.mini2playerCover()),
                             animatedVisibilityScope = mini2PlayerSourceScope
                         )
@@ -256,13 +219,6 @@ fun PillCompactMediaPlayer(
                             onLongClick = actions.onHide
                         )
                 ) {
-                    /*
-                     * Pill Source Artwork Rendering (Direct mini-only rotating artwork)
-                     *
-                     * The shared-element, border, click, and corner modifiers stay on the stable outer node.
-                     * Only this inner artwork decoration reads the rotation value, so the shared transition
-                     * receives a non-rotating geometry node while the mini player still looks like a spinning disc.
-                     */
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -295,12 +251,8 @@ fun PillCompactMediaPlayer(
 
                 IconButton(
                     onClick = actions.onPlayPauseClick,
-                    // Compact Transport Target (Preserve the pill's small visual control while restoring a 48.dp accessible command area)
-                    // The IconButton owns focus, touch, and Switch Access bounds, and the inner glyph keeps the compact transport appearance.
                     modifier = Modifier.size(48.dp)
                 ) {
-                    // Animated play <-> pause glyph driven by isPlaying, morphing
-                    // via the shared avd_play_pause asset and tinted with onSurface.
                     val playPauseImage = AnimatedImageVector.animatedVectorResource(R.drawable.avd_play_pause)
                     val playPausePainter = rememberAnimatedVectorPainter(
                         animatedImageVector = playPauseImage,

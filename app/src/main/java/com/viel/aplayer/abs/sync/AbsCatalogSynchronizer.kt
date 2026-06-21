@@ -24,14 +24,14 @@ class AbsCatalogSynchronizer(
     private val batchSize: Int = 20
 ) {
     /**
-     * Sync Cancellation Boundary (Preserve WorkManager and coordinator cancellation semantics)
+     * Preserve WorkManager and coordinator cancellation semantics.
      * ABS catalog synchronization can recover ordinary remote or item failures, but coroutine cancellation must stop the whole sync immediately.
      */
     private inline fun <T> catalogRunCatching(block: () -> T): Result<T> =
         runCatchingCancellable(block)
 
     /**
-     * Documented Sync Entrypoint (Executes synchronization and constructs a descriptive summary for setting toast prompts)
+     * Executes synchronization and constructs a descriptive summary for setting toast prompts.
      * Does not alter synchronization behavior, solely extending output to record detailed book statistics.
      */
     suspend fun syncRootWithSummary(root: LibraryRootEntity): AbsSyncSummary {
@@ -40,7 +40,6 @@ class AbsCatalogSynchronizer(
         return catalogRunCatching {
             syncRootInternal(root)
         }.onFailure { error ->
-            // Use unified AbsLogSanitizer to redact sensitive authorization information from error messages.
             val redacted = error.message?.let { AbsLogSanitizer.sanitizeText(it) }
                 ?: error::class.java.simpleName
             catalogStore.saveSyncState(
@@ -66,7 +65,6 @@ class AbsCatalogSynchronizer(
     suspend fun inspectRootSyncPlan(root: LibraryRootEntity): AbsSyncPlan {
         require(root.sourceType == AudiobookSchema.LibrarySourceType.ABS) { "Only ABS roots are supported" }
         val start = AbsSyncLogger.mark()
-        // Logging Plan Inspection (Differentiates scheduler execution locks from active verification boundaries)
         AbsSyncLogger.logInspectPlanStart(rootId = root.id, libraryId = root.basePath)
         val credential = requireNotNull(credentialStore.get(root.credentialId)) {
             "Missing ABS credential for root ${root.id}"
@@ -94,13 +92,12 @@ class AbsCatalogSynchronizer(
     }
 
     suspend fun syncRoot(root: LibraryRootEntity) {
-        // Legacy Sync Adapter (Bridges the legacy void calls to the new summary-returning execution channel)
         syncRootWithSummary(root)
         return
     }
 
     /**
-     * Authorized Progress Refresh Due Check (Applies a root-scoped startup freshness gate)
+     * Applies a root-scoped startup freshness gate.
      * The catalog sync state is the durable root-level remote refresh marker, so cold start can skip WorkManager enqueueing while the last successful ABS sync is still fresh.
      */
     suspend fun isAuthorizedProgressRefreshDue(rootId: String, nowMillis: Long): Boolean {
@@ -110,7 +107,6 @@ class AbsCatalogSynchronizer(
 
     private suspend fun syncRootInternal(root: LibraryRootEntity): AbsSyncSummary {
         require(root.sourceType == AudiobookSchema.LibrarySourceType.ABS) { "Only ABS roots are supported" }
-        // Internal Timing Marker (Establishes a localized stopwatch baseline to secure precise latency recordings in logs)
         val internalStart = AbsSyncLogger.mark()
         val credential = requireNotNull(credentialStore.get(root.credentialId)) {
             "Missing ABS credential for root ${root.id}"
@@ -132,13 +128,11 @@ class AbsCatalogSynchronizer(
         val minifiedItems = minified.results.orEmpty()
         val currentFingerprint = minifiedFingerprint(minifiedItems)
         /**
-         * Library Switch Check (Resets fingerprint comparator on target library mismatches)
+         * Resets fingerprint comparator on target library mismatches.
          * Detects if the library root basePath has shifted compared to the last sync state, treating the previous fingerprint as null if mismatched.
          */
         val isLibrarySwitched = existingSync != null && existingSync.libraryId != root.basePath
         val previousFingerprint = if (isLibrarySwitched) null else existingSync?.fullListFingerprint
-        // Catalog Detail Candidate Scope (Selects detail fetches only from catalog freshness rules)
-        // Authorized progress no longer expands this queue because progress merging runs after structural catalog rows exist.
         val detailCandidateIds = selectAbsDetailCandidateIds(
             minifiedItems = minifiedItems,
             existingMirrors = existingMirrors,
@@ -153,8 +147,6 @@ class AbsCatalogSynchronizer(
             reusedItems = (minifiedItems.size - detailCandidateIds.size).coerceAtLeast(0),
             fingerprintUnchanged = previousFingerprint == currentFingerprint
         )
-        // ABS Mirror Cache Diagnostics (Records reused mirror counts without exposing remote item identifiers)
-        // The unified cache log needs only aggregate reuse size and a hashed root source to correlate incremental sync behavior safely.
         CacheDiagnosticsLogger.logCacheEvent(
             cacheType = "abs_mirror",
             operation = "selectDetailCandidates",
@@ -166,13 +158,11 @@ class AbsCatalogSynchronizer(
         )
         var hadBatchFailure = false
         val unresolvedDetailFailures = linkedMapOf<String, String>()
-        // Summary Increment Logic (Tracks newly resolved items only, preventing already stored records from skewing counts)
         var addedBookCount = 0
         var syncedBookCount = 0
         var failedBookCount = 0
         val detailItems = detailCandidateIds.chunked(batchSize).flatMapIndexed { batchIndex, ids ->
             val batchStart = AbsSyncLogger.mark()
-            // Logging Batch Transports (Logs batch-level parameters to identify transport issues during batch queries)
             AbsSyncLogger.logBatchRequest(rootId = root.id, batchIndex = batchIndex, batchSize = ids.size, itemIds = ids)
             catalogRunCatching {
                 apiClient.batchGetItems(
@@ -195,9 +185,6 @@ class AbsCatalogSynchronizer(
                 if (missingIds.isEmpty()) {
                     items
                 } else {
-                    // Partial Batch Recovery Merge (Returns individual retry details to the sync pipeline)
-                    // Result.onSuccess cannot transform the batch payload, so this fold branch explicitly appends recovered
-                    // item details to prevent partial batch gaps from being treated as reusable stale mirrors.
                     val retryResult = fetchItemsIndividuallyWithRetry(
                         root = root,
                         baseUrl = credential.baseUrl,
@@ -232,8 +219,6 @@ class AbsCatalogSynchronizer(
                 }
             )
         }
-        // Catalog Detail Mapping (Keeps remote progress out of book/file/chapter materialization)
-        // Authorized progress is merged after catalog rows exist, through AbsAuthorizedProgressSynchronizer.
         val detailById = detailItems.associateBy { item -> item.id }
         val reusedMirrors = mutableListOf<AbsItemMirrorEntity>()
         for (minifiedItem in minifiedItems) {
@@ -264,8 +249,6 @@ class AbsCatalogSynchronizer(
                         }
                     },
                     onFailure = { error ->
-                        // ABS Item Failure Logging (Routes item-level failures through the shared sanitizer)
-                        // The sync loop preserves best-effort catalog materialization while Logcat output receives the final ABS redaction pass.
                         AbsSyncLogger.logItemMaterializationFailure(
                             rootId = root.id,
                             itemId = detail.id,
@@ -278,7 +261,6 @@ class AbsCatalogSynchronizer(
                 continue
             }
             val existingMirror = existingMirrors[remoteItemId] ?: continue
-            // Resilient Mirror Reuse (Preserves active records and marks mirrors ACTIVE to bypass redundant queries or premature STALE states)
             reusedMirrors += existingMirror.copy(
                 lastSeenSyncRunId = syncRunId,
                 lastSeenAt = now,
@@ -338,8 +320,6 @@ class AbsCatalogSynchronizer(
                 lastError = buildAbsIncrementalErrorSummary(unresolvedDetailFailures)
             )
         )
-        // Authorized Progress Final Merge (Routes the full user progress snapshot through the shared merger after catalog materialization)
-        // Catalog sync now materializes only books, files, chapters, mirrors, and sync state before this dedicated progress pass runs.
         val authorizedProgressSummary = catalogRunCatching {
             authorizedProgressSynchronizer?.mergeAuthorizedProgress(
                 root = root,
@@ -348,8 +328,6 @@ class AbsCatalogSynchronizer(
                 mediaProgress = authorization.user?.mediaProgress.orEmpty()
             ) ?: AbsAuthorizedProgressSyncSummary()
         }.getOrElse { error ->
-            // Authorized Progress Best Effort (Keeps catalog materialization successful when progress merging fails)
-            // The summary records this root as failed so diagnostics retain the progress problem without rolling back the completed catalog sync.
             AbsSyncLogger.logAuthorizedProgressSyncFailure(error::class.java.simpleName, error.message)
             AbsAuthorizedProgressSyncSummary(failedRootCount = 1)
         }
@@ -381,7 +359,7 @@ class AbsCatalogSynchronizer(
     /**
      * Upserts an Audiobookshelf library item into the local database catalog.
      *
-     * This method maps remote ABS item metadata (e.g. author, description, files) into local
+     * e.g. author, description, files. into local
      * database entities. Since cover synchronization is now decoupled from the catalog sync flow,
      * this function only handles metadata mapping. If the remote item version changes, it
      * invalidates the cover paths and scanned timestamp in the database to allow the self-healing
@@ -403,13 +381,9 @@ class AbsCatalogSynchronizer(
             existingMirror?.remoteUpdatedAt != null &&
             item.updatedAt != existingMirror.remoteUpdatedAt
 
-        // Decouple ABS Cover Synchronization (Reset cover info when remote version changes to let self-healing download it)
-        // Since AbsCatalogSynchronizer no longer fetches cover assets during catalog sync, we invalidate the paths in db if the remote version changes so the recovery helper triggers fresh downloads.
         val resolvedCoverPath = if (remoteVersionChanged) null else existingBookEntity?.coverPath
         val resolvedThumbnailPath = if (remoteVersionChanged) null else existingBookEntity?.thumbnailPath
         val resolvedLastScannedAt = if (remoteVersionChanged) 0L else (existingBookEntity?.lastScannedAt ?: 0L)
-        // Catalog-Only Book Mapping (Builds metadata without applying remote progress or read-status overrides)
-        // Playback state reconciliation is centralized in AbsAuthorizedProgressSynchronizer to keep catalog writes deterministic.
         val book = catalogMapper.toBook(
             root = root,
             serverKey = serverKey,
@@ -419,7 +393,6 @@ class AbsCatalogSynchronizer(
             lastScannedAt = resolvedLastScannedAt,
             coverPath = resolvedCoverPath,
             thumbnailPath = resolvedThumbnailPath,
-            // Deprecated: backgroundColorArgb is no longer passed during book upsert
         )
         val files = catalogMapper.toFiles(root, serverKey, item)
         val chapters = catalogMapper.toChapters(serverKey, item, files)
@@ -452,8 +425,6 @@ class AbsCatalogSynchronizer(
             mirror = mirror,
             syncState = syncState
         )
-        // Catalog Item Materialization Log (Reports only catalog-shaped rows written by this synchronizer)
-        // Remote progress is excluded from this log because it is handled by the authorized progress synchronizer.
         AbsSyncLogger.logUpsertItem(
             rootId = root.id,
             itemId = item.id,
@@ -501,7 +472,6 @@ class AbsCatalogSynchronizer(
         }
         if (remoteDeletedMirrors.isNotEmpty()) {
             catalogStore.replaceMirrors(remoteDeletedMirrors)
-            // Logging Evictions (Explicitly logs remote deletions to track potential sync loss and verify cascade removals)
             AbsSyncLogger.logMarkRemoteDeleted(rootId = root.id, count = remoteDeletedMirrors.size)
         }
         catalogStore.saveSyncState(
@@ -522,7 +492,7 @@ class AbsCatalogSynchronizer(
     }
 
     /**
-     * Single-Item Fallback Retries (Invokes isolated single-item lookups on failure up to three times)
+     * Invokes isolated single-item lookups on failure up to three times.
      * Records failure signatures under sync state bounds instead of propagating exceptions.
      */
     private suspend fun fetchItemsIndividuallyWithRetry(
@@ -589,11 +559,10 @@ class AbsCatalogSynchronizer(
     }
 
     /**
-     * Compute Minified Fingerprint Hash (Optimizes fingerprint storage size and comparison performance)
+     * Optimizes fingerprint storage size and comparison performance.
      * Hashes the minified items list with SHA-256 to produce a compact, fixed-size fingerprint.
      */
     private fun minifiedFingerprint(items: List<AbsLibraryItemDto>): String =
-        // Title: Fix infinite recursion StackOverflowError (Delegate the fingerprint hashing to the static companion object implementation)
         AbsCatalogSynchronizer.minifiedFingerprint(items)
 
 
@@ -606,7 +575,7 @@ class AbsCatalogSynchronizer(
         private const val MAX_DETAIL_RETRY_ATTEMPTS = 3
 
         /**
-         * Compute Minified Fingerprint Hash (Shared calculation function for remote list delta tracking)
+         * Shared calculation function for remote list delta tracking.
          * Converts the minified catalog identifiers into a 64-character SHA-256 representation.
          */
         fun minifiedFingerprint(items: List<AbsLibraryItemDto>): String {
@@ -620,7 +589,7 @@ class AbsCatalogSynchronizer(
 }
 
 /**
- * Playability Inspection (Verifies item format criteria to ensure that the parsed entity possesses valid media tracks)
+ * Verifies item format criteria to ensure that the parsed entity possesses valid media tracks.
  * Requires mediaType as "book" and non-empty track records; items without media URLs are skipped.
  */
 internal fun isAbsPlayableBook(item: AbsLibraryItemDto): Boolean =
@@ -628,7 +597,7 @@ internal fun isAbsPlayableBook(item: AbsLibraryItemDto): Boolean =
         (item.media?.tracks?.isNotEmpty() == true)
 
 /**
- * Authorized Progress Freshness Policy (Evaluates startup progress refresh age without constructing sync adapters)
+ * Evaluates startup progress refresh age without constructing sync adapters.
  * Startup warmup and catalog synchronization share this pure rule so freshness reads can stay on DAO data until stale roots need WorkManager scheduling.
  */
 internal fun isAbsAuthorizedProgressRefreshDue(syncState: AbsSyncStateEntity?, nowMillis: Long): Boolean =
@@ -639,7 +608,7 @@ internal fun isAbsAuthorizedProgressRefreshDue(syncState: AbsSyncStateEntity?, n
     )
 
 /**
- * Sync Candidate Filter (Analyzes minified lists and timestamps to identify entries requiring deep details)
+ * Analyzes minified lists and timestamps to identify entries requiring deep details.
  * Excludes static segments while routing updated elements to optimize payload sizes and database transactions.
  */
 internal fun selectAbsDetailCandidateIds(
@@ -662,7 +631,7 @@ internal fun selectAbsDetailCandidateIds(
 }
 
 /**
- * Dynamic Fetch Rules (Assesses mirror structures and server updates to decide if metadata should reload)
+ * Assesses mirror structures and server updates to decide if metadata should reload.
  * Rules:
  * 1. Missing local mirrors demand fresh metadata queries.
  * 2. If fingerprints are unchanged, existing mirrors are preserved directly.
@@ -676,8 +645,6 @@ internal fun shouldFetchAbsItemDetail(
 ): Boolean {
     if (item.id == null) return false
     if (existingMirror == null) return true
-    // ABS Catalog Mirror TTL Fallback (Forces periodic detail refreshes even when the minified list fingerprint is unchanged)
-    // The remote updatedAt and fingerprint checks remain primary, while this bound protects against server-side timestamp omissions or missed minified changes.
     if (!OnlineSourceCachePolicy.isFresh(
             cachedAtMillis = existingMirror.lastSeenAt,
             nowMillis = nowMillis,
@@ -697,7 +664,7 @@ internal fun shouldFetchAbsItemDetail(
 }
 
 /**
- * Aggregate Item Failures (Error summary builder)
+ * Error summary builder.
  * Compiles individual item failures into a compact root-level summary for log diagnostics and UI settings indicators.
  * Intentionally isolates remote payload details, showing only failure count and the first item's root cause to avoid string bloating.
  */
@@ -708,7 +675,7 @@ internal fun buildAbsIncrementalErrorSummary(failures: Map<String, String>): Str
 }
 
 /**
- * Synchronization Ingestion Summary (Result statistics wrapper)
+ * Result statistics wrapper.
  * Returns a lightweight summary of ingestion results to the settings view upon rescan completion.
  * Separates new books from refreshed/reused books, enabling accurate toast reporting of successes and failures.
  */
@@ -719,7 +686,7 @@ data class AbsSyncSummary(
     val failedItems: Int,
     val reusedBooks: Int,
     /**
-     * Authorized Progress Summary (Reports the follow-up user progress merge for this catalog root)
+     * Reports the follow-up user progress merge for this catalog root.
      * Defaulting to an empty aggregate keeps legacy tests and callers focused on catalog counts unless they inspect progress sync explicitly.
      */
     val authorizedProgress: AbsAuthorizedProgressSyncSummary = AbsAuthorizedProgressSyncSummary()

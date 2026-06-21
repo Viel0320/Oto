@@ -17,7 +17,7 @@ data class ManualDownloadTaskItem(
 
 interface DownloadManagementReadModel {
     /**
-     * Observe Manual Download Tasks (Return only user-requested offline cache rows)
+     * Return only user-requested offline cache rows.
      * The management UI lists durable manual download aggregates and never treats memory buffering as a task queue.
      */
     fun observeManualDownloadTasks(): Flow<List<ManualDownloadTaskItem>>
@@ -35,8 +35,6 @@ class RoomDownloadManagementReadModel(
             val booksById = books.associateBy { book -> book.id }
             metadataRows.map { metadata ->
                 val book = booksById[metadata.bookId]
-                // Manual Download Task Projection (Join durable cache state with lightweight book display data)
-                // Missing book rows fall back to the stable book id so stale metadata remains visible until cleanup reconciles it.
                 ManualDownloadTaskItem(
                     bookId = metadata.bookId,
                     title = book?.title?.takeIf { title -> title.isNotBlank() } ?: metadata.bookId,

@@ -11,7 +11,7 @@ import org.junit.Test
 import java.lang.reflect.Proxy
 
 /**
- * Cover Recovery Gateway Service Tests (Delegation contract for the consolidated self-heal seam)
+ * Delegation contract for the consolidated self-heal seam.
  *
  * Pins that the gateway is a thin forwarder: the single-book and force paths delegate to the CoverSelfHealer
  * verbatim, and the catalog sweep replays only the bounded DAO candidate snapshot.
@@ -99,7 +99,7 @@ class CoverRecoveryGatewayImplTest {
     }
 
     /**
-     * Fake Book DAO (Reflective stub exposing only the snapshot query this gateway uses)
+     * Reflective stub exposing only the snapshot query this gateway uses.
      * Mirrors the project's Proxy-based DAO faking so the test does not implement the full BookDao surface.
      */
     private fun fakeBookDao(books: List<BookEntity>): BookDao =

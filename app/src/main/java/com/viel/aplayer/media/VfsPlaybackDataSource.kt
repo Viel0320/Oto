@@ -36,13 +36,9 @@ class VfsPlaybackDataSource internal constructor(
     private var openedUri: Uri? = null
     private var bytesRemaining: Long = 0L
     private var opened = false
-    // Active Loader Thread Handle (Targets Media3 cancellation at the thread executing VFS I/O)
-    // DataSource.close() can run from a different control path, so it stores the current open/read thread explicitly instead of interrupting watcher coroutines.
     private val activeLoaderThread = AtomicReference<Thread?>()
 
     override fun open(dataSpec: DataSpec): Long {
-        // Open Pipeline Separation (Split DataSource.open into database query and VFS stream acquisition phases)
-        // This distinguishes first-byte network overheads from local SQL search costs during profiling.
         val openStart = SystemClock.elapsedRealtime()
         val bookFileId = VfsPlaybackUri.bookFileId(dataSpec.uri)
             ?: throw DataSourceException("Only VFS playback URIs are supported", PlaybackException.ERROR_CODE_INVALID_STATE)
@@ -52,7 +48,6 @@ class VfsPlaybackDataSource internal constructor(
         failIfLoaderInterrupted("Database lookup")
 
         val dbLookupStart = SystemClock.elapsedRealtime()
-        // Fast File Resolution (Resolves the target audiobook track using the decoupled playback lookup service)
         val file = runInterruptibleBlocking("Database lookup") {
             fileLookup.getBookFileById(bookFileId)
         } ?: throw DataSourceException(PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND)
@@ -61,7 +56,6 @@ class VfsPlaybackDataSource internal constructor(
 
         failIfLoaderInterrupted("VFS open")
 
-        // Offset Delegation (Delegates seek offsets to VFS, allowing SAF to skip bytes and WebDAV to use Range HTTP headers)
         val vfsOpenStart = SystemClock.elapsedRealtime()
         val stream = try {
             runInterruptibleBlocking("VFS open") {
@@ -92,8 +86,6 @@ class VfsPlaybackDataSource internal constructor(
             totalMs = totalOpenCost,
             fileSize = file.fileSize
         )
-        // Open Length Contract (Reports the actual readable byte count after EOF clipping)
-        // Media3 uses this return value as the opened range size, so near-EOF bounded requests must expose the clipped remaining bytes instead of the caller's original length.
         return bytesRemaining
     }
 
@@ -127,8 +119,6 @@ class VfsPlaybackDataSource internal constructor(
 
     override fun close() {
         try {
-            // Playback Cancellation Interrupt (Stops the active loader/open thread before closing the stream)
-            // This gives blocking stream reads and provider opens a direct interrupt signal during seek, track replacement, or player release.
             activeLoaderThread.get()?.interrupt()
             inputStream?.closeQuietly()
         } finally {
@@ -146,13 +136,10 @@ class VfsPlaybackDataSource internal constructor(
         try {
             close()
         } catch (_: IOException) {
-            // Suppressed Exception Policy (Silences stream closing exceptions to protect previous runtime errors during teardown)
         }
     }
 
     private fun failIfLoaderInterrupted(phase: String) {
-        // Loader Thread Preflight (Avoids starting a new VFS phase after Media3 has already cancelled it)
-        // The check keeps obsolete loads from entering database lookup or remote stream setup after the caller interrupts the loader.
         if (Thread.currentThread().isInterrupted) {
             throw InterruptedIOException("$phase was interrupted before VFS playback work started")
         }
@@ -163,8 +150,6 @@ class VfsPlaybackDataSource internal constructor(
         activeLoaderThread.set(loaderThread)
         return try {
             runBlocking {
-                // Loader Thread Interrupt Watcher (Observes the Media3 load thread captured before dispatcher hops)
-                // Cancels the runBlocking job when Media3 interrupts the load thread during seek, track replacement, or release.
                 val parentJob = coroutineContext[Job]
                 val interruptWatcher = launch(Dispatchers.Default) {
                     while (isActive) {
@@ -202,8 +187,6 @@ class VfsPlaybackDataSource internal constructor(
 
     class Factory(context: Context) : DataSource.Factory {
         private val appContext = context.applicationContext
-        // VFS Playback Dependency Access (Resolve only data-source file lookup and VFS reader dependencies)
-        // This prevents Media3 data-source factories from learning scanner, settings, or library mutation capabilities.
         private val vfsPlaybackDependencies = com.viel.aplayer.APlayerApplication.getVfsPlaybackDependencies(appContext)
 
         override fun createDataSource(): DataSource =

@@ -1,7 +1,5 @@
 package com.viel.aplayer.ui.settings
 
-// Title: Remove SettingsRootItem from AbsSettingsState (Remove presentation model definition after relocation to application layer)
-// This file now only holds UI-scoped state definitions such as AbsServerSettingsState and WebDavConnectionUiState.
 
 
 data class AbsLibraryOptionState(
@@ -24,7 +22,6 @@ data class AbsSyncConfirmationState(
     val totalItems: Int
 )
 
-// WebDAV connection state model: Add UI state class to hold connection test status of WebDAV libraries.
 data class WebDavConnectionUiState(
     val isTesting: Boolean = false,
     val testSucceeded: Boolean = false,

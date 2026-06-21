@@ -1,7 +1,7 @@
 package com.viel.aplayer.application.library.search
 
 /**
- * Search Result Snapshot (UI-facing search result projection)
+ * UI-facing search result projection.
  *
  * Carries only the fields rendered by the search scene so Room relationship models stay behind
  * the search module adapter instead of becoming part of the ViewModel or composable interface.

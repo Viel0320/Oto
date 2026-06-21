@@ -3,7 +3,7 @@ package com.viel.aplayer.event.feedback
 import com.viel.aplayer.data.db.AudiobookSchema
 
 /**
- * Library Access Feedback Facts (Command-owner fact factory for library access outcomes)
+ * Command-owner fact factory for library access outcomes.
  *
  * Library access feedback follows the user task as its topic: connection testing, library root changes,
  * sync, and rescan, while the access form and the specific root or draft stay as context so one access
@@ -14,9 +14,8 @@ import com.viel.aplayer.data.db.AudiobookSchema
  */
 object LibraryAccessFeedbackFacts {
 
-    // ---- Connection testing (draft configuration being validated) ----
 
-    /** WebDAV Connection Succeeded (A draft WebDAV configuration passed its connection test). */
+    /** A draft WebDAV configuration passed its connection test. */
     fun webDavConnectionSucceeded(draftId: String): FeedbackFact =
         connectionTestFact(
             message = FeedbackMessages.settingsWebDavConnectionSucceeded(),
@@ -25,7 +24,7 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.COMPLETED
         )
 
-    /** WebDAV Connection Failed (A draft WebDAV configuration failed its connection test). */
+    /** A draft WebDAV configuration failed its connection test. */
     fun webDavConnectionFailed(draftId: String, friendlyMessage: String): FeedbackFact =
         connectionTestFact(
             message = FeedbackMessages.settingsWebDavConnectionFailed(friendlyMessage),
@@ -34,7 +33,7 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.FAILED
         )
 
-    /** ABS Connection Succeeded (A draft Audiobookshelf configuration reached the server). */
+    /** A draft Audiobookshelf configuration reached the server. */
     fun absConnectionSucceeded(draftId: String, libraryCount: Int): FeedbackFact =
         connectionTestFact(
             message = FeedbackMessages.settingsAbsConnectionSucceeded(libraryCount),
@@ -43,7 +42,7 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.COMPLETED
         )
 
-    /** ABS Connection Failed (A draft Audiobookshelf configuration failed to reach the server). */
+    /** A draft Audiobookshelf configuration failed to reach the server. */
     fun absConnectionFailed(draftId: String, friendlyMessage: String): FeedbackFact =
         connectionTestFact(
             message = FeedbackMessages.settingsAbsConnectionFailed(friendlyMessage),
@@ -52,9 +51,8 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.FAILED
         )
 
-    // ---- Library root changes ----
 
-    /** Local Library Relocated (A SAF root was repointed to a new tree). */
+    /** A SAF root was repointed to a new tree. */
     fun localLibraryRelocated(rootId: String): FeedbackFact =
         rootChangeFact(
             message = FeedbackMessages.settingsLocalLibraryRelocated(),
@@ -62,7 +60,7 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.COMPLETED
         )
 
-    /** Local Library Relocation Failed (Repointing a SAF root failed). */
+    /** Repointing a SAF root failed. */
     fun localLibraryRelocationFailed(rootId: String, errorMessage: String?): FeedbackFact =
         rootChangeFact(
             message = FeedbackMessages.settingsLocalLibraryRelocationFailed(errorMessage),
@@ -70,7 +68,7 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.FAILED
         )
 
-    /** WebDAV Root Updated (An existing WebDAV root's configuration was saved). */
+    /** An existing WebDAV root's configuration was saved. */
     fun webDavRootUpdated(rootId: String): FeedbackFact =
         rootChangeFact(
             message = FeedbackMessages.settingsWebDavUpdated(),
@@ -78,7 +76,7 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.COMPLETED
         )
 
-    /** WebDAV Root Update Failed (Saving an existing WebDAV root's configuration failed). */
+    /** Saving an existing WebDAV root's configuration failed. */
     fun webDavRootUpdateFailed(rootId: String, errorMessage: String?): FeedbackFact =
         rootChangeFact(
             message = FeedbackMessages.settingsWebDavUpdateFailed(errorMessage),
@@ -86,7 +84,7 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.FAILED
         )
 
-    /** ABS Server Saved (A new or edited Audiobookshelf root was persisted). */
+    /** A new or edited Audiobookshelf root was persisted. */
     fun absServerSaved(rootId: String, editing: Boolean): FeedbackFact =
         rootChangeFact(
             message = FeedbackMessages.settingsAbsServerSaved(editing = editing),
@@ -95,7 +93,7 @@ object LibraryAccessFeedbackFacts {
         )
 
     /**
-     * ABS Server Save Failed (Persisting an Audiobookshelf root failed)
+     * Persisting an Audiobookshelf root failed.
      *
      * The failure branch has no persisted root id yet, so it uses the explicit missing-object context.
      */
@@ -106,7 +104,7 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.FAILED
         )
 
-    /** Library Root Removed (A registered root was deregistered from the library). */
+    /** A registered root was deregistered from the library. */
     fun rootRemoved(
         rootId: String,
         sourceType: AudiobookSchema.LibrarySourceType,
@@ -118,9 +116,8 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.COMPLETED
         )
 
-    // ---- Audiobookshelf sync (manual + background) ----
 
-    /** Sync Started (A manual Audiobookshelf catalog sync was scheduled). */
+    /** A manual Audiobookshelf catalog sync was scheduled. */
     fun syncStarted(rootId: String): FeedbackFact =
         syncFact(
             message = FeedbackMessages.settingsAbsSyncStarted(),
@@ -128,7 +125,7 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.STARTED
         )
 
-    /** Sync Already Running (A sync for this root is already in progress; nothing changed). */
+    /** A sync for this root is already in progress; nothing changed. */
     fun syncAlreadyRunning(rootId: String): FeedbackFact =
         syncFact(
             message = FeedbackMessages.settingsAbsSyncAlreadyRunning(),
@@ -136,7 +133,7 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.HINT
         )
 
-    /** Sync Root Missing (The Audiobookshelf root for the requested sync no longer exists). */
+    /** The Audiobookshelf root for the requested sync no longer exists. */
     fun syncRootMissing(): FeedbackFact =
         syncFact(
             message = FeedbackMessages.absBackgroundSyncRootMissing(),
@@ -144,7 +141,7 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.BLOCKED
         )
 
-    /** Sync Blocked (The Audiobookshelf root is unavailable, so sync was skipped before any request). */
+    /** The Audiobookshelf root is unavailable, so sync was skipped before any request. */
     fun syncBlocked(rootId: String, detailMessage: FeedbackMessage): FeedbackFact =
         syncFact(
             message = FeedbackMessages.absBackgroundSyncUnavailable(detailMessage),
@@ -152,7 +149,7 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.BLOCKED
         )
 
-    /** Sync Completed (A background Audiobookshelf catalog sync finished). */
+    /** A background Audiobookshelf catalog sync finished. */
     fun syncCompleted(rootId: String, addedBooks: Int, failedItems: Int): FeedbackFact =
         syncFact(
             message = FeedbackMessages.absBackgroundSyncCompleted(addedBooks, failedItems),
@@ -160,7 +157,7 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.COMPLETED
         )
 
-    /** Sync Failed (A background Audiobookshelf catalog sync failed). */
+    /** A background Audiobookshelf catalog sync failed. */
     fun syncFailed(rootId: String, redactedMessage: String): FeedbackFact =
         syncFact(
             message = FeedbackMessages.absBackgroundSyncFailed(redactedMessage),
@@ -169,7 +166,7 @@ object LibraryAccessFeedbackFacts {
         )
 
     /**
-     * Remote Progress Save Failed (Saving accepted remote ABS progress for a book failed)
+     * Saving accepted remote ABS progress for a book failed.
      *
      * This is an Audiobookshelf sync result rather than a playback-content recovery, so it shares the
      * sync topic but stays keyed to the book; different books never absorb each other, and it never
@@ -189,24 +186,22 @@ object LibraryAccessFeedbackFacts {
             )
         )
 
-    // ---- Rescan (library scan outcomes) ----
 
-    /** Rescan Completed (A library scan finished; the policy owns the composed summary message). */
+    /** A library scan finished; the policy owns the composed summary message. */
     fun rescanCompleted(message: FeedbackMessage, context: FeedbackContext): FeedbackFact =
         rescanFact(message, context, FeedbackSeverity.COMPLETED)
 
-    /** Rescan Blocked (No reachable directory root was available to scan). */
+    /** No reachable directory root was available to scan. */
     fun rescanBlocked(message: FeedbackMessage, context: FeedbackContext): FeedbackFact =
         rescanFact(message, context, FeedbackSeverity.BLOCKED)
 
-    /** Rescan Failed (A library scan failed; transient retries are not surfaced as failures here). */
+    /** A library scan failed; transient retries are not surfaced as failures here. */
     fun rescanFailed(message: FeedbackMessage): FeedbackFact =
         rescanFact(message, FeedbackContext.Global, FeedbackSeverity.FAILED)
 
-    // ---- Context helpers ----
 
     /**
-     * Library Root Context (Builds a stable, non-sensitive root identity for aggregation)
+     * Builds a stable, non-sensitive root identity for aggregation.
      *
      * Exposed so the scan policy can key a single skipped root without duplicating the source-type to
      * access-form mapping.
@@ -214,7 +209,7 @@ object LibraryAccessFeedbackFacts {
     fun libraryRootContext(rootId: String, accessForm: LibraryAccessForm): FeedbackContext.LibraryRoot =
         FeedbackContext.LibraryRoot(rootId, accessForm)
 
-    /** Access Form Of (Maps a persisted source type to the user-visible access form). */
+    /** Maps a persisted source type to the user-visible access form. */
     fun accessFormOf(sourceType: AudiobookSchema.LibrarySourceType): LibraryAccessForm =
         when (sourceType) {
             AudiobookSchema.LibrarySourceType.SAF -> LibraryAccessForm.LOCAL_FOLDER

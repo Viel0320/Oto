@@ -10,7 +10,7 @@ import java.io.InputStream
 import java.io.InputStreamReader
 
 /**
- * M3U8 Playlist Parser (Implements standard M3U/M3U8 playlist sheet tag parsing)
+ * Implements standard M3U/M3U8 playlist sheet tag parsing.
  */
 object M3u8ManifestParser {
 
@@ -23,7 +23,6 @@ object M3u8ManifestParser {
     data class M3u8Result(
         val metadata: MetadataSuggestion,
         val items: List<M3u8Item>,
-        // Sidecar Resolution (Collect nearby txt and cover assets inside parser boundary)
         val sidecarDescription: String? = null,
         val sidecarCoverFile: FileRef? = null
     )
@@ -42,7 +41,6 @@ object M3u8ManifestParser {
         var playlistYear: String? = null
         var playlistDescription: String? = null
         val sidecarPayload = if (manifestFile != null && openTextFile != null) {
-            // Coordinated Sidecar Search (Resolve local asset files alongside parsing layout)
             ManifestSidecarSupport.resolveForManifest(
                 manifestFile = manifestFile,
                 directoryContext = directoryContext,
@@ -52,7 +50,6 @@ object M3u8ManifestParser {
             ManifestSidecarSupport.SidecarPayload()
         }
         try {
-            // Abstracted Stream Fetch (Consume stream factory to decouple parser from storage references)
             val inputStream = openStream() ?: return M3u8Result(MetadataSuggestion(), emptyList())
             val reader = BufferedReader(withContext(Dispatchers.IO) {
                 InputStreamReader(inputStream, "UTF-8")
@@ -70,18 +67,14 @@ object M3u8ManifestParser {
                     if (line.isBlank()) continue
 
                     if (line.startsWith("#EXTINF:", ignoreCase = true)) {
-                        // EXTINF Layout Match: #EXTINF:duration,Title
                         val content = line.substring(8)
                         val commaIndex = content.indexOf(',')
                         if (commaIndex != -1) {
                             val durPart = content.substring(0, commaIndex).trim()
                             currentDurationMs = durPart.toDoubleOrNull()?.let { (it * 1000).toLong() }
-                            // Manifest Text Budget (Bound EXTINF titles before they enter item state)
-                            // User-controlled playlist titles are clipped while preserving the current item association.
                             currentTitle = content.substring(commaIndex + 1).limitManifestText()
                         }
                     } else if (line.startsWith("#")) {
-                        // Playlist-level tags are book metadata; item titles still come from EXTINF.
                         parseMetadataLine(line)?.let { (key, value) ->
                             when (key) {
                                 "PLAYLIST", "EXTM3U-TITLE", "TITLE", "EXTALB", "ALBUM" -> playlistTitle = value
@@ -94,8 +87,6 @@ object M3u8ManifestParser {
                     } else if (!line.startsWith("#")) {
                         if (!line.startsWith("http://", ignoreCase = true) &&
                             !line.startsWith("https://", ignoreCase = true)) {
-                            // Manifest Entry Budget (Stop local playlist accumulation at the parser boundary)
-                            // Oversized M3U8 files keep a deterministic partial import instead of retaining every URI.
                             val accepted = items.addWithinManifestBudget(
                                 M3u8Item(
                                     uri = line.limitManifestText(),
@@ -111,12 +102,9 @@ object M3u8ManifestParser {
                 }
             }
         } catch (e: Exception) {
-            // Release Error Boundary (Sanitize M3U8 parse failures)
-            // Playlist names and parser exception text are user-controlled, so retained errors must use SecureLog.
             SecureLog.error("M3u8Parser", "Failed to parse M3U8: $displayName", e)
         }
         return M3u8Result(
-            // Parsed playlist metadata is sparse by design; ImportOrchestrator fills gaps from first audio.
             metadata = MetadataSuggestion(
                 title = playlistTitle,
                 author = playlistAuthor,
@@ -131,15 +119,12 @@ object M3u8ManifestParser {
     }
 
     private fun parseMetadataLine(line: String): Pair<String, String>? {
-        // Supports both "#KEY:value" and "#KEY=value" so common M3U/M3U8 authoring tools can be read.
         val content = line.removePrefix("#").trim()
         val separatorIndex = listOf(content.indexOf(':'), content.indexOf('='))
             .filter { it >= 0 }
             .minOrNull()
             ?: return null
         val key = content.take(separatorIndex).trim().uppercase()
-        // Manifest Metadata Budget (Bound playlist-level text before MetadataSuggestion retains it)
-        // User-controlled metadata tags can be much larger than normal audiobook fields, so values are clipped early.
         val value = content.drop(separatorIndex + 1).trim().trim('"').limitManifestText()
         if (key.isBlank() || value.isBlank()) return null
         return key to value

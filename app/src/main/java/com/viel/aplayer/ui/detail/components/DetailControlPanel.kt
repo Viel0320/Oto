@@ -1,7 +1,5 @@
 package com.viel.aplayer.ui.detail.components
 
-// Import Clip Extension (Fix unresolved clip extension reference) Add explicit draw.clip import to allow using Modifier.clip.
-// Setup Haze Integration (Import dev.chrisbanes.haze library) Import HazeState and Haze modifiers for panel.
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -51,9 +49,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
- * DetailControlPanel Setup (Detail Operations Panel Component)
- *
- * Encapsulates the operations control panel of the details page (DetailControlPanel).
+ * Renders the detail page's summary chips, primary playback action, and source path.
  */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -61,20 +57,14 @@ fun DetailControlPanel(
     book: DetailBookItem?,
     uiState: DetailUiState,
     glassEffectMode: GlassEffectMode,
-    // Setup HazeState Parameter (Map backdrop from LayerBackdrop to HazeState) Changed LayerBackdrop to HazeState.
     hazeState: HazeState?,
     onPlayPressed: () -> Unit,
     onPlayClick: () -> Unit,
     isLandscape: Boolean,
     modifier: Modifier = Modifier
 ) {
-    // Control Panel Detail Item (Read chips from the scene projection)
-    // Year, duration, and size are render-only fields, so the panel no longer needs the Room book entity.
-    // Setup Haze Effect Switch (Check configured visual style) Aligned to renamed Haze option.
     val isBlur = glassEffectMode == GlassEffectMode.Haze
     val displayProgress = uiState.displayProgressPercent
-    // Detail Action Copy (Move app-owned labels into resources)
-    // Resource-backed text lets localization and accessibility review validate TalkBack output and large-font fit.
     val unknownText = stringResource(R.string.common_unknown)
     val actionText = when {
         !uiState.isAvailable -> stringResource(R.string.detail_file_not_found)
@@ -90,7 +80,6 @@ fun DetailControlPanel(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 1. Metadata Chip Group
         androidx.compose.foundation.layout.FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(chipSpacing, Alignment.CenterHorizontally),
@@ -120,7 +109,6 @@ fun DetailControlPanel(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 2. Main Playback Control Button
         if (isBlur && uiState.isAvailable) {
             Surface(
                 onClick = {
@@ -132,7 +120,6 @@ fun DetailControlPanel(
                     .height(buttonHeight)
                     .let {
                         if (hazeState != null) {
-                            // Setup Play Button Haze Modifier (Configure hazeChild blur effects) Apply hazeChild to button when in Haze mode.
                             it
                                 .clip(RoundedCornerShape(cornerRadius))
                                 .hazeEffect(
@@ -173,7 +160,7 @@ fun DetailControlPanel(
             }
         } else {
             Button(
-                onClick = { 
+                onClick = {
                     if (uiState.isAvailable) {
                         onPlayPressed()
                         onPlayClick()
@@ -193,8 +180,8 @@ fun DetailControlPanel(
                 }
             ) {
                 Icon(
-                    imageVector = if (!uiState.isAvailable) Icons.Rounded.Storage 
-                    else if (displayProgress > 0) Icons.Rounded.History 
+                    imageVector = if (!uiState.isAvailable) Icons.Rounded.Storage
+                    else if (displayProgress > 0) Icons.Rounded.History
                     else Icons.Rounded.PlayArrow,
                     contentDescription = null,
                     modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp)
@@ -211,7 +198,6 @@ fun DetailControlPanel(
             }
         }
 
-        // 3. Physical File Path Display
         if (uiState.fullSourcePath.isNotEmpty()) {
             Spacer(modifier = Modifier.height(if (isLandscape) 12.dp else 16.dp))
             Text(
@@ -227,9 +213,7 @@ fun DetailControlPanel(
 
 
 /**
- * DetailInfoChip Setup (Metadata Chip Component)
- *
- * Refactored details metadata card (DetailInfoChip).
+ * Renders one bounded metadata pill used by the detail summary panel.
  */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -237,18 +221,12 @@ fun DetailInfoChip(
     icon: ImageVector,
     value: String,
     modifier: Modifier = Modifier,
-    // Pass global glass effect mode, defaulting to GlassEffectMode.Material
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    // Setup HazeState Parameter (Map backdrop parameter to HazeState) Changed LayerBackdrop to HazeState.
     hazeState: HazeState? = null
 ) {
-    // Detect whether Haze glass effect mode is enabled and sampling source is not null
     val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
-    // Detail Chip Width Boundary (Cap metadata pills before they can dominate narrow panels)
-    // Year, duration, and size are summary values, so long localized fallback text should truncate inside the chip instead of widening the FlowRow indefinitely.
     val chipMaxWidth = 168.dp
 
-    // Using a custom Surface instead of SuggestionChip for tighter spacing and no extra transparent clickable area
     Surface(
         modifier = modifier
             .widthIn(max = chipMaxWidth)
@@ -289,8 +267,6 @@ fun DetailInfoChip(
             )
             Text(
                 text = value,
-                // Detail Chip Text Boundary (Measure metadata text only within the remaining chip row space)
-                // Weight gives the text a finite width after the icon, and clipToBounds prevents large-font glyphs from painting outside the pill.
                 modifier = Modifier
                     .weight(1f, fill = false)
                     .clipToBounds(),

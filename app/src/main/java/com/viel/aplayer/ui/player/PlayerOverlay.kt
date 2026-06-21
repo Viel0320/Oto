@@ -52,9 +52,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 /**
- * Player overlay component (PlayerOverlay).
- *
- * This component is now unified to manage both the mini-player and full-screen player overlays.
+ * Coordinates the mini-player and full-screen player overlays from shared player state.
  */
 @Composable
 fun PlayerOverlay(
@@ -65,12 +63,8 @@ fun PlayerOverlay(
     playerActions: PlayerActions,
     playerNavigationActions: PlayerNavigationActions,
     glassEffectMode: GlassEffectMode,
-    // Mini Player Backdrop Source (Allow the cross-page mini player to sample the current app route)
-    // Full-player content and player-owned floating surfaces use the private state below; only the mini player needs the outer source because it is rendered over Home/Search/Detail content.
     appHazeState: HazeState? = null
 ) {
-    // Sync Visibility States (Directly derive overlay visibility flags from the collected settings state flow to eliminate rendering race conditions during cold starts)
-    // Under cold start scenarios, mapping setting states through independent flows causes a race condition between visibility transitions and motion sources. Unifying them into a single state flow solves this.
     val settings by settingsViewModel.settingsState.collectAsStateWithLifecycle()
 
     val isFullPlayerVisible = settings.isFullPlayerVisible
@@ -81,12 +75,8 @@ fun PlayerOverlay(
 
     val isMiniPlayerHidden = settings.isMiniPlayerHidden
 
-    // Unify Motion Source Flag (Ensure mini player motion source is always true when full player is hidden, so its stable layout bounds remain registered in the SharedTransitionLayout to prevent cold start animation loss)
-    // Under cold start scenarios, the default entry source is Direct. If we restrict the motion source scope to only match when fullPlayerOpenSource is MiniPlayer, the mini-player's bounds are not tracked before the first expand command starts. Letting it stay active when full screen is hidden ensures the shared bounds are initialized and ready.
     val isMiniPlayerMotionSource = !isFullPlayerVisible || settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer
 
-    // Gather Playback States (Unify high-frequency and metadata state collection at the overlay root)
-    // Facilitates centralized state flows, reducing downstream parameter complexity and making layouts simpler.
     val metadata by playbackViewModel.metadataState.collectAsStateWithLifecycle()
     val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
 
@@ -94,8 +84,6 @@ fun PlayerOverlay(
         playbackViewModel.currentBookAvailability(metadata.id)
     }.collectAsStateWithLifecycle(initialValue = true)
 
-    // Internal Action Instantiation
-    // Instantiate MiniPlayerActions locally inside the unified overlay to prevent passing redundant variables from APlayerApp shell.
     val miniPlayerActions = remember(playbackViewModel, settingsViewModel) {
         MiniPlayerActions(
             onPlayPauseClick = { playbackViewModel.togglePlayPause() },
@@ -104,8 +92,6 @@ fun PlayerOverlay(
         )
     }
 
-    // Unified Cover Color & Scheme Generation (Extract cover color and build dynamic color scheme at the root level)
-    // Avoids redundant cover color reads and scheme generation computations for mini and full player components.
     val darkTheme = LocalDarkTheme.current
     val currentColorScheme = MaterialTheme.colorScheme
     val coverPath = metadata.coverPath
@@ -114,7 +100,6 @@ fun PlayerOverlay(
         mutableStateOf(ImageProcessor.getCachedColor(coverPath, metadata.coverLastUpdated)?.let { Color(it) })
     }
 
-    // Cover-seeded scheme uses the Content palette so the UI tracks the artwork's own color.
     val amoled = LocalAmoled.current
     val coverColorScheme = remember(coverColor, darkTheme, amoled) {
         coverColor?.let {
@@ -125,25 +110,13 @@ fun PlayerOverlay(
     val windowClass = LocalAppWindowSizeClass.current
     val usePillPlayer = windowClass.isWideScreen
     val playerAlignment = if (usePillPlayer) Alignment.BottomEnd else Alignment.BottomCenter
-    // Remove Overlay Occlusion Check (Allow player overlays to display independently of search or other active overlay screens)
-    // Simplifies player visibility logic so that the mini-player's presence depends solely on having an active track.
     val isPopupNeeded = hasActiveTrack
 
-    // Resolve Player Overlay State (Directly map active visibility configuration to a single state)
-    // Avoids separate visibility checks and keeps transition logic predictable.
     val overlayState = when {
         isFullPlayerVisible -> PlayerOverlayState.Full
         isPopupNeeded && !isMiniPlayerHidden -> PlayerOverlayState.Mini
         else -> PlayerOverlayState.Hidden
     }
-    /*
-     * Mini Cover Source Snapshot (Expansion-only bridge metadata)
-     *
-     * The mini cover shared element uses a stable motion key that intentionally does not include
-     * bookId. Capture the visible mini cover (book id plus the exact small-thumbnail request inputs)
-     * before expansion so the full-player target can bridge through the source thumbnail when the
-     * playback target differs, instead of hard-cutting its own artwork mid-flight.
-     */
     var mini2PlayerSourceCover by remember { mutableStateOf<Mini2PlayerSourceCover?>(null) }
     LaunchedEffect(overlayState, metadata.id, metadata.coverLastUpdated) {
         if (overlayState == PlayerOverlayState.Mini && metadata.id.isNotBlank()) {
@@ -158,16 +131,10 @@ fun PlayerOverlay(
         }
     }
 
-    // Player Private Haze Source (Own full-player and player-modal sampling inside PlayerOverlay)
-    // This prevents full Player chrome, chapter sheets, and bookmark dialogs from registering against the app-level sampler while preserving mini-player backdrop sampling.
     val playerHazeState = remember { HazeState() }
-    // Player Overlay Trace State (Track the overlay state machine at its unified host)
-    // This helps separate mini-player continuous drawing from full-player rendering without logging media metadata.
     val playerOverlayTraceState = "overlay=$overlayState,full=$isFullPlayerVisible," +
         "activeTrack=$hasActiveTrack,miniHidden=$isMiniPlayerHidden,pill=$usePillPlayer"
 
-    // Unified Transition Container (Replaces two independent AnimatedVisibility containers with a single AnimatedContent)
-    // This enables a cohesive transition state machine and customizes transition specs to avoid conflicting slide animations during expanding morphs.
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -182,13 +149,6 @@ fun PlayerOverlay(
             transitionSpec = {
                 when (initialState) {
                     PlayerOverlayState.Mini if targetState == PlayerOverlayState.Full -> {
-                        /*
-                         * Mini-Origin Expansion Transition (Let shared bounds own geometry changes)
-                         *
-                         * Both compact bottom bars and wide pill players can now provide a bounds source.
-                         * Using fade for mini-origin expansion prevents the parent AnimatedContent slide
-                         * from fighting the shared-bounds morph between the mini surface and full player.
-                         */
                         if (settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer) {
                             fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
                         } else {
@@ -197,13 +157,6 @@ fun PlayerOverlay(
                         }
                     }
                     PlayerOverlayState.Full if targetState == PlayerOverlayState.Mini -> {
-                        /*
-                         * Mini-Origin Collapse Transition (Preserve reverse shared-bounds ownership)
-                         *
-                         * The full-player close path keeps the mini open source until the reverse
-                         * transition completes, so fading the AnimatedContent shell lets the shared
-                         * bounds channel animate back to either the compact bar or pill mini-player.
-                         */
                         if (settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer) {
                             fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
                         } else {
@@ -236,8 +189,6 @@ fun PlayerOverlay(
         ) { state ->
             when (state) {
                 PlayerOverlayState.Hidden -> {
-                    // Empty Layout Placeholder (Supply a zero-sized Spacer when no player component is active)
-                    // Avoids unnecessary rendering and memory allocation when the overlay is completely hidden.
                     Spacer(modifier = Modifier.size(0.dp))
                 }
                 PlayerOverlayState.Mini -> {
@@ -246,8 +197,6 @@ fun PlayerOverlay(
                         contentAlignment = playerAlignment
                     ) {
                         CompositionLocalProvider(
-                            // Motion Source Scope: Provide the mini-player motion source whenever it is the active player.
-                            // The outer layout's shared bounds are conditionally ignored in CompactPlayer.kt, but this allows cover shared elements to transition.
                             LocalMini2PlayerSourceScope provides if (isMiniPlayerMotionSource) {
                                 this@AnimatedContent
                             } else {
@@ -271,8 +220,6 @@ fun PlayerOverlay(
                 }
                 PlayerOverlayState.Full -> {
                     CompositionLocalProvider(
-                        // Motion Target Scope: Provide the full-player motion target scope whenever expanding from the mini player.
-                        // The outer layout's shared bounds are conditionally ignored in PlayerScreen.kt, but this allows cover shared elements to transition.
                         LocalMini2PlayerTargetScope provides if (
                             settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer
                         ) {
@@ -318,11 +265,6 @@ fun PlayerOverlay(
                             }
                         }
 
-                        // Stable Theme Wrapper (Keep the full-player subtree under one MaterialTheme call site)
-                        // Toggling between a wrapped and unwrapped contentBlock would move the subtree to a
-                        // different composition position, remounting MainCoverView and destroying the in-flight
-                        // mini->player cover shared-element animation on the first cold-start expand. Always wrap so
-                        // a late dynamicColorScheme only recolors instead of remounting.
                         MaterialTheme(
                             colorScheme = animateColorScheme(coverColorScheme ?: currentColorScheme),
                             content = contentBlock
@@ -334,8 +276,9 @@ fun PlayerOverlay(
     }
 }
 
-// Player Overlay State Enum (Define the visual display states of the player overlay)
-// Hidden represents inactive playback, Mini matches compact player and Full matches expanded player.
+/**
+ * Visual display states owned by the player overlay host.
+ */
 private enum class PlayerOverlayState {
     Hidden,
     Mini,
@@ -343,9 +286,7 @@ private enum class PlayerOverlayState {
 }
 
 /**
- * MiniPlayerContent Setup (Scope-limited Playback Content Container)
- *
- * Mini player content container.
+ * Renders the active mini-player variant inside the overlay's scoped composition locals.
  */
 @Composable
 private fun MiniPlayerContent(
@@ -359,8 +300,6 @@ private fun MiniPlayerContent(
     dynamicColorScheme: androidx.compose.material3.ColorScheme?,
     onExpandClick: () -> Unit
 ) {
-    // Track Availability Check (Consolidate accessibility and availability listener at the overlay container layer instead of repeating it in sub-components)
-    // Consolidating this check at the container level ensures that actions.onUnavailable is executed exactly once and decouples inner player views from tracking business constraints.
     LaunchedEffect(isMediaAvailable) {
         if (!isMediaAvailable) {
             actions.onUnavailable()
@@ -407,9 +346,6 @@ private fun MiniPlayerContent(
         }
     }
 
-    // Stable Theme Wrapper (Keep the mini-player subtree under one MaterialTheme call site)
-    // Mirrors the full-player wrapper: a conditional wrap/unwrap would remount the cover shared-element source
-    // when a late dynamicColorScheme arrives, so always wrap and let it recolor in place.
     MaterialTheme(
         colorScheme = animateColorScheme(dynamicColorScheme ?: MaterialTheme.colorScheme),
         content = contentBlock

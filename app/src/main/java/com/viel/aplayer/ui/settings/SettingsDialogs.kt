@@ -44,13 +44,9 @@ sealed interface SettingsDialogState {
     data object AddLibraryType : SettingsDialogState
     data object WebDavRoot : SettingsDialogState
     data object AbsServer : SettingsDialogState
-    // Root Dialog Payload (Retain only the settings scene projection while a modal is open)
-    // Dialog state survives transitions, so storing SettingsRootItem prevents transient UI state from retaining Room entities.
     data class RootActions(val root: SettingsRootItem) : SettingsDialogState
     data class DeleteRoot(val root: SettingsRootItem) : SettingsDialogState
 
-    // Title: Add ImportConfirm dialog state (Expose a confirmation state holding the ZIP file Uri to import)
-    // Lets the overlay host present a warning dialog before replacing user configuration data.
     data class ImportConfirm(
         val uri: Uri,
         val manifest: com.viel.aplayer.application.usecase.BackupManifest?
@@ -58,7 +54,7 @@ sealed interface SettingsDialogState {
 }
 
 /**
- * LanguagePickerDialog Composable (Expose app-level locale choices inside settings)
+ * Expose app-level locale choices inside settings.
  * Selecting a row applies the language immediately so users can see the UI switch without an extra confirmation step.
  */
 @Composable
@@ -77,8 +73,6 @@ fun LanguagePickerDialog(
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 AppLanguageOptions.forEach { language ->
-                    // Language Option Row (Render every supported locale as a single-choice row)
-                    // Row click and radio click share the same immediate apply path to keep accessibility and touch behavior aligned.
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -114,8 +108,6 @@ fun LanguagePickerDialog(
     )
 }
 
-// Settings Dialog Controller (Own transient settings dialog inputs outside SettingsScreen content)
-// The overlay owns this controller so modal UI can be rendered beside page haze sources while still preserving form fields across dialog transitions.
 class SettingsDialogController {
     var editingSafRootId by mutableStateOf<String?>(null)
     var dialogState by mutableStateOf<SettingsDialogState>(SettingsDialogState.None)
@@ -135,8 +127,6 @@ class SettingsDialogController {
 
     var editingRootId by mutableStateOf<String?>(null)
 
-    // WebDAV Form Reset (Clear remote-library input after submit or dismiss)
-    // Resetting all WebDAV fields together prevents stale credentials from leaking into the next add/edit flow.
     fun resetWebDavForm() {
         webDavUrl = ""
         webDavUsername = ""
@@ -146,8 +136,6 @@ class SettingsDialogController {
         editingRootId = null
     }
 
-    // ABS Form Reset (Clear Audiobookshelf input after submit or dismiss)
-    // Resetting library selection and credentials together keeps subsequent server dialogs independent.
     fun resetAbsForm() {
         absBaseUrl = ""
         absUsername = ""
@@ -161,8 +149,6 @@ class SettingsDialogController {
 
 @Composable
 fun rememberSettingsDialogController(): SettingsDialogController {
-    // Settings Dialog Controller Memory (Keep one overlay-scoped controller for modal transitions)
-    // remember keeps typed input stable while dialogs switch between root actions, WebDAV editing, and ABS editing.
     return remember { SettingsDialogController() }
 }
 

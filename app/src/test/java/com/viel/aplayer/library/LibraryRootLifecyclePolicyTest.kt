@@ -20,8 +20,6 @@ class LibraryRootLifecyclePolicyTest {
 
         val refreshed = LibraryRootLifecyclePolicy.markBindingRefreshed(staleRoot)
 
-        // Binding Refresh Contract (Pins the exact lifecycle fields reset after root edits or credential replacement)
-        // Identity, source address, credentials, and labels remain caller-owned, while stale availability details are discarded before the next probe.
         assertEquals(staleRoot.id, refreshed.id)
         assertEquals(staleRoot.sourceType, refreshed.sourceType)
         assertEquals(staleRoot.sourceUri, refreshed.sourceUri)
@@ -49,8 +47,6 @@ class LibraryRootLifecyclePolicyTest {
                 )
             )
 
-            // Available Probe Contract (Documents that successful reachability always restores the root lifecycle)
-            // SAF grants, WebDAV endpoints, and ABS catalog roots all become ACTIVE when the checker reports AVAILABLE.
             assertEquals(AudiobookSchema.LibraryRootStatus.ACTIVE, updated.status)
             assertEquals(AudiobookSchema.AvailabilityStatus.AVAILABLE, updated.availabilityStatus)
             assertEquals(123L, updated.lastAvailabilityCheckedAt)
@@ -64,7 +60,6 @@ class LibraryRootLifecyclePolicyTest {
             availability = AvailabilityResult(
                 status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
                 checkedAt = 200L,
-                // Update LibraryRootLifecyclePolicyTest: Use .name for AvailabilityStatus enum in AvailabilityResult errorCode.
                 errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND.name
             )
         )
@@ -85,8 +80,6 @@ class LibraryRootLifecyclePolicyTest {
             )
         )
 
-        // Unavailable Source Classification (Separates local permission repair from remote operational failures)
-        // SAF retains the revoked-root behavior, while WebDAV and ABS keep remote failures in ERROR for diagnostics and retry handling.
         assertEquals(AudiobookSchema.LibraryRootStatus.REVOKED, saf.status)
         assertEquals(AudiobookSchema.LibraryRootStatus.ERROR, webDav.status)
         assertEquals(AudiobookSchema.LibraryRootStatus.ERROR, abs.status)
@@ -98,7 +91,6 @@ class LibraryRootLifecyclePolicyTest {
         assertEquals(202L, abs.lastAvailabilityCheckedAt)
     }
 
-    // Update LibraryRootLifecyclePolicyTest: Change sampleRoot helper signature to use type-safe enums.
     private fun sampleRoot(
         sourceType: AudiobookSchema.LibrarySourceType,
         status: AudiobookSchema.LibraryRootStatus = AudiobookSchema.LibraryRootStatus.ACTIVE,

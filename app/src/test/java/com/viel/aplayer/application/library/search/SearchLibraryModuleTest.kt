@@ -16,7 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Search Library Module Test (Locks history command delegation at the scene boundary)
+ * Locks history command delegation at the scene boundary.
  * Verifies the module exposes history and filters history writes before reaching the persistence gateway.
  */
 class SearchLibraryModuleTest {
@@ -28,8 +28,6 @@ class SearchLibraryModuleTest {
         val module = moduleFor(gateway)
 
         assertEquals(
-            // Expected History Projection (Assert the scene item shape instead of the DataStore entry)
-            // This locks the Search module as the only place that maps persistence timestamps into createdAt.
             listOf(SearchHistoryItem(query = "compose", createdAt = 1L)),
             module.searchHistory.first()
         )
@@ -127,8 +125,6 @@ class SearchLibraryModuleTest {
     }
 
     private fun moduleFor(gateway: FakeSearchHistoryGateway): DefaultSearchLibraryModule {
-        // Module Fixture (Supplies a deterministic planner because these tests target history behavior)
-        // The planner still returns a valid Flow so read-model construction remains complete.
         return DefaultSearchLibraryModule(
             searchHistoryGateway = gateway,
             queryPlanner = SearchQueryPlanner(
@@ -152,13 +148,10 @@ class SearchLibraryModuleTest {
         lastScannedAt: Long = 0L,
         progressMs: Long? = null
     ): BookWithProgress {
-        // Search Row Fixture (Supplies gateway-native data for adapter projection tests)
-        // The module test can assert scene snapshot mapping while keeping Room row construction inside the fake planner.
         return BookWithProgress(
             book = BookEntity(
                 id = id,
                 rootId = "root",
-                // Update SearchLibraryModuleTest: Change sourceType in helper to use type-safe AudiobookSchema.SourceType.SINGLE_AUDIO enum.
                 sourceType = AudiobookSchema.SourceType.SINGLE_AUDIO,
                 title = title,
                 author = author,
@@ -188,8 +181,6 @@ class SearchLibraryModuleTest {
         }
 
         override suspend fun deleteFromHistory(query: String) {
-            // Fake History Delete Capture (Mirror the production query-only deletion seam)
-            // Tests verify that scene history items are translated to stable query text before reaching persistence.
             deletedQueries += query
         }
 

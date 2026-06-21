@@ -9,109 +9,109 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 /**
- * Player Playback Controller (Player-facing playback runtime seam)
+ * Player-facing playback runtime seam.
  * Exposes only the playback commands and observable state required by the player scene, keeping singleton lookup and media runtime ownership outside UI code.
  */
 interface PlayerPlaybackController {
     /**
-     * Playback Activity Stream (Expose whether media is currently playing)
+     * Expose whether media is currently playing.
      * Lets player UI controls render play/pause state without depending on the concrete playback manager.
      */
     val isPlaying: StateFlow<Boolean>
 
     /**
-     * Playback Lifecycle State Stream (Expose the underlying playback lifecycle state)
+     * Expose the underlying playback lifecycle state.
      * Keeps end-of-track handling available to PlayerViewModel while hiding the media manager instance.
      */
     val playbackState: StateFlow<Int>
 
     /**
-     * Playback Position Stream (Expose the active global playback position)
+     * Expose the active global playback position.
      * Supports progress bars, chapter lookup, and restored-preview replacement through the player seam.
      */
     val currentPosition: StateFlow<Long>
 
     /**
-     * Playback Buffered Position Stream (Expose the active global buffered playback position)
+     * Expose the active global buffered playback position.
      * Allows progress bars to render memory-buffer coverage without depending on Media3 controller internals.
      */
     val bufferedPosition: StateFlow<Long>
 
     /**
-     * Playback Duration Stream (Expose the active queue duration)
+     * Expose the active queue duration.
      * Allows UI progress calculations without reaching into playback runtime internals.
      */
     val duration: StateFlow<Long>
 
     /**
-     * Playback Speed Stream (Expose the active playback speed)
+     * Expose the active playback speed.
      * Keeps speed controls reactive while preserving a small controller interface.
      */
     val playbackSpeed: StateFlow<Float>
 
     /**
-     * Current Media Identifier Snapshot (Read the active media id without exposing MediaItem)
+     * Read the active media id without exposing MediaItem.
      * Lets duplicate-load checks compare the prepared media queue with restored preview state.
      */
     val currentMediaItemId: String?
 
     /**
-     * Player Volume Bridge (Adjust playback-runtime volume for sleep fade-out)
+     * Adjust playback-runtime volume for sleep fade-out.
      * The sleep timer needs volume attenuation but should not depend on PlaybackManager directly.
      */
     var playerVolume: Float
 
     /**
-     * Current Media Identifier Stream (Observe active media id changes without exposing MediaItem)
+     * Observe active media id changes without exposing MediaItem.
      * PlayerViewModel parses the stable app media id while media-core details stay behind the adapter.
      */
     fun observeCurrentMediaItemId(): Flow<String?>
 
     /**
-     * Play Command (Resume foreground playback)
+     * Resume foreground playback.
      * Routes UI control requests through the media di adapter.
      */
     fun play()
 
     /**
-     * Pause Command (Pause foreground playback)
+     * Pause foreground playback.
      * Used by player controls, close actions, and sleep timer completion through a single player seam.
      */
     fun pause()
 
     /**
-     * Seek Command (Move playback to a global position)
+     * Move playback to a global position.
      * Keeps timeline coordinate mutation behind the playback controller interface.
      */
     fun seekTo(positionMs: Long)
 
     /**
-     * Playback Speed Command (Apply user-selected speed)
+     * Apply user-selected speed.
      * Lets PlayerViewModel change speed without learning playback manager implementation details.
      */
     fun setPlaybackSpeed(speed: Float)
 
     /**
-     * Playback Plan Load Command (Prepare a book playback plan)
+     * Prepare a book playback plan.
      * The player scene supplies an application-level plan while the adapter invokes the media runtime.
      */
     fun loadPlaybackPlan(plan: BookPlaybackPlan, playWhenReady: Boolean)
 
     /**
-     * Cold-Start Self-Healing Command (Repair persisted progress before preview restoration)
+     * Repair persisted progress before preview restoration.
      * Keeps auto-rewind recovery available to the player scene without exposing AutoRewindManager.
      */
     suspend fun performColdStartSelfHealing()
 
     /**
-     * Damaged Track Failover Command (Skip the current unavailable queue item)
+     * Skip the current unavailable queue item.
      * Preserves the existing track recovery behavior behind the player playback seam.
      */
     fun skipToNextAvailableTrack(bookId: String, queueIndex: Int)
 }
 
 /**
- * Default Player Playback Controller (Adapts media managers to the player-facing seam)
+ * Adapts media managers to the player-facing seam.
  * MediaGraph owns the singleton managers and supplies them here so UI code never resolves those singletons directly.
  */
 internal class DefaultPlayerPlaybackController(
@@ -146,8 +146,6 @@ internal class DefaultPlayerPlaybackController(
         }
 
     override fun observeCurrentMediaItemId(): Flow<String?> {
-        // Current Media Mapping (Expose only app media ids to player UI observers)
-        // Mapping here avoids leaking Media3 MediaItem into PlayerViewModel and settings helpers.
         return playbackManager.currentMediaItem
             .map { mediaItem -> mediaItem?.mediaId }
             .distinctUntilChanged()

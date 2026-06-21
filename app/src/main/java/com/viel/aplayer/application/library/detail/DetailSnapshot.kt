@@ -5,7 +5,7 @@ import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.data.db.AudiobookSchema
 
 /**
- * Detail Book Item (Room-free selected book projection)
+ * Room-free selected book projection.
  * Carries only the fields the detail scene renders or routes, keeping Room entities inside data adapters.
  */
 data class DetailBookItem(
@@ -23,14 +23,12 @@ data class DetailBookItem(
     val thumbnailPath: String? = null,
     val lastScannedAt: Long = 0L,
     val progressPercent: Int = 0,
-    // Detail Read Status Projection (Carry optional manual status for detail-owned action dialogs)
-    // Keeping the value nullable lets callers that do not have read-status data open the detail action menu without marking any status as selected.
 
     val readStatus: LibraryReadStatus? = null
 )
 
 /**
- * Detail Snapshot Transition Model (Carries selected detail data through the scene boundary)
+ * Carries selected detail data through the scene boundary.
  * Wraps the Room-free detail item with detail-owned source and availability fields so UI state never exposes database projections.
  */
 data class DetailSnapshot(
@@ -51,7 +49,7 @@ data class DetailSnapshot(
         get() = item.progressPercent
 
     /**
-     * Snapshot Metadata Refresh (Preserve detail-local fields while replacing live metadata)
+     * Preserve detail-local fields while replacing live metadata.
      * Live database observers refresh book fields, while source location and availability stay owned by the current detail selection.
      */
     fun withItem(updatedItem: DetailBookItem): DetailSnapshot {
@@ -60,7 +58,7 @@ data class DetailSnapshot(
 }
 
 /**
- * Detail Source File Projection (Formatter-safe source file data)
+ * Formatter-safe source file data.
  * Keeps source-location formatting away from Room entities while carrying only the fields needed for the detail breadcrumb.
  */
 data class DetailSourceFile(
@@ -71,7 +69,7 @@ data class DetailSourceFile(
 )
 
 /**
- * Detail Source Root Projection (Formatter-safe library root data)
+ * Formatter-safe library root data.
  * Carries the registered root label and protocol without exposing raw storage URIs or credentials to formatter callers.
  */
 data class DetailSourceRoot(

@@ -39,7 +39,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
- * Home Filter Chip (Custom homepage filter item with Material-like sizing and Haze support)
+ * Custom homepage filter item with Material-like sizing and Haze support.
  *
  * Recreates the Home filter affordance without delegating to Material3 FilterChip, while preserving
  * the Material-like 32.dp visual container and the separate 48.dp accessibility touch target.
@@ -51,20 +51,12 @@ fun APlayerFilterChip(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    // Glass Mode Input (Keep visual-effect selection outside the chip renderer)
-    // The caller owns user settings, while this component only maps the mode into Material-like or Haze colors.
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    // Haze Sampling Input (Provide backdrop state only when glass rendering is active)
-    // A null state deliberately falls back to the non-glass palette so previews and tests stay deterministic.
     hazeState: HazeState? = null
 ) {
     val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
-    // Filter Chip Shape Token (Match the Material 3 filter chip corner size)
-    // Home keeps the familiar small rounded rectangle while owning the drawing and semantics locally.
     val chipShape = RoundedCornerShape(APlayerFilterChipCornerRadius)
     val colors = aPlayerFilterChipColors(selected = selected, isBlur = isBlur)
-    // Filter Chip Press Feedback Source (Keep press state private while suppressing the default ripple)
-    // Home filter chips already communicate selection through fill, border, icon, and accessibility state, so the extra background press indication is intentionally disabled.
     val interactionSource = remember { MutableInteractionSource() }
     val choiceStateDescription = stringResource(
         if (selected) {
@@ -79,8 +71,6 @@ fun APlayerFilterChip(
         APlayerFilterChipLabelHorizontalPadding
     }
     val visualModifier = if (isBlur) {
-        // Haze Visual Layer (Apply the material only to the visible 32.dp chip body)
-        // The outer selectable node remains 48.dp for touch and accessibility, while the glass sample stays clipped to the Material-like container.
         Modifier.hazeEffect(
             state = hazeState,
             style = HazeMaterials.ultraThin()
@@ -89,8 +79,6 @@ fun APlayerFilterChip(
         Modifier
     }
 
-    // Filter Chip Accessibility Shell (Separate minimum interactive size from visual chip height)
-    // Compose's official FilterChip normally provides this split internally; the custom implementation keeps it explicit so both Material and Haze modes behave the same.
     Box(
         modifier = modifier
             .defaultMinSize(
@@ -111,8 +99,6 @@ fun APlayerFilterChip(
     ) {
         Box(
             modifier = Modifier
-                // Filter Chip Visual Container (Keep the rendered chip close to Material 3 FilterChip dimensions)
-                // The container has its own minimum width and fixed height so labels, selected icons, and touch padding cannot resize the row unexpectedly.
                 .defaultMinSize(minWidth = APlayerFilterChipMinimumVisualWidth)
                 .height(APlayerFilterChipVisualHeight)
                 .clip(chipShape)
@@ -122,8 +108,6 @@ fun APlayerFilterChip(
                     if (colors.borderColor == Color.Transparent) {
                         Modifier
                     } else {
-                        // Filter Chip Outline (Recreate the inactive Material outline without using FilterChipDefaults)
-                        // A one-pixel border keeps inactive choices discoverable in Material mode and softly framed in Haze mode.
                         Modifier.border(
                             width = APlayerFilterChipOutlineWidth,
                             color = colors.borderColor,
@@ -161,8 +145,6 @@ fun APlayerFilterChip(
     }
 }
 
-// Filter Chip Dimension Tokens (Mirror Material-style visuals while keeping Android touch guidance)
-// These values intentionally separate the visible 32.dp chip from the 48.dp semantics target required for reliable touch and assistive input.
 private val APlayerFilterChipVisualHeight = 32.dp
 private val APlayerFilterChipMinimumVisualWidth = 48.dp
 private val APlayerFilterChipMinimumTouchTarget = 48.dp
@@ -173,8 +155,6 @@ private val APlayerFilterChipIconLabelSpacing = 8.dp
 private val APlayerFilterChipLabelHorizontalPadding = 16.dp
 private val APlayerFilterChipLeadingContentStartPadding = 8.dp
 
-// Filter Chip Palette (Own Material and Haze color decisions behind one rendering path)
-// The chip no longer branches into official and custom components, so color selection is the only mode-specific behavior left.
 private data class APlayerFilterChipColors(
     val containerColor: Color,
     val contentColor: Color,
@@ -190,8 +170,6 @@ private fun aPlayerFilterChipColors(
     val colorScheme = MaterialTheme.colorScheme
 
     return if (isBlur) {
-        // Haze Chip Palette (Preserve the liquid-glass tint language without changing chip semantics)
-        // Selected chips receive the brand accent wash, while inactive chips stay translucent enough to sample the bookshelf backdrop.
         APlayerFilterChipColors(
             containerColor = if (selected) {
                 colorScheme.primary.copy(alpha = 0.25f)
@@ -210,8 +188,6 @@ private fun aPlayerFilterChipColors(
             }
         )
     } else {
-        // Material Chip Palette (Approximate Material 3 FilterChip defaults without calling the official chip)
-        // The selected state uses secondaryContainer/onSecondaryContainer and inactive chips retain a transparent container with an outline.
         APlayerFilterChipColors(
             containerColor = if (selected) {
                 colorScheme.secondaryContainer

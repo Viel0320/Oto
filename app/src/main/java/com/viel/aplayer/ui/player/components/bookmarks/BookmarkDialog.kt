@@ -21,24 +21,16 @@ import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import dev.chrisbanes.haze.HazeState
 
-// Isolate dialog input state (To decouple high-frequency text changes from external observers)
-// Restricts typing state within the component scope and emits the string payload upon clicking save.
 @Composable
 fun BookmarkDialog(
     isVisible: Boolean,
     defaultTitle: String,
-    // Bookmark Dialog Backdrop Source (Use the player page sampling source for add-bookmark dialogs)
-    // PlayerScreen passes the resolved player HazeState so this dialog shares the same glass source as player overlays.
     hazeState: HazeState? = null,
-    // Bookmark Dialog Glass Mode (Delegate visual mode to the shared dialog shell)
-    // Keeps the component independent from app settings lookup while still rendering Material or Haze consistently.
     glassEffectMode: GlassEffectMode,
     onSave: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     if (isVisible) {
-        // Cache input state locally (To preserve bookmark title draft across device orientation changes)
-        // Uses rememberSaveable bound to isVisible key to retain state in Android Bundles.
         var localTitle by rememberSaveable(isVisible) { mutableStateOf(defaultTitle) }
 
         APlayerDialogTemplate(
@@ -48,8 +40,6 @@ fun BookmarkDialog(
             scrollable = false,
             title = { Text(stringResource(R.string.bookmark_add_title)) },
             body = {
-                // Bookmark Creation Body (Keep draft input local while sharing dialog chrome)
-                // The text draft remains scoped to this composable and is emitted only when Save is clicked.
                 BookmarkDialogContent(
                     title = localTitle,
                     onTitleChange = { localTitle = it }
@@ -80,8 +70,6 @@ fun BookmarkDialogContent(
     OutlinedTextField(
         value = title,
         onValueChange = onTitleChange,
-        // Bookmark Field Copy (Resource-backed label and placeholder for the bookmark naming form)
-        // The entered bookmark title is user data, but the form chrome belongs to app UI and must follow the selected language.
         label = { Text(stringResource(R.string.bookmark_title_label)) },
         placeholder = { Text(stringResource(R.string.bookmark_title_placeholder)) },
         singleLine = true,

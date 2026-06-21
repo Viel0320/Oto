@@ -17,7 +17,7 @@ import java.io.InputStream
 import java.util.Locale
 
 /**
- * External Subtitle Resolver (Handles discovery, matching, and parsing of external subtitle files such as .srt, .ass, etc.)
+ * Handles discovery, matching, and parsing of external subtitle files such as .srt, .ass, etc.
  * Decouples subtitle discovery from the core library repository, isolating complex I/O from core database access.
  */
 @UnstableApi
@@ -26,24 +26,21 @@ class SubtitleFileResolver(
     private val bookDao: BookDao,
     private val fileReader: VfsFileInterface
 ) {
-    // Supported Subtitle Formats (The set of file extensions recognized by this resolver)
     private val subtitleExtension = setOf("srt", "ass", "ssa", "vtt", "lrc")
 
     /**
-     * Subtitle Loading Entrypoint (Queries, locates, and parses subtitles for a specific database book file)
+     * Queries, locates, and parses subtitles for a specific database book file.
      * Performs DB lookup using the BookFileEntity.id and searches the parent folder via Virtual File System (VFS).
      */
     suspend fun loadSubtitlesForBookFile(bookFileId: String): List<SubtitleLine> =
         withContext(Dispatchers.IO) {
-            // Thread-Safe Subtitle Query (Switches context to Dispatchers.IO to prevent blocking the UI thread on db and network requests)
-            // Utilizes BookFileEntity.id to avoid reference breaks when the playback engine switches to virtual VFS URIs.
             val scannedFile = bookDao.getBookFileById(bookFileId) ?: return@withContext emptyList()
             val attachment = loadSubtitleAttachment(scannedFile)
             attachment?.lines ?: emptyList()
         }
 
     /**
-     * Sibling Directory Scanner (Locates matching subtitle files in the same directory as the target audio file)
+     * Locates matching subtitle files in the same directory as the target audio file.
      * Queries the sibling VFS tree by resolving parent paths and locating subtitle candidates with identical base names.
      */
     private suspend fun loadSubtitleAttachment(file: BookFileEntity): PlaybackSubtitle? {
@@ -54,7 +51,7 @@ class SubtitleFileResolver(
     }
 
     /**
-     * Stream-Based Parse Subroutine (Opens streams via VFS and delegates token extraction to the subtitle format parser)
+     * Opens streams via VFS and delegates token extraction to the subtitle format parser.
      * Shielding parsing algorithms from content/file providers by routing all accesses through abstract stream factory.
      */
     private suspend fun parseSubtitleSuspend(
@@ -64,8 +61,6 @@ class SubtitleFileResolver(
         openStream: suspend () -> InputStream?
     ): PlaybackSubtitle? =
         try {
-            // Suspending Stream Factory Integration (Executes the parser under safe scope boundaries without blocking callbacks)
-            // Maps external subtitles to application-internal VFS Uri tokens rather than leaky content provider URIs.
             val lines = openStream()?.use { SubtitleParser.parse(it, extension) }.orEmpty()
             PlaybackSubtitle(
                 uri = Uri.Builder()
@@ -78,14 +73,12 @@ class SubtitleFileResolver(
                 lines = lines
             )
         } catch (e: Exception) {
-            // Release Error Boundary (Sanitize subtitle VFS parse failures)
-            // The sourceId combines root and source path, so retained errors must hash or remove it before Logcat output.
             SecureLog.error("SubtitleFileResolver", "Failed to parse VFS subtitle file: $sourceId", e)
             null
         }
 
     /**
-     * Base Name Matching Algorithm (Queries sibling VFS nodes and filters files by filename case-insensitively)
+     * Queries sibling VFS nodes and filters files by filename case-insensitively.
      * Reconciles difference in extensions while matching names exactly to pair subtitles with audio files.
      */
     private suspend fun findSubtitleFile(file: BookFileEntity): SubtitleFileRef? {
@@ -112,7 +105,7 @@ class SubtitleFileResolver(
     }
 
     /**
-     * MimeType Standardization Mapping (Maps recognized file extensions to standard ExoPlayer/Media3 Subtitle MimeTypes)
+     * Maps recognized file extensions to standard ExoPlayer/Media3 Subtitle MimeTypes.
      */
     private fun subtitleMimeType(extension: String): String? =
         when (extension.lowercase(Locale.ROOT)) {
@@ -122,7 +115,6 @@ class SubtitleFileResolver(
             else -> null
         }
 
-    // Internal subtitle reference (Temporary entity used to buffer scanned subtitle file details before full stream parsing)
     private data class SubtitleFileRef(
         val sourceId: String,
         val extension: String,

@@ -29,7 +29,7 @@ import java.io.File
 import kotlin.io.path.createTempDirectory
 
 /**
- * ABS Root Deletion Persistence Test (Locks failure ordering for remote root cleanup)
+ * Locks failure ordering for remote root cleanup.
  * Exercises the real Room database and ABS credential DataStore so root deletion cannot regress into
  * deleting external secrets before the SQLite root deletion has committed.
  */
@@ -54,8 +54,6 @@ class LibraryRootServiceAbsDeleteTest {
 
             service.deleteLibraryRootDataOnly(root)
 
-            // Successful Delete Contract (Commits Room-owned cleanup before removing the external ABS credential)
-            // The root, book cascade, ABS sync mirror, playback session, pending progress, and DataStore secret must all disappear together after a successful command.
             assertNull(database.libraryRootDao().getRootById(ROOT_ID))
             assertNull(database.bookDao().getBookById(BOOK_ID))
             assertNull(database.absSyncStateDao().getByRootId(ROOT_ID))
@@ -90,8 +88,6 @@ class LibraryRootServiceAbsDeleteTest {
                 service.deleteLibraryRootDataOnly(root)
             }.exceptionOrNull()
 
-            // Failed Delete Rollback Contract (Preserves both Room rows and the external ABS credential)
-            // A root-delete failure must roll back ABS manual cleanup and must not erase the credential while the root row remains live.
             assertNotNull(failure)
             assertNotNull(database.libraryRootDao().getRootById(ROOT_ID))
             assertNotNull(database.bookDao().getBookById(BOOK_ID))
@@ -122,7 +118,6 @@ class LibraryRootServiceAbsDeleteTest {
         try {
             database.seedAbsRootGraph(root)
 
-            // Setup initial fingerprint in sync state
             database.absSyncStateDao().insertOrReplace(
                 AbsSyncStateEntity(
                     rootId = ROOT_ID,
@@ -132,7 +127,6 @@ class LibraryRootServiceAbsDeleteTest {
                 )
             )
 
-            // Updating without changing libraryId should preserve fingerprint
             service.updateAbsLibraryRoot(
                 id = ROOT_ID,
                 credentialId = CREDENTIAL_ID,
@@ -141,9 +135,8 @@ class LibraryRootServiceAbsDeleteTest {
             )
             assertEquals("fingerprint-value", database.absSyncStateDao().getByRootId(ROOT_ID)?.fullListFingerprint)
 
-            // Updating with a new libraryId must clear fingerprint and purge all old book cache rows
             /**
-             * Verify Fingerprint Clearing (Asserts that updating a root's library identifier wipes the cached full list hash)
+             * Asserts that updating a root's library identifier wipes the cached full list hash.
              * Checks fingerprint preservation when libraryId is unchanged, and nullification on change.
              */
             service.updateAbsLibraryRoot(
@@ -172,8 +165,6 @@ class LibraryRootServiceAbsDeleteTest {
 
     private fun testCredentialStore(testName: String): AbsCredentialStore {
         val tempDir = createTempDirectory(testName).toFile()
-        // Test Credential Store (Uses a unique DataStore file per test case)
-        // Isolating the preferences file prevents credential state from leaking across deletion-ordering tests.
         return AbsCredentialStore.createForTesting(
             PreferenceDataStoreFactory.create(
                 produceFile = { File(tempDir, "credentials.preferences_pb") }
@@ -187,7 +178,7 @@ class LibraryRootServiceAbsDeleteTest {
     ): LibraryRootGatewayImpl {
         val context = RuntimeEnvironment.getApplication()
         /**
-         * Inject Test RootStore (Wires memory database back into the store)
+         * Wires memory database back into the store.
          * Instantiates LibraryRootStore using mock database DAO and credentials, and registers it as rootStoreOverride.
          */
         val rootStore = com.viel.aplayer.library.LibraryRootStore(
@@ -195,8 +186,6 @@ class LibraryRootServiceAbsDeleteTest {
             rootDaoOverride = database.libraryRootDao(),
             absCredentialStoreOverride = credentialStore
         )
-        // Real Room Service Fixture (Injects one database into every DAO and transaction entry point)
-        // This avoids false positives where cleanup DAO calls and withTransaction belong to different SQLite instances.
         return LibraryRootGatewayImpl(
             context = context,
             libraryRootDao = database.libraryRootDao(),
@@ -266,8 +255,6 @@ class LibraryRootServiceAbsDeleteTest {
     }
 
     private fun AppDatabase.installRootDeleteFailureTrigger() {
-        // Root Delete Failure Trigger (Forces SQLite to abort the final root deletion statement)
-        // The trigger recreates the production failure window without replacing Room DAOs with shallow fakes.
         openHelper.writableDatabase.execSQL(
             """
             CREATE TRIGGER fail_abs_root_delete

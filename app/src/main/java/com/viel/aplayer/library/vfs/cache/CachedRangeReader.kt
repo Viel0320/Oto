@@ -5,7 +5,7 @@ import com.viel.aplayer.library.vfs.VfsNode
 import com.viel.aplayer.logger.CacheDiagnosticsLogger
 
 /**
- * Cached Range Reader (Decorates metadata-sized VFS range reads with a bounded disk cache)
+ * Decorates metadata-sized VFS range reads with a bounded disk cache.
  * Applies only to provider-supported bounded readRange calls and deliberately avoids openInputStream and playback offset
  * streams.
  */
@@ -16,7 +16,7 @@ class CachedRangeReader(
     private val elapsedRealtimeMillis: () -> Long = { SystemClock.elapsedRealtime() }
 ) {
     /**
-     * Read (Serves a bounded range from disk cache or delegates to the provider)
+     * Serves a bounded range from disk cache or delegates to the provider.
      * Validates provider capability and range-key eligibility before touching disk, then writes only successful small blocks.
      */
     suspend fun read(file: VfsNode, offset: Long, length: Int): ByteArray? {

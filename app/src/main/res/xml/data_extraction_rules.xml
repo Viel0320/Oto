@@ -1,13 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
-        <!-- Cloud Backup Portable Settings Allowlist (Keep cloud restore limited to user preferences)
-             Android lint treats out-of-scope excludes as invalid when an include allowlist is present, so only app_settings.preferences_pb is included and non-portable stores remain outside cloud backup by absence. -->
         <include domain="file" path="datastore/app_settings.preferences_pb"/>
     </cloud-backup>
     <device-transfer>
-        <!-- Device Transfer Portable Settings Allowlist (Keep device migration limited to user preferences)
-             The transfer path mirrors cloud backup so Room files, credentials, search history, and device markers are never selected for migration in the first place. -->
         <include domain="file" path="datastore/app_settings.preferences_pb"/>
     </device-transfer>
 </data-extraction-rules>

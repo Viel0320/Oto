@@ -85,7 +85,7 @@ import com.viel.aplayer.media.PlaybackRootLookup
 import com.viel.aplayer.media.PlaybackSourcePreflight
 
 /**
- * Public Dependency View Surface (Expose only narrow caller-facing contracts)
+ * Expose only narrow caller-facing contracts.
  * Keeps di-owned implementations out of the public application container so callers must use typed dependency views.
  */
 interface AppContainer :
@@ -105,44 +105,44 @@ interface AppContainer :
     AppFeedbackDependencies,
     java.io.Closeable {
     /**
-     * Application Event Sink (Process-wide entry point for transient UI feedback)
+     * Process-wide entry point for transient UI feedback.
      * Keeps Toast and dialog commands out of media-core classes and scattered ViewModel-local event streams.
      */
     override val appEventSink: AppEventSink
 
     /**
-     * Playback Domain Event Sink (Media-core event stream for playback facts)
+     * Media-core event stream for playback facts.
      * Lets playback services publish domain outcomes while the application bridge decides how to render them.
      */
     override val settingsReadModel: com.viel.aplayer.application.library.settings.AppSettingsReadModel
     override val settingsCommands: com.viel.aplayer.application.library.settings.AppSettingsCommands
 
     /**
-     * Settings Root Read Model (Scene-level root display stream)
+     * Scene-level root display stream.
      * Keeps SettingsViewModel root rows on the settings-root module rather than the broad library transition entry point.
      */
     override val settingsRootReadModel: SettingsRootReadModel
 
     /**
-     * Settings Root Commands (Scene-level root management operations)
+     * Scene-level root management operations.
      * Lets SettingsViewModel register roots, refresh reachability, and schedule scans through a compact settings interface.
      */
     override val settingsRootCommands: SettingsRootCommands
 
     /**
-     * Deleted Book Recovery Read Model (Scene-level deleted catalog stream)
+     * Scene-level deleted catalog stream.
      * Lets the recovery page list soft-deleted books without widening settings root dependencies.
      */
     override val deletedBookRecoveryReadModel: DeletedBookRecoveryReadModel
 
     /**
-     * Deleted Book Recovery Commands (Scene-level restore command surface)
+     * Scene-level restore command surface.
      * Keeps restore preflight and partial confirmation outside root management workflows.
      */
     override val deletedBookRecoveryCommands: DeletedBookRecoveryCommands
 
     /**
-     * Settings Query Use Case (Read model and credential lookup seam for SettingsViewModel)
+     * Read model and credential lookup seam for SettingsViewModel.
      * Keeps settings UI state construction away from Room DAO and credential-store dependencies.
      */
     override val settingsQueryUseCase: SettingsQueryUseCase
@@ -151,295 +151,293 @@ interface AppContainer :
 
 
     /**
-     * Settings Library Maintenance Use Case (Root edit follow-up operations)
+     * Root edit follow-up operations.
      * Encapsulates cache eviction, missing file recovery, and rescan scheduling after settings edits.
      */
     override val settingsLibraryMaintenanceUseCase: SettingsLibraryMaintenanceUseCase
 
     /**
-     * Settings ABS Connection Use Case (Login, token reuse, credential save, and ABS root registration)
+     * Login, token reuse, credential save, and ABS root registration.
      * Prevents SettingsViewModel from constructing ABS clients or touching ABS credential stores directly.
      */
     override val absSettingsConnectionUseCase: AbsSettingsConnectionUseCase
 
-    // Title: WebDavConnectionTester Decoupling (Expose TestWebDavConnectionUseCase in AppContainer)
     override val testWebDavConnectionUseCase: TestWebDavConnectionUseCase
-    
+
     /**
-     * Library Root Management Use Case (Unregister roots and switch ABS libraries)
+     * Unregister roots and switch ABS libraries.
      * Coordinates playback teardown, root cache eviction, manual-download cleanup, and data cascade deletion.
      */
     override val libraryRootManagementUseCase: LibraryRootManagementUseCase
 
     /**
-     * Book Management Use Case (Delete audiobooks through the cleanup-first application boundary)
+     * Delete audiobooks through the cleanup-first application boundary.
      * Clears cover and manual-download resources before the database row is soft-deleted.
      */
     override val bookManagementUseCase: BookManagementUseCase
 
     /**
-     * Home Library Read Model (Scene-level catalog stream for LibraryViewModel)
+     * Scene-level catalog stream for LibraryViewModel.
      * Keeps the home presentation path on a catalog-specific interface after the broad facade has been retired.
      */
     override val homeLibraryReadModel: HomeLibraryReadModel
 
     /**
-     * Home Library Use Cases (Scene-level home catalog commands)
+     * Scene-level home catalog commands.
      * Exposes only home-owned commands instead of the complete set of library gateways.
      */
     override val homeLibraryUseCases: HomeLibraryUseCases
 
     /**
-     * Search Library Read Model (Scene-level search query stream)
+     * Scene-level search query stream.
      * Keeps SearchViewModel on the search scene read model while preserving the existing search-result data shape.
      */
     override val searchLibraryReadModel: SearchLibraryReadModel
 
     /**
-     * Search Library Commands (Scene-level search history mutations)
+     * Scene-level search history mutations.
      * Lets SearchViewModel save and prune history through a small command surface.
      */
     override val searchLibraryCommands: SearchLibraryCommands
 
     /**
-     * Detail Book Read Model (Scene-level source and live metadata read surface)
+     * Scene-level source and live metadata read surface.
      * Keeps DetailViewModel off broad library, root lookup, and file inventory gateways.
      */
     override val detailBookReadModel: DetailBookReadModel
 
     /**
-     * Detail Book Commands (Scene-level availability refresh command)
+     * Scene-level availability refresh command.
      * Lets DetailViewModel request status refresh through the detail scene boundary only.
      */
     override val detailBookCommands: DetailBookCommands
 
     /**
-     * Player Library Read Model (Scene-level player metadata and recovery read surface)
+     * Scene-level player metadata and recovery read surface.
      * Keeps PlayerViewModel and player helpers on the player scene seam while preserving playback-page behavior.
      */
     override val playerLibraryReadModel: PlayerLibraryReadModel
 
     /**
-     * Player Bookmark Commands (Scene-level bookmark mutation surface)
+     * Scene-level bookmark mutation surface.
      * Lets BookmarkManager write bookmark changes through a compact player command boundary.
      */
     override val playerBookmarkCommands: PlayerBookmarkCommands
 
     /**
-     * Edit Book Read Model (Scene-level editable metadata read surface)
+     * Scene-level editable metadata read surface.
      * Keeps EditBookViewModel from resolving the old library presentation dependency view.
      */
     override val editBookReadModel: EditBookReadModel
 
     /**
-     * Edit Book Commands (Scene-level edit mutation surface)
+     * Scene-level edit mutation surface.
      * Routes metadata and custom cover saves through the edit scene module.
      */
     override val editBookCommands: EditBookCommands
 
     /**
-     * Playback/Core Book Catalog Gateway (Read-only book metadata and file inventory seam)
+     * Read-only book metadata and file inventory seam.
      * Intended for media-core services that need stored book rows and track lists without bookmark or metadata mutation commands.
      */
     override val bookCatalogGateway: BookCatalogGateway
 
     /**
-     * Playback/Core Chapter Gateway (Playback timeline chapter seam)
+     * Playback timeline chapter seam.
      * Lets media services read chapter timelines without receiving catalog filters or bookmark commands.
      */
     override val chapterGateway: ChapterGateway
 
     /**
-     * Playback/Core Bookmark Gateway (Notification bookmark command seam)
+     * Notification bookmark command seam.
      * Lets media services create notification bookmarks without depending on catalog or chapter operations.
      */
     override val bookmarkGateway: BookmarkGateway
 
     /**
-     * Playback/Core Book Availability Gateway (Fine-grained status-writing reachability seam)
+     * Fine-grained status-writing reachability seam.
      * Exposed for media-core recovery flows that must refresh file/book availability through a narrow adapter.
      */
     override val bookAvailabilityGateway: BookAvailabilityGateway
 
     /**
-     * Build Playback Plan Use Case (UI-facing playback startup command)
+     * UI-facing playback startup command.
      * Keeps PlayerViewModel on an application use-case seam instead of reaching into generic book queries.
      */
     override val buildPlaybackPlanUseCase: BuildPlaybackPlanUseCase
 
     /**
-     * Player Playback Controller (Player-scene playback runtime seam)
+     * Player-scene playback runtime seam.
      * Keeps PlayerViewModel and player helpers on a compact playback controller instead of media singleton lookups.
      */
     override val playerPlaybackController: PlayerPlaybackController
 
     /**
-     * Playback Plan Gateway (Fine-grained media-core playback startup read model)
+     * Fine-grained media-core playback startup read model.
      * Lets foreground playback services build playable plans without depending on broad library or book-query surfaces.
      */
     override val playbackPlanGateway: PlaybackPlanGateway
 
     /**
-     * Playback/Core Progress Gateway (Fine-grained router for playback position and audio file status)
+     * Fine-grained router for playback position and audio file status.
      * Lets media-core collaborators persist and recover progress without importing unrelated library capabilities.
      */
     override val progressGateway: ProgressGateway
 
     /**
-     * Scanner Gateway Adapter (Fine-grained scheduler interface owned by the library application layer)
+     * Fine-grained scheduler interface owned by the library application layer.
      * Exposed for infrastructure coordinators while UI callers route scan commands through scene-specific use cases.
      */
     override val scanScheduler: ScanScheduler
 
     /**
-     * Virtual File System Interface (Single I/O access point for file path abstractions)
+     * Single I/O access point for file path abstractions.
      */
     override val vfsFileInterface: VfsFileInterface
 
     /**
-     * Playback File Resolver (Lookup utility to associate media IDs with physical files)
+     * Lookup utility to associate media IDs with physical files.
      */
     override val playbackFileLookup: PlaybackFileLookup
 
     /**
-     * Playback Root Resolver (Read-only root lookup for manual-cache routing)
+     * Read-only root lookup for manual-cache routing.
      * Manual-cache playback can classify SAF versus remote roots without receiving settings or root mutation APIs.
      */
     override val playbackRootLookup: PlaybackRootLookup
 
     /**
-     * Download Cache Access (L1 manual cache handle for playback routing)
+     * L1 manual cache handle for playback routing.
      * Exposes manual-cache access separately from DownloadRuntimeGateway so playback does not start manual download observers.
      */
     override val downloadCacheAccess: DownloadCacheAccess
 
     /**
-     * Download Runtime Gateway (Manual download queue seam)
+     * Manual download queue seam.
      * Download commands receive queue operations without direct access to Media3 DownloadManager.
      */
     override val downloadRuntimeGateway: DownloadRuntimeGateway
 
     /**
-     * Download Controller (Book-level manual offline cache command surface)
+     * Book-level manual offline cache command surface.
      * UI callers use this application operation after notification-permission preflight.
      */
     override val downloadController: DownloadController
 
     /**
-     * Download Status Read Model (Presentation-facing manual cache status stream)
+     * Presentation-facing manual cache status stream.
      * Detail and management UI observe book-level cache state through this projection instead of touching Room or Media3 directly.
      */
     override val downloadStatusReadModel: DownloadStatusReadModel
 
     /**
-     * Download Management Read Model (Manual download task list projection)
+     * Manual download task list projection.
      * Settings-hosted management UI consumes display-ready task rows without querying DAOs.
      */
     override val downloadManagementReadModel: DownloadManagementReadModel
 
     /**
-     * Cache Statistics Provider (Manual cache totals)
+     * Manual cache totals.
      * Cache settings screens read durable storage summaries through this narrow provider instead of touching SimpleCache objects.
      */
     override val cacheStatisticsProvider: CacheStatisticsProvider
 
     /**
-     * Cache Maintenance Commands (Manual cache cleanup commands)
+     * Manual cache cleanup commands.
      * Settings screens can trigger confirmed manual-cache cleanup without receiving Media3 cache handles or DAO dependencies.
      */
     override val cacheMaintenanceCommands: CacheMaintenanceCommands
 
     /**
-     * Playback Source Preflight (DB-only root lifecycle gate before media source creation)
+     * DB-only root lifecycle gate before media source creation.
      * Reads persisted library root rows without opening files or probing remote endpoints.
      */
     override val playbackSourcePreflight: PlaybackSourcePreflight
 
     /**
-     * ABS Catalog Synchronizer (Dedicated mirror processor for Audiobookshelf servers)
+     * Dedicated mirror processor for Audiobookshelf servers.
      * Kept separate from local library seams to prevent remote REST details leaking into the local domain.
      */
     override val absCatalogSynchronizer: AbsCatalogSynchronizer
 
     /**
-     * ABS Playback Session Syncer (Coordinator for remote server progress handshakes)
+     * Coordinator for remote server progress handshakes.
      * Restricts operations to play/sync/close events, keeping local database records as the source of truth.
      */
     override val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer
 
-    // Title: AbsProgressConflictCoordinator Decoupling (Expose ResolveProgressConflictUseCase in AppContainer)
     override val resolveProgressConflictUseCase: ResolveProgressConflictUseCase
 
 }
 
 /**
- * Process Container Surface (Expose di-owned implementations only to composition-root wiring)
+ * Expose di-owned implementations only to composition-root wiring.
  * Keeps startup and process-level orchestration able to reach concrete di adapters without widening the public AppContainer contract.
  */
 internal interface ProcessContainer : AppContainer {
     /**
-     * Library Root Gateway Adapter (Internal source-root maintenance seam)
+     * Internal source-root maintenance seam.
      * Allows process wiring to coordinate root registration and reachability without making the gateway available through the public container type.
      */
     val libraryRootGateway: LibraryRootGateway
 
     /**
-     * Search History Gateway Adapter (Internal keyword-history persistence seam)
+     * Internal keyword-history persistence seam.
      * Preserves composition-root access to search-history storage while screen callers stay on search scene dependencies.
      */
     val searchHistoryGateway: SearchHistoryGateway
 
     /**
-     * Playback Manager Instance (Internal media di runtime owner)
+     * Internal media di runtime owner.
      * Keeps direct playback runtime access inside process wiring so foreground callers keep using playback dependency views.
      */
     val playbackManager: com.viel.aplayer.media.PlaybackManager
 
     /**
-     * Search History Store (Internal DataStore backend reference)
+     * Internal DataStore backend reference.
      * Prevents raw persistence storage from leaking through the public container while leaving di wiring able to share the singleton.
      */
     val searchHistoryStore: com.viel.aplayer.data.store.SearchHistoryStore
 
     /**
-     * Auto Rewind Controller (Internal playback recovery coordinator)
+     * Internal playback recovery coordinator.
      * Lets startup invoke cold-start self-healing without exposing MediaGraph-owned recovery machinery to general callers.
      */
     val autoRewindManager: com.viel.aplayer.media.AutoRewindManager
 
     /**
-     * Download Recovery Service (Process-start manual download reconciliation gate)
+     * Process-start manual download reconciliation gate.
      * Application startup can invoke this without exposing download recovery to screen-level dependency surfaces.
      */
     val downloadRecoveryService: DownloadRecoveryService
 
     /**
-     * Manual Download Cleanup Gateway (Book and root cleanup seam)
+     * Book and root cleanup seam.
      * Management use cases receive only the book-level cleanup operation.
      */
     val manualDownloadCleanupGateway: ManualDownloadCleanupGateway
 
     /**
-     * Media3 Download Manager (Process-internal Android service runtime)
+     * Process-internal Android service runtime.
      * APlayerDownloadService must return the raw manager to Media3, but public callers stay on DownloadRuntimeGateway.
      */
     @get:UnstableApi
     val media3DownloadManager: DownloadManager
 
     /**
-     * Manual Download Orphan Cleaner (Process-internal cache maintenance command)
+     * Process-internal cache maintenance command.
      * WorkManager can remove stale L1 cache keys without exposing cache mutation APIs to UI dependencies.
      */
     val manualDownloadOrphanCleaner: ManualDownloadOrphanCleaner
 
     /**
-     * ABS Authorized Progress Synchronizer (Internal remote progress merge adapter)
+     * Internal remote progress merge adapter.
      * Keeps authorized progress refresh mechanics available to di wiring without adding them to the public dependency view union.
      */
     val absAuthorizedProgressSynchronizer: AbsAuthorizedProgressSynchronizer
 
     /**
-     * ABS Sync Task Coordinator (Internal application-level synchronization coordinator)
+     * Internal application-level synchronization coordinator.
      * Allows process-owned settings wiring to start root sync work while external callers use worker or scene dependency views.
      */
     val absSyncTaskCoordinator: AbsSyncTaskCoordinator
@@ -457,34 +455,23 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
         data = data,
         media = media,
         uiEvents = uiEvents,
-        // Management Download Cleanup Wiring (Pass a provider so startup does not construct download cleanup services)
-        // BookManagementUseCase and LibraryRootManagementUseCase still receive only the book-scoped cleanup seam when a deletion actually needs it.
         manualDownloadCleanupGatewayProvider = { download.manualDownloadCleanupGateway },
-        // ABS Cover Store provider lambda (Provide a lazy accessor to AbsCoverCache to bypass circular initialization ordering)
-        // Since AbsGraph is created after LibraryGraph, passing a lambda allows lazy resolution when CoverRecoveryHelper needs to retrieve ABS covers.
         absCoverStoreProvider = { abs.absCoverCache }
     )
     internal val abs: AbsGraph = AbsGraph(context, data, media, library, uiEvents)
 
     init {
-        // Application Event Bridge Activation (Attach process-level event routing as soon as the container exists)
-        // This ensures background services and workers can publish feedback before the first Compose collector starts.
         uiEvents.startEventBridges()
     }
 
     private val settingsWebDavCredentialStore: WebDavCredentialStore by lazy {
-        // Settings WebDAV Credential Store (Shared credential lookup for query use cases)
-        // Reuses the same storage adapter as LibraryRootGatewayImpl without exposing it to SettingsViewModel.
         WebDavCredentialStore(context.applicationContext)
     }
 
-    // Title: Settings Abstractions Delegate (Delegate dependency lookups to DataGraph abstractions)
     override val settingsReadModel: com.viel.aplayer.application.library.settings.AppSettingsReadModel
         get() = data.settingsReadModel
 
     override val settingsCommands: com.viel.aplayer.application.library.settings.AppSettingsCommands by lazy {
-        // Download-Aware Settings Command Wiring (Keep DataStore writes pure while updating live download requirements)
-        // The decorator checks DownloadGraph lazy state before touching DownloadRuntimeGateway, so settings screens do not start DownloadManager.
         DownloadAwareAppSettingsCommands(
             delegate = data.settingsCommands,
             downloadRuntimeGatewayProvider = { download.downloadRuntimeGateway },
@@ -498,15 +485,11 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
     override val playbackDomainEventSink: PlaybackDomainEventSink
         get() = uiEvents.playbackDomainEventSink
 
-    // Title: Instantiate formatSettingsRootUseCase (Wire context to presentation format UseCase)
-    // Instantiates the settings formatter use case with the application context.
     override val formatSettingsRootUseCase: com.viel.aplayer.application.usecase.FormatSettingsRootUseCase by lazy {
         com.viel.aplayer.application.usecase.FormatSettingsRootUseCase(context)
     }
 
     override val settingsQueryUseCase: SettingsQueryUseCase by lazy {
-        // Settings Query Use Case Wiring (Combines library root, ABS sync, book count, and credential readers)
-        // ViewModels consume this single read model seam instead of combining DAOs directly.
         SettingsQueryUseCase(
             libraryRootGateway = library.libraryRootGateway,
             absSyncStateDao = data.database.absSyncStateDao(),
@@ -518,8 +501,6 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
     }
 
     private val settingsRootModule: DefaultSettingsRootModule by lazy {
-        // Settings Root Module Wiring (Compose settings root reads and commands from granular adapters)
-        // This keeps root registration, status refresh, and manual scan triggers inside the settings-root scene seam.
         DefaultSettingsRootModule(
             observeRootSnapshotsSource = settingsQueryUseCase::observeLibraryRootSnapshots,
             libraryRootGateway = library.libraryRootGateway,
@@ -542,8 +523,6 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
         get() = library.deletedBookRecoveryCommands
 
     override val settingsLibraryMaintenanceUseCase: SettingsLibraryMaintenanceUseCase by lazy {
-        // Settings Maintenance Use Case Wiring (Centralizes edit follow-up work)
-        // Root relocation, WebDAV edits, and ABS edit recovery no longer perform cache or recovery operations inside the UI layer.
         SettingsLibraryMaintenanceUseCase(
             libraryRootGateway = library.libraryRootGateway,
             scanScheduler = library.scanScheduler,
@@ -553,8 +532,6 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
     }
 
     override val absSettingsConnectionUseCase: AbsSettingsConnectionUseCase by lazy {
-        // ABS Settings Use Case Wiring (Keeps ABS infrastructure behind application operations)
-        // SettingsViewModel only passes form fields and receives reusable outcomes for state rendering.
         AbsSettingsConnectionUseCase(
             apiClient = abs.absApiClient,
             connectionTester = abs.absConnectionTester,
@@ -567,12 +544,9 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
     }
 
     private val webDavConnectionTester: WebDavConnectionTester by lazy {
-        // WebDAV Tester Wiring (Shares app settings for insecure TLS selection)
-        // The tester hides OkHttp, PROPFIND, and TLS details from the settings presentation layer.
         WebDavConnectionTester(appSettingsRepository = data.settingsRepository)
     }
 
-    // Title: WebDavConnectionTester Decoupling (Wire TestWebDavConnectionUseCase in DefaultAppContainer)
     override val testWebDavConnectionUseCase: TestWebDavConnectionUseCase by lazy {
         TestWebDavConnectionUseCase(
             webDavConnectionTester = webDavConnectionTester,
@@ -583,8 +557,6 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
     override val libraryRootManagementUseCase: LibraryRootManagementUseCase
         get() = library.libraryRootManagementUseCase
 
-    // Title: Initialize Backup and Restore Use Cases (Create lazy instances of the data backup/restore use cases)
-    // Instantiates export and import use cases with the application context.
     override val exportUserDataUseCase: ExportUserDataUseCase by lazy {
         ExportUserDataUseCase(context)
     }
@@ -719,7 +691,6 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
     override val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer
         get() = abs.absPlaybackSessionSyncer
 
-    // Title: AbsProgressConflictCoordinator Decoupling (Wire ResolveProgressConflictUseCase in DefaultAppContainer)
     override val resolveProgressConflictUseCase: ResolveProgressConflictUseCase by lazy {
         ResolveProgressConflictUseCase(abs.absProgressConflictCoordinator)
     }
@@ -731,8 +702,6 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
         get() = abs.absSyncTaskCoordinator
 
     override fun close() {
-        // Graph Teardown Delegation (Close graphs in the application lifecycle order)
-        // The composition root owns cross-di order while each di owns its own initialized resources.
         closeAppGraphsInLifecycleOrder(
             media = media,
             download = download,

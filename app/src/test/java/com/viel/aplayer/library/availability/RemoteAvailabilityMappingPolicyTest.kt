@@ -12,8 +12,6 @@ class RemoteAvailabilityMappingPolicyTest {
     @Test
     fun `common http statuses map consistently across remote protocols`() {
         listOf(RemoteAvailabilityProtocol.ABS, RemoteAvailabilityProtocol.WEBDAV).forEach { protocol ->
-            // Shared HTTP Status Mapping (Pins auth, permission, missing, and server failure statuses across providers)
-            // ABS REST, ABS media streams, and WebDAV requests should not drift on these user-visible availability categories.
             assertEquals(
                 AudiobookSchema.AvailabilityStatus.AUTH_FAILED,
                 RemoteAvailabilityMappingPolicy.fromHttpStatus(401, protocol)
@@ -35,8 +33,6 @@ class RemoteAvailabilityMappingPolicyTest {
 
     @Test
     fun `abs keeps unknown http fallback semantics`() {
-        // ABS Unknown HTTP Policy (Preserves existing REST and media stream behavior for unclassified statuses)
-        // Request timeout status 408 remains UNKNOWN for ABS, while 504 still follows the generic server-error range.
         assertEquals(
             AudiobookSchema.AvailabilityStatus.UNKNOWN,
             RemoteAvailabilityMappingPolicy.fromHttpStatus(408, RemoteAvailabilityProtocol.ABS)
@@ -53,8 +49,6 @@ class RemoteAvailabilityMappingPolicyTest {
 
     @Test
     fun `webdav keeps timeout and network fallback semantics`() {
-        // WebDAV HTTP Fallback Policy (Preserves provider-specific timeout and network classifications)
-        // WebDAV historically treats 408 and 504 as TIMEOUT and unclassified HTTP failures as NETWORK_UNAVAILABLE.
         assertEquals(
             AudiobookSchema.AvailabilityStatus.TIMEOUT,
             RemoteAvailabilityMappingPolicy.fromHttpStatus(408, RemoteAvailabilityProtocol.WEBDAV)
@@ -74,8 +68,6 @@ class RemoteAvailabilityMappingPolicyTest {
         val timeout = RemoteAvailabilityMappingPolicy.fromTransportException(SocketTimeoutException("slow"))
         val network = RemoteAvailabilityMappingPolicy.fromTransportException(IOException("offline"))
 
-        // Transport Exception Policy (Keeps timeout retries distinguishable from generic connectivity failures)
-        // ABS and WebDAV adapters use the same result object to construct their protocol-specific exception types.
         assertEquals("TIMEOUT", timeout.errorCode)
         assertEquals(AudiobookSchema.AvailabilityStatus.TIMEOUT, timeout.availabilityStatus)
         assertTrue(timeout.isTimeout)

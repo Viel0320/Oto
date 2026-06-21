@@ -6,7 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Book Deletion Service (Implements BookDeletionGateway)
+ * Implements BookDeletionGateway.
  *
  * Performs a logical soft delete by flipping status to DELETED rather than erasing records, so a later
  * rescan does not re-import the same book as a duplicate.

@@ -59,11 +59,8 @@ fun PlaybackControls(
     modifier: Modifier = Modifier,
     buttonColor: Color = MaterialTheme.colorScheme.primaryContainer,
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null
 ) {
-    // Localized Playback Control Copy (Resolve button descriptions and compact timer badges)
-    // Playback state values are runtime data, while speed labels, transport descriptions, and timer units are app-authored UI copy.
     val previousChapterContentDescription = stringResource(R.string.playback_previous_chapter_content_description)
     val rewindContentDescription = stringResource(SeekStepPresentation.backwardLabel(playbackSeekStepConfig.backward))
     val playPauseContentDescription = stringResource(
@@ -95,7 +92,6 @@ fun PlaybackControls(
             )
         }
 
-        // Detect whether the frosted Gaussian blur effect is enabled, aligning with Haze and unifying renamed logic references.
         val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
 
         if (isBlur) {
@@ -112,7 +108,7 @@ fun PlaybackControls(
                 modifier = glassModifier,
                 shape = playPauseShape,
                 color = Color.Transparent,
-                border = null, // Fully delegated to the gradient border modifier above for rendering
+                border = null,
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -125,7 +121,6 @@ fun PlaybackControls(
                 }
             }
         } else {
-            // Maintain the original filled solid-color design of FilledIconButton in Material default mode.
             FilledIconButton(
                 onClick = actions.onPlayPauseClick,
                 modifier = Modifier.size(80.dp),

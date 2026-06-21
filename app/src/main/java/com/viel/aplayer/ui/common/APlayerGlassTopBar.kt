@@ -23,7 +23,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
- * APlayer Glass Top Bar (Reusable overlay chrome for screen headers)
+ * Reusable overlay chrome for screen headers.
  *
  * Extracts the Home top bar's measured Haze material wrapper and Material3 slot wiring so Home, Settings, and About can share identical blur behavior.
  * Callers still own title, navigation, and action content, keeping screen-specific interactions outside this shared chrome component.
@@ -40,8 +40,6 @@ fun APlayerGlassTopBar(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val resolvedHazeState = hazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
-    // Haze Top Bar Surface (Extracted Home overlay behavior)
-    // The measured wrapper applies HazeMaterials.thin over a sibling content source while reporting height for scroll-content padding reservation.
     val topBarSurfaceModifier = modifier
         .fillMaxWidth()
         .onSizeChanged { onHeightChanged(it.height) }
@@ -55,11 +53,7 @@ fun APlayerGlassTopBar(
 
     Box(modifier = topBarSurfaceModifier) {
         CenterAlignedTopAppBar(
-            // Glass Top Bar Placement (Render Material chrome inside the measured overlay wrapper)
-            // The wrapper handles blur and height measurement while Material3 continues to own standard top bar slot layout.
             modifier = Modifier.fillMaxWidth(),
-            // Glass Top Bar Insets (Stabilize header measurement)
-            // Follow status/cutout safe drawing and ignore navigation/IME changes so overlay height remains stable during keyboard transitions.
             windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars).exclude(WindowInsets.ime),
             title = title,
             navigationIcon = navigationIcon,
@@ -68,8 +62,6 @@ fun APlayerGlassTopBar(
                 containerColor = if (resolvedHazeState != null) Color.Transparent else MaterialTheme.colorScheme.background,
                 scrolledContainerColor = if (resolvedHazeState != null) Color.Transparent else MaterialTheme.colorScheme.background,
                 titleContentColor = MaterialTheme.colorScheme.onSurface,
-                // Top Bar Icon Color Unification (Use app-wide surface foreground)
-                // Navigation and action icons share onSurface so caller slots do not inherit inconsistent Material3 defaults.
                 navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
                 actionIconContentColor = MaterialTheme.colorScheme.onSurface
             )

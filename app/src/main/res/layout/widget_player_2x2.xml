@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget Root Layout (Use RelativeLayout as the outer shell to allow cover art to stretch fully while positioning content at the bottom) -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_click_area"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#111111">
-
-    <!-- Widget Cover Image (Cover art is loaded as full background, isolated from text measurements to prevent control layouts from squeezing) -->
     <ImageView
         android:id="@+id/widget_cover"
         android:layout_width="match_parent"
@@ -14,21 +11,15 @@
         android:adjustViewBounds="false"
         android:contentDescription="@string/player_widget_cover_description"
         android:scaleType="centerCrop" />
-
-    <!-- Widget Cover Overlay (Semi-transparent dark layer on top of cover image to preserve text readability when bright covers are loaded) -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#66000000" />
-
-    <!-- Bottom Scrim Overlay (Align bottom scrim helper to parent bottom to guarantee legible title and buttons overlay) -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="108dp"
         android:layout_alignParentBottom="true"
         android:background="@drawable/widget_bottom_scrim" />
-
-    <!-- Content Container (LinearLayout grouping title and controls vertically to guarantee title sits above buttons) -->
     <LinearLayout
         android:id="@+id/widget_content"
         android:layout_width="match_parent"
@@ -39,8 +30,6 @@
         android:paddingBottom="9dp"
         android:gravity="center"
         android:orientation="vertical">
-
-        <!-- Text Details Group (Group title and author text with tight side margins to prevent premature truncation in 2x2 layout constraints) -->
         <LinearLayout
             android:id="@+id/widget_text_group"
             android:layout_width="match_parent"
@@ -85,8 +74,6 @@
                 android:textColor="#EDEDED"
                 android:textSize="11sp" />
         </LinearLayout>
-
-        <!-- Button Control Area (Split control area into three equal-weight columns to prevent horizontal truncation under narrow widget bounds) -->
         <LinearLayout
             android:id="@+id/widget_controls"
             android:layout_width="match_parent"
@@ -105,8 +92,6 @@
                 android:padding="6dp"
                 android:scaleType="centerInside"
                 android:src="@drawable/ic_replay_10" />
-
-            <!-- Play Pause Control Fallback (Initial widget layout defaults to the play icon before Glance receives playback state, so the static accessibility label announces the same concrete action) -->
             <ImageButton
                 android:id="@+id/widget_play_pause"
                 android:layout_width="0dp"

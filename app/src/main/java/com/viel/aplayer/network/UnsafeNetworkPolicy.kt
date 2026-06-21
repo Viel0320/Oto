@@ -3,14 +3,14 @@ package com.viel.aplayer.network
 import com.viel.aplayer.shared.settings.AppSettings
 
 /**
- * Unsafe Network Policy (Centralizes user-controlled insecure transport decisions)
+ * Centralizes user-controlled insecure transport decisions.
  *
  * Keeps cleartext HTTP and insecure TLS bypass rules in one pure policy so WebDAV, ABS, and
  * playback preflight code cannot drift into provider-specific defaults.
  */
 object UnsafeNetworkPolicy {
     /**
-     * Cleartext URL Detection (Identifies unencrypted HTTP endpoints)
+     * Identifies unencrypted HTTP endpoints.
      *
      * Uses scheme-level inspection only, allowing callers to pass normalized roots, resolved
      * request URLs, or test server URLs without coupling this policy to Android Uri or OkHttp.
@@ -19,7 +19,7 @@ object UnsafeNetworkPolicy {
         url.trimStart().startsWith("http://", ignoreCase = true)
 
     /**
-     * Cleartext Permission Check (Applies the global HTTP opt-in switch and LAN exceptions)
+     * Applies the global HTTP opt-in switch and LAN exceptions.
      *
      * Defaults to blocking HTTP unless the user explicitly enabled cleartext traffic in settings
      * or the target address is verified as a loopback or local network host.
@@ -32,7 +32,7 @@ object UnsafeNetworkPolicy {
     }
 
     /**
-     * Extract Host from URL (Parser helper to isolate host for LAN checking)
+     * Parser helper to isolate host for LAN checking.
      * Isolates host address or domain by stripping protocol schemes, port numbers,
      * user credentials, and square brackets for IPv6.
      */
@@ -72,7 +72,7 @@ object UnsafeNetworkPolicy {
     }
 
     /**
-     * Check Local or LAN Host (Categorizes destination IP/domain)
+     * Categorizes destination IP/domain.
      * Checks if the host string is localhost, an mDNS local domain, a private IPv4 subnet,
      * a link-local IPv4, or a unique local / link-local IPv6 address.
      */
@@ -87,7 +87,7 @@ object UnsafeNetworkPolicy {
     }
 
     /**
-     * Check IPv4 Address (Validates standard dotted-quad format)
+     * Validates standard dotted-quad format.
      * Verifies if the host conforms to the 4-part decimal notation with values between 0 and 255.
      */
     private fun isIPv4(host: String): Boolean {
@@ -100,7 +100,7 @@ object UnsafeNetworkPolicy {
     }
 
     /**
-     * Local or LAN IPv4 Check (Exempts private subnets and loopbacks)
+     * Exempts private subnets and loopbacks.
      * Screens host against loopback (127.0.0.0/8), private LANs (10.0.0.0/8, 172.16.0.0/12,
      * 192.168.0.0/16), and link-local address subnets (169.254.0.0/16).
      */
@@ -117,7 +117,7 @@ object UnsafeNetworkPolicy {
     }
 
     /**
-     * Check IPv6 Address (Syntactic validation for colon presence)
+     * Syntactic validation for colon presence.
      * Confirms the string represents an IPv6 candidate by verifying the presence of colons
      * and only hex characters or digits (ignoring dot mappings).
      */
@@ -128,8 +128,8 @@ object UnsafeNetworkPolicy {
     }
 
     /**
-     * Local or LAN IPv6 Check (Exempts Unique Local and Link-Local addresses)
-     * Matches host against Unique Local Addresses (fc00::/7) and Link-Local Unicast (fe80::/10)
+     * Exempts Unique Local and Link-Local addresses.
+     * fc00::/7. and Link-Local Unicast (fe80::/10)
      * by extracting the most significant 16-bit group and performing bitwise shift matching.
      */
     private fun isLocalOrLanIPv6(host: String): Boolean {
@@ -144,7 +144,7 @@ object UnsafeNetworkPolicy {
     }
 
     /**
-     * Cleartext Guard (Stops insecure HTTP before credentials or media requests are sent)
+     * Stops insecure HTTP before credentials or media requests are sent.
      *
      * Throws a structured policy violation so infrastructure adapters can translate the block into
      * their own domain errors without duplicating the decision rule.
@@ -160,7 +160,7 @@ object UnsafeNetworkPolicy {
     }
 
     /**
-     * Insecure TLS Permission Check (Applies the global certificate-bypass opt-in switch)
+     * Applies the global certificate-bypass opt-in switch.
      *
      * No root-level or credential-level TLS exception is considered valid; the global settings
      * switch is the single source of truth for self-signed or otherwise untrusted certificates.
@@ -170,7 +170,7 @@ object UnsafeNetworkPolicy {
 }
 
 /**
- * Unsafe Network Violation Kind (Classifies blocked insecure transport attempts)
+ * Classifies blocked insecure transport attempts.
  *
  * Gives callers a stable branch key instead of parsing localized exception messages.
  */
@@ -179,7 +179,7 @@ enum class UnsafeNetworkViolationKind {
 }
 
 /**
- * Unsafe Network Policy Violation (Signals that a network request violates user settings)
+ * Signals that a network request violates user settings.
  *
  * Carries the operation label and violation kind so WebDAV, ABS, and playback layers can map the
  * same policy failure into their own logging, availability, or feedback paths.

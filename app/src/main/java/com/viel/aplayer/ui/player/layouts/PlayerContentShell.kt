@@ -1,10 +1,10 @@
 package com.viel.aplayer.ui.player.layouts
 
 /**
- * Adaptive player layout shared transition shell (PlayerContentShell).
+ * Names the adaptive player content slots shared by player layouts.
  *
- * Dedicated to sharing the animation transition state of the three sub-layouts (bookmarks, playback controls, and related recommendations) within the layouts package,
- * avoiding duplicate private declaration conflicts (Redeclaration) or unnecessary scope isolation across different files.
+ * Keeping these slot indices in the layouts package lets bookmarks, controls, and related
+ * recommendations share transition targets without duplicate private enum declarations.
  */
 enum class PlayerContentShell(val index: Int) {
     Bookmarks(0),

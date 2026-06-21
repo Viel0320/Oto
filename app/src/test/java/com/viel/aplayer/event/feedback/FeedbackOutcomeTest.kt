@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Feedback Outcome Test (Locks the aggregation identity contract before producers migrate)
+ * Locks the aggregation identity contract before producers migrate.
  *
  * These tests pin the rules ADR 0001 and CONTEXT.md require: identity is built from typed category,
  * topic, and context only; it never carries localized copy, display names, paths, URLs, or credentials;

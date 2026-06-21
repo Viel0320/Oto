@@ -4,14 +4,14 @@ import com.viel.aplayer.event.feedback.FeedbackFact
 import com.viel.aplayer.event.feedback.FeedbackRenderMode
 
 /**
- * App Shell Event (One-shot feedback render requests consumed by the top-level app shell)
+ * One-shot feedback render requests consumed by the top-level app shell.
  *
  * This event model lives in the application event package because it represents rendering decisions
  * owned by `APlayerApp`, not feature-local ViewModel events or media-core domain facts.
  */
 sealed interface AppShellEvent {
     /**
-     * Render Feedback Event (Requests one app-shell rendering mode for one feedback fact)
+     * Requests one app-shell rendering mode for one feedback fact.
      *
      * Callers provide a shared feedback fact plus the mutually exclusive render mode selected by the
      * event sink. Toast and Dialog are consumers of the same message source rather than separate event

@@ -4,8 +4,6 @@ import com.viel.aplayer.media.AudiobookMetadata
 import com.viel.aplayer.media.parser.RangeAudioParserSupport.cString
 import java.nio.charset.StandardCharsets
 
-// Wav parser only scans chunks near the RIFF header;
-// Estimates duration from fmt/data and extracts basic metadata from LIST-INFO, bypassing full-file platform scans.
 internal object WavMetadataRangeParser : RangeAudioFormatParser {
     override fun supports(displayName: String): Boolean =
         displayName.endsWith(".wav", ignoreCase = true)
@@ -36,8 +34,6 @@ internal object WavMetadataRangeParser : RangeAudioFormatParser {
             val chunkDataStart = cursor + 8
             when (chunkId) {
                 "data" -> {
-                    // WAV duration calculations rely solely on the chunkSize declared in the "data" chunk header.
-                    // Recorded instantly even if the data chunk exceeds the head scanning window, ensuring valid return.
                     if (chunkSize >= 0) {
                         dataSize = chunkSize.toLong()
                     }
@@ -47,7 +43,6 @@ internal object WavMetadataRangeParser : RangeAudioFormatParser {
             val chunkData = headBytes.copyOfRange(chunkDataStart, chunkDataStart + chunkSize)
             when (chunkId) {
                 "fmt " -> if (chunkData.size >= 12) {
-                    // The byteRate field in the WAV "fmt " chunk starts at offset 8 (after audioFormat(2) + channels(2) + sampleRate(4)).
                     byteRate = RangeAudioParserSupport.run { chunkData.readUInt32LE(8) }
                 }
                 "LIST" -> if (chunkData.size >= 4 && chunkData.copyOfRange(0, 4).toString(StandardCharsets.ISO_8859_1) == "INFO") {
@@ -62,7 +57,6 @@ internal object WavMetadataRangeParser : RangeAudioFormatParser {
                             "INAM" -> if (title.isBlank()) title = value
                             "IART" -> if (author.isBlank()) author = value
                             "IPRD" -> if (album.isBlank()) album = value
-                            // WAV INFO lacks standardized description fields; cleans literal line breaks in the ICMT field as fallback.
                             "ICMT" -> if (description.isBlank()) description = MetadataDescriptionRules.normalizeDescriptionText(value)
                             "ICRD" -> if (year.isBlank()) year = value
                             "IENG", "ITCH" -> if (narrator.isBlank()) narrator = value

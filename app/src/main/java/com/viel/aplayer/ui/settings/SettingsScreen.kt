@@ -1,6 +1,4 @@
 package com.viel.aplayer.ui.settings
-// Title: Clean up unused imports (Remove unused references to AbsCredential and WebDavCredential to resolve layering violations)
-// Presentation layer should not import infrastructure authentication and virtual file system entities.
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -89,7 +87,6 @@ fun SettingsScreen(
     onChapterProgressModeChange: (Boolean) -> Unit,
     isCleartextTrafficAllowed: Boolean,
     onCleartextTrafficAllowedChange: (Boolean) -> Unit,
-    // Insecure TLS Config: Expose insecure TLS parameter flag and its status modification callback.
     isAllowInsecureTls: Boolean,
     onAllowInsecureTlsChange: (Boolean) -> Unit,
     isSkipSilenceEnabled: Boolean,
@@ -110,12 +107,9 @@ fun SettingsScreen(
     onAmoledEnabledChange: (Boolean) -> Unit,
     glassEffectMode: GlassEffectMode,
     settingsHazeState: HazeState? = null,
-    // Settings Dialog Intent Routing (Let the overlay own modal surfaces instead of the sampled page content)
-    // SettingsScreen emits root and add-library intents so SettingsOverlay can render dialogs beside the page hazeSource.
     onRootClick: (SettingsRootItem) -> Unit = {},
     onAddLibraryClick: () -> Unit = {},
     onDeletedBookRecoveryClick: () -> Unit = {},
-    // Download Cache parameters (Wire Wi-Fi only and buffer settings directly to the main settings page)
     downloadTaskCount: Int = 0,
     isDownloadWifiOnly: Boolean,
     onDownloadWifiOnlyChange: (Boolean) -> Unit,
@@ -152,29 +146,19 @@ fun SettingsScreen(
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                // Remove Landscape Width Constraint: Fill maximum width regardless of wide layout to support edge-to-edge settings display
                 .fillMaxWidth()
         ) {
             Scaffold(
                 modifier = Modifier
-                    // Settings Content Surface Bounds (Keep the sampled content layer full size)
-                    // The Haze source must cover the whole settings panel so the overlay top bar always has a complete backdrop to sample.
                     .fillMaxSize()
                     .then(
                         if (resolvedSettingsHazeState != null) {
-                            // Settings Content Haze Source (Expose the full settings content surface to overlay chrome)
-                            // Registering the Scaffold content layer preserves background sampling behind the top bar while keeping the top bar itself outside the source.
                             Modifier.hazeSource(resolvedSettingsHazeState)
                         } else {
                             Modifier
                         }
                     ),
-                // Title: Dynamic Scaffold Background Color (Set containerColor to background when Haze is active)
-                // Overrides containerColor to background color under Haze mode so that hazeSource has a solid background to sample from,
-                // while keeping it transparent under Material mode to avoid duplicate draws.
                 containerColor = if (resolvedSettingsHazeState != null) MaterialTheme.colorScheme.background else Color.Transparent,
-                // Settings Content Insets (Let overlay top bar own top spacing)
-                // The list reads bottom system padding from Scaffold, while the measured overlay header supplies its own top content padding.
                 contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime)
             ) { innerPadding ->
                 SectionsColumns(
@@ -188,21 +172,16 @@ fun SettingsScreen(
                         bottom = innerPadding.calculateBottomPadding()
                     )
                 ) { sectionIndex ->
-                    // Settings Functional Cluster Order (Render settings by user-facing capability)
-                    // Media sources, appearance, playback behavior, sleep automation, network safety, and app info stay in independent columns so variable section heights do not resize neighboring rows.
                     when (sectionIndex) {
                         0 -> LibraryDirectoriesSection(
                             libraryRootDisplays = libraryRootDisplays,
                             onRootClick = onRootClick,
                             onAddLibraryClick = onAddLibraryClick,
-                            // Deleted Book Recovery Entry (Forward settings row clicks to overlay-owned sub-navigation)
-                            // The page remains stateless; SettingsOverlay decides which settings sub-screen is currently active.
                             onDeletedBookRecoveryClick = onDeletedBookRecoveryClick,
                             modifier = Modifier.fillMaxWidth()
                         )
 
                         1 -> {
-                            // Download & Cache Configuration (Directly displays Wi-Fi only toggle and buffer capacity selector)
                             DownloadCacheSection(
                                 downloadTaskCount = downloadTaskCount,
                                 isDownloadWifiOnly = isDownloadWifiOnly,
@@ -263,8 +242,6 @@ fun SettingsScreen(
                         5 -> NetworkSecuritySection(
                             isCleartextTrafficAllowed = isCleartextTrafficAllowed,
                             onCleartextTrafficAllowedChange = onCleartextTrafficAllowedChange,
-                            // Insecure TLS Callback (Forward transport-risk setting to the dedicated security section)
-                            // Keeping this callback near cleartext HTTP mirrors the new functional grouping in SettingsSections.
                             isAllowInsecureTls = isAllowInsecureTls,
                             onAllowInsecureTlsChange = onAllowInsecureTlsChange,
                             modifier = Modifier.fillMaxWidth()
@@ -287,8 +264,6 @@ fun SettingsScreen(
                 glassEffectMode = glassEffectMode,
                 hazeState = resolvedSettingsHazeState,
                 onHeightChanged = { settingsTopBarHeightPx = it },
-                // Settings Top Bar Overlay Placement (Match Home's chrome layering)
-                // Drawing the header above Scaffold content lets settings rows scroll beneath the glass surface instead of being clipped below a Scaffold topBar slot.
                 modifier = Modifier.align(Alignment.TopCenter),
                 title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
@@ -320,8 +295,6 @@ fun SettingsDialogHost(
     onAbsConnectionTest: (baseUrl: String, username: String, password: String, editingRootId: String?) -> Unit,
     onResetAbsConnectionState: () -> Unit,
     onAbsRootSubmitted: (baseUrl: String, username: String, password: String, libraryId: String, libraryName: String, editingRootId: String?) -> Unit,
-    // Title: Decouple credentials signature (Use SettingsCredential instead of concrete VFS/ABS credential types)
-    // Presentation boundaries should only pass the decoupled SettingsCredential projection.
     getWebDavCredentials: (credentialId: String) -> SettingsCredential?,
     getAbsCredential: suspend (credentialId: String) -> SettingsCredential?,
     onAbsSync: (rootId: String) -> Unit,
@@ -337,8 +310,6 @@ fun SettingsDialogHost(
     val showLanguagePicker = dialogState == SettingsDialogState.LanguagePicker
     val showAddLibraryTypeDialog = dialogState == SettingsDialogState.AddLibraryType
     val rootForAction = (dialogState as? SettingsDialogState.RootActions)?.root
-    // Resolve Settings Dialog Haze Source (Gate app-level dialog sampling by current glass mode)
-    // All settings modal dialogs use this single stable source instead of the page-local top-bar source.
     val resolvedSettingsDialogHazeState = settingsDialogHazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
 
     if (showLanguagePicker) {
@@ -394,7 +365,6 @@ fun SettingsDialogHost(
                 onResetWebDavConnectionState()
             },
             onConfirm = {
-                // UI State Race Prevention: Safe unwrap editingRootId to prevent NullPointerException during transient state updates.
                 val rootId = controller.editingRootId
                 if (rootId != null) {
                     onWebDavRootUpdated(
@@ -570,9 +540,6 @@ fun SettingsDialogHost(
     }
 
     if (rootForAction != null) {
-        // Settings Root Action Projection (Use scene item fields for all root-specific dialogs)
-        // Dialog actions no longer dereference persistence root rows; edit, sync, relocate, and delete flows consume only rootId plus provider-specific form fields.
-        // Title: UI branching decoupling (Bypass AudiobookSchema dependency in SettingsScreen using computed root kind flags)
         val isAbsRoot = rootForAction.isAbsRoot
         val isWebDavRoot = rootForAction.isWebDavRoot
         val scope = rememberCoroutineScope()
@@ -587,7 +554,6 @@ fun SettingsDialogHost(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                // Title: SAF Relocate check (Check isSafRoot to trigger storage relocations)
                                 if (rootForAction.isSafRoot) {
                                     controller.editingSafRootId = rootForAction.rootId
                                     controller.dialogState = SettingsDialogState.None
@@ -623,7 +589,6 @@ fun SettingsDialogHost(
                         Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            // Title: SAF Relocate action label (Check isSafRoot to show relocation text versus edit credentials text)
                             if (rootForAction.isSafRoot) {
                                 stringResource(R.string.settings_root_action_relocate_saf)
                             } else {
@@ -687,8 +652,6 @@ fun SettingsDialogHost(
 
     val importConfirm = dialogState as? SettingsDialogState.ImportConfirm
     if (importConfirm != null) {
-        // Title: Render Import Confirm Dialog (Show overwrite alert before replacing databases and preferences)
-        // Instructs user that current audio bookmarks/settings will be replaced and SAF folders require re-granting.
         SettingsTemplateDialog(
             onDismissRequest = { controller.dialogState = SettingsDialogState.None },
             hazeState = resolvedSettingsDialogHazeState,
@@ -761,7 +724,6 @@ fun SettingsScreenPreview() {
                 onChapterProgressModeChange = {},
                 isCleartextTrafficAllowed = false,
                 onCleartextTrafficAllowedChange = {},
-                // Preview Bypass Parameter: Provide dummy values for isAllowInsecureTls settings fields.
                 isAllowInsecureTls = false,
                 onAllowInsecureTlsChange = {},
                 isSkipSilenceEnabled = false,
@@ -775,7 +737,6 @@ fun SettingsScreenPreview() {
                 appLanguage = AppLanguage.System,
                 onLanguageClick = {},
                 onDeletedBookRecoveryClick = {},
-                // Preview mock settings (Supply default buffer size and Wi-Fi only values for preview rendering)
                 isDownloadWifiOnly = false,
                 onDownloadWifiOnlyChange = {},
                 playbackBufferMaxBytes = 64L * 1024L * 1024L,

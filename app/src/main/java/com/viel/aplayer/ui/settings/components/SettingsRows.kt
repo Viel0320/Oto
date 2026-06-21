@@ -29,12 +29,12 @@ import com.viel.aplayer.R
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 
 /**
- * Settings Row Components (Own reusable single-row controls for Settings sections)
+ * Own reusable single-row controls for Settings sections.
  * These primitives are split from SettingsSections so each functional cluster can compose rows without carrying low-level layout details.
  */
 
 /**
- * Settings Item Component (Renders a clickable navigation/action row)
+ * Renders a clickable navigation/action row.
  * Used for settings entries that trigger another flow rather than directly mutating a persisted preference.
  * Horizontal row padding follows AppWindowSizeClass so every settings row can share one viewport gutter.
  */
@@ -75,7 +75,7 @@ fun SettingsItem(
 }
 
 /**
- * Settings Toggle Item Component (Renders a boolean preference row)
+ * Renders a boolean preference row.
  * Keeps the row click target and Switch callback aligned so touch and switch interactions update the same setting.
  * Horizontal row padding follows AppWindowSizeClass while the vertical density remains fixed for settings rhythm.
  */
@@ -89,8 +89,6 @@ fun SettingsToggleItem(
     enabled: Boolean = true
 ) {
     val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
-    // Settings Toggle State Description (Provide localized row-owned switch state text)
-    // TalkBack reads this value from the merged settings row, so the visual Switch does not need to expose its own duplicate state node.
     val toggleStateDescription = stringResource(
         if (checked) {
             R.string.settings_toggle_state_on
@@ -130,22 +128,18 @@ fun SettingsToggleItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        // Toggle Text-to-Switch Gap (Reserve a compact separation between setting copy and the trailing switch)
-        // The fixed 4.dp gap keeps long localized text from pressing directly into the switch while preserving the dense settings-row rhythm.
         Spacer(modifier = Modifier.width(4.dp))
         Switch(
             checked = checked,
             onCheckedChange = null,
             enabled = enabled,
-            // Settings Toggle Visual Switch Semantics (Hide the decorative child switch from accessibility)
-            // The parent row owns the only toggle action and checked state, preventing duplicate focus stops for one setting.
             modifier = Modifier.clearAndSetSemantics {}
         )
     }
 }
 
 /**
- * Settings Slider Item Component (Renders a numeric preference row)
+ * Renders a numeric preference row.
  * Keeps label, formatted value, and slider mechanics together for settings that expose bounded numeric controls.
  * Horizontal row padding follows AppWindowSizeClass to stay aligned with adjacent settings controls.
  */
@@ -162,8 +156,6 @@ fun SettingsSliderItem(
     enabled: Boolean = true
 ) {
     val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
-    // Localized Slider Value Summary (Format the setting subtitle and current value through resources)
-    // The subtitle and formatted value are supplied by callers, while their punctuation and ordering belong to localized UI chrome.
     val valueSummaryText = stringResource(R.string.settings_slider_value_summary, subtitle, valueFormatter(value))
 
     Row(

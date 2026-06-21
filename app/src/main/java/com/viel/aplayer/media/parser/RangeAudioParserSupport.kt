@@ -5,8 +5,9 @@ import java.nio.ByteOrder
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 
-// Now only contains pure byte utilities and formatting cleaners independent of container metadata logic;
-// All format-specific parsing details (such as ID3, Vorbis, and FLAC pictures) have been moved to their respective format parsers.
+/**
+ * Shared byte-reading and metadata formatting helpers used by range-read format parsers.
+ */
 internal object RangeAudioParserSupport {
     fun ByteArray.readUInt16BE(offset: Int): Int =
         ((this[offset].toInt() and 0xff) shl 8) or (this[offset + 1].toInt() and 0xff)

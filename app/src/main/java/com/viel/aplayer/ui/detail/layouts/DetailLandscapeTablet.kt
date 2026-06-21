@@ -35,7 +35,7 @@ import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
 
 /**
- * Tablet Landscape Layout Specification (Responsive dual-pane for large/foldable landscape viewports)
+ * Responsive dual-pane for large/foldable landscape viewports.
  *
  * Designed to show a dual-column configuration:
  * Left column features the fixed cover image, book metadata, and playback controls.
@@ -45,32 +45,23 @@ import dev.chrisbanes.haze.HazeState
  */
 @Composable
 fun DetailLandscapeTablet(
-    book: DetailBookItem?, // The Room-free detail metadata item.
-    uiState: DetailUiState, // The UI state model.
-    padding: PaddingValues, // Inner padding for Scaffold.
-    safeDrawingPadding: PaddingValues, // The physical safe drawing area.
-    glassEffectMode: GlassEffectMode, // Selected glass effect mode.
-    // Setup HazeState Parameter (Map detailBackdrop parameter to HazeState) Changed LayerBackdrop to HazeState.
+    book: DetailBookItem?,
+    uiState: DetailUiState,
+    padding: PaddingValues,
+    safeDrawingPadding: PaddingValues,
+    glassEffectMode: GlassEffectMode,
     detailHazeState: HazeState,
-    onPlayPressed: () -> Unit, // Playback trigger debounce callback.
-    onPlayClick: () -> Unit, // Confirm playback action callback.
-    onSearchClick: (String) -> Unit, // Search callback.
-    onShowInfo: (String, String) -> Unit, // Dialog detail display callback.
+    onPlayPressed: () -> Unit,
+    onPlayClick: () -> Unit,
+    onSearchClick: (String) -> Unit,
+    onShowInfo: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val titleInfoDialogLabel = stringResource(R.string.title_label)
     val authorInfoDialogLabel = stringResource(R.string.author_label)
     val narratorInfoDialogLabel = stringResource(R.string.narrator_label)
-    // Tablet Detail Item (Render from the scene projection instead of a database entity)
-    // Wide layouts need the same metadata as phones without expanding the Detail UI boundary back to Room.
     val windowClass = LocalAppWindowSizeClass.current
     val home2DetailTargetScope = LocalHomeRecent2DetailTargetScope.current
-    /*
-     * Tablet Detail Motion Channel (Entry-source based target binding)
-     *
-     * Selects the matching shared-element key only for the opening source, keeping Recent,
-     * main-list, and Search thumbnails on separate transition channels.
-     */
     val detailSharedElementKey = book?.id?.let { bookId ->
         when (uiState.entrySource) {
             DetailEntrySource.HomeRecent -> SharedElementKeys.home2DetailCover(bookId)
@@ -79,12 +70,6 @@ fun DetailLandscapeTablet(
             DetailEntrySource.None -> null
         }
     }
-    /*
-     * Tablet Detail Source Corner (Entry-source shape alignment)
-     *
-     * Uses 16.dp for Recent card entries and 8.dp for main-list/Search thumbnail entries so
-     * the first Detail frame matches the real source instead of a reused player shape.
-     */
     val detailSharedElementStartCornerRadius = when (uiState.entrySource) {
         DetailEntrySource.HomeRecent -> 16.dp
         DetailEntrySource.HomeList -> 8.dp
@@ -107,7 +92,6 @@ fun DetailLandscapeTablet(
                 end = safeDrawingPadding.calculateEndPadding(LocalLayoutDirection.current)
             )
     ) {
-        // Left Column: Features album cover, book details, and primary controls
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -132,20 +116,8 @@ fun DetailLandscapeTablet(
                     coverLastUpdated = book?.lastScannedAt ?: 0L,
                     coverScene = "detail-main-cover",
                     sizeRatio = 1f,
-                    /*
-                     * Tablet Detail Cover Shared Element Key (Destination artwork endpoint)
-                     *
-                     * Aligns the tablet detail cover with the Home recent-card artwork key so the
-                     * shared-element transition remains available in wide split detail layouts.
-                    */
                     sharedElementKey = detailSharedElementKey,
                     sharedElementVisibilityScope = detailSharedElementVisibilityScope,
-                    /*
-                     * Tablet Detail Source Corner (Home recent card shape alignment)
-                     *
-                     * Matches the selected recent-card cover radius so the target cover does not
-                     * begin from the mini-player's 8.dp playback radius during overlay entry.
-                    */
                     sharedElementStartCornerRadius = detailSharedElementStartCornerRadius,
                     modifier = Modifier
                         .fillMaxHeight()
@@ -182,13 +154,10 @@ fun DetailLandscapeTablet(
                         onShowInfo(narratorInfoDialogLabel, book.narrator)
                     }
                 },
-                // DetailLandscapeTablet Reversion (Remove series parameter pass per user instruction)
-                // Reverts series visualization to align with design decision of not displaying series on the details page.
                 isLandscape = true
             )
 
             Spacer(modifier = Modifier.height(16.dp))
-            // Setup DetailControlPanel Haze State (Link hazeState) Passed detailHazeState parameter to control panel.
             DetailControlPanel(
                 book = book,
                 uiState = uiState,
@@ -201,7 +170,6 @@ fun DetailLandscapeTablet(
             Spacer(modifier = Modifier.height(safeDrawingPadding.calculateBottomPadding()))
         }
 
-        // Right Column: Displays the scrollable audiobook synopsis
         Column(
             modifier = Modifier
                 .weight(1f)

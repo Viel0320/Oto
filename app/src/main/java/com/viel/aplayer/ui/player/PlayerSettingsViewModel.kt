@@ -14,27 +14,19 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-// Create PlayerSettingsViewModel (Manages playback settings, sleep timer and overlay views)
-// This ViewModel isolates all player preferences, system volume control, and full/mini player visibility states.
 class PlayerSettingsViewModel(
     application: Application,
     rawExternalScope: CoroutineScope? = null
 ) : AndroidViewModel(application) {
 
-    // Shift scope to viewModelScope to prevent lifecycle leaks and screen rotation freezes
-    // Fall back to viewModelScope if rawExternalScope is null to ensure coroutines are correctly managed.
     private val externalScope = rawExternalScope ?: viewModelScope
 
-    // Resolve dependencies (Fetches managers and system service controllers from application presentation di)
     private val playerDependencies = APlayerApplication.getPlayerScreenDependencies(application)
-    // Title: Settings Abstractions Binding (Bind PlayerSettingsViewModel to read and command abstractions)
-    // Decouples player UI preference logic from concrete DataStore storage classes.
     private val settingsReadModel = playerDependencies.settingsReadModel
     private val settingsCommands = playerDependencies.settingsCommands
     private val appEventSink = playerDependencies.appEventSink
     private val audioManager = application.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
-    // Settings manager delegate (Wraps system parameters and sleep scheduling logic)
     private val settingsManager = PlayerSettingsManager(
         scope = externalScope,
         playbackController = { playerDependencies.playerPlaybackController },
@@ -64,19 +56,15 @@ class PlayerSettingsViewModel(
         }
     }
 
-    // Set sleep timer (Starts sleep timer countdown utilizing current playback parameters)
     fun setSleepTimer(
         minutes: Int,
         currentPlayback: () -> PlaybackState,
         currentMetadata: () -> BookMetadataState
     ) {
         settingsManager.setSleepTimer(minutes, currentPlayback, currentMetadata)
-        // Selection feedback is produced by the command owner after the timer state changes; rapid taps
-        // collapse to the final value through the delivery policy's provisional hold.
         appEventSink.emitFeedback(PlaybackControlFeedbackFacts.sleepTimerSelected(minutes))
     }
 
-    // Cycle sleep timer (Increments selected sleep minutes sequentially)
     fun cycleSleepTimer(
         currentPlayback: () -> PlaybackState,
         currentMetadata: () -> BookMetadataState

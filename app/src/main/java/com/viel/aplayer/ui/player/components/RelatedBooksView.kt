@@ -24,7 +24,7 @@ import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.home.components.ListItem
 
 /**
- * Related Books View (Player recommendation panel)
+ * Player recommendation panel.
  *
  * Keeps row navigation and explicit playback as separate callbacks so tapping a recommendation
  * opens its Detail page while the play affordance remains an immediate playback command.
@@ -32,7 +32,6 @@ import com.viel.aplayer.ui.home.components.ListItem
 @Composable
 fun RelatedBooksView(
     currentBookId: String,
-    // Heuristic recommendations parameter (To pass top scored recommended items)
     heuristicBooks: List<PlayerRelatedBook>,
     authorSections: List<PlayerRelatedSection>,
     narratorSections: List<PlayerRelatedSection>,
@@ -45,13 +44,8 @@ fun RelatedBooksView(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
-        //
-        // Heuristic recommendations header (To render top scored items row if heuristic list is not empty)
-        // Uses section-aware keys so repeated book IDs from different recommendation groups remain valid LazyColumn items.
         if (heuristicBooks.isNotEmpty()) {
             item(key = "recommended:header") {
-                // Related Header Resources (Resolve recommendation headers through localized resources)
-                // Resource-backed labels let each playback tab locale translate static headings while creator names stay formatted at the UI boundary.
                 RelatedSectionHeader(stringResource(R.string.player_related_recommended))
             }
             items(heuristicBooks, key = { "recommended:${it.id}" }) { book ->
@@ -64,7 +58,6 @@ fun RelatedBooksView(
                 item(key = relatedSectionHeaderKey("author", sectionIndex, section.name)) {
                     RelatedSectionHeader(stringResource(R.string.player_related_more_by_author, section.name))
                 }
-                // M-20 Fix — Configure list key (To assign unique key to prevent index recycling glitches)
                 items(section.books, key = { relatedSectionBookKey("author", sectionIndex, section.name, it) }) { book ->
                     RelatedAudiobookItem(book, onBookClick, onPlayClick)
                 }
@@ -76,7 +69,6 @@ fun RelatedBooksView(
                 item(key = relatedSectionHeaderKey("narrator", sectionIndex, section.name)) {
                     RelatedSectionHeader(stringResource(R.string.player_related_more_by_narrator, section.name))
                 }
-                // M-20 Fix — Configure narrator list key (To assign compound keys to avoid key duplicate errors)
                 items(section.books, key = { relatedSectionBookKey("narrator", sectionIndex, section.name, it) }) { book ->
                     RelatedAudiobookItem(book, onBookClick, onPlayClick)
                 }
@@ -87,7 +79,6 @@ fun RelatedBooksView(
             item(key = "recent:header") {
                 RelatedSectionHeader(stringResource(R.string.recently_added_title))
             }
-            // M-20 Fix — Configure recent list key (To assign prefix keys to prevent section key collisions)
             items(recentBooks, key = { "recent:${it.id}" }) { book ->
                 RelatedAudiobookItem(book, onBookClick, onPlayClick)
             }
@@ -96,7 +87,7 @@ fun RelatedBooksView(
 }
 
 /**
- * Related Section Header Key (Preserves LazyColumn identity across repeated creator groups)
+ * Preserves LazyColumn identity across repeated creator groups.
  *
  * Related recommendations may include the same creator label more than once after metadata splitting, so the section
  * index is part of the key instead of relying on the creator name alone.
@@ -106,7 +97,7 @@ private fun relatedSectionHeaderKey(sectionType: String, sectionIndex: Int, sect
 }
 
 /**
- * Related Section Book Key (Allows one book to appear under multiple recommendation groups)
+ * Allows one book to appear under multiple recommendation groups.
  *
  * Compose requires item keys to be globally unique inside one LazyColumn. Including the section identity keeps repeated
  * book IDs valid when a title matches several author or narrator sections.
@@ -127,14 +118,10 @@ private fun RelatedSectionHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
-        // Related Header Overflow Clamp (Keep long creator names from expanding the player panel)
-        // The bounded width, single-line limit, and ellipsis preserve section rhythm under narrow widths and large font scales.
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .fillMaxWidth()
-            // Related Header Gutter (Align section titles with the shared player/list horizontal rhythm)
-            // Keeping this tied to AppWindowSizeClass prevents recommendation headings from drifting on wider layouts.
             .padding(
                 start = 0.dp,
                 top = 24.dp,
@@ -145,7 +132,7 @@ private fun RelatedSectionHeader(title: String) {
 }
 
 /**
- * Related Audiobook Item (Recommendation row action bridge)
+ * Recommendation row action bridge.
  *
  * Routes the container tap to Detail navigation and the embedded play button to playback, matching
  * Home list semantics without letting this shared row know either destination implementation.
@@ -161,14 +148,10 @@ private fun RelatedAudiobookItem(
         author = book.author,
         narrator = book.narrator,
         duration = book.totalDurationMs,
-        // Small image loading strategy (To retrieve small cover thumbnail images)
-        // Matches thumbnail caches with home lists and compact players.
         coverPath = CoverImageSourceSelector.small(
             thumbnailPath = book.thumbnailPath,
             coverPath = book.coverPath
         ),
-        // Refresh modification timestamp (To forward lastScannedAt parameters)
-        // Forces views reload when cover images are regenerated.
         coverLastUpdated = book.coverLastUpdated,
         progressPercent = book.progressPercent,
         contentPadding = PaddingValues(
@@ -202,7 +185,6 @@ fun RelatedBooksViewPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             RelatedBooksView(
                 currentBookId = "id0",
-                // Supply heuristic recommendations mock data in preview
                 heuristicBooks = mockList,
                 authorSections = listOf(PlayerRelatedSection("Author Name", mockList)),
                 narratorSections = listOf(PlayerRelatedSection("Narrator Name", mockList)),

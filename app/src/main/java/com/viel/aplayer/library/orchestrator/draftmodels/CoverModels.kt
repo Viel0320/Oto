@@ -8,18 +8,14 @@ import com.viel.aplayer.media.manifest.HeuristicAggregationPlan
 import com.viel.aplayer.media.parser.CoverExtractor
 
 /**
- * Audiobook Cover Processing Models (Asset Pipeline Models)
+ * Cover-binding models shared by the import orchestration steps.
  *
- * Extracted from the legacy CoverExtractStep.kt to hold the five core audiobook cover state models.
- * They are utilized downstream within the ownership claim steps and core orchestration segments.
- *
- * Keeping these models decoupled prevents compile-time breakdowns when specific processing steps are refactored or deleted.
+ * Keeping these small result shapes separate lets ownership decisions consume cover outcomes without
+ * depending on parser-specific draft types.
  */
 
 /**
- * Consolidated Cover Extraction Results (Data Model)
- *
- * Aggregates processed cover results for CUE lists, M3U8 lists, heuristic folders, and loose single audio files.
+ * Aggregates cover results for CUE lists, M3U8 lists, heuristic folders, and loose single audio files.
  */
 internal data class CoverExtractedResult(
     val cueBooks: List<CoverExtractedCue>,
@@ -29,8 +25,6 @@ internal data class CoverExtractedResult(
 )
 
 /**
- * CUE Book Cover Processing Draft (Data Model)
- *
  * Represents an audiobook parsed from a CUE manifest with its associated extracted cover result.
  */
 internal data class CoverExtractedCue(
@@ -41,8 +35,6 @@ internal data class CoverExtractedCue(
 )
 
 /**
- * M3U8 Book Cover Processing Draft (Data Model)
- *
  * Represents an audiobook parsed from an M3U8 playlist with its associated extracted cover result.
  */
 internal data class CoverExtractedM3u8(
@@ -53,8 +45,6 @@ internal data class CoverExtractedM3u8(
 )
 
 /**
- * Heuristic Audiobook Cover Processing Draft (Data Model)
- *
  * Represents an audiobook grouped via folder-level heuristics with its associated extracted cover result.
  */
 internal data class CoverExtractedAggregated(
@@ -64,8 +54,6 @@ internal data class CoverExtractedAggregated(
 )
 
 /**
- * Single File Audiobook Cover Processing Draft (Data Model)
- *
  * Represents an audiobook compiled from a single audio track with its associated extracted cover result.
  */
 internal data class CoverExtractedSingle(

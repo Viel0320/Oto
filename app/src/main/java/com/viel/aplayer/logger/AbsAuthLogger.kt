@@ -1,7 +1,7 @@
 package com.viel.aplayer.logger
 
 /**
- * ABS Authentication Logger (Authentication and server connection detection logs)
+ * Authentication and server connection detection logs.
  *
  * Boundaries of responsibility:
  * 1. Only logs events related to login, status, authorize, libraries, and credential store.

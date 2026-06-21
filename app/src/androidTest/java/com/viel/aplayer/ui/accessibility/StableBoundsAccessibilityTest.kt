@@ -1,7 +1,5 @@
 package com.viel.aplayer.ui.accessibility
 
-// Relocate mini-player components to the ui/player package
-// Updated imports to com.viel.aplayer.ui.player to compile with the unified player structure.
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -43,7 +41,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Stable Bounds Accessibility Test (Locks compact controls and metadata chips under constrained layouts)
+ * Locks compact controls and metadata chips under constrained layouts.
  *
  * Exercises the individual UI slices named in the accessibility finding so compact player,
  * Detail, and About regressions are caught without coupling these checks to full app navigation.
@@ -60,8 +58,6 @@ class StableBoundsAccessibilityTest {
 
         composeRule.setContent {
             APlayerTheme(dynamicColor = false) {
-                // Pill Player Fixture (Render the narrow transport command in isolation)
-                // The play/pause IconButton is the accessibility target under test, while media metadata is irrelevant here.
                 PillCompactMediaPlayer(
                     bookId = "accessibility-pill-book",
                     isPlaying = false,
@@ -70,8 +66,6 @@ class StableBoundsAccessibilityTest {
             }
         }
 
-        // Pill Transport Target Contract (Require click semantics and the Android 48.dp minimum target)
-        // This catches regressions where the visual pill keeps a compact icon but shrinks the focusable command surface.
         composeRule
             .onNodeWithContentDescription(playDescription)
             .assertHasClickAction()
@@ -87,8 +81,6 @@ class StableBoundsAccessibilityTest {
 
         composeRule.setContent {
             APlayerTheme(dynamicColor = false) {
-                // About Link Fixture (Render the license list that owns project homepage commands)
-                // The first visible project link is enough to validate the shared LibraryCard icon-button contract.
                 AboutLibrariesScreen(
                     onBack = {},
                     glassEffectMode = GlassEffectMode.Material
@@ -96,8 +88,6 @@ class StableBoundsAccessibilityTest {
             }
         }
 
-        // About Project Link Target Contract (Keep external-link commands reachable by touch and Switch Access)
-        // The assertion protects the icon-only action from inheriting the old 36.dp visual button as its hit area.
         composeRule
             .onAllNodesWithContentDescription(visitDescription)
             .onFirst()
@@ -117,8 +107,6 @@ class StableBoundsAccessibilityTest {
 
         composeRule.setContent {
             APlayerTheme(dynamicColor = false) {
-                // Detail Chip Large Font Fixture (Force a narrow parent and enlarged text scale)
-                // A long localized-style value exercises the metadata row's worst case without loading DetailRoute state.
                 val baseDensity = LocalDensity.current
                 CompositionLocalProvider(
                     LocalDensity provides Density(
@@ -145,12 +133,8 @@ class StableBoundsAccessibilityTest {
             }
         }
 
-        // Detail Chip Bounds Contract (Keep chip layout within the parent width under large fonts)
-        // Text may truncate, but the measured chip surface must stay inside its narrow Detail control panel lane.
         composeRule.assertNodeWidthAtMost(chipTag, narrowWidth)
 
-        // Detail Chip Pixel Overflow Contract (Verify text is clipped before it paints outside the chip lane)
-        // The root background gives the screenshot a known clean area to the right of the narrow chip.
         composeRule.assertNoNonBackgroundPixelsBeyond(
             rootTag = rootTag,
             boundary = narrowWidth + 4.dp,
@@ -159,8 +143,6 @@ class StableBoundsAccessibilityTest {
     }
 
     private companion object {
-        // Layout Width Assertion (Compare measured semantics width against a dp contract)
-        // Compose test APIs expose minimum-size helpers, so this local helper covers the maximum-bound chip regression.
         private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.assertNodeWidthAtMost(
             tag: String,
             maxWidth: Dp
@@ -174,8 +156,6 @@ class StableBoundsAccessibilityTest {
             )
         }
 
-        // Pixel Overflow Assertion (Detect rendered glyphs outside the expected chip boundary)
-        // This guards against TextOverflow.Visible, which can draw past a constrained Text node without changing layout size.
         private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.assertNoNonBackgroundPixelsBeyond(
             rootTag: String,
             boundary: Dp,
@@ -197,16 +177,12 @@ class StableBoundsAccessibilityTest {
             assertEquals("Expected no painted pixels beyond $startX px", 0, paintedPixels)
         }
 
-        // Color Tolerance Match (Allow one-byte channel variance from screenshot readback)
-        // Pixel capture can quantize colors, so exact float equality would make the overflow assertion noisy.
         private fun Color.isCloseTo(expected: Color): Boolean =
             kotlin.math.abs(red - expected.red) < 0.01f &&
                 kotlin.math.abs(green - expected.green) < 0.01f &&
                 kotlin.math.abs(blue - expected.blue) < 0.01f &&
                 kotlin.math.abs(alpha - expected.alpha) < 0.01f
 
-        // Test Tag Modifier Adapter (Keep the production component free of test-only parameters)
-        // Wrapping the standard testTag call behind a named adapter documents why the modifier exists here.
         private fun Modifier.androidxComposeUiTestTag(tag: String): Modifier =
             this.testTag(tag)
     }

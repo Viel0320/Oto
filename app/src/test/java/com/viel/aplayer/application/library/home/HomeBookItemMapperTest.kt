@@ -13,8 +13,6 @@ class HomeBookItemMapperTest {
 
     @Test
     fun testToDetailBookItemMapping() {
-        // Create Mock HomeBookItem (Set up dummy data to verify complete boundary mapping fields)
-        // All fields from HomeBookItem should correctly propagate to the newly created DetailBookItem instance.
         val homeBook = HomeBookItem(
             id = "test-id",
             rootId = "test-root-id",
@@ -40,12 +38,8 @@ class HomeBookItemMapperTest {
             isNotStarted = false
         )
 
-        // Perform Mapping (Convert the HomeBookItem to DetailBookItem)
-        // Verifies the extension function successfully translates the data object.
         val detailBook = homeBook.toDetailBookItem()
 
-        // Assert Fields (Validate each mapped field for correctness and equality)
-        // Ensures that no fields are lost or corrupted during the layer boundary projection.
         assertEquals(homeBook.id, detailBook.id)
         assertEquals(homeBook.rootId, detailBook.rootId)
         assertEquals(homeBook.sourceType, detailBook.sourceType)

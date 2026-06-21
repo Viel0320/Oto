@@ -1,7 +1,7 @@
 package com.viel.aplayer.media.subtitle
 
 /**
- * Subtitle Line Model (Media-domain caption cue)
+ * Media-domain caption cue.
  *
  * Represents one parsed external subtitle cue independently from Compose UI so parsers, resolvers,
  * playback plans, and screens can share the same media model without data-to-UI package coupling.

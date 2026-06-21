@@ -29,8 +29,6 @@ class RoomDirectoryListingCacheTest {
         cache.replaceChildren(directory, listOf(child))
         val restored = cache.getChildren(directory)
 
-        // WebDAV Cache Persistence (Confirms scanner listing snapshots round trip through the cache)
-        // A WebDAV directory must persist direct child metadata under rootId plus parentSourcePath and then return that metadata on later reads.
         assertEquals(listOf(child), restored)
         assertEquals("root-1", dao.replacedRootId)
         assertEquals("folder", dao.replacedParentSourcePath)
@@ -47,8 +45,6 @@ class RoomDirectoryListingCacheTest {
 
         val restored = cache.getChildren(directory)
 
-        // Cache Miss Signal (Preserves provider fallback when no child snapshot exists)
-        // Null signals the VFS to call the provider and refresh Room instead of treating an absent snapshot as a completed empty directory.
         assertNull(restored)
     }
 
@@ -64,8 +60,6 @@ class RoomDirectoryListingCacheTest {
 
         cache.getChildren(sampleDirectory(sourceType = AudiobookSchema.LibrarySourceType.WEBDAV))
 
-        // Freshness Query Boundary (Keeps TTL enforcement inside the Room-backed cache adapter)
-        // The DAO must receive a cachedAt lower bound so expired rows return as a cache miss instead of stale child metadata.
         assertEquals(7_500L, dao.lastMinCachedAt)
     }
 
@@ -80,8 +74,6 @@ class RoomDirectoryListingCacheTest {
         safCache.replaceChildren(sampleDirectory(sourceType = AudiobookSchema.LibrarySourceType.SAF), listOf(child))
         absCache.replaceChildren(sampleDirectory(sourceType = AudiobookSchema.LibrarySourceType.ABS), listOf(child))
 
-        // Provider Boundary Guard (Keeps non-WebDAV sources on live provider listings)
-        // SAF and ABS roots must not populate directory_child_cache because their availability and catalog semantics differ from WebDAV scans.
         assertEquals(0, safDao.replaceCallCount)
         assertEquals(0, absDao.replaceCallCount)
         assertNull(safCache.getChildren(sampleDirectory(sourceType = AudiobookSchema.LibrarySourceType.SAF)))
@@ -95,12 +87,9 @@ class RoomDirectoryListingCacheTest {
 
         cache.evictRoot("root-1")
 
-        // Explicit Root Eviction (Verifies cleanup can be requested before root deletion)
-        // The cache layer forwards root-level eviction to the DAO while foreign-key cascade remains the final database guard.
         assertEquals("root-1", dao.deletedRootId)
     }
 
-    // Update RoomDirectoryListingCacheTest: Change sampleDirectory signature to use type-safe AudiobookSchema.LibrarySourceType enum.
     private fun sampleDirectory(sourceType: AudiobookSchema.LibrarySourceType): VfsNode {
         val root = LibraryRootEntity(
             id = "root-1",

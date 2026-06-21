@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dark Theme Overlay (Theme configurations for dark mode under values-night directory) -->
-    <!-- Inherits from system-native android:Theme.DeviceDefault.NoActionBar to ensure zero-dependency compilation and smooth system-level theme transitions. -->
-    <!-- This fully satisfies light/dark style guidelines without importing external AppCompat dependencies. -->
     <style name="Theme.APlayer" parent="android:Theme.DeviceDefault.NoActionBar" />
 </resources>

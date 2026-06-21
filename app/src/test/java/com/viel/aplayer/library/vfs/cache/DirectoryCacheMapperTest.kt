@@ -29,15 +29,11 @@ class DirectoryCacheMapperTest {
         )
         val restored = DirectoryCacheMapper.toMetadata(entity)
 
-        // Cache Key Format (Protects replacement identity across repeated directory scans)
-        // The primary key must combine rootId, parentSourcePath, and sourcePath exactly so one child row is replaced rather than duplicated.
         assertEquals("root-1|folder|folder/book.m4b", entity.cacheKey)
         assertEquals("root-1", entity.rootId)
         assertEquals("folder", entity.parentSourcePath)
         assertEquals(9000L, entity.cachedAt)
 
-        // Metadata Preservation (Keeps VFS coordinates intact without provider-native handles)
-        // Every SourceFileMetadata field required by scanner traversal must survive the Room entity round trip unchanged.
         assertEquals(metadata, restored)
     }
 
@@ -49,8 +45,6 @@ class DirectoryCacheMapperTest {
             sourcePath = "book.m4b"
         )
 
-        // Root Parent Key Format (Distinguishes root children from nested children)
-        // A blank parentSourcePath remains part of the cache key so root listings do not collide with similarly named nested folders.
         assertEquals("root-1||book.m4b", key)
     }
 }

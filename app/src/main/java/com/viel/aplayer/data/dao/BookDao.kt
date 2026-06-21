@@ -18,7 +18,7 @@ import com.viel.aplayer.timeline.PositionMapper
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Book Cover Cache Paths Projection (Reads only cover file coordinates for root cache eviction)
+ * Reads only cover file coordinates for root cache eviction.
  * Keeps root-deletion cleanup from loading full BookEntity rows when it only needs sandboxed cover and thumbnail paths.
  */
 data class BookCoverCachePaths(
@@ -27,7 +27,7 @@ data class BookCoverCachePaths(
 )
 
 /**
- * Deleted Book Recovery Projection (Carries only list-row fields needed by the recovery scene)
+ * Carries only list-row fields needed by the recovery scene.
  * Keeps the restore page from observing full Room entities while preserving cover cache busting and retained progress display.
  */
 data class DeletedBookRecoveryProjection(
@@ -43,7 +43,7 @@ data class DeletedBookRecoveryProjection(
 )
 
 /**
- * Lightweight Book Entity Projection (Omits heavy text fields like description, generatedManifestJson, and heuristicRuleVersion to optimize query IO)
+ * Omits heavy text fields like description, generatedManifestJson, and heuristicRuleVersion to optimize query IO.
  */
 data class BookMinEntity(
     val id: String,
@@ -89,7 +89,7 @@ data class BookMinEntity(
 }
 
 /**
- * Lightweight Book With Progress Projection (Combines BookMinEntity with its BookProgressEntity)
+ * Combines BookMinEntity with its BookProgressEntity.
  */
 data class BookMinWithProgress(
     @Embedded val book: BookMinEntity,
@@ -107,17 +107,14 @@ data class BookMinWithProgress(
 
 @Dao
 interface BookDao {
-    // UI lists hide soft-deleted books while their BookFile claims stay reserved.
     @Query("SELECT * FROM books WHERE status != 'DELETED' ORDER BY title ASC")
     fun getAllBooks(): Flow<List<BookEntity>>
 
-    // Direct Snapshot Query (Suspended query to retrieve active books in a single shot for sync task initialization)
-    // This avoids consuming Flow data streams when only a state check is needed.
     @Query("SELECT * FROM books WHERE status != 'DELETED'")
     suspend fun getAllBooksOnce(): List<BookEntity>
 
     /**
-     * Cover Recovery Sweep Candidates (Bounded startup self-heal snapshot)
+     * Bounded startup self-heal snapshot.
      * Prioritizes books with missing stored artwork paths, then samples the oldest scanned books so cold-start recovery
      * no longer walks the whole catalog or performs unbounded cache-presence checks while Home is settling.
      */
@@ -133,20 +130,19 @@ interface BookDao {
     """)
     suspend fun getCoverRecoveryCandidates(limit: Int): List<BookEntity>
 
-    // UI lists hide soft-deleted books while their BookFile claims stay reserved.
     @Transaction
     @Query("""
-        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
-               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
-               lastScannedAt, status, readStatus, series 
-        FROM books 
-        WHERE status != 'DELETED' 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year,
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt,
+               lastScannedAt, status, readStatus, series
+        FROM books
+        WHERE status != 'DELETED'
         ORDER BY title ASC
     """)
     fun getAllBooksWithProgress(): Flow<List<BookMinWithProgress>>
 
     /**
-     * Home Catalog Projection Stream (Reads the shelf fields and progress in one query)
+     * Reads the shelf fields and progress in one query.
      *
      * Avoids Room @Relation fan-out for the first-screen catalog by joining the single progress row directly and
      * computing Home's progress percentage in SQL. Heavy fields intentionally stay out of the projection.
@@ -183,7 +179,7 @@ interface BookDao {
     fun observeHomeCatalogRows(): Flow<List<HomeCatalogRow>>
 
     /**
-     * Deleted Books Recovery Stream (Projects soft-deleted catalog rows for manual recovery)
+     * Projects soft-deleted catalog rows for manual recovery.
      * Joins retained progress and root labels without exposing full entity graphs to the settings recovery page.
      */
     @Query("""
@@ -216,30 +212,27 @@ interface BookDao {
     fun observeBookById(id: String): Flow<BookEntity?>
 
     /**
-     * Observe Library Source Type (Stream the protocol/provider type of a book's root library)
+     * Stream the protocol/provider type of a book's root library.
      * Detail presentation layers use this type-safe enum to check if the book is hosted on a local SAF provider,
      * allowing the UI to bypass manual cache actions for natively offline files.
      */
     @Query("""
-        SELECT library_roots.sourceType 
-        FROM books 
-        INNER JOIN library_roots ON library_roots.id = books.rootId 
+        SELECT library_roots.sourceType
+        FROM books
+        INNER JOIN library_roots ON library_roots.id = books.rootId
         WHERE books.id = :bookId
     """)
     fun observeBookLibrarySourceType(bookId: String): Flow<AudiobookSchema.LibrarySourceType?>
 
-    // Update Book Status Signature: Update status parameter type to BookStatus enum for compile-time safety.
     @Query("UPDATE books SET status = :status WHERE id = :id")
     suspend fun updateBookStatus(id: String, status: AudiobookSchema.BookStatus)
 
     @Query("UPDATE books SET lastScannedAt = :lastScannedAt WHERE id = :id")
     suspend fun updateBookLastScannedAt(id: String, lastScannedAt: Long)
 
-    // Rescan builds ExistingClaimIndex from all persisted file ownership rows.
     @Query("SELECT * FROM book_files")
     suspend fun getAllBookFilesOnce(): List<BookFileEntity>
 
-    // Cold-start light scans only re-check previously missing audio rows, not every old file.
     @Query("""
         SELECT book_files.* FROM book_files
         INNER JOIN books ON books.id = book_files.bookId
@@ -256,12 +249,10 @@ interface BookDao {
     @Delete
     suspend fun deleteBook(book: BookEntity)
 
-    // Remove updateBackgroundColor (Deprecate database cover color writes) Clean SQL queries to align with field removal.
-
     @Transaction
     @Query("""
-        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
-               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year,
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt,
                lastScannedAt, status, readStatus, series FROM books
         WHERE status != 'DELETED'
         AND (
@@ -275,9 +266,9 @@ interface BookDao {
 
     @Transaction
     @Query("""
-        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
-               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
-               lastScannedAt, status, readStatus, series FROM books 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year,
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt,
+               lastScannedAt, status, readStatus, series FROM books
         WHERE status != 'DELETED'
         AND (year LIKE '%' || :year || '%' OR (:year = 'Unknown' AND (year = '' OR year IS NULL)))
         ORDER BY title ASC
@@ -286,9 +277,9 @@ interface BookDao {
 
     @Transaction
     @Query("""
-        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
-               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
-               lastScannedAt, status, readStatus, series FROM books 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year,
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt,
+               lastScannedAt, status, readStatus, series FROM books
         WHERE status != 'DELETED'
         AND (author LIKE '%' || :author || '%' OR (:author = 'Unknown' AND (author = '' OR author IS NULL)))
         ORDER BY title ASC
@@ -297,9 +288,9 @@ interface BookDao {
 
     @Transaction
     @Query("""
-        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
-               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
-               lastScannedAt, status, readStatus, series FROM books 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year,
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt,
+               lastScannedAt, status, readStatus, series FROM books
         WHERE status != 'DELETED'
         AND (narrator LIKE '%' || :narrator || '%' OR (:narrator = 'Unknown' AND (narrator = '' OR narrator IS NULL)))
         ORDER BY title ASC
@@ -308,9 +299,9 @@ interface BookDao {
 
     @Transaction
     @Query("""
-        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
-               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
-               lastScannedAt, status, readStatus, series FROM books 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year,
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt,
+               lastScannedAt, status, readStatus, series FROM books
         WHERE status != 'DELETED'
         AND (author LIKE '%' || :author || '%' OR (:author = 'Unknown' AND (author = '' OR author IS NULL)))
         AND id != :excludeId
@@ -321,9 +312,9 @@ interface BookDao {
 
     @Transaction
     @Query("""
-        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
-               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
-               lastScannedAt, status, readStatus, series FROM books 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year,
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt,
+               lastScannedAt, status, readStatus, series FROM books
         WHERE status != 'DELETED'
         AND (narrator LIKE '%' || :narrator || '%' OR (:narrator = 'Unknown' AND (narrator = '' OR narrator IS NULL)))
         AND id != :excludeId
@@ -332,29 +323,28 @@ interface BookDao {
     """)
     fun filterByNarratorLimitedWithProgress(narrator: String, excludeId: String, limit: Int): Flow<List<BookMinWithProgress>>
 
-    // Recently added UI excludes soft-deleted books.
     @Transaction
     @Query("""
-        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
-               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
-               lastScannedAt, status, readStatus, series 
-        FROM books 
-        WHERE status != 'DELETED' 
-        ORDER BY addedAt DESC 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year,
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt,
+               lastScannedAt, status, readStatus, series
+        FROM books
+        WHERE status != 'DELETED'
+        ORDER BY addedAt DESC
         LIMIT :limit
     """)
     fun getRecentlyAddedWithProgress(limit: Int): Flow<List<BookMinWithProgress>>
 
     @Transaction
     @Query("""
-        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year, 
-               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt, 
-               lastScannedAt, status, readStatus, series FROM books 
+        SELECT id, rootId, sourceType, sourceRoot, title, author, narrator, year,
+               totalDurationMs, totalFileSize, coverPath, thumbnailPath, addedAt,
+               lastScannedAt, status, readStatus, series FROM books
         WHERE status != 'DELETED'
         AND id != :currentId
-        AND author NOT IN (:authors) 
-        AND narrator NOT IN (:narrators) 
-        ORDER BY addedAt DESC 
+        AND author NOT IN (:authors)
+        AND narrator NOT IN (:narrators)
+        ORDER BY addedAt DESC
         LIMIT :limit
     """)
     fun getRecentlyAddedExclusiveWithProgress(
@@ -364,43 +354,32 @@ interface BookDao {
         limit: Int
     ): Flow<List<BookMinWithProgress>>
 
-    // BookFile rows include both SOURCE_MANIFEST and AUDIO ownership facts.
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBookFiles(files: List<BookFileEntity>)
 
-    // Playback-facing file flow must exclude SOURCE_MANIFEST rows.
     @Query("SELECT * FROM book_files WHERE bookId = :bookId AND fileRole = 'AUDIO' ORDER BY `index` ASC")
     fun getFilesForBook(bookId: String): Flow<List<BookFileEntity>>
 
-    // Playback and progress mapping use only AUDIO files.
     @Query("SELECT * FROM book_files WHERE bookId = :bookId AND fileRole = 'AUDIO' ORDER BY `index` ASC")
     suspend fun getFilesForBookList(bookId: String): List<BookFileEntity>
 
-    // Complete File Listing (Retrieves all physical book files including media tracks and manifest records)
-    // Useful on detail screens to inspect actual file configurations.
     @Query("SELECT * FROM book_files WHERE bookId = :bookId ORDER BY `index` ASC")
     suspend fun getAllFilesForBookList(bookId: String): List<BookFileEntity>
 
-    // Stable ID Resolution (Resolves the associated BookFileEntity via its unique ID as exposed in MediaItem.mediaId)
-    // Keeps playback and subtitle layers isolated from raw file URI queries.
     @Query("SELECT * FROM book_files WHERE id = :id AND fileRole = 'AUDIO' LIMIT 1")
     suspend fun getBookFileById(id: String): BookFileEntity?
 
-    // File Owner Lookup (Maps a persisted audio file identifier back to its parent book)
-    // Download synchronization uses this narrow query to group Media3 file-level changes without loading full BookEntity rows.
     @Query("SELECT bookId FROM book_files WHERE id = :fileId LIMIT 1")
     suspend fun getBookIdByFileId(fileId: String): String?
 
     @Query("UPDATE book_files SET status = :status, lastSeenScanId = :scanId WHERE id = :id")
     suspend fun updateBookFileStatus(id: String, status: AudiobookSchema.FileStatus, scanId: String? = null)
 
-    // Batch Status Updates (Updates multiple file reachability flags inside a single SQL IN transaction)
-    // Prevents repetitive database writes from lagging UI threads during library verification.
     @Query("UPDATE book_files SET status = :status, lastSeenScanId = :scanId WHERE id IN (:ids)")
     suspend fun updateBookFileStatuses(ids: List<String>, status: AudiobookSchema.FileStatus, scanId: String? = null)
 
     /**
-     * Ready Restore Transaction (Reactivates a still-deleted book and marks readable audio rows ready)
+     * Reactivates a still-deleted book and marks readable audio rows ready.
      * Returns false when the row no longer exists or has already left DELETED, preventing stale dialogs from rewriting current state.
      */
     @Transaction
@@ -415,7 +394,7 @@ interface BookDao {
     }
 
     /**
-     * Partial Restore Transaction (Reactivates a still-deleted book with split READY and MISSING audio rows)
+     * Reactivates a still-deleted book with split READY and MISSING audio rows.
      * Preserves existing progress and metadata while committing the partial-playability decision atomically.
      */
     @Transaction
@@ -435,15 +414,12 @@ interface BookDao {
         return true
     }
 
-    // BookProgress is created only when playback/seek/save actually happens.
     @Query("SELECT * FROM book_progress WHERE bookId = :bookId")
     fun getProgressForBook(bookId: String): Flow<BookProgressEntity?>
 
     @Query("SELECT * FROM book_progress WHERE bookId = :bookId")
     suspend fun getProgressForBookSync(bookId: String): BookProgressEntity?
 
-    // Cold Start Session Healing (Queries progress of the last played book that is incomplete (progress < 99%))
-    // Prevents completed audiobooks from being restored into the miniplayer during cold startup loops.
     @Query("""
         SELECT book_progress.* FROM book_progress
         INNER JOIN books ON books.id = book_progress.bookId
@@ -460,23 +436,17 @@ interface BookDao {
     @Query("UPDATE books SET title = :title, author = :author, narrator = :narrator, description = :description, totalDurationMs = :duration WHERE id = :id")
     suspend fun updateMetadata(id: String, title: String, author: String, narrator: String, description: String, duration: Long)
 
-    // Save Metadata Edits (Updates logical book details including title, creator, narrator, release year, and series name)
-    // Updates the series field along with other editable metadata in books table.
     @Query("UPDATE books SET title = :title, author = :author, narrator = :narrator, description = :description, year = :year, series = :series WHERE id = :id")
     suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String)
 
-    // Partial Cover Path Resolution (Re-persists cover location and scan timestamps after cache clearance)
-    // Updates specific columns to prevent overwrite race conditions and triggers Flow emissions for UI redraws.
     @Query("UPDATE books SET coverPath = :coverPath, thumbnailPath = :thumbnailPath, lastScannedAt = :lastScannedAt WHERE id = :id")
     suspend fun updateCoverPaths(id: String, coverPath: String?, thumbnailPath: String?, lastScannedAt: Long)
 
-    // Root Directory Teardown Helper (Retrieves books associated with a target root ID to safely delete cached cover files)
-    // This avoids piling up orphaned thumbnail files in sandboxed application caches.
     @Query("SELECT * FROM books WHERE rootId = :rootId")
     suspend fun getBooksByRootId(rootId: String): List<BookEntity>
 
     /**
-     * Root Book Id Projection (Collects download cleanup targets before cascade deletion)
+     * Collects download cleanup targets before cascade deletion.
      * Root-management use cases need only stable book ids for manual-cache cleanup, so this query avoids loading cover,
      * metadata, and progress-facing columns.
      */
@@ -484,31 +454,28 @@ interface BookDao {
     suspend fun getBookIdsByRootId(rootId: String): List<String>
 
     /**
-     * Physical Book Removal (Force wipes all book rows belonging to a root directory)
+     * Force wipes all book rows belonging to a root directory.
      * Cascades down to physical audio records and chapter segments automatically.
      */
     @Query("DELETE FROM books WHERE rootId = :rootId")
     suspend fun deleteBooksByRootId(rootId: String)
 
-    // Root Cover Cache Projection (Retrieves only cache file paths belonging to one root)
-    // Used by CacheEvictionCoordinator before root deletion so cleanup avoids reading metadata, progress, or file ownership columns.
     @Query("SELECT coverPath, thumbnailPath FROM books WHERE rootId = :rootId")
     suspend fun getCoverCachePathsByRootId(rootId: String): List<BookCoverCachePaths>
 
     /**
-     * Book Cover Cache Projection (Retrieves only one book's cache file paths)
+     * Retrieves only one book's cache file paths.
      * Book-management cleanup runs before soft deletion, so it reads the artwork paths while the row is still active enough
      * to identify its owned cached files.
      */
     @Query("SELECT coverPath, thumbnailPath FROM books WHERE id = :bookId")
     suspend fun getCoverCachePathsByBookId(bookId: String): BookCoverCachePaths?
 
-    // Update Read Status Signature: Update readStatus parameter type to ReadStatus enum for compile-time safety.
     @Query("UPDATE books SET readStatus = :readStatus WHERE id = :id")
     suspend fun updateBookReadStatus(id: String, readStatus: AudiobookSchema.ReadStatus)
 
     /**
-     * Atomic Progress Transaction (Atomically executes reading, mapping, inserting, and readStatus updates within a transaction)
+     * Atomically executes reading, mapping, inserting, and readStatus updates within a transaction.
      * Utilizes Room's @Transaction mechanism to combine multi-step writes into a single database transaction.
      * This avoids read-modify-write race conditions under concurrent progress reports and maintains database consistency.
      */
@@ -516,12 +483,10 @@ interface BookDao {
     suspend fun updateProgressWithReadStatus(bookId: String, position: Long, currentTime: Long): Boolean {
         val progress = getProgressForBookSync(bookId)
         if (progress != null && currentTime < progress.lastPlayedAt) {
-            // Progress Ordering Guard (Reject stale checkpoints before they mutate progress or read state)
-            // Delayed polling, seek, track-switch, and remote-sync writes must not roll the persisted playback position back behind a newer checkpoint.
             return false
         }
         val files = getFilesForBookList(bookId)
-        
+
         if (files.isNotEmpty()) {
             val (fileIndex, posInFile) = PositionMapper.globalToFilePosition(position, files)
             val bookFileId = files.getOrNull(fileIndex)?.id
@@ -549,7 +514,6 @@ interface BookDao {
             ))
         }
 
-        // Read State Correlation (Dynamically transition readStatus flags based on calculated position progress)
         val book = getBookById(bookId)
         if (book != null) {
             val nextStatus = when {

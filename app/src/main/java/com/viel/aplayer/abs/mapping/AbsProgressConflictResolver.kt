@@ -6,7 +6,7 @@ import com.viel.aplayer.data.entity.BookProgressEntity
 
 class AbsProgressConflictResolver {
     /**
-     * Progress Conflict Decision (Classifies local and remote progress into deterministic sync actions)
+     * Classifies local and remote progress into deterministic sync actions.
      * Keeps comparison rules outside transport/session classes so upload and playback prompts share the same behavior.
      */
     enum class Decision {
@@ -17,7 +17,7 @@ class AbsProgressConflictResolver {
     }
 
     /**
-     * Progress Conflict Threshold (Filters out harmless clock and polling drift)
+     * Filters out harmless clock and polling drift.
      * ABS reports seconds while APlayer stores milliseconds, so playback checkpoints within thirty seconds are treated as equivalent drift.
      */
     companion object {
@@ -25,10 +25,9 @@ class AbsProgressConflictResolver {
     }
 
     /**
-     * Resolve Progress Decision (Compares positions after converting ABS seconds into local milliseconds)
+     * Compares positions after converting ABS seconds into local milliseconds.
      * Returns Conflict whenever both sides have meaningful progress and their positions diverge beyond the drift threshold.
      */
-    // Update localReadStatus parameter type to ReadStatus enum for type safety.
     fun resolve(
         local: BookProgressEntity?,
         remote: AbsUserProgressDto?,
@@ -41,10 +40,9 @@ class AbsProgressConflictResolver {
     }
 
     /**
-     * Resolve Local Candidates (Compares already-mapped local progress entities)
+     * Compares already-mapped local progress entities.
      * Playback prompts use this overload after the remote DTO has been converted into the same unit model as Room progress.
      */
-    // Update localReadStatus parameter type to ReadStatus enum for type safety.
     fun resolveLocalCandidates(
         local: BookProgressEntity?,
         remote: BookProgressEntity?,
@@ -58,10 +56,9 @@ class AbsProgressConflictResolver {
     }
 
     /**
-     * Finished State Conflict (Treats completed-vs-incomplete disagreement as a user-visible conflict)
+     * Treats completed-vs-incomplete disagreement as a user-visible conflict.
      * A nearly identical timestamp can still represent different semantic progress when one side marks the book finished and the other does not.
      */
-    // Update localReadStatus type to ReadStatus enum for type safety.
     private fun hasFinishedConflict(localReadStatus: AudiobookSchema.ReadStatus?, remoteIsFinished: Boolean?): Boolean {
         if (remoteIsFinished == null || localReadStatus == null) return false
         val localIsFinished = localReadStatus == AudiobookSchema.ReadStatus.FINISHED
@@ -77,7 +74,6 @@ class AbsProgressConflictResolver {
         }
     }
 
-    // Update localReadStatus parameter type to ReadStatus enum for type safety.
     fun shouldApplyRemoteProgress(
         local: BookProgressEntity?,
         remote: AbsUserProgressDto?,
@@ -99,10 +95,9 @@ class AbsProgressConflictResolver {
     }
 
     /**
-     * Local Upload Freshness Gate (Lets newer device checkpoints overwrite stale server progress)
+     * Lets newer device checkpoints overwrite stale server progress.
      * A large position delta alone is not a conflict when the local save happened after the last known ABS checkpoint.
      */
-    // Update localReadStatus parameter type to ReadStatus enum for type safety.
     fun shouldUploadLocalProgress(
         local: BookProgressEntity,
         remote: AbsUserProgressDto?,
@@ -116,7 +111,7 @@ class AbsProgressConflictResolver {
         }
 
     /**
-     * Remote Position Normalization (Supports both absolute seconds and ratio-duration ABS payloads)
+     * Supports both absolute seconds and ratio-duration ABS payloads.
      * authorize.user.mediaProgress can be the startup sync source, so conflict checks must understand the same progress shapes as the mapper.
      */
     private fun AbsUserProgressDto.resolvedPositionMs(): Long? {

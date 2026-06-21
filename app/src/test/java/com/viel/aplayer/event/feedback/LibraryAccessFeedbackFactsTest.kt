@@ -6,7 +6,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 /**
- * Library Access Feedback Facts Test (Locks the library-access aggregation identity and access-form separation)
+ * Locks the library-access aggregation identity and access-form separation.
  *
  * Verifies the topic follows the user task while the access form and root/draft stay as context, so one
  * access form or root never absorbs another, and the ABS remote-progress failure stays keyed to the book
@@ -25,7 +25,6 @@ class LibraryAccessFeedbackFactsTest {
             FeedbackContext.DraftLibraryAccess("draft-1", LibraryAccessForm.WEBDAV),
             webDav.context
         )
-        // Same topic and draft id, different access form must not absorb each other.
         assertEquals(webDav.topic, abs.topic)
         assertNotEquals(webDav, abs)
     }
@@ -35,7 +34,6 @@ class LibraryAccessFeedbackFactsTest {
         val success = LibraryAccessFeedbackFacts.webDavConnectionSucceeded("draft-1").outcome
         val failure = LibraryAccessFeedbackFacts.webDavConnectionFailed("draft-1", "boom").outcome
 
-        // A failed test replaces a completed test for the same draft, so the identity must match.
         assertEquals(success.identity, failure.identity)
         assertEquals(FeedbackSeverity.COMPLETED, success.severity)
         assertEquals(FeedbackSeverity.FAILED, failure.severity)
@@ -51,7 +49,6 @@ class LibraryAccessFeedbackFactsTest {
             FeedbackContext.LibraryRoot("root-1", LibraryAccessForm.WEBDAV),
             webDav.context
         )
-        // Same root id, different access form keeps the identities apart.
         assertNotEquals(webDav, local)
     }
 
@@ -94,7 +91,6 @@ class LibraryAccessFeedbackFactsTest {
         val bookKeyed = LibraryAccessFeedbackFacts.remoteProgressSaveFailed("book-7", null).outcome.identity
         val rootKeyed = LibraryAccessFeedbackFacts.syncFailed("root-1", "boom").outcome.identity
 
-        // Same category and topic, but book context and root context must never merge.
         assertEquals(bookKeyed.topic, rootKeyed.topic)
         assertNotEquals(bookKeyed, rootKeyed)
     }

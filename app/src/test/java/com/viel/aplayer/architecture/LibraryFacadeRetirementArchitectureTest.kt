@@ -5,7 +5,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Library Facade Retirement Guard (Prevents UI dependencies from reopening the retired broad facade)
+ * Prevents UI dependencies from reopening the retired broad facade.
  * Locks phase-five boundaries so presentation code and dependency views keep using scene-specific seams.
  */
 class LibraryFacadeRetirementArchitectureTest {
@@ -24,8 +24,6 @@ class LibraryFacadeRetirementArchitectureTest {
 
     @Test
     fun presentationDependenciesDoNotExposeLibraryPresentationDependencies() {
-        // Title: Update di path in test (Point to di/dependencies/PresentationDependencies.kt)
-        // Changes relative path to target the dependencies subdirectory under di.
         val presentationDependencies = resolveSourceRoot()
             .resolve("di/dependencies/PresentationDependencies.kt")
             .readText()
@@ -52,8 +50,6 @@ class LibraryFacadeRetirementArchitectureTest {
     }
 
     private fun resolveSourceRoot(): File {
-        // Source Root Resolution (Supports both module and repository working directories)
-        // Gradle can execute JVM tests from different directories, so the test checks both stable source-root candidates.
         val candidates = listOf(
             File("src/main/java/com/viel/aplayer"),
             File("app/src/main/java/com/viel/aplayer")

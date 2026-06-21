@@ -19,8 +19,6 @@ import org.robolectric.annotation.Config
 import java.io.File
 import kotlin.io.path.createTempDirectory
 
-// Local Android Runtime Alignment (Runs AndroidX DataStore through the same SDK path as other repository tests)
-// Robolectric avoids android.jar stub behavior while keeping preference corruption scenarios deterministic on the JVM.
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class AppSettingsRepositoryTest {
@@ -31,8 +29,6 @@ class AppSettingsRepositoryTest {
         val settingsFlowDeclaration = source.indexOf("val settingsFlow: Flow<AppSettings>")
         val collectorInitBlock = source.indexOf("init {")
 
-        // Repository Initialization Order Guard (Prevents the startup collector from observing a null settingsFlow field)
-        // Kotlin initializes properties and init blocks in source order, so settingsFlow must be assigned before the init block launches the background cache collector.
         assertTrue("settingsFlow declaration must exist.", settingsFlowDeclaration >= 0)
         assertTrue("cache collector init block must exist.", collectorInitBlock >= 0)
         assertTrue(
@@ -48,8 +44,6 @@ class AppSettingsRepositoryTest {
 
         repository.updateDynamicColorEnabled(false)
 
-        // Cached Settings Collector Startup (Reproduces the app-start crash path without launching Android UI)
-        // The repository background collector must be able to read settingsFlow after construction; if Kotlin property order leaves that flow uninitialized, cachedSettings never receives this DataStore update.
         assertTrue(
             "cachedSettings must receive DataStore updates after repository construction.",
             eventually { !repository.cachedSettings.isDynamicColorEnabled }
@@ -69,8 +63,6 @@ class AppSettingsRepositoryTest {
 
         restoredCases.forEachIndexed { index, restored ->
             dataStore.edit { preferences ->
-                // Raw Migration Seed (Writes backup-style values directly into DataStore)
-                // This bypasses UI sliders and repository write methods so the test exercises the read boundary itself.
                 preferences[globalPlaybackSpeedKey] = restored.speed
                 preferences[autoRewindSecondsKey] = restored.rewindSeconds
             }
@@ -86,8 +78,6 @@ class AppSettingsRepositoryTest {
     fun `settings flow migrates and normalizes restored playback buffer settings`() = runBlocking {
         val dataStore = createSettingsDataStore(testName = "read-playback-buffer")
         dataStore.edit { preferences ->
-            // Legacy Playback Buffer Migration Seed (Simulate restored preferences from the removed disk-cache design)
-            // The repository must migrate the old disk-cache key into the new memory-buffer key while preserving download policy.
             preferences[legacyPlaybackCacheMaxBytesKey] = 11L * 1024L * 1024L * 1024L
             preferences[legacyPlaybackBufferDurationMsKey] = 999_999
             preferences[isDownloadWifiOnlyKey] = false
@@ -114,7 +104,6 @@ class AppSettingsRepositoryTest {
         val dataStore = createSettingsDataStore(testName = "read-filters")
         val repository = AppSettingsRepository.createForTesting(dataStore)
 
-        // Raw Filter Seeds (Seed raw string preferences directly in DataStore to test deserialization)
         dataStore.edit { preferences ->
             preferences[stringPreferencesKey("home_filter")] = "Finished"
             preferences[stringPreferencesKey("home_book_status_filter")] = "Partial"
@@ -124,7 +113,6 @@ class AppSettingsRepositoryTest {
         assertEquals(com.viel.aplayer.shared.settings.HomeFilter.Finished, settings.homeFilter)
         assertEquals(com.viel.aplayer.shared.settings.HomeBookStatusFilter.Partial, settings.homeBookStatusFilter)
 
-        // Fallback Filter Seeds (Seed invalid values to test safe fallback behavior)
         dataStore.edit { preferences ->
             preferences[stringPreferencesKey("home_filter")] = "InvalidFilterName"
             preferences[stringPreferencesKey("home_book_status_filter")] = "InvalidStatusName"
@@ -196,22 +184,16 @@ class AppSettingsRepositoryTest {
     private fun createSettingsDataStore(testName: String) =
         PreferenceDataStoreFactory.create(
             produceFile = {
-                // Isolated DataStore File (Prevents active DataStore instances from sharing the same preferences path)
-                // Each test owns a unique temp directory so raw preference seeds cannot leak across repository assertions.
                 File(createTempDirectory(prefix = "app-settings-repository-$testName").toFile(), "app_settings.preferences_pb")
             }
         )
 
-    // Repository Source Locator (Finds production source from either repository-root or module-root test execution)
-    // Source-order tests need the Kotlin file itself because the crash depends on declaration order rather than public API shape.
     private fun repoFile(path: String): File {
         val candidates = listOf(File(path), File("../$path"))
         return candidates.firstOrNull { file -> file.exists() }
             ?: error("Could not locate $path from ${File(".").absolutePath}")
     }
 
-    // Eventually Assertion Helper (Waits for repository-owned Dispatchers.IO work without replacing production dispatchers)
-    // AppSettingsRepository intentionally owns its background cache scope, so this helper polls the observable cached state instead of reaching into private coroutine jobs.
     private suspend fun eventually(timeoutMs: Long = 1_000, predicate: suspend () -> Boolean): Boolean {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
@@ -229,28 +211,16 @@ class AppSettingsRepositoryTest {
     )
 
     companion object {
-        // Raw Playback Speed Key (Mirrors the persisted preference name to simulate restored DataStore payloads)
-        // Tests intentionally recreate the key instead of reaching into repository internals, matching how backups store raw fields.
         private val globalPlaybackSpeedKey = floatPreferencesKey("global_playback_speed")
 
-        // Raw Auto-Rewind Key (Mirrors the persisted preference name to simulate restored DataStore payloads)
-        // Direct seeding lets the read-boundary test cover stale and damaged values that normal UI controls cannot create.
         private val autoRewindSecondsKey = intPreferencesKey("auto_rewind_seconds")
 
-        // Legacy Disk Cache Key (Mirrors the removed playback disk-cache field to verify DataStore migration)
-        // Tests seed this key directly so repository migration is verified at the persistence boundary.
         private val legacyPlaybackCacheMaxBytesKey = longPreferencesKey("playback_cache_max_bytes")
 
-        // Raw Playback Buffer Size Key (Mirrors the new memory-buffer size field)
-        // Tests inspect this key directly so repository write normalization is verified at the persistence boundary.
         private val playbackBufferMaxBytesKey = longPreferencesKey("playback_buffer_max_bytes")
 
-        // Legacy Playback Buffer Duration Key (Mirrors the removed duration field for cleanup migration)
-        // Direct key access lets tests cover invalid restored durations that UI controls cannot emit.
         private val legacyPlaybackBufferDurationMsKey = intPreferencesKey("playback_buffer_duration_ms")
 
-        // Raw Download WiFi Key (Mirrors the DataStore field used by manual download requirements)
-        // Direct key access lets tests prove policy writes do not require a DownloadManager instance.
         private val isDownloadWifiOnlyKey = booleanPreferencesKey("is_download_wifi_only")
     }
 }

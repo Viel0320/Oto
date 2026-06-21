@@ -8,45 +8,43 @@ import androidx.media3.exoplayer.scheduler.Requirements
 @OptIn(UnstableApi::class)
 interface DownloadRuntimeGateway {
     /**
-     * Add File Download (Submit one Media3 file-level request)
+     * Submit one Media3 file-level request.
      * Requests must use BookFileEntity.id as both DownloadRequest.id and customCacheKey so manual-cache playback can find downloads.
      */
     fun addDownload(request: DownloadRequest)
 
     /**
-     * Remove File Download (Delete one Media3 download record and its cached bytes)
+     * Delete one Media3 download record and its cached bytes.
      * Book-level cleanup resolves individual file IDs before calling this narrow operation.
      */
     fun removeDownload(fileId: String)
 
     /**
-     * Pause All Downloads (Delegate global pause to Media3)
+     * Delegate global pause to Media3.
      * Book-level pause semantics are projected through metadata while Media3 owns the actual queue stop.
      */
     fun pauseDownloads()
 
     /**
-     * Resume All Downloads (Delegate global resume to Media3)
+     * Delegate global resume to Media3.
      * The first resume call is allowed to lazily resolve DownloadManager because it represents user-visible download work.
      */
     fun resumeDownloads()
 
     /**
-     * Set File Stop Reason (Apply Media3's per-download pause marker)
+     * Apply Media3's per-download pause marker.
      * Book-level pause and resume commands call this for each remote audio file so one book does not stop the whole queue.
      */
     fun setStopReason(fileId: String, reason: Int)
 
     /**
-     * Update Network Requirements (Apply the persisted WiFi policy to an already-created runtime)
+     * Apply the persisted WiFi policy to an already-created runtime.
      * Settings writes can skip this call when the runtime has not been resolved yet.
      */
     fun updateRequirements(wifiOnly: Boolean)
 }
 
 @OptIn(UnstableApi::class)
-// Download Service Command Adapter (Keeps application download commands detached from Android service classes)
-// DownloadGraph supplies concrete service command functions, so this gateway never imports APlayerDownloadService or exposes raw DownloadManager ownership.
 class DefaultDownloadRuntimeGateway(
     private val addDownloadCommand: (DownloadRequest) -> Unit,
     private val removeDownloadCommand: (String) -> Unit,
@@ -76,8 +74,6 @@ class DefaultDownloadRuntimeGateway(
     }
 
     override fun updateRequirements(wifiOnly: Boolean) {
-        // Download Network Requirement Mapping (Translate app settings into Media3 scheduler requirements)
-        // WiFi-only mode requires unmetered connectivity, while normal mode only requires an available network for remote media downloads.
         val requirements = if (wifiOnly) {
             Requirements(Requirements.NETWORK_UNMETERED)
         } else {

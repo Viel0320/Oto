@@ -13,25 +13,25 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-// Create BookmarkViewModel (Manages bookmarks list updates and dialog overlays)
-// This ViewModel encapsulates all add, edit, delete, and dialog editing states for bookmarks.
+/**
+ * Owns bookmark dialog state while delegating bookmark mutations to the player bookmark command boundary.
+ */
 class BookmarkViewModel(
     application: Application,
     rawExternalScope: CoroutineScope? = null
 ) : AndroidViewModel(application) {
 
-    // Shift scope to viewModelScope to prevent lifecycle leaks and screen rotation freezes
-    // Fall back to viewModelScope if rawExternalScope is null to ensure coroutines are correctly managed.
     private val externalScope = rawExternalScope ?: viewModelScope
 
-    // Resolve dependencies (Fetches bookmark scene commands and app-event sink from presentation di)
     private val playerDependencies = APlayerApplication.getPlayerScreenDependencies(application)
     private val bookmarkCommands = playerDependencies.playerBookmarkCommands
     private val appEventSink = playerDependencies.appEventSink
 
     private val bookmarkManager = BookmarkManager(bookmarkCommands, externalScope)
 
-    // Bookmark dialogs state definition (Holds active edit and delete confirmation dialog structures)
+    /**
+     * Captures the currently active bookmark confirmation or edit draft.
+     */
     data class BookmarkDialogsState(
         val toDelete: PlayerBookmarkItem? = null,
         val toEdit: PlayerBookmarkItem? = null,
@@ -41,22 +41,18 @@ class BookmarkViewModel(
     private val _bookmarkDialogs = MutableStateFlow(BookmarkDialogsState())
     val bookmarkDialogs: StateFlow<BookmarkDialogsState> = _bookmarkDialogs.asStateFlow()
 
-    // Request bookmark deletion (Pushes bookmark delete target to show confirmation modal dialog)
     fun requestDeleteBookmark(b: PlayerBookmarkItem) {
         _bookmarkDialogs.update { it.copy(toDelete = b) }
     }
 
-    // Request bookmark editing (Pushes edit target and prefills edit text title fields)
     fun requestEditBookmark(b: PlayerBookmarkItem) {
         _bookmarkDialogs.update { it.copy(toEdit = b, editTitle = b.title) }
     }
 
-    // Update edit text (Syncs title text updates to the active edit state)
     fun onBookmarkEditTitleChange(t: String) {
         _bookmarkDialogs.update { it.copy(editTitle = t) }
     }
 
-    // Dismiss active bookmark dialogs (Wipes active bookmark edit buffers)
     fun dismissBookmarkDialogs() {
         _bookmarkDialogs.value = BookmarkDialogsState()
     }
@@ -73,11 +69,9 @@ class BookmarkViewModel(
         bookmarkManager.addBookmark(bookId, position, title)
     }
 
-    // Save bookmark from dialog (Adds bookmark with name or resource default title and notifies user)
     fun saveBookmarkFromDialog(bookId: String, position: Long, title: String) {
         addBookmark(bookId, position, title.ifBlank { defaultBookmarkTitle() })
         dismissBookmarkDialogs()
-        // Bookmark feedback is keyed by book so it converges with the media-session BookmarkCreated path.
         appEventSink.emitFeedback(BookManagementFeedbackFacts.bookmarkCreated(bookId))
     }
 

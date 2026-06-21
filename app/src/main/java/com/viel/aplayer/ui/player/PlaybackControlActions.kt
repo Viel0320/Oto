@@ -13,7 +13,7 @@ data class PlaybackControlActions(
     val onNextChapter: () -> Unit = {},
     val onPreviousChapter: () -> Unit = {},
     /**
-     * Missing Chapter Intent (Reports a tapped chapter whose backing file is gone)
+     * Reports a tapped chapter whose backing file is gone.
      *
      * Leaf chapter rows raise this intent with the book id; the command owner publishes the recovery
      * feedback fact, keeping feedback classification out of the composable.

@@ -35,7 +35,7 @@ data class WebDavResolvedCredentials(
 )
 
 /**
- * Settings Query Use Case (Aggregates settings screen read models and credential lookups)
+ * Aggregates settings screen read models and credential lookups.
  * SettingsViewModel now consumes this compact interface instead of reaching into Room DAOs or protocol credential stores directly.
  */
 class SettingsQueryUseCase(
@@ -51,14 +51,10 @@ class SettingsQueryUseCase(
         absSyncStateDao.observeAll(),
         bookDao.getAllBooks()
     ) { roots, syncStates, books ->
-        // Settings Root Snapshot Aggregation (Combines root, sync, and imported book count streams)
-        // The ViewModel receives one presentation-ready query stream without knowing which database tables provide the fields.
         val bookCountsByRootId = books.groupingBy { book -> book.rootId }.eachCount()
         val syncByRootId = syncStates.associateBy { state -> state.rootId }
         roots.map { root ->
             val sync = syncByRootId[root.id]
-            // Settings Root Snapshot Projection (Strip Room entity shape before the presentation seam)
-            // The settings scene receives only scalar root facts needed for display and root-scoped commands, while entity-only behavior remains inside application/data adapters.
             LibraryRootSettingsSnapshot(
                 rootId = root.id,
                 sourceType = root.sourceType,
@@ -95,8 +91,6 @@ class SettingsQueryUseCase(
         val existingCredential = libraryRootDao.getRootById(editingRootId)
             ?.credentialId
             ?.let(webDavCredentialStore::get)
-        // Edit Dialog Credential Backfill (Allows connection tests when unchanged fields remain blank)
-        // The query use case retrieves stored WebDAV secrets so the ViewModel does not touch credential storage.
         WebDavResolvedCredentials(
             username = username.ifBlank { existingCredential?.username.orEmpty() },
             password = password.ifBlank { existingCredential?.password.orEmpty() }

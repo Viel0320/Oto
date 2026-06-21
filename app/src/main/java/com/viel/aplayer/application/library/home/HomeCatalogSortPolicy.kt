@@ -7,7 +7,7 @@ import com.viel.aplayer.shared.settings.HomeSortRule
 import java.util.Locale
 
 /**
- * Home Catalog Organization (Sorted rows plus section groups from one projection pass)
+ * Sorted rows plus section groups from one projection pass.
  *
  * Carries both Home list outputs so callers can avoid sorting rows and then recomputing group labels
  * over the same batch immediately afterward.
@@ -18,7 +18,7 @@ data class HomeCatalogOrganization(
 )
 
 /**
- * Home Catalog Sort Policy (Orders Home catalog sections by script cluster and locale collation)
+ * Orders Home catalog sections by script cluster and locale collation.
  *
  * The policy keeps bookshelf ordering out of LibraryViewModel while making the mixed-script behavior explicit:
  * Chinese/Han, Japanese kana, Korean hangul, English/Latin, then all remaining scripts.
@@ -85,9 +85,6 @@ object HomeCatalogSortPolicy {
         sortDirection: HomeSortDirection
     ): List<HomeSortProjection> {
         val collators = checkNotNull(threadLocalCollators.get())
-        // Script Cluster Projection (Cache sort keys before comparison)
-        // Kotlin's comparator can invoke comparisons repeatedly, so each book receives one immutable projection containing
-        // the selected metadata key, its script cluster, display fallback, and deterministic tie breakers.
         return books
             .map { book -> HomeSortProjection(book = book, sortRule = sortRule) }
             .sortedWith { left, right ->
@@ -105,8 +102,6 @@ object HomeCatalogSortPolicy {
         if (cluster != 0) return cluster
 
         val collator = collators.getValue(left.cluster)
-        // In-Cluster Direction Application (Flip locale collation only after the script cluster rank is fixed)
-        // This preserves the required C -> J -> K -> E -> Other stream while still supporting ascending and descending inside each cluster.
         val directionMultiplier = if (sortDirection == HomeSortDirection.Ascending) 1 else -1
         val primary = collator.compare(left.groupLabel, right.groupLabel) * directionMultiplier
         if (primary != 0) return primary
@@ -148,8 +143,6 @@ object HomeCatalogSortPolicy {
 
         fun createCollator(): Collator {
             return Collator.getInstance(locale).apply {
-                // Locale Primary Strength (Ignore case and accent differences inside the same script cluster)
-                // Home catalog grouping should keep visually equivalent creator names together while id remains the final tie breaker.
                 strength = Collator.PRIMARY
             }
         }
@@ -158,8 +151,6 @@ object HomeCatalogSortPolicy {
             fun from(text: String): HomeScriptCluster {
                 val codePoints = text.codePoints().iterator()
                 while (codePoints.hasNext()) {
-                    // Significant Script Scan (Ignore punctuation, spaces, and inherited marks until a real script appears)
-                    // This lets names such as "[Alice]" or "01 가나다" still enter the English or Korean cluster instead of being trapped as Other.
                     when (Character.UnicodeScript.of(codePoints.nextInt())) {
                         Character.UnicodeScript.HAN,
                         Character.UnicodeScript.BOPOMOFO -> return Chinese

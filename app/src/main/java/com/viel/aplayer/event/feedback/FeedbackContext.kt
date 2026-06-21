@@ -1,7 +1,7 @@
 package com.viel.aplayer.event.feedback
 
 /**
- * Feedback Topic (User-distinguishable subject within a feedback category)
+ * User-distinguishable subject within a feedback category.
  *
  * Topics follow the user-perceived task, not the component or callback that raised it. Two topics in
  * the same category aggregate independently, so playback speed and sleep timer feedback never absorb
@@ -26,7 +26,7 @@ sealed interface FeedbackTopic {
     data object DownloadNotificationPermission : FeedbackTopic
 
     /**
-     * Data Transfer Topics (Exporting and importing the listener's portable app data)
+     * Exporting and importing the listener's portable app data.
      *
      * Data transfer is app-wide rather than bound to a root, book, or access form, so these topics always
      * pair with [FeedbackContext.Global].
@@ -36,7 +36,7 @@ sealed interface FeedbackTopic {
 }
 
 /**
- * Feedback Context (User-meaningful object that refines an aggregation identity)
+ * User-meaningful object that refines an aggregation identity.
  *
  * Context narrows the topic without replacing it: two downloads for different books share the topic but
  * keep separate contexts. Context must stay free of credentials, tokens, full URLs, and unstable
@@ -55,7 +55,7 @@ sealed interface FeedbackContext {
 }
 
 /**
- * Library Access Form (User-visible way a library becomes available)
+ * User-visible way a library becomes available.
  *
  * Local folders, WebDAV, and Audiobookshelf are peer access forms from the listener's point of view, so
  * they stay part of the aggregation identity instead of being modeled as separate top-level categories.
@@ -67,7 +67,7 @@ enum class LibraryAccessForm {
 }
 
 /**
- * Feedback Task Instance (Distinguishes repeated runs of the same task identity)
+ * Distinguishes repeated runs of the same task identity.
  *
  * A new task instance lets a fresh provisional outcome appear even after an earlier final outcome with
  * the same identity was already shown.

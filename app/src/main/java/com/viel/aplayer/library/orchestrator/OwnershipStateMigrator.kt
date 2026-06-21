@@ -9,7 +9,7 @@ import com.viel.aplayer.library.orchestrator.draftmodels.BookDraft
 import com.viel.aplayer.timeline.PositionMapper
 
 /**
- * Ownership State Migrator (Replacement playback-state policy)
+ * Replacement playback-state policy.
  *
  * Remaps user-owned state from obsolete book ownership rows to a replacement draft.
  * This class is deliberately database-free so BookImporter can remain a transactional persistence boundary.
@@ -17,7 +17,7 @@ import com.viel.aplayer.timeline.PositionMapper
 internal class OwnershipStateMigrator {
 
     /**
-     * Migrate Replacement State (State transformation entry)
+     * State transformation entry.
      *
      * Produces a replacement draft with inherited chronology/read-state plus remapped progress and bookmarks.
      */
@@ -31,11 +31,7 @@ internal class OwnershipStateMigrator {
             remapProgress(progress, oldFilesById, newAudioFiles, input.draft.book.id)
         }
         val migratedBook = input.draft.book.copy(
-            // Replacement Added-Time Preservation (Library chronology continuity)
-            // Keeps the oldest replaced book timestamp so ownership upgrades do not appear as newly added shelf items.
             addedAt = input.oldBooks.minOfOrNull { it.addedAt } ?: input.draft.book.addedAt,
-            // Replacement Read-State Migration (Progress continuity)
-            // Derives the new logical read status from migrated progress and prior completed/in-progress states.
             readStatus = resolveMigratedReadStatus(input.oldBooks, migratedProgress, input.draft.book)
         )
         val migratedBookmarks = input.oldBookmarks.map { bookmark ->
@@ -49,8 +45,6 @@ internal class OwnershipStateMigrator {
         )
     }
 
-    // Progress Anchor Remapping (Stable ownership migration)
-    // Moves progress from an obsolete book to the replacement using file anchors first, falling back to global position when no file match exists.
     private fun remapProgress(
         progress: BookProgressEntity,
         oldFilesById: Map<String, BookFileEntity>,
@@ -87,8 +81,6 @@ internal class OwnershipStateMigrator {
         )
     }
 
-    // Bookmark Anchor Remapping (Stable ownership migration)
-    // Preserves bookmark IDs while moving them to the replacement book so old-book cascade deletion does not erase user notes.
     private fun remapBookmark(
         bookmark: BookmarkEntity,
         oldFilesById: Map<String, BookFileEntity>,
@@ -123,8 +115,6 @@ internal class OwnershipStateMigrator {
         )
     }
 
-    // File Anchor Resolver (Stable path and identity matching)
-    // Matches old and new audio rows by VFS path, provider identity, or fingerprint to survive book ID regeneration during replacement.
     private fun findMatchingNewFile(
         oldFile: BookFileEntity?,
         fallbackFingerprint: String?,
@@ -148,9 +138,6 @@ internal class OwnershipStateMigrator {
             ?.let { fingerprint -> newAudioFiles.firstOrNull { it.fingerprint == fingerprint } }
     }
 
-    // Migrated Read Status Resolver (State continuity)
-    // Recomputes the replacement book's read state from prior book states and the remapped progress position.
-    // Resolve Migrated Read Status: Return type-safe ReadStatus enum instead of String.
     private fun resolveMigratedReadStatus(
         oldBooks: List<BookEntity>,
         migratedProgress: BookProgressEntity?,
@@ -175,7 +162,7 @@ internal class OwnershipStateMigrator {
 }
 
 /**
- * Ownership State Migration Input (Database snapshot boundary)
+ * Database snapshot boundary.
  *
  * Carries the old persisted state and incoming replacement draft into the pure migration algorithm.
  */
@@ -188,7 +175,7 @@ internal data class OwnershipStateMigrationInput(
 )
 
 /**
- * Ownership State Migration Result (Persistence-ready output)
+ * Persistence-ready output.
  *
  * Contains only the rows BookImporter needs to persist after the migration algorithm finishes.
  */

@@ -9,16 +9,15 @@ import com.viel.aplayer.library.availability.isSyncAvailable
 import com.viel.aplayer.library.orchestrator.RescanType
 
 /**
- * Scan Command (Stable ingestion request shape)
+ * Stable ingestion request shape.
  * Keeps trigger interpretation inside the scan module so UI and Worker callers do not duplicate rescan mode decisions.
  */
-// Update ScanCommand to use type-safe AudiobookSchema.ScanTrigger: Changing trigger from String to ScanTrigger enum.
 data class ScanCommand(
     val trigger: AudiobookSchema.ScanTrigger
 )
 
 /**
- * Scan Root Status Adapter (Root preflight seam)
+ * Root preflight seam.
  * Supplies freshly persisted root availability snapshots without exposing LibraryRootStore or Android context to ScanSession.
  */
 fun interface ScanRootStatusAdapter {
@@ -26,7 +25,7 @@ fun interface ScanRootStatusAdapter {
 }
 
 /**
- * Scan Import Adapter (Inventory and transaction seam)
+ * Inventory and transaction seam.
  * Runs the heavy directory inventory and import transaction path after ScanSession has selected the allowed directory roots.
  */
 fun interface ScanImportAdapter {
@@ -34,7 +33,7 @@ fun interface ScanImportAdapter {
 }
 
 /**
- * Scan Library Snapshot Adapter (Post-import catalog seam)
+ * Post-import catalog seam.
  * Reads the minimal catalog state needed for outcome mapping without coupling ScanSession to Room DAOs.
  */
 fun interface ScanLibrarySnapshotAdapter {
@@ -42,7 +41,7 @@ fun interface ScanLibrarySnapshotAdapter {
 }
 
 /**
- * Scan Session (Command-level scan state machine)
+ * Command-level scan state machine.
  * Converts one scan command into one ScanOutcome while infrastructure details stay behind root, import, and snapshot adapters.
  */
 class ScanSession(
@@ -84,8 +83,6 @@ class ScanSession(
             allowedRootIds = availableDirectoryRootIds
         )
         if (session.status != AudiobookSchema.ScanStatus.COMPLETED) {
-            // Completed Session Guard (Only completed sessions can use success or partial scan messages)
-            // Abandoned or running sessions become failed outcomes before WorkManager mapping and before empty-library snapshot reads.
             return ScanOutcomePolicy.fromFailure(
                 IllegalStateException("Scan session ended as ${session.status}")
             )

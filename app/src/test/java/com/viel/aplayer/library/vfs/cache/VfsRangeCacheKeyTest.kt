@@ -26,8 +26,6 @@ class VfsRangeCacheKeyTest {
 
         val key = VfsRangeCacheKey.from(node, offset = 10L, length = 4096)
 
-        // Hashed Range Key Contract (Protects range cache filenames from provider coordinates)
-        // The generated filename must contain only hashed identity segments and numeric bounds, never raw root ids, paths, or etags.
         assertNotNull(key)
         val fileName = key!!.toFileName()
         assertTrue(fileName.endsWith("_10_4096.bin"))
@@ -41,8 +39,6 @@ class VfsRangeCacheKeyTest {
     fun `range key should reject invalid offset and length`() {
         val node = sampleNode()
 
-        // Invalid Range Guard (Prevents malformed cache files for impossible reads)
-        // Negative offsets and non-positive lengths must bypass range caching and delegate directly to the provider.
         assertNull(VfsRangeCacheKey.from(node, offset = -1L, length = 4096))
         assertNull(VfsRangeCacheKey.from(node, offset = 0L, length = 0))
     }
@@ -53,8 +49,6 @@ class VfsRangeCacheKeyTest {
         val second = VfsRangeCacheKey.versionHash(etag = null, lastModified = 101L, fileSize = 200L)
         val key = VfsRangeCacheKey.from(sampleNode(etag = null), offset = 0L, length = 1)
 
-        // Fallback Version Rule (Keeps non-etag sources cacheable through stable metadata)
-        // Changing lastModified or fileSize must produce a different hashed version for providers that do not expose etags.
         assertTrue(first != second)
         assertFalse(first.contains("100"))
         assertFalse(first.contains("200"))
@@ -66,8 +60,6 @@ class VfsRangeCacheKeyTest {
     fun `range key should mark truly versionless metadata without etag or modified time`() {
         val key = VfsRangeCacheKey.from(sampleNode(etag = null, lastModified = 0L), offset = 0L, length = 1)
 
-        // Versionless Range Detection (Applies the shorter TTL only when no remote version coordinate exists)
-        // A positive modified time participates in the version hash, so only missing ETag plus zero modified time should be considered versionless.
         assertNotNull(key)
         assertFalse(key!!.hasProviderVersion)
     }

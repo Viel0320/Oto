@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /**
- * Default Player Library Module (Adapter from granular gateways to the player scene)
+ * Adapter from granular gateways to the player scene.
  * Centralizes playback-page metadata reads, bookmark commands, subtitle loading, cover polling, and active-track availability behind player-scoped seams.
  */
 class DefaultPlayerLibraryModule(
@@ -44,8 +44,6 @@ class DefaultPlayerLibraryModule(
             bookmarkGateway.getBookmarks(bookId),
             subtitles
         ) { book, chapters, bookmarks, subtitleLines ->
-            // Metadata Projection Assembly (Keep player metadata fan-in inside the scene module)
-            // The UI receives one stable projection while the module owns the gateway calls and missing-book fallback.
             if (book == null) {
                 PlayerLibraryMetadata()
             } else {
@@ -125,7 +123,7 @@ class DefaultPlayerLibraryModule(
 }
 
 /**
- * Player Chapter Projection Mapping (Localize Room relation knowledge inside the player adapter)
+ * Localize Room relation knowledge inside the player adapter.
  * Converts chapter/file rows into the timeline and availability fields consumed by the player UI.
  */
 private fun ChapterWithBookFile.toPlayerChapterItem(): PlayerChapterItem {
@@ -144,7 +142,7 @@ private fun ChapterWithBookFile.toPlayerChapterItem(): PlayerChapterItem {
 }
 
 /**
- * Player Bookmark Projection Mapping (Localize bookmark entity shape inside the player adapter)
+ * Localize bookmark entity shape inside the player adapter.
  * Keeps UI bookmark dialogs on player-scene fields while retaining stable persistence anchors for mutations.
  */
 private fun BookmarkEntity.toPlayerBookmarkItem(): PlayerBookmarkItem {
@@ -162,7 +160,7 @@ private fun BookmarkEntity.toPlayerBookmarkItem(): PlayerBookmarkItem {
 }
 
 /**
- * Bookmark Entity Rehydration (Restrict database entity reconstruction to the adapter)
+ * Restrict database entity reconstruction to the adapter.
  * Mutation gateways still accept BookmarkEntity, so the player command adapter rebuilds it from the scene projection.
  */
 private fun PlayerBookmarkItem.toBookmarkEntity(): BookmarkEntity {
@@ -180,7 +178,7 @@ private fun PlayerBookmarkItem.toBookmarkEntity(): BookmarkEntity {
 }
 
 /**
- * Player Related Projection Mapping (Collapse application candidates into player recommendation rows)
+ * Collapse application candidates into player recommendation rows.
  * Recommendation internals stay behind GetRelatedBooksUseCase while the player scene publishes only renderable row fields.
  */
 private fun RelatedData.toPlayerRelatedData(): PlayerRelatedData {
@@ -197,7 +195,7 @@ private fun RelatedData.toPlayerRelatedData(): PlayerRelatedData {
 }
 
 /**
- * Player Related Book Mapping (Translate application candidates into player-scene rows)
+ * Translate application candidates into player-scene rows.
  * The related panel needs only display fields and a playback id, so no data-layer entity or progress relation crosses into the player module.
  */
 private fun RelatedBookCandidate.toPlayerRelatedBook(): PlayerRelatedBook {

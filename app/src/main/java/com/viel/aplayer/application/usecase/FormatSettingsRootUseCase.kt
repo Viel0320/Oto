@@ -17,18 +17,12 @@ import java.util.Locale
  * FormatSettingsRootUseCase: UseCase in the application layer to translate and format persisted
  * library root states into UI-friendly representational item data.
  */
-// Title: FormatSettingsRootUseCase implementation (Encapsulate formatting and localization logic for settings roots)
-// Elevates the legacy static SettingsFormatter class to an inject-friendly use case with context dependencies.
 class FormatSettingsRootUseCase(private val context: Context) {
 
-    // Title: redactAbsError logic (Mask bearer authorization details in error messages)
-    // Use unified AbsLogSanitizer to sanitize sensitive ABS connection error messages.
     fun redactAbsError(error: String): String {
         return AbsLogSanitizer.sanitizeText(error)
     }
 
-    // Title: resolveLibraryRootTitle logic (Build first-line display title for SAF, ABS or WebDAV)
-    // Resolves appropriate name strings based on root source types.
     fun resolveLibraryRootTitle(root: LibraryRootSettingsSnapshot): String =
         when (root.sourceType) {
             AudiobookSchema.LibrarySourceType.WEBDAV ->
@@ -41,8 +35,6 @@ class FormatSettingsRootUseCase(private val context: Context) {
             }
         }
 
-    // Title: resolveLibraryRootStatusText logic (Translate root connectivity and sync statuses)
-    // Resolves status codes to user-facing localized string resource strings using the injected Context.
     fun resolveLibraryRootStatusText(root: LibraryRootSettingsSnapshot): String {
         val resId = when {
             root.status != AudiobookSchema.LibraryRootStatus.ACTIVE ->
@@ -66,8 +58,6 @@ class FormatSettingsRootUseCase(private val context: Context) {
         return context.getString(resId)
     }
 
-    // Title: resolveLibraryRootLocation logic (Construct absolute paths or addresses for target directories)
-    // Directs path parsing based on whether it is remote or native SAF trees.
     fun resolveLibraryRootLocation(root: LibraryRootSettingsSnapshot): String =
         when (root.sourceType) {
             AudiobookSchema.LibrarySourceType.WEBDAV -> "${root.sourceUri}${root.basePath}"
@@ -75,21 +65,15 @@ class FormatSettingsRootUseCase(private val context: Context) {
             else -> formatSafDisplayPath(root.sourceUri)
         }
 
-    // Title: formatSafDisplayPath logic (Decode and prune Android content tree URIs)
-    // Strips redundant content prefixes to expose simpler local paths.
     fun formatSafDisplayPath(sourceUri: String): String {
         val decoded = runCatching { Uri.decode(sourceUri) }.getOrDefault(sourceUri)
         val primaryIndex = decoded.indexOf("primary:")
         return if (primaryIndex >= 0) decoded.substring(primaryIndex) else decoded
     }
 
-    // Title: formatLibraryRootSyncTime logic (Convert sync timestamps into local date representations)
-    // Standardizes timestamp mapping across local and remote sources.
     fun formatLibraryRootSyncTime(timestampMs: Long?, notSyncedText: String): String =
         timestampMs?.takeIf { it > 0L }?.let(::formatDate) ?: notSyncedText
 
-    // Title: resolveConnectionFailureMessage logic (Translate validation and server exception types)
-    // Maps network, security, and protocol errors to corresponding UI alert messages.
     fun resolveConnectionFailureMessage(error: Throwable): String {
         return when (error) {
             is UnsafeNetworkPolicyViolation ->
@@ -110,8 +94,6 @@ class FormatSettingsRootUseCase(private val context: Context) {
         }
     }
 
-    // Title: formatSnapshot mapping logic (Convert library root snapshot into SettingsRootItem)
-    // Collects all individual formatting utilities into a unified map entry call, avoiding manual assembly in ViewModels.
     fun formatSnapshot(snapshot: LibraryRootSettingsSnapshot): SettingsRootItem {
         val isAbsRoot = snapshot.sourceType == AudiobookSchema.LibrarySourceType.ABS
         return SettingsRootItem(

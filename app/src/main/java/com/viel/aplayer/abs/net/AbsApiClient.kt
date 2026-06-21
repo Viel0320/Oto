@@ -44,7 +44,7 @@ import javax.net.ssl.X509TrustManager
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Server Version Constraints (First ABS integration only supports server versions greater than or equal to 2.35.1)
+ * First ABS integration only supports server versions greater than or equal to 2.35.1.
  * This baseline is solid based on current API responses, method structures, and track parameters.
  * Lower server versions are rejected immediately during connectivity handshake checks to prevent partial incompatibilities.
  */
@@ -64,7 +64,7 @@ interface AbsApiClient {
     suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>, credentialId: String?): List<AbsLibraryItemDto> =
         batchGetItems(baseUrl, token, itemIds)
     /**
-     * Remote Progress Probe (Reads the user's item progress without mutating playback session state)
+     * Reads the user's item progress without mutating playback session state.
      * Implementations should return null for ABS 404 responses because a missing remote progress record is a valid no-progress state.
      */
     suspend fun getProgressOrNull(baseUrl: String, token: String, itemId: String): AbsUserProgressDto? = null
@@ -82,7 +82,7 @@ interface AbsApiClient {
 }
 
 /**
- * ABS API Transport Boundary (OkHttp requests and Moshi parsing rules are consolidated within this class)
+ * OkHttp requests and Moshi parsing rules are consolidated within this class.
  */
 class RealAbsApiClient(
     client: OkHttpClient? = null,
@@ -91,11 +91,9 @@ class RealAbsApiClient(
     private val settingsProvider: () -> AppSettings = {
         appSettingsRepository?.cachedSettings ?: AppSettings()
     },
-    // Pure Codegen: Instantiate Moshi without reflection support since all DTOs have generated adapters.
     private val moshi: Moshi = Moshi.Builder().build()
 ) : AbsApiClient, AbsTokenRefreshClient {
 
-    // Unsafe Trust Manager: Custom trust manager that bypasses certificate path validation checks for self-signed servers.
     private val unsafeTrustManager = @SuppressLint("CustomX509TrustManager")
     object : X509TrustManager {
         @SuppressLint("TrustAllX509TrustManager")
@@ -105,17 +103,14 @@ class RealAbsApiClient(
         override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
     }
 
-    // Unsafe SSL Socket Factory: SSL context initialization bypassing active validation routines using the unsafe trust manager.
     private val unsafeSslSocketFactory = run {
         val sslContext = SSLContext.getInstance("TLS")
         sslContext.init(null, arrayOf<TrustManager>(unsafeTrustManager), SecureRandom())
         sslContext.socketFactory
     }
 
-    // Unsafe Hostname Verifier: Null hostname verifier accepting any server hostname.
     private val unsafeHostnameVerifier = HostnameVerifier { _, _ -> true }
 
-    // Base Client: Reconfigured client ensuring AbsAuthInterceptor is present.
     private val baseClient = (client ?: defaultClient(credentialStore)).let { c ->
         if (c.interceptors.none { it is AbsAuthInterceptor }) {
             c.newBuilder().addInterceptor(AbsAuthInterceptor(credentialStore)).build()
@@ -124,13 +119,11 @@ class RealAbsApiClient(
         }
     }
 
-    // Unsafe OkHttpClient: Reconfigured OkHttpClient using baseClient.newBuilder() to share the connection pool but bypass SSL checks.
     private val unsafeClient = baseClient.newBuilder()
         .sslSocketFactory(unsafeSslSocketFactory, unsafeTrustManager)
         .hostnameVerifier(unsafeHostnameVerifier)
         .build()
 
-    // Resolve client instance: Dynamically return baseClient or unsafeClient depending on the global unsafe network policy.
     private fun getClient(): OkHttpClient {
         val allowInsecure = UnsafeNetworkPolicy.isInsecureTlsAllowed(settingsProvider())
         return if (allowInsecure) unsafeClient else baseClient
@@ -156,7 +149,6 @@ class RealAbsApiClient(
         )
 
     override suspend fun login(baseUrl: String, username: String, password: String): AbsLoginResponseDto {
-        // Logging Auth Requests (Bypasses legacy logging wrappers to emit logs directly to the dedicated AbsAuthLogger)
         val start = AbsAuthLogger.mark()
         AbsAuthLogger.logLoginRequestStart(baseUrl, username)
         val body = """{"username":${username.toJsonString()},"password":${password.toJsonString()}}"""
@@ -191,7 +183,6 @@ class RealAbsApiClient(
         executeJson(
             request = Request.Builder()
                 .url(resolveApiUrl(baseUrl, "authorize"))
-                // Enforce POST Request (Requires POST method explicitly as defined in integration parameters)
                 .post(EMPTY_JSON_BODY)
                 .tag(AbsAuth::class.java, AbsAuth(token = token))
                 .build(),
@@ -204,8 +195,6 @@ class RealAbsApiClient(
         return mutex.withLock {
             val credential = store.get(credentialId) ?: return@withLock AbsTokenRefreshResult.Failed
             val currentToken = credential.token
-            // Raw Refresh Transport (Bypass request-level 401 retry while refreshing credentials)
-            // The refresh call must not route through executeJson, otherwise authorize failures can recursively trigger another refresh.
             val responseResult = withTimeoutOrNull(REFRESH_TIMEOUT_MS.milliseconds) {
                 runCatching {
                     executeAuthorizeRaw(
@@ -398,7 +387,7 @@ class RealAbsApiClient(
     }
 
     /**
-     * Thread Context Isolation (Delegates API execution to Dispatchers.IO to protect against NetworkOnMainThreadException)
+     * Delegates API execution to Dispatchers.IO to protect against NetworkOnMainThreadException.
      */
     private suspend fun <T> executeJson(
         request: Request,
@@ -426,16 +415,11 @@ class RealAbsApiClient(
 
     private suspend fun <T> executeJsonRaw(request: Request, adapter: JsonAdapter<T>): T {
         return withContext(Dispatchers.IO) {
-                // ABS Cleartext Request Gate (Reject HTTP before credentials or bearer tokens leave the process)
-                // All ABS login, token validation, catalog, playback-session, and progress requests pass this single transport check.
                 validateRequestTransport(request)
                 val response = try {
-                    // Execute Call: Run client matching SSL certificate checks settings.
                     getClient().newCall(request).execute()
                 } catch (error: IOException) {
                     val failure = RemoteAvailabilityMappingPolicy.fromTransportException(error)
-                    // ABS Transport Failure Mapping (Reuses the shared timeout/connectivity classification without changing AbsApiError callers)
-                    // Message text stays protocol-specific, while the availability status and compact code now come from one policy.
                     throw AbsApiError(
                         code = failure.errorCode,
                         availabilityStatus = failure.availabilityStatus,
@@ -472,7 +456,7 @@ class RealAbsApiClient(
     }
 
     /**
-     * Async Void Execution (Switches text responses to Dispatchers.IO context to prevent blocking state collectors)
+     * Switches text responses to Dispatchers.IO context to prevent blocking state collectors.
      */
     private suspend fun executeUnit(request: Request, credentialId: String? = null) {
         try {
@@ -493,16 +477,11 @@ class RealAbsApiClient(
 
     private suspend fun executeUnitRaw(request: Request) {
         withContext(Dispatchers.IO) {
-                // ABS Cleartext Request Gate (Reject HTTP before session mutation requests leave the process)
-                // The same policy protects progress sync and close-session calls, which also carry Bearer credentials.
                 validateRequestTransport(request)
                 val response = try {
-                    // Execute Call: Run client matching SSL certificate checks settings.
                     getClient().newCall(request).execute()
                 } catch (error: IOException) {
                     val failure = RemoteAvailabilityMappingPolicy.fromTransportException(error)
-                    // ABS Unit Transport Failure Mapping (Shares network failure classification with JSON requests)
-                    // Session mutation calls still expose AbsApiError, but no longer duplicate timeout and connectivity status constants.
                     throw AbsApiError(
                         code = failure.errorCode,
                         availabilityStatus = failure.availabilityStatus,
@@ -547,7 +526,7 @@ class RealAbsApiClient(
         AbsUrlResolver.resolveApiUrl(baseUrl, endpoint)
 
     /**
-     * ABS Transport Policy Check (Applies global cleartext settings to resolved request URLs)
+     * Applies global cleartext settings to resolved request URLs.
      *
      * RealAbsApiClient owns the final OkHttp request, making this the last reliable point before
      * login passwords or bearer tokens are attached to network traffic.
@@ -601,7 +580,7 @@ class RealAbsApiClient(
 }
 
 /**
- * Server Version Validator (Verifies server capabilities prior to syncing and throws AbsApiError on mismatch)
+ * Verifies server capabilities prior to syncing and throws AbsApiError on mismatch.
  * Keeps settings components unaware of presentation targets by routing errors through clean throw clauses.
  */
 internal fun ensureSupportedAbsServerVersion(serverVersion: String?) {
@@ -617,7 +596,7 @@ internal fun ensureSupportedAbsServerVersion(serverVersion: String?) {
 }
 
 /**
- * Version Lexicographical Comparison (Compares version string components recursively using numeric offsets)
+ * Compares version string components recursively using numeric offsets.
  * Rules:
  * 1. If any input is blank or non-numeric, it is treated as incompatible and returns -1.
  * 2. Sub-segments are filled with trailing zeros when comparing inputs of differing lengths (e.g. "2.35" maps to "2.35.0").
@@ -638,7 +617,7 @@ internal fun compareAbsServerVersion(left: String?, right: String?): Int {
 }
 
 /**
- * Version String Parser (Converts version blocks to numeric integer segments)
+ * Converts version blocks to numeric integer segments.
  * Returns null on parsing failures to prevent bypassing unsupported formats silently.
  */
 private fun parseAbsServerVersion(version: String?): List<Int>? {

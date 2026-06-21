@@ -1,7 +1,7 @@
 package com.viel.aplayer.event.feedback
 
 /**
- * Playback Control Feedback Facts (Command-owner fact factory for speed and sleep-timer outcomes)
+ * Command-owner fact factory for speed and sleep-timer outcomes.
  *
  * Speed and sleep-timer selection feedback is produced by the command owner after the control state
  * changes, not by the leaf composable. Both use the playback control category and context; rapid taps
@@ -11,7 +11,7 @@ package com.viel.aplayer.event.feedback
 object PlaybackControlFeedbackFacts {
 
     /**
-     * Playback Speed Changed (Final selected speed after a tap settles)
+     * Final selected speed after a tap settles.
      *
      * A speed of 1.0 reports the reset copy so the user-visible wording matches the previous behavior.
      */
@@ -25,7 +25,7 @@ object PlaybackControlFeedbackFacts {
             )
         }
 
-    /** Playback Speed Reset (Speed returned to the 1.0 baseline). */
+    /** Speed returned to the 1.0 baseline. */
     fun playbackSpeedReset(): FeedbackFact =
         playbackControlFact(
             message = FeedbackMessages.playbackSpeedReset(),
@@ -33,7 +33,7 @@ object PlaybackControlFeedbackFacts {
         )
 
     /**
-     * Sleep Timer Selected (Final selected sleep-timer mode after a tap settles)
+     * Final selected sleep-timer mode after a tap settles.
      *
      * The numeric selection follows the existing UI mapping: 0 off, -1 five-second test, -2 end of
      * chapter, otherwise a minute count.
@@ -49,47 +49,47 @@ object PlaybackControlFeedbackFacts {
     }
 
     /**
-     * Sleep Shake Extended To Next Chapter (Shake moved the sleep target to the next chapter end)
+     * Shake moved the sleep target to the next chapter end.
      *
      * The timer state actually changed, so this is a completed outcome.
      */
     fun sleepShakeExtendedToNextChapter(): FeedbackFact =
         sleepTimerFact(FeedbackMessages.sleepShakeExtendedToNextChapter(), FeedbackSeverity.COMPLETED)
 
-    /** Sleep Shake Countdown Reset (Shake reset the active minute countdown; state changed). */
+    /** Shake reset the active minute countdown; state changed. */
     fun sleepShakeCountdownReset(): FeedbackFact =
         sleepTimerFact(FeedbackMessages.sleepShakeCountdownReset(), FeedbackSeverity.COMPLETED)
 
-    /** Sleep Shake Test Countdown Reset (Shake reset the diagnostic countdown; state changed). */
+    /** Shake reset the diagnostic countdown; state changed. */
     fun sleepShakeTestCountdownReset(): FeedbackFact =
         sleepTimerFact(FeedbackMessages.sleepShakeTestCountdownReset(), FeedbackSeverity.COMPLETED)
 
     /**
-     * Sleep Shake No Next Chapter (Already the final chapter, shake produced no state change)
+     * Already the final chapter, shake produced no state change.
      *
      * Nothing changed, so this is a plain informational hint rather than a completed outcome.
      */
     fun sleepShakeNoNextChapter(): FeedbackFact =
         sleepTimerFact(FeedbackMessages.sleepShakeNoNextChapter(), FeedbackSeverity.HINT)
 
-    /** Sleep Tracking Countdown Started (System detected stable sleep and began the countdown). */
+    /** System detected stable sleep and began the countdown. */
     fun sleepTrackingCountdownStarted(): FeedbackFact =
         sleepTimerFact(FeedbackMessages.sleepTrackingCountdownStarted(), FeedbackSeverity.STARTED)
 
-    /** Sleep Motion Tracking Paused (Motion paused tracking; informational state notice). */
+    /** Motion paused tracking; informational state notice. */
     fun sleepMotionTrackingPaused(): FeedbackFact =
         sleepTimerFact(FeedbackMessages.sleepMotionTrackingPaused(), FeedbackSeverity.HINT)
 
-    /** Sleep Tracking Paused By Activity (Body activity paused tracking; informational state notice). */
+    /** Body activity paused tracking; informational state notice. */
     fun sleepTrackingPausedByActivity(): FeedbackFact =
         sleepTimerFact(FeedbackMessages.sleepTrackingPausedByActivity(), FeedbackSeverity.HINT)
 
-    /** Sleep Motion Tracking Resumed (Stillness resumed tracking; informational state notice). */
+    /** Stillness resumed tracking; informational state notice. */
     fun sleepMotionTrackingResumed(): FeedbackFact =
         sleepTimerFact(FeedbackMessages.sleepMotionTrackingResumed(), FeedbackSeverity.HINT)
 
     /**
-     * Playback Finished Shutdown Scheduled (Service will close after the completed-queue grace period)
+     * Service will close after the completed-queue grace period.
      *
      * A session-level control outcome, not tied to a specific book; final and informational.
      */
@@ -136,8 +136,6 @@ object PlaybackControlFeedbackFacts {
         )
 
     private fun formatPlaybackSpeed(speed: Float): String {
-        // Keep feedback arguments copy-neutral: trim trailing zero/dot from whole-number speeds while
-        // preserving fractional values such as 0.75 or 1.25.
         val text = speed.toString()
         return text.trimEnd('0').trimEnd('.')
     }

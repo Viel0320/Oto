@@ -4,7 +4,7 @@ import android.os.SystemClock
 import android.util.Log
 
 /**
- * UI Performance Logger (Records Compose boundary churn with stable field names)
+ * Records Compose boundary churn with stable field names.
  *
  * This logger intentionally keeps the schema flat as event, node, count, route, and state so Logcat
  * filters can compare root and page-level recomposition, layout, and continuous draw activity
@@ -14,7 +14,7 @@ internal object UiPerformanceLogger {
     private const val TAG = "UiPerformance"
 
     /**
-     * Elapsed Milliseconds (Expose one clock source for UI trace counters)
+     * Expose one clock source for UI trace counters.
      *
      * Trace modifiers use this monotonic clock to bucket draw bursts without depending on wall-clock
      * time, which keeps diagnostics stable across device sleep, time changes, and locale changes.
@@ -22,7 +22,7 @@ internal object UiPerformanceLogger {
     fun nowMs(): Long = SystemClock.elapsedRealtime()
 
     /**
-     * Log Recomposition Count (Track how often a page boundary commits)
+     * Track how often a page boundary commits.
      *
      * The count field is cumulative for the instrumented node instance, while route and state carry
      * only sanitized presentation facts such as visibility flags, tab names, and collection sizes.
@@ -32,7 +32,7 @@ internal object UiPerformanceLogger {
     }
 
     /**
-     * Log Layout Count (Track page boundary measurement and placement churn)
+     * Track page boundary measurement and placement churn.
      *
      * Width, height, and sizeChanged are emitted as extra fields so a stable count increase can be
      * separated from actual bounds changes when investigating layout invalidation loops.
@@ -60,7 +60,7 @@ internal object UiPerformanceLogger {
     }
 
     /**
-     * Log Draw Window Count (Track sustained drawing without logging every frame)
+     * Track sustained drawing without logging every frame.
      *
      * The count field remains the cumulative draw count for the node, while windowDraws reports how
      * many draw passes occurred inside the sampled window to identify continuous rendering surfaces.

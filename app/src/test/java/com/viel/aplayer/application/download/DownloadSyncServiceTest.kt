@@ -37,8 +37,6 @@ class DownloadSyncServiceTest {
 
         service.reconcileBook(BOOK_ID)
 
-        // DownloadIndex Aggregate Persistence (Writes the book-level state derived from Media3 file rows)
-        // The durable row keeps UI and recovery independent from DownloadManager while preserving file completion counts.
         val metadata = dao.getMetadata(BOOK_ID)
         requireNotNull(metadata)
         assertEquals(DownloadStatus.DOWNLOADING, metadata.status)
@@ -65,8 +63,6 @@ class DownloadSyncServiceTest {
 
         service.reconcileBook(BOOK_ID)
 
-        // Deleted Metadata Guard (Ignore stale callbacks after a user-requested removal)
-        // Removed Media3 rows look like missing requests, but without an existing Room aggregate they must not recreate a queued task.
         assertNull(dao.getMetadata(BOOK_ID))
         assertEquals(listOf(BOOK_ID), notifier.cancelled)
     }
@@ -86,8 +82,6 @@ class DownloadSyncServiceTest {
 
         service.reconcileBook(BOOK_ID)
 
-        // Empty Reconciliation Cleanup (Removes stale manual-download metadata when no files remain)
-        // This protects deleted or rescanned books from showing a phantom offline cache state.
         assertNull(dao.getMetadata(BOOK_ID))
         assertEquals(listOf(BOOK_ID), notifier.cancelled)
     }
@@ -118,8 +112,6 @@ class DownloadSyncServiceTest {
 
         service.reconcileBook(BOOK_ID)
 
-        // Shared Eligibility Reconciliation (Aggregate only the remote audio files that were submitted to Media3)
-        // Local SAF rows must not appear as missing requests, otherwise completed mixed-source books would keep a queued notification.
         val metadata = dao.getMetadata(BOOK_ID)
         requireNotNull(metadata)
         assertEquals(DownloadStatus.COMPLETED, metadata.status)

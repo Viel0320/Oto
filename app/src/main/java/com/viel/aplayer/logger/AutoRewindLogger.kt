@@ -13,7 +13,7 @@ internal object AutoRewindLogger {
     private const val TAG = "AutoRewind"
 
     /**
-     * Log Cold-Start Self-Heal (Record the self-healing progress auto-rewind result after a cold-start abnormal shutdown check)
+     * Record the self-healing progress auto-rewind result after a cold-start abnormal shutdown check.
      *
      * @param bookId The ID of the audiobook being healed
      * @param rewindMs The amount of rewind applied in milliseconds

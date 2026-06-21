@@ -11,7 +11,7 @@ import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
 
 /**
- * Download Notification Helper (Build foreground status for manual offline cache work)
+ * Build foreground status for manual offline cache work.
  *
  * Keeping notification assembly outside APlayerDownloadService leaves the service focused on Media3
  * lifecycle callbacks and makes future management-screen deep links easier to add.
@@ -47,8 +47,6 @@ internal class DownloadNotificationHelper(
     }
 
     private fun createContentIntent(): PendingIntent {
-        // Download Notification Destination (Return users to the main app shell from foreground download status)
-        // The download management UI arrives in a later phase, so the notification targets MainActivity without deep-linking to unfinished screens.
         val intent = Intent(context, MainActivity::class.java)
         return PendingIntent.getActivity(
             context,

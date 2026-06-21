@@ -14,7 +14,7 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.progress.ProgressGateway
 
 /**
- * ABS Authorized Progress Synchronizer (Merges authorize-scoped user progress for any sync trigger)
+ * Merges authorize-scoped user progress for any sync trigger.
  * Startup, manual catalog sync, and background workers can reuse the same full user progress snapshot path without opening playback sessions.
  */
 class AbsAuthorizedProgressSynchronizer(
@@ -29,7 +29,7 @@ class AbsAuthorizedProgressSynchronizer(
     private val isCurrentlyPlaying: (String) -> Boolean = { false }
 ) {
     /**
-     * Sync Root Batch (Processes every registered ABS root as an independent best-effort batch)
+     * Processes every registered ABS root as an independent best-effort batch.
      * A failed root is counted and skipped so one offline server cannot block other ABS accounts in startup-wide refreshes.
      */
     suspend fun sync(roots: List<LibraryRootEntity>): AbsAuthorizedProgressSyncSummary {
@@ -47,7 +47,7 @@ class AbsAuthorizedProgressSynchronizer(
     }
 
     /**
-     * Sync Root Progress (Fetches the full authorize progress list once per root)
+     * Fetches the full authorize progress list once per root.
      * authorize.user.mediaProgress is already user-scoped, so callers avoid per-item progress probes while still using the shared conflict resolver.
      */
     suspend fun syncRoot(root: LibraryRootEntity): AbsAuthorizedProgressSyncSummary {
@@ -65,7 +65,7 @@ class AbsAuthorizedProgressSynchronizer(
     }
 
     /**
-     * Merge Authorized Progress Snapshot (Reuses an already fetched authorize.user.mediaProgress payload)
+     * Reuses an already fetched authorize.user.mediaProgress payload.
      * Catalog synchronization already authorizes the root, so this entry point lets existing sync flows share the merger without a duplicate network call.
      */
     suspend fun mergeAuthorizedProgress(
@@ -87,7 +87,7 @@ class AbsAuthorizedProgressSynchronizer(
     }
 
     /**
-     * Merge Remote Progress (Maps an ABS library item checkpoint onto an existing mirrored local book)
+     * Maps an ABS library item checkpoint onto an existing mirrored local book.
      * Unknown items are skipped because catalog synchronization owns book creation and track metadata materialization.
      */
     private suspend fun mergeRemoteProgress(
@@ -115,15 +115,13 @@ class AbsAuthorizedProgressSynchronizer(
     }
 
     /**
-     * Apply Remote Progress (Persists the resolver-approved checkpoint and aligns readStatus)
+     * Persists the resolver-approved checkpoint and aligns readStatus.
      * ProgressGateway stores the physical file anchor, while BookMetadataGateway updates semantic reading state only when it actually changes.
      */
     private suspend fun applyRemoteProgress(book: BookEntity, remote: AbsUserProgressDto) {
         val files = bookCatalogGateway.getFilesForBookSync(book.id)
         val progress = progressMapper.toProgress(remote, book, files, System.currentTimeMillis())
         progressGateway.saveProgress(progress)
-        // Authorized Progress Read-State Mapping (Uses the same remote-progress status policy as playback conflict acceptance)
-        // The synchronizer persists progress first, then derives semantic readStatus from that mapped local position to avoid duplicate second-to-millisecond rules.
         val nextReadStatus = RemoteProgressReadStatusPolicy.fromRemoteProgress(
             isFinished = remote.isFinished,
             hasPositivePosition = progressMapper.resolvedCurrentTimeSec(remote) > 0.0
@@ -134,7 +132,7 @@ class AbsAuthorizedProgressSynchronizer(
     }
 
     /**
-     * Root Credential Snapshot (Carries the minimum authorize data required for root-wide progress refresh)
+     * Carries the minimum authorize data required for root-wide progress refresh.
      * This keeps authorized progress synchronization independent from playback session lifecycle models.
      */
     data class CredentialSnapshot(
@@ -144,7 +142,7 @@ class AbsAuthorizedProgressSynchronizer(
 }
 
 /**
- * Authorized Progress Sync Summary (Reports user progress merge outcomes without surfacing transport details)
+ * Reports user progress merge outcomes without surfacing transport details.
  * Startup warmup, manual sync, and background workers can log the same compact aggregate across different triggers.
  */
 data class AbsAuthorizedProgressSyncSummary(
@@ -156,7 +154,7 @@ data class AbsAuthorizedProgressSyncSummary(
 )
 
 /**
- * Authorized Progress Summary Merge (Combines per-root outcomes into a single aggregate)
+ * Combines per-root outcomes into a single aggregate.
  * Keeping aggregation beside the summary model prevents callers from duplicating counter math.
  */
 private operator fun AbsAuthorizedProgressSyncSummary.plus(other: AbsAuthorizedProgressSyncSummary): AbsAuthorizedProgressSyncSummary =

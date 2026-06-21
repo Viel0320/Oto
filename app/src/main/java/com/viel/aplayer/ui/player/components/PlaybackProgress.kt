@@ -22,13 +22,11 @@ import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 
 /**
- * Playback progress bar component (PlaybackProgress).
+ * Renders playback progress in whole-book or current-chapter mode.
  *
- * It internally encapsulates the switching logic between "entire book progress" and "current chapter progress".
  * The buffered position is rendered as a secondary track so remote-memory buffering is visible without changing seek semantics.
  */
 @Composable
-// The dynamic coloring functionality from cover palette extraction has been removed; the color parameter has been removed here, and the progress bar directly falls back to the system default Material 3 primary color to improve performance and UI consistency.
 fun PlaybackProgress(
     currentPosition: Long,
     bufferedPosition: Long,
@@ -38,20 +36,14 @@ fun PlaybackProgress(
     markers: List<Float>,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    // Adaptive glass effect mode parameter has been added.
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
-    // 1. Find the chapter corresponding to the current position in real-time
     val currentChapter = remember(currentPosition, chapters) {
-        // Unify chapter positioning to avoid UI and the notification bar searching for chapters using different ordering.
         PlayerChapterTimeline.currentChapter(chapters, currentPosition)
     }
 
-    // 2. Calculate display parameters according to the mode
     val chapterStart = PlayerChapterTimeline.start(currentChapter)
 
-    // Ensure duration calculations are valid to prevent division by zero.
-    // The durationMs of embedded chapters in single files might be unreliable, so the chapter mode uniformly calculates based on adjacent start times and total duration.
     val displayDur = if (isChapterMode) {
         PlayerChapterTimeline.duration(chapters, currentChapter, totalDuration)
     } else {
@@ -69,7 +61,6 @@ fun PlaybackProgress(
     }.coerceAtLeast(displayPos)
 
     Column(modifier = modifier.fillMaxWidth()) {
-        // The cover color extraction binding of the progress bar has been removed here, and the custom color attribute is no longer passed, causing AudioProgressBar to automatically return to the Material 3 primary color.
         AudioProgressBar(
             progress = { displayPos.toFloat() / displayDur.toFloat() },
             bufferedProgress = { displayBufferedPos.toFloat() / displayDur.toFloat() },
@@ -81,7 +72,6 @@ fun PlaybackProgress(
                 }
                 onSeek(targetPos)
             },
-            // Hide the entire book's chapter markers when in chapter mode
             markers = if (isChapterMode) emptyList() else markers,
             modifier = Modifier.fillMaxWidth(),
             glassEffectMode = glassEffectMode
@@ -97,12 +87,9 @@ fun PlaybackProgress(
                 text = formatTime(displayPos),
                 style = MaterialTheme.typography.labelMedium
             )
-            
+
             if (chapters.isNotEmpty()) {
-                // The serial numbers use the same sorting result to guarantee that the display order matches the progress boundaries.
                 val currentIndex = PlayerChapterTimeline.currentIndex(chapters, currentChapter).coerceAtLeast(0)
-                // Localized Chapter Counter Copy (Format chapter count text through resources)
-                // Chapter indices are runtime playback data, while the separator format is app-authored UI copy.
                 val chapterCounterText = stringResource(
                     R.string.player_chapter_counter,
                     currentIndex + 1,

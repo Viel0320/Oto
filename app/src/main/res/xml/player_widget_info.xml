@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget Provider Configuration (Configure initial and preview layout resources to use widget_player_2x2 layout definition to avoid compilation errors due to the removal of Glance compilation dependencies) -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/player_widget_description"
     android:initialLayout="@layout/widget_player_2x2"

@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget Cover Placeholder (Neon gradient background image shown when no cover art is available, aligning with the dark purple and blue aesthetic) -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <corners android:radius="18dp" />
     <gradient

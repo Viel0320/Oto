@@ -84,8 +84,6 @@ class DefaultDownloadController(
         manualDownloadNotificationGateway.publish(updated)
     }
 
-    // Remote Audio Selection (Exclude SAF files and non-audio manifest rows before creating DownloadRequests)
-    // Manual offline cache stores only remote playable audio bytes, avoiding duplicate local SAF media copies.
     private suspend fun remoteAudioFilesForBook(bookId: String): List<BookFileEntity> =
         downloadableBookFileSelector.remoteAudioFilesForBook(bookId)
 
@@ -95,8 +93,6 @@ class DefaultDownloadController(
             .build()
 
     private companion object {
-        // User Pause Stop Reason (Reserve one app-owned non-zero reason for per-book manual pauses)
-        // Media3 maps non-zero stop reasons to STATE_STOPPED, which the aggregate layer projects as PAUSED.
         private const val USER_PAUSED_STOP_REASON = 1
     }
 }

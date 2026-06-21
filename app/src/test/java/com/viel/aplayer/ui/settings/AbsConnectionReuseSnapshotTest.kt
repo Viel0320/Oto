@@ -26,8 +26,6 @@ class AbsConnectionReuseSnapshotTest {
             )
         )
 
-        // Connection reuse verification. Same server address with or without a trailing slash is treated as the same connection snapshot,
-        // allowing instant add operations after successful connection tests to hit the reuse path.
         assertTrue(
             shouldReuseAbsConnectionSnapshot(
                 snapshot = snapshot,
@@ -54,8 +52,6 @@ class AbsConnectionReuseSnapshotTest {
             )
         )
 
-        // Connection reuse rejection. Abandon the old snapshot and force a retest if any of the server, account, or target library changes,
-        // preventing the incorrect reuse of alternative connection contexts.
         assertFalse(shouldReuseAbsConnectionSnapshot(snapshot, "https://other.example/audiobookshelf", "demo", "lib-1"))
         assertFalse(shouldReuseAbsConnectionSnapshot(snapshot, "https://example.com/audiobookshelf", "other", "lib-1"))
         assertFalse(shouldReuseAbsConnectionSnapshot(snapshot, "https://example.com/audiobookshelf", "demo", "lib-2"))

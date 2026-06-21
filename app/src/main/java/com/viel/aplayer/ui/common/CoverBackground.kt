@@ -71,12 +71,6 @@ fun CoverBackground(
             .then(if (!isBlur) Modifier.background(backgroundBrush) else Modifier)
             .then(if (isBlur && hazeState != null) Modifier.hazeSource(hazeState) else Modifier)
     ) {
-        /*
-         * Blurred Backdrop Rendering (Draw the current decorative bitmap directly)
-         *
-         * The Haze source and page gradient remain stable on the parent Box, while the active
-         * backdrop request owns its painter, color extraction, blur canvas, and darkening mask.
-         */
         if (isBlur) {
             CoverBackgroundBackdropLayer(
                 coverPath = coverPath,

@@ -5,7 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Playback Control Feedback Facts Test (Locks the speed and sleep-timer outcome contract)
+ * Locks the speed and sleep-timer outcome contract.
  *
  * Verifies the migrated command-owner facts keep the original resource keys, classify under the
  * playback control identity, and stay provisional so rapid taps collapse to the final value.
@@ -74,7 +74,6 @@ class PlaybackControlFeedbackFactsTest {
 
     @Test
     fun `shake state changers are completed while no-next-chapter is a hint`() {
-        // State actually changed -> COMPLETED.
         assertEquals(
             FeedbackSeverity.COMPLETED,
             PlaybackControlFeedbackFacts.sleepShakeExtendedToNextChapter().outcome.severity
@@ -87,7 +86,6 @@ class PlaybackControlFeedbackFactsTest {
             FeedbackSeverity.COMPLETED,
             PlaybackControlFeedbackFacts.sleepShakeTestCountdownReset().outcome.severity
         )
-        // Nothing changed (already final chapter) -> HINT.
         assertEquals(
             FeedbackSeverity.HINT,
             PlaybackControlFeedbackFacts.sleepShakeNoNextChapter().outcome.severity

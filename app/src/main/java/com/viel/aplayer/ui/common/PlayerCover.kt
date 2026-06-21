@@ -108,26 +108,8 @@ fun MainCoverView(
     isPlaying: Boolean,
     coverLastUpdated: Long = 0L,
     coverScene: String = "main-cover",
-    /*
-     * Shared Element Key Override (Independent motion channel selection)
-     *
-     * Uses an optional explicit key so detail artwork can participate in Home -> Detail motion
-     * while the full player keeps using the existing cover_<bookId> transition key.
-     */
     sharedElementKey: String? = null,
-    /*
-     * Shared Element Visibility Scope Override (Independent motion boundary selection)
-     *
-     * Uses an optional explicit visibility scope for route-owned transitions, while player covers
-     * default only to the Mini->Player target scope provided by the full-player overlay.
-     */
     sharedElementVisibilityScope: AnimatedVisibilityScope? = null,
-    /*
-     * Shared Element Start Corner Override (Source shape alignment)
-     *
-     * Allows route-owned artwork transitions to match their real source card radius while keeping
-     * mini-player playback transitions on the existing 8.dp or 100.dp start radius.
-     */
     sharedElementStartCornerRadius: Dp? = null,
 ) {
     val sharedTransitionScope = LocalSharedTransitionScope.current
@@ -153,12 +135,6 @@ fun MainCoverView(
     val sharedElementModifier = if (isKeyConsistent && sharedTransitionScope != null && animatedVisibilityScope != null) {
         with(sharedTransitionScope) {
             Modifier.sharedElement(
-                /*
-                 * Player Cover Key Resolution (Centralized fallback identity)
-                 *
-                 * Uses SharedElementKeys for the default player artwork key while still allowing
-                 * route-specific callers, such as Home -> Detail, to pass an explicit override.
-                 */
                 rememberSharedContentState(key = sharedElementKey ?: SharedElementKeys.mini2playerCover()),
                 animatedVisibilityScope = animatedVisibilityScope
             )
@@ -190,14 +166,6 @@ fun MainCoverView(
                 .clip(RoundedCornerShape(animatedCoverCornerRadius))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            /*
-             * Main Artwork Rendering (Mini-origin bridge aware)
-             *
-             * The shared element, breathing-scale, and corner modifiers stay on the stable outer
-             * bounds. The inner artwork normally renders the current original directly, and only when
-             * a mismatched mini source must be bridged does it fly the captured thumbnail and fade to
-             * the original after the transition settles.
-             */
             MiniOriginBridgeArtwork(
                 coverPath = coverPath,
                 coverLastUpdated = coverLastUpdated,
@@ -210,13 +178,6 @@ fun MainCoverView(
     }
 }
 
-/*
- * Fade-through handoff tuning (Mini-origin bridge reveal shape)
- *
- * The source thumbnail clears over the first SOURCE_FADE_OUT_FRACTION of the handoff, then the
- * original fades in from TARGET_ENTER_SCALE. Naming these documents the fade-through timing instead
- * of scattering magic numbers across the graphics layers.
- */
 private const val SOURCE_FADE_OUT_FRACTION = 0.35f
 private const val TARGET_ENTER_SCALE = 0.92f
 
@@ -234,7 +195,7 @@ private const val TARGET_ENTER_SCALE = 0.92f
  * - The fade runs only once geometry has settled and the target bitmap reported ready, so it happens
  *   on a static page with no shared-element overlay compositing on top of it.
  *
- * Matched-book expansions and route-owned transitions (Home/Detail/Search) skip the bridge entirely
+ * Home/Detail/Search. skip the bridge entirely
  * and render the current original directly, preserving their existing seamless behavior.
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -249,14 +210,6 @@ private fun MiniOriginBridgeArtwork(
 ) {
     val source = LocalMini2PlayerSourceCover.current
 
-    /*
-     * Entry-Gated Bridge Source (First full-player composition only)
-     *
-     * The initializer intentionally samples the target transition state once and does not key on
-     * later settle-state changes. This keeps the captured source alive long enough for the
-     * post-settle handoff, while book changes after the full player is already visible reset the
-     * bookId key and fall back to direct artwork rendering.
-     */
     val bridgeSource: Mini2PlayerSourceCover? = remember(
         isRouteOwnedTransition,
         miniTargetScope,
@@ -280,7 +233,6 @@ private fun MiniOriginBridgeArtwork(
         return
     }
 
-    // Enter transition complete: geometry has settled and the shared-element overlay is torn down.
     val settled = miniTargetScope?.transition?.let { transition ->
         transition.currentState == EnterExitState.Visible &&
             transition.targetState == EnterExitState.Visible
@@ -288,9 +240,6 @@ private fun MiniOriginBridgeArtwork(
 
     var targetReady by remember(bridgeSource) { mutableStateOf(false) }
     var handoffDone by remember(bridgeSource) { mutableStateOf(false) }
-    // Handoff progress (0..1), advanced linearly so the fade-through segments below own their own
-    // shaping. It still starts at 0 and only advances once the gate releases, so the target can
-    // never flash in before its bitmap is on-screen.
     val handoff = remember(bridgeSource) { Animatable(0f) }
 
     LaunchedEffect(bridgeSource, settled, targetReady) {
@@ -304,7 +253,6 @@ private fun MiniOriginBridgeArtwork(
     }
 
     if (handoffDone) {
-        // Settled and faded in: a single original layer that hits the just-decoded bitmap cache.
         CoverArtworkLayer(
             coverPath = coverPath,
             coverLastUpdated = coverLastUpdated,
@@ -314,8 +262,6 @@ private fun MiniOriginBridgeArtwork(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Fade-through outgoing: the source thumbnail clears over the first third, briefly revealing
-        // the cover container surface instead of cross-dissolving two unrelated artworks together.
         val sourceAlpha = (1f - handoff.value / SOURCE_FADE_OUT_FRACTION).coerceIn(0f, 1f)
         Box(
             modifier = Modifier
@@ -329,9 +275,6 @@ private fun MiniOriginBridgeArtwork(
                 variant = CoverImageVariant.ThumbnailSmall
             )
         }
-        // Fade-through incoming: the original fades in and settles from a slight scale-up once the
-        // source has mostly left. Its alpha is still gated at 0 until then, preserving the no-flash
-        // contract while replacing the flat cross-dissolve with a directional reveal.
         val incoming = ((handoff.value - SOURCE_FADE_OUT_FRACTION) / (1f - SOURCE_FADE_OUT_FRACTION))
             .coerceIn(0f, 1f)
         val easedIncoming = FastOutSlowInEasing.transform(incoming)

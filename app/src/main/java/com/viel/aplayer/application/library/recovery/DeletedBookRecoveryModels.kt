@@ -3,7 +3,7 @@ package com.viel.aplayer.application.library.recovery
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Deleted Book Recovery Item (Presentation-safe row model for recoverable soft-deleted books)
+ * Presentation-safe row model for recoverable soft-deleted books.
  * Mirrors the recovery design fields so the UI can render retained metadata without importing Room entities.
  */
 data class DeletedBookRecoveryItem(
@@ -19,7 +19,7 @@ data class DeletedBookRecoveryItem(
 )
 
 /**
- * Deleted Book Recovery Result (Exhaustive outcome model for restore preflight and confirmation)
+ * Exhaustive outcome model for restore preflight and confirmation.
  * Gives presentation code typed decisions instead of parsing exception text or storage-layer status strings.
  */
 sealed interface DeletedBookRecoveryResult {
@@ -38,7 +38,7 @@ sealed interface DeletedBookRecoveryResult {
 }
 
 /**
- * Deleted Book Recovery Read Model (Scene-owned stream for recoverable books)
+ * Scene-owned stream for recoverable books.
  * Keeps settings UI on a recovery-specific list feed instead of widening the home catalog read model.
  */
 interface DeletedBookRecoveryReadModel {
@@ -46,7 +46,7 @@ interface DeletedBookRecoveryReadModel {
 }
 
 /**
- * Deleted Book Recovery Commands (Scene-owned restore operations)
+ * Scene-owned restore operations.
  * Separates restore preflight and partial confirmation so cancellation leaves the database untouched.
  */
 interface DeletedBookRecoveryCommands {

@@ -4,7 +4,7 @@ import com.viel.aplayer.application.library.LibraryBookStatus
 import com.viel.aplayer.shared.settings.HomeBookStatusFilter
 
 /**
- * Home Book Status Filter Policy (Application-layer availability matching)
+ * Application-layer availability matching.
  *
  * Keeps the shared settings enum decoupled from database status types while letting the Home ViewModel apply
  * page-level catalog filtering without re-owning schema translation rules.

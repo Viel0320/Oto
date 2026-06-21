@@ -3,15 +3,15 @@ package com.viel.aplayer.timeline
 import com.viel.aplayer.data.entity.BookFileEntity
 
 /**
- * Position Translation Engine (Responsible for mapping between global audiobook positions and file-specific positions)
+ * Responsible for mapping between global audiobook positions and file-specific positions.
  * Decouples playback interfaces from multi-track storage offsets by managing coordinate mapping.
  *
- * Timeline Module Placement (Keeps coordinate mapping outside the media runtime package)
+ * Keeps coordinate mapping outside the media runtime package.
  * Data, library, ABS, and playback callers all need this deterministic math, so the mapper lives in a neutral package instead of forcing data code to import media.
  */
 object PositionMapper {
     /**
-     * Global Position Mapper (Translates global playback offsets to specific file index and internal offsets)
+     * Translates global playback offsets to specific file index and internal offsets.
      * Walks through the book file segments to locate the target track and calculates the relative position.
      */
     fun globalToFilePosition(
@@ -25,8 +25,6 @@ object PositionMapper {
             }
             accumulatedMs += file.durationMs
         }
-        // Boundary Overflow Handling (Returns the end of the last file if the position exceeds the total book duration)
-        // Prevents out-of-bounds playback index errors when seeking past the end of the media sequence.
         return if (files.isNotEmpty()) {
             Pair(files.size - 1, files.last().durationMs)
         } else {
@@ -35,7 +33,7 @@ object PositionMapper {
     }
 
     /**
-     * File Offset Accumulator (Converts file index and inner offset into a global playback position)
+     * Converts file index and inner offset into a global playback position.
      * Sums the duration of all preceding file tracks and appends the current file's play position.
      */
     fun fileToGlobalPosition(

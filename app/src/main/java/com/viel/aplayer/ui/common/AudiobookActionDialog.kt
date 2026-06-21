@@ -58,12 +58,11 @@ import coil.compose.AsyncImage
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.shared.settings.GlassEffectMode
-// Import AppWindowSizeClass: Use standardized layout provider to get the current window size details.
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import dev.chrisbanes.haze.HazeState
 
 /**
- * Audiobook Action Dialog Book (Reusable payload for audiobook action menus)
+ * Reusable payload for audiobook action menus.
  *
  * Carries only the identity, creator, cover, and read-status fields needed by the shared action dialog so callers can adapt scene-specific book projections without leaking their own models into common UI.
  */
@@ -75,12 +74,11 @@ data class AudiobookActionDialogBook(
     val coverPath: String?,
     val thumbnailPath: String?,
     val lastScannedAt: Long,
-    // Read Status Type Safe: Change readStatus projection field type to ReadStatus enum for type safety.
     val readStatus: LibraryReadStatus?
 )
 
 /**
- * Audiobook Action Dialog (Reusable audiobook long-press menu)
+ * Reusable audiobook long-press menu.
  *
  * Derives the audiobook action menu and its delete confirmation dialog from the shared dialog template.
  * The host owns page dialog state and business callbacks, while this component owns only rendering and the nested confirmation step inside the active audiobook flow.
@@ -88,64 +86,39 @@ data class AudiobookActionDialogBook(
 @Composable
 fun AudiobookActionDialog(
     book: AudiobookActionDialogBook?,
-    // Dialog Backdrop Source (Transition backdrop reference to HazeState)
-    // Callers pass their own sampling source so the shared dialog can render inside Home, Detail, or future library surfaces without knowing page layout.
     hazeState: HazeState? = null,
-    // Glass effect mode must be explicitly passed from the settings state by the host page, avoiding default values inside the dialog wrapper.
     glassEffectMode: GlassEffectMode,
-    // Cover Request Scene (Preserve caller-level diagnostics in shared image loading)
-    // The common dialog builds the Coil request, while each host can keep cache logs attributed to the screen that opened the menu.
     coverRequestScene: String = "audiobook-action-dialog-cover",
     onDismissRequest: () -> Unit,
-    // Edit Book Command (Optional host-owned metadata editing entry)
-    // The shared dialog only emits the selected book id; hosts decide whether that id opens EditBookRoute or no edit action should be shown.
     onEditBook: ((String) -> Unit)? = null,
-    // Update Read Status Callback: Change readStatus parameter to ReadStatus enum.
     onUpdateReadStatus: (String, LibraryReadStatus) -> Unit,
     onForceRegenerate: (String) -> Unit,
     onDeleteBook: (String) -> Unit
 ) {
     if (book == null) return
 
-    // Internally maintain visibility state of the second-level soft delete confirmation Dialog
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    // Action Dialog Orientation Gate (Switch only when the active window is landscape)
-    // Non-portrait windows usually have scarce vertical height, so the first-level action menu uses a two-column composition while portrait keeps the familiar stacked flow.
-    // Resolve Window Layout: Retrieve current viewport properties via standardized AppWindowSizeClass provider to configure the layout orientation.
     val useLandscapeActionLayout = LocalAppWindowSizeClass.current.isLandscape
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // First-Level Management Dialog (Haze Frosted Glass Effect)
-    // Uses BlurDialog + Haze to implement frosted glass effect sampling host page content.
-    // ─────────────────────────────────────────────────────────────────────────
     if (!showDeleteConfirm) {
         APlayerDialogTemplate(
             onDismissRequest = onDismissRequest,
-            // Pass the host HazeState to ensure the first-level operations panel can sample current page background.
             hazeState = hazeState,
-            // Pass user settings to BlurDialog; Material mode will skip internal Haze related textureBlur modifiers.
             glassEffectMode = glassEffectMode,
-            // Action Dialog Adaptive Padding (Trim horizontal-mode padding slightly before widening the shell)
-            // Landscape content gains room from the wider shell while the inner padding stays compact enough for two balanced columns.
             contentPadding = if (useLandscapeActionLayout) {
                 PaddingValues(horizontal = 20.dp, vertical = 20.dp)
             } else {
                 PaddingValues(horizontal = 24.dp, vertical = 24.dp)
             },
-            // Action Dialog Width Policy (Use a wider shell only for non-portrait action menus)
-            // Portrait keeps the prior 460.dp cap; landscape receives enough horizontal space for identity/status and destructive commands to sit side by side.
             dialogMaxWidth = if (useLandscapeActionLayout) {
                 AudiobookActionLandscapeDialogMaxWidth
             } else {
                 AudiobookActionPortraitDialogMaxWidth
             },
-            // Blur radius, background color, and tint are adaptively configured inside BlurDialog, no longer passed from the call point.
             scrollable = true,
             headerAlignment = Alignment.CenterHorizontally,
             sectionSpacing = 0.dp,
             title = {
-                // Portrait Header Slot (Keep the existing stacked dialog identity placement)
-                // Landscape renders identity inside the left column, so the template title slot is populated only for the portrait flow to avoid duplicate book headers.
                 if (!useLandscapeActionLayout) {
                     AudiobookActionIdentityHeader(
                         book = book,
@@ -156,8 +129,6 @@ fun AudiobookActionDialog(
             },
             body = {
                 if (useLandscapeActionLayout) {
-                    // Landscape Body Dispatch (Use the horizontal action-menu composition for non-portrait windows)
-                    // The branch keeps the first-level menu short on landscape devices while leaving the nested delete confirmation dialog unchanged.
                     AudiobookActionLandscapeContent(
                         book = book,
                         coverRequestScene = coverRequestScene,
@@ -171,17 +142,12 @@ fun AudiobookActionDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Subtle divider line with 0.5f opacity to reduce visual weight
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.onSurface.copy(0.75f)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // ─────────────────────────────────────────────────────────────
-                // 1. Reading Status Marking (Mark Reading Status Chips)
-                // Displays three side-by-side outline/fill chips, corresponding to "Not Started", "In Progress", and "Finished" statuses.
-                // ─────────────────────────────────────────────────────────────
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -198,13 +164,9 @@ fun AudiobookActionDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            // Read Status Choice Group Semantics (Expose the three status chips as one exclusive group)
-                            // Grouping lets assistive services understand Not Started, In Progress, and Finished as alternatives within the same read-status domain decision.
                             .selectableGroup(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        // Read Status Color Mapping (Bind each status to a restrained semantic accent)
-                        // These softer tones keep green/blue/purple meaning while avoiding high-saturation button blocks inside the glass dialog.
                         val statusList = listOf(
                             ReadStatusChipSpec(
                                 status = LibraryReadStatus.NOT_STARTED,
@@ -231,7 +193,6 @@ fun AudiobookActionDialog(
                                     onUpdateReadStatus(book.id, spec.status)
                                     onDismissRequest()
                                 },
-                                // weight(1f) divides row width equally among three Chips
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -240,13 +201,10 @@ fun AudiobookActionDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Subtle divider line
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.onSurface.copy(0.75f)
                 )
 
-                // Edit Metadata Entry (Expose optional host-owned metadata editing from the shared action menu)
-                // Keeping this as a nullable callback lets Home add the route while other hosts can reuse the dialog without gaining an edit dependency.
                 if (onEditBook != null) {
                     Surface(
                         onClick = {
@@ -276,8 +234,6 @@ fun AudiobookActionDialog(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                // Edit Metadata Supplemental Copy (Match the information density of other action rows)
-                                // The edit entry now explains that it opens manual metadata and cover editing, so users can distinguish it from automatic regeneration at a glance.
                                 Text(
                                     text = stringResource(R.string.home_action_edit_subtitle),
                                     style = MaterialTheme.typography.labelSmall,
@@ -290,10 +246,6 @@ fun AudiobookActionDialog(
                     }
                 }
 
-                // ─────────────────────────────────────────────────────────────
-                // 2. Regenerate Cover and Metadata (Trigger Metadata Re-scan)
-                // Provides a ripple-clickable surface to force background media re-scan.
-                // ─────────────────────────────────────────────────────────────
                 Surface(
                     onClick = {
                         onForceRegenerate(book.id)
@@ -328,10 +280,6 @@ fun AudiobookActionDialog(
                     }
                 }
 
-                // ─────────────────────────────────────────────────────────────
-                // 3. Remove from Library (Red Area Soft Delete Alert Card)
-                // Warning card for soft deletion from library.
-                // ─────────────────────────────────────────────────────────────
                 Surface(
                     onClick = {
                         showDeleteConfirm = true
@@ -370,8 +318,6 @@ fun AudiobookActionDialog(
                 }
             },
             actions = {
-                // Cancel Action (Close the action menu without mutating the selected audiobook)
-                // Keeps command placement inside the shared template action row while the actual dismissal remains a page-owned callback.
                 TextButton(onClick = onDismissRequest) {
                     Text(stringResource(R.string.action_cancel))
                 }
@@ -379,23 +325,15 @@ fun AudiobookActionDialog(
         )
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Second-Level Delete Confirm Dialog (Haze Warning Dialog)
-    // Secondary soft delete confirmation Dialog (also uses BlurDialog + Haze with slightly deeper blur to reinforce warning).
-    // ─────────────────────────────────────────────────────────────────────────
     if (showDeleteConfirm) {
         APlayerDialogTemplate(
             onDismissRequest = { showDeleteConfirm = false },
-            // Secondary confirmation panel reuses the host page shared backdrop, keeping background sampling source consistent with first-level panel.
             hazeState = hazeState,
-            // Delete confirmation Dialog follows user-selected glass effect mode.
             glassEffectMode = glassEffectMode,
-            // Delete confirmation Dialog config is also handled by BlurDialog, avoiding hard-coded secondary blur parameters.
             scrollable = false,
             headerAlignment = Alignment.CenterHorizontally,
             sectionSpacing = 0.dp,
             icon = {
-                // Delete confirmation icon, centered, using error tint to warn user
                 Icon(
                     imageVector = Icons.Rounded.Delete,
                     contentDescription = null,
@@ -407,7 +345,6 @@ fun AudiobookActionDialog(
             title = {
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Confirmation Dialog title
                 Text(
                     text = stringResource(R.string.home_action_remove_confirm_title),
                     style = MaterialTheme.typography.titleMedium,
@@ -419,7 +356,6 @@ fun AudiobookActionDialog(
             body = {
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Soft delete explanation text, reminding user that it only removes from playlist without deleting physical files
                 Text(
                     text = stringResource(R.string.home_action_remove_confirm_body, book.title),
                     style = MaterialTheme.typography.bodyMedium
@@ -452,7 +388,7 @@ fun AudiobookActionDialog(
 }
 
 /**
- * Audiobook Action Landscape Content (Arrange identity and commands in two columns)
+ * Arrange identity and commands in two columns.
  *
  * Keeps the selected audiobook identity and read-status controls on the left while placing management commands on the right, reducing vertical pressure in landscape windows without changing the host-owned callbacks.
  */
@@ -461,7 +397,6 @@ private fun AudiobookActionLandscapeContent(
     book: AudiobookActionDialogBook,
     coverRequestScene: String,
     onEditBook: ((String) -> Unit)?,
-    // Update Read Status Callback: Change readStatus parameter to ReadStatus enum.
     onUpdateReadStatus: (String, LibraryReadStatus) -> Unit,
     onForceRegenerate: (String) -> Unit,
     onShowDeleteConfirm: () -> Unit,
@@ -470,14 +405,10 @@ private fun AudiobookActionLandscapeContent(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            // Landscape Column Height Coupling (Let the command column adapt to the identity column)
-            // Intrinsic height gives both landscape columns a shared measured height, so the right-side commands can distribute their vertical gaps from real dialog content instead of a fixed spacing token.
             .height(IntrinsicSize.Min),
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(AudiobookActionLandscapeColumnSpacing)
     ) {
-        // Landscape Identity Column (Group stable book context with the read-status domain decision)
-        // Placing identity and status together keeps the right column focused on one-shot management commands and makes the two-column dialog scannable on short windows.
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -501,16 +432,10 @@ private fun AudiobookActionLandscapeContent(
             )
         }
 
-        // Landscape Command Column (Move destructive and maintenance actions beside the identity column)
-        // The command list fills the shared landscape row height so Edit, Regenerate, and Remove can spread out naturally beside the denser identity/status column.
         Column(
             modifier = Modifier
                 .weight(1f)
-                // Landscape Command Height Fill (Use the row's intrinsic height as adaptive spacing budget)
-                // Filling the matched row height lets Arrangement.SpaceBetween calculate gaps from available vertical room while keeping each command row's own tap target unchanged.
                 .fillMaxHeight(),
-            // Landscape Command Adaptive Gaps (Distribute the three command rows across the available height)
-            // SpaceBetween replaces the old fixed 4.dp spacing so short landscape windows stay compact and taller landscape/tablet dialogs breathe without extra constants.
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             AudiobookActionCommandList(
@@ -525,7 +450,7 @@ private fun AudiobookActionLandscapeContent(
 }
 
 /**
- * Audiobook Action Identity Header (Render selected book identity inside action menus)
+ * Render selected book identity inside action menus.
  *
  * Shares the cover, title, and creator presentation between portrait and landscape variants so orientation changes do not create separate identity semantics or image-loading behavior.
  */
@@ -553,8 +478,6 @@ private fun AudiobookActionIdentityHeader(
         )
 
         Column(modifier = Modifier.weight(1f)) {
-            // Action Dialog Title Clamp (Keep selected audiobook title within the active identity column)
-            // Portrait keeps a single stable title line, while landscape may use two lines because the widened dialog isolates identity from the command list.
             Text(
                 text = book.title,
                 maxLines = titleMaxLines,
@@ -565,15 +488,11 @@ private fun AudiobookActionIdentityHeader(
                 textAlign = TextAlign.Start
             )
 
-            // Action Dialog Creator Subtitle (Show author and narrator only when metadata exists)
-            // Empty creator fields produce no spacer or text, keeping anonymous/imported items visually compact in both orientations.
             if (book.author.isNotBlank() || book.narrator.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = formatPeopleSubtitle(book.author, book.narrator),
                     style = MaterialTheme.typography.bodyMedium,
-                    // Action Dialog Subtitle Clamp (Keep author and narrator metadata on one stable line)
-                    // Long creator metadata is truncated instead of wrapping so the menu remains compact and predictable.
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth(),
@@ -585,14 +504,13 @@ private fun AudiobookActionIdentityHeader(
 }
 
 /**
- * Audiobook Action Read Status Section (Render the exclusive read-status choices)
+ * Render the exclusive read-status choices.
  *
  * Provides the same selectable group used by the portrait body so TalkBack and Switch Access keep one consistent read-status decision model across orientations.
  */
 @Composable
 private fun AudiobookActionReadStatusSection(
     book: AudiobookActionDialogBook,
-    // Update Read Status Callback: Change readStatus parameter to ReadStatus enum.
     onUpdateReadStatus: (String, LibraryReadStatus) -> Unit,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier
@@ -613,13 +531,9 @@ private fun AudiobookActionReadStatusSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                // Read Status Choice Group Semantics (Expose the three status chips as one exclusive group)
-                // Grouping lets assistive services understand Not Started, In Progress, and Finished as alternatives within the same read-status domain decision.
                 .selectableGroup(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Read Status Color Mapping (Bind each status to a restrained semantic accent)
-            // These softer tones keep green/blue/purple meaning while avoiding high-saturation button blocks inside the glass dialog.
             val statusList = listOf(
                 ReadStatusChipSpec(
                     status = LibraryReadStatus.NOT_STARTED,
@@ -646,8 +560,6 @@ private fun AudiobookActionReadStatusSection(
                         onUpdateReadStatus(book.id, spec.status)
                         onDismissRequest()
                     },
-                    // Read Status Equal Width (Divide the available row width evenly among all statuses)
-                    // Keeping the weighted row mirrors portrait behavior and preserves predictable touch targets inside the landscape identity column.
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -656,7 +568,7 @@ private fun AudiobookActionReadStatusSection(
 }
 
 /**
- * Audiobook Action Command List (Render one-shot management actions)
+ * Render one-shot management actions.
  *
  * Centralizes landscape command rows so optional edit support, forced regeneration, and deletion entry behavior remain controlled by the same host callbacks as the portrait dialog.
  */
@@ -668,8 +580,6 @@ private fun AudiobookActionCommandList(
     onShowDeleteConfirm: () -> Unit,
     onDismissRequest: () -> Unit
 ) {
-    // Edit Metadata Command (Expose optional host-owned metadata editing from the shared action menu)
-    // Keeping this nullable mirrors the portrait branch and prevents reusable hosts from acquiring an edit route dependency.
     if (onEditBook != null) {
         AudiobookActionCommandRow(
             icon = Icons.Rounded.Edit,
@@ -710,7 +620,7 @@ private fun AudiobookActionCommandList(
 }
 
 /**
- * Audiobook Action Command Row (Reusable row for action menu commands)
+ * Reusable row for action menu commands.
  *
  * Keeps icon placement, text clamping, and row padding identical across landscape commands so the wider dialog reads as one coherent command group.
  */
@@ -764,17 +674,12 @@ private fun AudiobookActionCommandRow(
     }
 }
 
-// Audiobook Action Adaptive Dimension Tokens (Keep dialog sizing decisions beside the shared action menu)
-// Portrait retains the prior Material-style dialog width, while landscape gets enough horizontal capacity for the new two-column menu without altering other dialogs.
 private val AudiobookActionPortraitDialogMaxWidth = 460.dp
 private val AudiobookActionLandscapeDialogMaxWidth = 640.dp
 private val AudiobookActionPortraitCoverSize = 64.dp
 private val AudiobookActionLandscapeCoverSize = 72.dp
 private val AudiobookActionLandscapeColumnSpacing = 20.dp
 
-// Read Status Chip Spec (Pairs each read-status command with its label and semantic accent)
-// Keeps color mapping data outside the composable rendering branch so chip drawing remains small and predictable.
-// Read Status Chip Spec: Use type-safe ReadStatus enum for status field.
 private data class ReadStatusChipSpec(
     val status: LibraryReadStatus,
     val label: String,
@@ -807,14 +712,10 @@ private fun ReadStatusChip(
             R.string.accessibility_choice_unselected
         }
     )
-    // Read Status Press Feedback Source (Disable the default selectable ripple while keeping press state scoped)
-    // The chip already exposes selection through its fill, border, dot, text weight, and semantics, so the extra background indication would make the compact visual area feel heavier.
     val interactionSource = remember { MutableInteractionSource() }
 
     Box(
         modifier = modifier
-            // Read Status Accessibility Shell (Separate the touch target from the compact visual chip)
-            // The outer node owns the 48.dp radio semantics while the inner Surface keeps the existing status style at a 32.dp Material-like height.
             .defaultMinSize(
                 minWidth = ReadStatusChipMinimumTouchTarget,
                 minHeight = ReadStatusChipMinimumTouchTarget
@@ -834,15 +735,9 @@ private fun ReadStatusChip(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                // Read Status Visual Height (Keep the rendered pill compact while preserving the outer 48.dp hit area)
-                // This mirrors the shared choice-chip split without changing the dialog's existing equal-width row layout.
                 .height(ReadStatusChipVisualHeight),
             shape = RoundedCornerShape(14.dp),
-            // Read Status Chip Tonal Fill (Replace saturated button blocks with a quiet selected wash)
-            // The selected state still receives a semantic fill, but low alpha keeps it aligned with the glass dialog surface.
             color = containerColor,
-            // Read Status Chip Hairline Border (Keep status color without heavy visual weight)
-            // A softer border preserves the requested green/blue/purple affordance while reducing the boxed-button feeling.
             border = BorderStroke(0.8.dp, borderColor)
         ) {
             Row(
@@ -852,8 +747,6 @@ private fun ReadStatusChip(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                // Read Status Accent Dot (Use a small selection cue instead of a loud full button fill)
-                // The dot makes the active state scannable while keeping each chip visually lightweight.
                 Surface(
                     modifier = Modifier.size(if (selected) 7.dp else 5.dp),
                     shape = CircleShape,
@@ -874,8 +767,6 @@ private fun ReadStatusChip(
     }
 }
 
-// Read Status Chip Dimension Tokens (Separate visual compactness from accessible interaction size)
-// The dialog keeps its existing pill style while matching the shared choice control contract of 32.dp visuals inside a 48.dp selectable target.
 private val ReadStatusChipVisualHeight = 32.dp
 private val ReadStatusChipMinimumTouchTarget = 48.dp
 
@@ -895,8 +786,6 @@ private fun AudiobookActionCover(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            // Action Dialog Cover Loading (Use the same small thumbnail contract as listgroup covers)
-            // The long-press menu only needs a compact identity cue, so ThumbnailSmall avoids decoding larger artwork.
             var isImageError by remember(coverPath) { mutableStateOf(false) }
             if (coverPath != null && !isImageError) {
                 val context = LocalContext.current
@@ -915,8 +804,6 @@ private fun AudiobookActionCover(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
                     onError = {
-                        // Cover Fallback State (Degrade to the local placeholder when the thumbnail cannot be loaded)
-                        // Keeps the dialog header stable without probing disk synchronously from composition.
                         isImageError = true
                     }
                 )

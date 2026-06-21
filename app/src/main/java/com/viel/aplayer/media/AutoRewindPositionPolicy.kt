@@ -5,12 +5,12 @@ import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.timeline.PositionMapper
 
 /**
- * Auto Rewind Position Policy (Centralizes rewind target calculations without owning Android playback state)
+ * Centralizes rewind target calculations without owning Android playback state.
  * Converts current playback or persisted progress positions into deterministic rewind targets while keeping settings, controllers, and database writes in the manager layer.
  */
 object AutoRewindPositionPolicy {
     /**
-     * Playback Seek Target (Describes the controller seek operation produced by auto rewind)
+     * Describes the controller seek operation produced by auto rewind.
      * Multi-file plans carry a media item index, while single-track fallback plans seek only within the current item.
      */
     data class PlaybackSeekTarget(
@@ -20,7 +20,7 @@ object AutoRewindPositionPolicy {
     )
 
     /**
-     * Playback Pause Rewind Target (Maps a live controller position to the target seek coordinate)
+     * Maps a live controller position to the target seek coordinate.
      * Multi-file books rewind on the global audiobook timeline so a pause near a track boundary can cross into the previous file.
      */
     fun playbackSeekTarget(
@@ -52,7 +52,7 @@ object AutoRewindPositionPolicy {
     }
 
     /**
-     * Persisted Progress Rewind Snapshot (Applies cold-start rewind to stored progress anchors)
+     * Applies cold-start rewind to stored progress anchors.
      * When file rows are available, the global target is remapped to a stable file anchor; otherwise only the global position is adjusted to preserve existing fallback behavior.
      */
     fun rewoundProgress(

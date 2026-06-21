@@ -56,8 +56,6 @@ class AbsAuthorizedProgressSyncTest {
         val synchronizer = AbsAuthorizedProgressSynchronizer(
             apiClient = api,
             credentialProvider = { AbsAuthorizedProgressSynchronizer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
-            // Authorized Progress Gateway Fixture (Reuse one fake through the split catalog and metadata seams)
-            // The synchronizer reads mirrored book/file data through catalog and updates semantic readStatus through metadata.
             bookCatalogGateway = bookGateway,
             bookMetadataGateway = bookGateway,
             progressGateway = progressGateway
@@ -65,8 +63,6 @@ class AbsAuthorizedProgressSyncTest {
 
         val summary = synchronizer.sync(listOf(absRoot()))
 
-        // Authorized Progress Remote Merge (Verifies authorize.user.mediaProgress enters the shared conflict resolver)
-        // The newer remote snapshot should update Room progress and readStatus, while older remote and unknown items must not overwrite local state.
         assertEquals(3, summary.remoteProgressCount)
         assertEquals(1, summary.appliedCount)
         assertEquals(1, summary.skippedByResolverCount)

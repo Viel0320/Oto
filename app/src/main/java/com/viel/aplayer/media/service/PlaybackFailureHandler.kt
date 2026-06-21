@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
- * Playback Disaster Recovery Handler (Safeguards cleartext network compliance and intercepts database state changes on file missing)
+ * Safeguards cleartext network compliance and intercepts database state changes on file missing.
  * Captures core I/O errors, halts looping reloads on error, and broadcasts unavailable track indicators to control interfaces.
  * Decouples system recovery complexity and storage validation limits from the core player service domain.
  */
@@ -23,15 +23,12 @@ class PlaybackFailureHandler(
     private val serviceScope: CoroutineScope,
     private val bookAvailabilityGateway: BookAvailabilityGateway,
     private val settingsRepository: AppSettingsRepository,
-    // Playback Domain Event Sink (Reports recovery facts without rendering Android UI)
-    // Failure handling stays inside media service logic while the application bridge owns Toast and dialog decisions.
     private val playbackEventSink: PlaybackDomainEventSink
 ) {
-    // Debounce Guard Key (Format: "bookId:queueIndex" to prevent infinite loops of repeated error events)
     private var unavailableSkipKey: String? = null
 
     /**
-     * Error Accessibility Assessment (Determines if the exception represents a dynamic file or network accessibility failure)
+     * Determines if the exception represents a dynamic file or network accessibility failure.
      * Filters out standard format parsing exceptions, isolating pure physical medium delivery errors.
      */
     fun isUnavailableMediaError(error: PlaybackException): Boolean {
@@ -47,12 +44,11 @@ class PlaybackFailureHandler(
             PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE -> true
             else -> false
         }
-        // Parser Filter Rule (Distinguishes raw format corruption from actual storage or network delivery failures)
         return isIoError && error.cause !is androidx.media3.common.ParserException
     }
 
     /**
-     * Error Recovery Routine (Pauses playback, flags db entries, and emits playback-domain recovery events)
+     * Pauses playback, flags db entries, and emits playback-domain recovery events.
      */
     fun handleUnavailableMediaItem(player: Player) {
         val mediaItem = player.currentMediaItem ?: return
@@ -60,14 +56,12 @@ class PlaybackFailureHandler(
         val bookId = mediaParts.bookId
         val queueIndex = player.currentMediaItemIndex.coerceAtLeast(0)
         val bookTitle = mediaItem.mediaMetadata.title?.toString()
-        
-        // Debounce Validation (Ensures each failing segment goes through the validation logic only once to avoid crashing loop)
+
         val skipKey = "$bookId:$queueIndex"
         if (unavailableSkipKey == skipKey) return
         unavailableSkipKey = skipKey
 
         serviceScope.launch {
-            // 1. Cleartext Traffic Security Audit
             val currentUri = mediaItem.localConfiguration?.uri?.toString() ?: ""
             if (currentUri.startsWith("http://")) {
                 val isAllowed = settingsRepository.settingsFlow.first().isCleartextTrafficAllowed
@@ -75,30 +69,23 @@ class PlaybackFailureHandler(
                     playbackEventSink.emit(PlaybackDomainEvent.CleartextPlaybackBlocked(bookTitle = bookTitle))
                     player.pause()
                     player.stop()
-                    // Release Warning Boundary (Sanitize cleartext playback policy diagnostics)
-                    // The branch intentionally keeps only the policy outcome and routes retained warnings through SecureLog.
                     SecureLog.warn("FailureHandler", "安全拦截：用户未授权播放明文 HTTP 协议音频流")
                     return@launch
                 }
             }
 
-            // 2. Failed Track Status Refresh (Revalidates and persists the failing queue item's availability)
-            // Remote tracks may recover after a transient error, so the gateway call explicitly refreshes status instead of blindly marking missing.
             bookAvailabilityGateway.refreshPlaybackFileUnavailableStatus(bookId, queueIndex)
-            
-            // Halt Loop Reloads (Enforces immediate playback pause and stop to intercept ExoPlayer's infinite buffer loop)
+
             player.pause()
             player.stop()
-            
-            // Track Recovery Event (Publish a playback-domain fact for the app bridge)
-            // The bridge pairs this with the existing skip-confirmation dialog without importing UI models here.
+
             playbackEventSink.emit(PlaybackDomainEvent.TrackUnavailable(bookId, queueIndex, bookTitle))
             com.viel.aplayer.logger.PlaybackFailureLogger.logTrackMarkedUnavailable(skipKey)
         }
     }
 
     /**
-     * Initial Media Load Failure (Reports source load failures before playback has ever started)
+     * Reports source load failures before playback has ever started.
      * Stops the player and shows a direct user-facing error without marking files missing, running remote availability retries, or triggering track-skip recovery.
      */
     fun handleInitialMediaLoadFailure(player: Player, error: PlaybackException) {
@@ -110,14 +97,12 @@ class PlaybackFailureHandler(
                 ?: "未知错误"
             val bookTitle = player.currentMediaItem?.mediaMetadata?.title?.toString()
             playbackEventSink.emit(PlaybackDomainEvent.InitialMediaLoadFailed(message, bookTitle))
-            // Release Warning Boundary (Sanitize initial media load failure diagnostics)
-            // Media3 messages can carry source URLs or provider paths, so the retained warning uses SecureLog.
             SecureLog.warn("FailureHandler", "媒体源载入前失败，已跳过播放中恢复流程: code=${error.errorCode}, message=$message", error)
         }
     }
 
     /**
-     * Guard Reset Handler (Clears the active debounce recovery key once the player transitions to a valid item)
+     * Clears the active debounce recovery key once the player transitions to a valid item.
      */
     fun clearSkipGuard() {
         unavailableSkipKey = null

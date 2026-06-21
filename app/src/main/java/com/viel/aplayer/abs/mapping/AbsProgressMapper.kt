@@ -20,7 +20,7 @@ class AbsProgressMapper {
     }
 
     /**
-     * Remote Progress Mapping (Converts ABS user progress into the local Room progress model)
+     * Converts ABS user progress into the local Room progress model.
      * This mapper is shared by catalog sync and direct progress probes so both flows use identical unit conversion and file anchoring.
      */
     fun toProgress(
@@ -48,10 +48,7 @@ class AbsProgressMapper {
         )
     }
 
-    // Update toReadStatus return type to ReadStatus enum for type safety.
     fun toReadStatus(item: AbsLibraryItemDto, existing: BookEntity?): AudiobookSchema.ReadStatus =
-        // Catalog Read Status Mapping (Delegates ABS progress semantics to the shared read-status policy)
-        // Catalog item mapping keeps its existing-read fallback while sharing the same finished and positive-position rules as progress sync.
         RemoteProgressReadStatusPolicy.fromRemoteProgress(
             isFinished = item.progress?.isFinished,
             hasPositivePosition = item.progress?.let(::resolvedCurrentTimeSec)
@@ -60,7 +57,7 @@ class AbsProgressMapper {
         )
 
     /**
-     * Remote Position Fallback (Reconstructs seconds when ABS omits currentTime but includes progress ratio and duration)
+     * Reconstructs seconds when ABS omits currentTime but includes progress ratio and duration.
      * This keeps first-sync read status and local progress deterministic across authorize and item-detail payload shapes.
      */
     fun resolvedCurrentTimeSec(remote: AbsUserProgressDto): Double =

@@ -15,8 +15,8 @@ interface ChapterDao {
     suspend fun insertChapters(chapters: List<ChapterEntity>)
 
     /**
-     * Observe Chapters Responsively (Emits chapter composition list paired with physical file states)
-     * 
+     * Emits chapter composition list paired with physical file states.
+     *
      * Annotated with @Transaction to enforce atomic multi-table queries for nested @Relation fields,
      * preventing UI discrepancies caused by concurrent DB updates during scans.
      */
@@ -25,8 +25,8 @@ interface ChapterDao {
     fun getChaptersForBook(bookId: String): Flow<List<ChapterWithBookFile>>
 
     /**
-     * Retrieve Chapters Synchronously (Fetches chapter composition list paired with physical file states)
-     * 
+     * Fetches chapter composition list paired with physical file states.
+     *
      * Annotated with @Transaction to guarantee nested BookFile queries execute atomically in one database action.
      */
     @Transaction
@@ -37,7 +37,7 @@ interface ChapterDao {
     suspend fun deleteChaptersForBook(bookId: String)
 
     /**
-     * Atomic Chapter Replacement (Deletes old chapter entities and batches new entries in a single transaction)
+     * Deletes old chapter entities and batches new entries in a single transaction.
      * Guarantees that even if operations get cancelled mid-execution, the audiobook metadata remains consistent,
      * resolving empty-state flickering issues observed on Flow collectors.
      */

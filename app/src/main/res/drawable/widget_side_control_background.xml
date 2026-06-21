@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget Side Control Button Background (Semi-transparent circular background for rewind and fast-forward buttons to keep them interactive without distracting from the central play button) -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <corners android:radius="18dp" />
     <solid android:color="#33FFFFFF" />

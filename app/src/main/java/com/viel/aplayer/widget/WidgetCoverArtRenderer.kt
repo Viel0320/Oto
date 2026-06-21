@@ -22,8 +22,6 @@ internal object WidgetCoverArtRenderer {
     private const val BLUR_RADIUS = 8
     private const val BLUR_PASSES = 2
 
-    // In-memory cover cache. Widgets usually show the cover of the currently playing book; caching the most recent decode suffices for high-frequency updates like play/pause.
-    // The cached content holds the downscaled and blurred background Bitmap, using a cache key that embeds the file path, last modification time, and file size to prevent stale reuse.
     @Volatile
     private var latestCover: CachedCover? = null
 
@@ -47,14 +45,12 @@ internal object WidgetCoverArtRenderer {
             byteLength = file.length()
         )
 
-        // Cache hit optimization. Reuse the downscaled and blurred software bitmap directly on cache hits, avoiding redundant BitmapFactory decoding and pixel operations during state refreshes.
         latestCover
             ?.takeIf { it.key == cacheKey && !it.bitmap.isRecycled }
             ?.let { return it.bitmap }
 
         return try {
             val bounds = BitmapFactory.Options().apply {
-                // Pre-decode dimensions check. Read dimensions only to prevent early pixel memory allocations before calculating sample sizes.
                 inJustDecodeBounds = true
             }
             BitmapFactory.decodeFile(file.absolutePath, bounds)
@@ -62,7 +58,6 @@ internal object WidgetCoverArtRenderer {
 
             val decodeOptions = BitmapFactory.Options().apply {
                 inSampleSize = calculateInSampleSize(bounds.outWidth, bounds.outHeight)
-                // Color configuration tuning. Widgets feature an opaque dark overlay, making alpha channels unnecessary; RGB_565 halves the Bitmap size for cross-process transfer compared to ARGB_8888.
                 inPreferredConfig = Bitmap.Config.RGB_565
             }
             val decoded = BitmapFactory.decodeFile(file.absolutePath, decodeOptions) ?: return null
@@ -74,13 +69,9 @@ internal object WidgetCoverArtRenderer {
             latestCover = CachedCover(cacheKey, blurred)
             blurred
         } catch (oom: OutOfMemoryError) {
-            // Release Warning Boundary (Sanitize widget cover decode failures)
-            // Decoder errors can include image source details, so retained warnings use SecureLog before reaching Logcat.
             SecureLog.warn(TAG, "decode widget cover skipped because bitmap memory is insufficient: ${file.name}", oom)
             null
         } catch (error: Exception) {
-            // Release Warning Boundary (Sanitize widget cover decode exceptions)
-            // Keeping the leaf file name is useful, while SecureLog removes any sensitive Throwable path or credential text.
             SecureLog.warn(TAG, "decode widget cover failed: ${file.name}", error)
             null
         }
@@ -89,7 +80,6 @@ internal object WidgetCoverArtRenderer {
     private fun calculateInSampleSize(width: Int, height: Int): Int {
         var sampleSize = 1
         val maxEdge = maxOf(width, height)
-        // Max edge constraint. Constrain by the longest edge to avoid skipping downsampling on extremely tall or wide images.
         while (maxEdge / (sampleSize * 2) >= TARGET_MAX_SIZE) {
             sampleSize *= 2
         }
@@ -112,14 +102,12 @@ internal object WidgetCoverArtRenderer {
 
     private fun Bitmap.blurForWidgetBackground(): Bitmap {
         if (width <= 1 || height <= 1) {
-            // Tiny bitmap fallback. Avoid blurry computations on tiny images and copy directly to immutable RGB_565, preserving consistent format for IPC.
             return copy(Bitmap.Config.RGB_565, false)
         }
 
         val sourcePixels = IntArray(width * height)
         getPixels(sourcePixels, 0, width, 0, 0, width, height)
 
-        // Low-cost box blur. Since the cover is resized to 120px, two passes of box blur produce a background resembling Gaussian blur at very low cost.
         var blurredPixels = sourcePixels
         repeat(BLUR_PASSES) {
             blurredPixels = blurredPixels.boxBlur(width, height, BLUR_RADIUS)
@@ -128,7 +116,6 @@ internal object WidgetCoverArtRenderer {
         val mutableBlurred = createBitmap(width, height, Bitmap.Config.RGB_565)
         mutableBlurred.setPixels(blurredPixels, 0, width, 0, 0, width, height)
 
-        // Immutability conversion. RemoteViews only needs the finalized background; copying to an immutable Bitmap protects it against subsequent pixel alterations.
         val immutableBlurred = mutableBlurred.copy(Bitmap.Config.RGB_565, false)
         mutableBlurred.recycle()
         return immutableBlurred
@@ -138,7 +125,6 @@ internal object WidgetCoverArtRenderer {
         val horizontal = IntArray(size)
         val output = IntArray(size)
 
-        // Horizontal pass. Blur horizontally to keep the radius manageable, preventing the computational load of direct 2D convolutions.
         for (y in 0 until height) {
             val rowStart = y * width
             for (x in 0 until width) {
@@ -146,7 +132,6 @@ internal object WidgetCoverArtRenderer {
             }
         }
 
-        // Vertical pass. Blur vertically over the horizontal result; combining two 1D passes yields a soft background sufficient for the widget scale.
         for (y in 0 until height) {
             val rowStart = y * width
             for (x in 0 until width) {

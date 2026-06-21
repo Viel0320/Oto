@@ -4,7 +4,7 @@ import android.os.SystemClock
 import android.util.Log
 
 /**
- * Library Storage Logger (Track repository CRUD and playback plan build performance)
+ * Track repository CRUD and playback plan build performance.
  *
  * Collects and logs database queries, execution durations, and file operations
  * (such as cover and thumbnail cache deletions) within the library repository layer.
@@ -14,12 +14,10 @@ internal object LibraryLogger {
 
     private const val TAG = "Library"
 
-    // Calculate Elapsed Milliseconds (Determine time delta from a starting timestamp)
-    // Converts the start timestamp into elapsed milliseconds based on current system clock.
     fun elapsedMs(startMs: Long): Long = SystemClock.elapsedRealtime() - startMs
 
     /**
-     * Log Empty Playback Plan Build (Record performance metrics when no playable files are found)
+     * Record performance metrics when no playable files are found.
      *
      * Tracks the exact time spent querying books, files, and progress for empty plans.
      */
@@ -38,7 +36,7 @@ internal object LibraryLogger {
     }
 
     /**
-     * Log Completed Playback Plan Build (Record performance metrics when a plan is successfully constructed)
+     * Record performance metrics when a plan is successfully constructed.
      *
      * Tracks elapsed durations for querying books, files, and progress to diagnose plan generation latency.
      */
@@ -60,7 +58,7 @@ internal object LibraryLogger {
     }
 
     /**
-     * Log Cover Cache File Deletion (Record the outcome of deleting local cover images)
+     * Record the outcome of deleting local cover images.
      *
      * Tracks whether the physical cover file was successfully removed from the storage device.
      *
@@ -73,7 +71,7 @@ internal object LibraryLogger {
     }
 
     /**
-     * Log Thumbnail Cache File Deletion (Record the outcome of deleting local cover thumbnail images)
+     * Record the outcome of deleting local cover thumbnail images.
      *
      * Tracks whether the physical thumbnail file was successfully removed from the storage device.
      *

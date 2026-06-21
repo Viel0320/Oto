@@ -13,8 +13,6 @@ import java.time.format.DateTimeFormatter
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-// Title: Export User Data UseCase (UseCase responsible for packaging user database and settings into a ZIP file)
-// Encapsulates the sequential zipping of Room database, preference DataStore, and SharedPreferences files.
 class ExportUserDataUseCase(private val context: Context) {
     private val manifestAdapter = Moshi.Builder().build().adapter(BackupManifest::class.java)
     private val exportedAtFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
@@ -51,18 +49,14 @@ class ExportUserDataUseCase(private val context: Context) {
     suspend fun execute(outputStream: OutputStream, manifest: BackupManifest): Result<Unit> =
         withContext(Dispatchers.IO) {
         runCatching {
-            // Stable Database Snapshot (Close the Room singleton before reading database files)
-            // Export must copy the latest on-disk database and WAL state instead of racing an open SQLite connection that may rewrite the file while the ZIP is being built.
             AppDatabase.closeInstance()
 
             ZipOutputStream(outputStream).use { zos ->
-                // 0. Manifest
                 val manifestEntry = ZipEntry("manifest.json")
                 zos.putNextEntry(manifestEntry)
                 zos.write(manifestAdapter.toJson(manifest).toByteArray(Charsets.UTF_8))
                 zos.closeEntry()
 
-                // 1. Database Files
                 val dbName = "aplayer_database"
                 val dbFile = context.getDatabasePath(dbName)
                 val walFile = context.getDatabasePath("$dbName-wal")
@@ -86,7 +80,6 @@ class ExportUserDataUseCase(private val context: Context) {
                     }
                 }
 
-                // 2. DataStore Files
                 val datastoreDir = File(context.filesDir, "datastore")
                 if (datastoreDir.exists()) {
                     val settingsFile = File(datastoreDir, "app_settings.preferences_pb")
@@ -99,7 +92,6 @@ class ExportUserDataUseCase(private val context: Context) {
                     }
                 }
 
-                // 3. SharedPreferences Files
                 val sharedPrefsDir = File(context.filesDir.parentFile, "shared_prefs")
                 if (sharedPrefsDir.exists()) {
                     val webdavPrefs = File(sharedPrefsDir, "webdav_credentials.xml")
@@ -167,6 +159,6 @@ class ExportUserDataUseCase(private val context: Context) {
         if (file.length() < 16) return false
         return file.inputStream().use { it.readNBytes(16) }
             .take(6).map { it.toInt().and(0xFF) }
-            .let { it == listOf(0x53, 0x51, 0x4C, 0x69, 0x74, 0x65) } // "SQLite"
+            .let { it == listOf(0x53, 0x51, 0x4C, 0x69, 0x74, 0x65) }
     }
 }

@@ -16,8 +16,6 @@ class SubtitleParserTest {
             "srt"
         )
 
-        // Subtitle Cue Budget Regression (Locks oversized sidecar parsing to a finite player-state payload)
-        // A 50k-cue file must stop at the playback subtitle budget instead of allocating every parsed cue.
         assertEquals(10_000, result.size)
         assertEquals("Cue 10000", result.last().text)
     }
@@ -29,16 +27,12 @@ class SubtitleParserTest {
             "srt"
         )
 
-        // Subtitle Text Budget Regression (Prevents one malformed cue from inflating Compose subtitle state)
-        // The parser keeps the cue usable while trimming text that exceeds the per-cue memory budget.
         assertEquals(1, result.size)
         assertTrue(result.single().text.length <= 8_192)
     }
 
     @Test
     fun `player state limiter should cap externally supplied subtitle lists`() {
-        // Oversized Fixture Memory Bound (Keep regression setup focused on limiter behavior)
-        // Reuses one pathological text instance so the test exercises clipping without exhausting heap during setup.
         val oversizedText = "B".repeat(50_000)
         val oversizedLines = List(50_000) { index ->
             SubtitleLine(
@@ -50,14 +44,12 @@ class SubtitleParserTest {
 
         val result = SubtitleParser.limitForPlayerState(oversizedLines)
 
-        // Subtitle State Budget Regression (Protects PlayerViewModel against non-parser subtitle sources)
-        // The shared limiter must cap both list size and text size before external cues are assigned to Compose state.
         assertEquals(10_000, result.size)
         assertTrue(result.all { line -> line.text.length <= 8_192 })
     }
 
     /**
-     * Oversized SRT Fixture (Creates a deterministic high-cue subtitle input)
+     * Creates a deterministic high-cue subtitle input.
      *
      * Builds the same shape of sidecar file that triggered the player-state growth risk while keeping the test free
      * from filesystem fixtures.
@@ -72,7 +64,7 @@ class SubtitleParserTest {
         }
 
     /**
-     * Oversized Cue Fixture (Creates one valid cue with pathological text)
+     * Creates one valid cue with pathological text.
      *
      * Exercises the per-cue text budget separately from the cue-count budget so the regression pinpoints which guard
      * failed if the parser starts accepting oversized text again.

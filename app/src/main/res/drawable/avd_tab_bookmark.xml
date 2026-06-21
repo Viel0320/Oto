@@ -1,14 +1,4 @@
-<!--
-  Animated bookmark tab icon for the outline -> filled-hollow transition.
 
-  Final state is a white rounded card with the bookmark ribbon punched out as a
-  hollow knockout (the hole spans the ribbon plus its old rounded stroke). The
-  card body fill and the ribbon hole live in a single evenOdd path inside one
-  clip group, so a single bottom-up clip animation reveals the white fill and
-  carves the cutout from the bottom edge upward at the same time. The white
-  ribbon outline from the start frame fades out over the same 300ms so the hole
-  reads cleanly at the end.
--->
 <animated-vector
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt">
@@ -19,12 +9,6 @@
             android:height="24dp"
             android:viewportWidth="48"
             android:viewportHeight="48">
-            <!--
-              The clip starts as a zero-height rect below the viewport and grows
-              above it, revealing the white card body from the bottom up. Because
-              the ribbon is an evenOdd hole in this same path, the cutout is
-              carved bottom-up by the very same motion.
-            -->
             <group android:name="bodyFillClipGroup">
                 <clip-path
                     android:name="bodyFillClip"
@@ -35,11 +19,6 @@
                     android:fillType="evenOdd"
                     android:pathData="M10,44C8.895,44 8,43.105 8,42V6C8,4.895 8.895,4 10,4H38C39.105,4 40,4.895 40,6V42C40,43.105 39.105,44 38,44H10Z M19,22 L19,9 A2,2 0 0,1 21,7 L33,7 A2,2 0 0,1 35,9 L35,22 A2,2 0 0,1 31.555,23.382 L27,18.618 L22.445,23.382 A2,2 0 0,1 19,22 Z" />
             </group>
-
-            <!--
-              The card border stays white the whole time so the start frame is
-              the outline icon and the end frame keeps a crisp white edge.
-            -->
             <path
                 android:name="cardOutline"
                 android:fillColor="#00000000"
@@ -48,11 +27,6 @@
                 android:strokeLineCap="round"
                 android:strokeLineJoin="round"
                 android:pathData="M10,44C8.895,44 8,43.105 8,42V6C8,4.895 8.895,4 10,4H38C39.105,4 40,4.895 40,6V42C40,43.105 39.105,44 38,44H10Z" />
-
-            <!--
-              Outline ribbon from bookmark_outline.xml. Its white stroke fades to
-              transparent so nothing is painted over the final hole.
-            -->
             <path
                 android:name="ribbonStroke"
                 android:fillColor="#00000000"

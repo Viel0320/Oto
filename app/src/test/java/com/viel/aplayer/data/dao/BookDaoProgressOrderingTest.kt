@@ -18,8 +18,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-// Room Progress Ordering Harness (Runs the real DAO transaction against an in-memory database)
-// The bug is a persistence-ordering issue, so this test avoids fakes and verifies the actual Room update path used by ProgressGatewayImpl.
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class BookDaoProgressOrderingTest {
@@ -47,8 +45,6 @@ class BookDaoProgressOrderingTest {
             )
             val progress = database.bookDao().getProgressForBookSync(BOOK_ID)
 
-            // Stale Polling Rejection (Locks seek checkpoints as newer than delayed automatic polling saves)
-            // A 10-second polling snapshot that completes after a 100-second seek must not rewind book_progress.globalPositionMs.
             assertTrue(seekAccepted)
             assertFalse(delayedPollingAccepted)
             assertEquals(100_000L, progress?.globalPositionMs)
@@ -71,8 +67,6 @@ class BookDaoProgressOrderingTest {
 
             val rows = database.bookDao().observeHomeCatalogRows().first()
 
-            // Home Projection Query Contract (Read shelf rows without Room relation fan-out)
-            // The active rows stay title ordered, deleted rows are hidden, missing progress defaults to zero, and joined progress preserves the legacy ceil percentage.
             assertEquals(listOf("book-no-progress", "book-with-progress"), rows.map { row -> row.id })
             assertEquals(0, rows.first { row -> row.id == "book-no-progress" }.progressPercent)
             assertEquals(0L, rows.first { row -> row.id == "book-no-progress" }.lastPlayedAt)
@@ -120,7 +114,7 @@ class BookDaoProgressOrderingTest {
     }
 
     /**
-     * Home Catalog Projection Fixture (Seeds active, progressed, and deleted books)
+     * Seeds active, progressed, and deleted books.
      *
      * Keeps the query test focused on the new Home projection semantics without requiring file rows or playback plans.
      */

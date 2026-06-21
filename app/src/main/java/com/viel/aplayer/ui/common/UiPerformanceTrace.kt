@@ -14,7 +14,7 @@ private const val DRAW_SAMPLE_WINDOW_MS = 1_000L
 private const val DRAW_CLOCK_CHECK_INTERVAL = 16
 
 /**
- * UI Performance Trace Modifier (Attach node/count/route/state diagnostics to page boundaries)
+ * Attach node/count/route/state diagnostics to page boundaries.
  *
  * The modifier records sampled recomposition commits, layout passes, and draw windows for a single
  * top-level UI node. Counters and latest route fields are plain remembered fields instead of Compose
@@ -97,7 +97,7 @@ fun Modifier.uiPerformanceTrace(
 }
 
 /**
- * UI Performance Trace Counters (Mutable diagnostic state outside Compose snapshots)
+ * Mutable diagnostic state outside Compose snapshots.
  *
  * Keeping these fields outside mutableState prevents trace bookkeeping from invalidating the traced
  * node and makes count increments reflect only real UI work produced by the page boundary.

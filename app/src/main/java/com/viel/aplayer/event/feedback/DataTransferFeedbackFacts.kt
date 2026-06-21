@@ -1,7 +1,7 @@
 package com.viel.aplayer.event.feedback
 
 /**
- * Data Transfer Feedback Facts (Command-owner fact factory for portable app-data export and import)
+ * Command-owner fact factory for portable app-data export and import.
  *
  * Data transfer is a peer top-level category whose feedback applies to the whole app, so every outcome
  * uses [FeedbackContext.Global] and the export/import topics keep the two user tasks from absorbing each
@@ -11,7 +11,7 @@ package com.viel.aplayer.event.feedback
  */
 object DataTransferFeedbackFacts {
 
-    /** Export Succeeded (The portable backup file was written successfully). */
+    /** The portable backup file was written successfully. */
     fun exportSucceeded(): FeedbackFact =
         dataTransferFact(
             message = FeedbackMessages.settingsExportSuccess(),
@@ -19,7 +19,7 @@ object DataTransferFeedbackFacts {
             severity = FeedbackSeverity.COMPLETED
         )
 
-    /** Export Stream Failed (The destination output stream could not be opened). */
+    /** The destination output stream could not be opened. */
     fun exportStreamFailed(): FeedbackFact =
         dataTransferFact(
             message = FeedbackMessages.settingsExportStreamFailed(),
@@ -27,7 +27,7 @@ object DataTransferFeedbackFacts {
             severity = FeedbackSeverity.FAILED
         )
 
-    /** Export Failed (The export task failed while packaging app data). */
+    /** The export task failed while packaging app data. */
     fun exportFailed(errorMessage: String?): FeedbackFact =
         dataTransferFact(
             message = FeedbackMessages.settingsExportFailed(errorMessage),
@@ -35,7 +35,7 @@ object DataTransferFeedbackFacts {
             severity = FeedbackSeverity.FAILED
         )
 
-    /** Import Stream Failed (The selected backup file could not be opened for reading). */
+    /** The selected backup file could not be opened for reading. */
     fun importStreamFailed(): FeedbackFact =
         dataTransferFact(
             message = FeedbackMessages.settingsImportStreamFailed(),
@@ -44,7 +44,7 @@ object DataTransferFeedbackFacts {
         )
 
     /**
-     * Import Version Incompatible (The backup came from a newer database schema)
+     * The backup came from a newer database schema.
      *
      * The version numbers are rendering arguments only and never enter the aggregation identity.
      */
@@ -55,7 +55,7 @@ object DataTransferFeedbackFacts {
             severity = FeedbackSeverity.FAILED
         )
 
-    /** Import Failed (The import task failed while restoring app data). */
+    /** The import task failed while restoring app data. */
     fun importFailed(errorMessage: String?): FeedbackFact =
         dataTransferFact(
             message = FeedbackMessages.settingsImportFailed(errorMessage),

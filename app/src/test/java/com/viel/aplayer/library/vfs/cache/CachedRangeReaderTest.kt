@@ -32,8 +32,6 @@ class CachedRangeReaderTest {
         val first = reader.read(node, offset = 0L, length = 3)
         val second = reader.read(node, offset = 0L, length = 3)
 
-        // Range Cache Hit Flow (Verifies repeated metadata reads reuse the persisted block)
-        // The delegate provider should be called once on miss, then bypassed by the second identical bounded read.
         assertArrayEquals(byteArrayOf(7, 8, 9), first)
         assertArrayEquals(byteArrayOf(7, 8, 9), second)
         assertEquals(1, delegateCalls)
@@ -57,8 +55,6 @@ class CachedRangeReaderTest {
         reader.read(node, offset = 0L, length = 1)
         reader.read(node, offset = 0L, length = 1)
 
-        // Provider Capability Guard (Prevents unsupported range providers from using disk cache)
-        // When supportsRangeRead is false, every call delegates directly and no cached hit can mask provider behavior.
         assertEquals(2, delegateCalls)
     }
 

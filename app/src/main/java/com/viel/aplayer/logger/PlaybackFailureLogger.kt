@@ -3,7 +3,7 @@ package com.viel.aplayer.logger
 import android.util.Log
 
 /**
- * Playback Failure and Self-Healing Logger (Diagnose playback failures and failover transitions)
+ * Diagnose playback failures and failover transitions.
  *
  * Collects logs from PlaybackFailureHandler regarding broken/missing track flags
  * and successful failover redirects to alternative tracks.
@@ -14,7 +14,7 @@ internal object PlaybackFailureLogger {
     private const val TAG = "PlaybackFailure"
 
     /**
-     * Log Damaged or Missing Track (Record when a track is flagged as unavailable)
+     * Record when a track is flagged as unavailable.
      *
      * Marks the specific track as failed to trigger subsequent self-healing.
      *
@@ -25,7 +25,7 @@ internal object PlaybackFailureLogger {
     }
 
     /**
-     * Log Successful Failover (Record transition to the next playable track)
+     * Record transition to the next playable track.
      *
      * Signals that self-healing succeeded and the player is navigating to a valid fallback track.
      *

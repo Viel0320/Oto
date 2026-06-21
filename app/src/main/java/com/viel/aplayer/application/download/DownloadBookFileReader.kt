@@ -5,7 +5,7 @@ import com.viel.aplayer.data.entity.BookFileEntity
 
 interface DownloadBookFileReader {
     /**
-     * Download File Inventory (Return the book files eligible for download reconciliation)
+     * Return the book files eligible for download reconciliation.
      * Implementations can hide Room details while preserving the existing BookDao.getAllFilesForBookList source of truth.
      */
     suspend fun getDownloadFilesForBook(bookId: String): List<BookFileEntity>

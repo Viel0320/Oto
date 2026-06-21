@@ -6,7 +6,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Feedback Architecture Test (Guards producer ownership of migrated feedback)
+ * Guards producer ownership of migrated feedback.
  *
  * As feedback producers move from leaf composables to command owners and domain fact factories, this
  * test pins the boundaries that must not regress: migrated leaf UI no longer constructs feedback copy or
@@ -40,8 +40,6 @@ class FeedbackArchitectureTest {
     fun `player bottom bar no longer holds a debounce delay`() {
         val source = sourceRoot().resolve("ui/player/components/PlayerBottomBar.kt").readText(Charsets.UTF_8)
 
-        // UI Debounce Removal Guard (Speed/timer trailing collapse now belongs to the delivery policy)
-        // The owner emits provisional facts with no timing; the policy holds and collapses rapid taps.
         assertFalse(
             "PlayerBottomBar must not import kotlinx.coroutines.delay after the debounce moved to the delivery policy.",
             source.contains("import kotlinx.coroutines.delay")
@@ -171,8 +169,6 @@ class FeedbackArchitectureTest {
             .filter { file -> file.readText(Charsets.UTF_8).contains("FeedbackMessage.Resource(") }
             .map { file -> file.name }
 
-        // Producers describe outcomes through fact factories that delegate copy to FeedbackMessages; only
-        // the message factory may construct a Resource directly.
         assertTrue(
             "FeedbackMessage.Resource(...) must only be built in FeedbackMessage.kt. Offenders: $offenders",
             offenders.isEmpty()
@@ -199,7 +195,6 @@ class FeedbackArchitectureTest {
             .filter { file -> file.readText(Charsets.UTF_8).contains("import com.viel.aplayer.event.AppEventSink") }
             .map { file -> file.name }
 
-        // Media-core emits playback-domain events; the application-layer bridge translates them to feedback.
         assertTrue(
             "media/ must not depend on AppEventSink; route through PlaybackDomainEvent instead. Offenders: $offenders",
             offenders.isEmpty()

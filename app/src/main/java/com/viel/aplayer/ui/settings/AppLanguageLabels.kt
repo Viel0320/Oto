@@ -6,8 +6,6 @@ import androidx.compose.ui.res.stringResource
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.settings.AppLanguage
 
-// App Language Option Order (Expose one stable language list for rows and dialogs)
-// System default stays first so users can quickly hand locale control back to Android.
 val AppLanguageOptions: List<AppLanguage> = listOf(
     AppLanguage.System,
     AppLanguage.English,
@@ -22,8 +20,6 @@ val AppLanguageOptions: List<AppLanguage> = listOf(
     AppLanguage.Portuguese
 )
 
-// App Language Label Resolution (Map stored locale choices to translated display labels)
-// Keeping resource IDs here prevents DataStore enums from depending on Android resources or presentation text.
 @StringRes
 fun appLanguageLabelRes(language: AppLanguage): Int =
     when (language) {

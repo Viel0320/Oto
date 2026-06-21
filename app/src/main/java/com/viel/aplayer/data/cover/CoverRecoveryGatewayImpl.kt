@@ -10,7 +10,7 @@ import kotlinx.coroutines.yield
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Cover Recovery Service (Implements CoverRecoveryGateway)
+ * Implements CoverRecoveryGateway.
  *
  * Thin forwarder over the [CoverSelfHealer] seam (backed by [CoverRecoveryHelper], now colocated under data/cover).
  * Catalog reads, metadata refresh, and scan passes route their self-heal triggers here so they depend on this
@@ -50,7 +50,7 @@ class CoverRecoveryGatewayImpl(
 }
 
 /**
- * Cover Recovery Sweep Policy (Startup resource budget for artwork self-healing)
+ * Startup resource budget for artwork self-healing.
  * Keeps the Home-start recovery pass bounded and cooperative so SAF queries, media parsing, and cache checks do
  * not compete with first paint or immediate list scrolling.
  */

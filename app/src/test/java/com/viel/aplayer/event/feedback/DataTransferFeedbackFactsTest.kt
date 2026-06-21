@@ -5,7 +5,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 /**
- * Data Transfer Feedback Facts Test (Locks the global data-transfer identity and export/import separation)
+ * Locks the global data-transfer identity and export/import separation.
  *
  * Verifies export and import feedback stay in the data transfer category on the global context while the
  * two user tasks keep separate topics so they never absorb each other.

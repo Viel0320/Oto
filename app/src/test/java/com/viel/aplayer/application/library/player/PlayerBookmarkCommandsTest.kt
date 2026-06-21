@@ -24,7 +24,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Player Bookmark Commands Test (Locks player-scene bookmark mutations)
+ * Locks player-scene bookmark mutations.
  * Verifies add, update, and delete commands delegate exactly once to the bookmark-capable query gateway.
  */
 class PlayerBookmarkCommandsTest {
@@ -62,11 +62,7 @@ class PlayerBookmarkCommandsTest {
     }
 
     private fun moduleFor(gateway: FakeBookQueryGateway): PlayerBookmarkCommands {
-        // Bookmark Command Fixture (Wires only the query gateway behavior needed by bookmark mutations)
-        // Other gateway fakes fail fast so these tests protect BookmarkManager's narrow command surface.
         return DefaultPlayerLibraryModule(
-            // Player Gateway Split Fixture (Reuse one fake across catalog, chapter, and bookmark slots)
-            // Bookmark tests exercise only BookmarkGateway while inert catalog and chapter seams satisfy constructor wiring.
             bookCatalogGateway = gateway,
             chapterGateway = gateway,
             bookmarkGateway = gateway,
@@ -77,8 +73,6 @@ class PlayerBookmarkCommandsTest {
     }
 
     private fun bookmark(title: String): PlayerBookmarkItem {
-        // Player Bookmark Projection Fixture (Matches the public player command contract)
-        // The command adapter receives scene projections and reconstructs Room entities only before delegating to the gateway.
         return PlayerBookmarkItem(
             id = "bookmark-id",
             bookId = BOOK_ID,
@@ -89,8 +83,6 @@ class PlayerBookmarkCommandsTest {
     }
 
     private fun bookmarkEntity(title: String): BookmarkEntity {
-        // Bookmark Entity Expectation Fixture (Verifies adapter-side persistence rehydration)
-        // Gateway assertions stay on BookmarkEntity because the fake gateway models the data-layer boundary.
         return BookmarkEntity(
             id = "bookmark-id",
             bookId = BOOK_ID,

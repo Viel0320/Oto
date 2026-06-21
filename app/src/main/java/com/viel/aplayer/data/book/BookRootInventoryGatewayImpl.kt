@@ -5,7 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Book Root Inventory Service (Implements BookRootInventoryGateway)
+ * Implements BookRootInventoryGateway.
  *
  * Exposes only the root-scoped book ids that LibraryRootManagementUseCase needs before cascade deletion
  * removes BookFileEntity rows. It intentionally does not carry catalog or metadata surfaces.

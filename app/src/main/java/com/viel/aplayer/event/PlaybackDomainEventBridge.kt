@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 
 /**
- * Playback Domain Event Bridge (Translates media-core facts into app-shell feedback)
+ * Translates media-core facts into app-shell feedback.
  *
  * Media modules emit playback-domain events only; this adapter is the application-layer seam that decides
  * which render mode each fact uses for the current UI shell.
@@ -39,7 +39,7 @@ class PlaybackDomainEventBridge(
     }
 
     /**
-     * Bridge Shutdown (Stops the collection job when the container is explicitly closed)
+     * Stops the collection job when the container is explicitly closed.
      *
      * The app process normally owns this bridge for its full lifetime, but tests and manual container teardown
      * need deterministic cancellation to avoid leaking coroutine collectors.
@@ -50,7 +50,7 @@ class PlaybackDomainEventBridge(
 }
 
 /**
- * Playback Feedback Mapping (Converts media facts into typed feedback facts)
+ * Converts media facts into typed feedback facts.
  *
  * Keeping this mapping beside the bridge concentrates playback feedback classification outside media-core
  * callers. Each fact carries both the resource-backed message and the aggregation outcome the delivery

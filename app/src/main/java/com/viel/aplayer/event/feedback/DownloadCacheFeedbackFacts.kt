@@ -1,7 +1,7 @@
 package com.viel.aplayer.event.feedback
 
 /**
- * Download Cache Feedback Facts (Command-owner fact factory for download cache task outcomes)
+ * Command-owner fact factory for download cache task outcomes.
  *
  * Per-book cache actions stay tied to [FeedbackContext.DownloadCacheTask] so queueing, pausing, resuming,
  * deleting, or failing one book never absorbs another book's outcome. The queued outcome is a provisional
@@ -12,7 +12,7 @@ package com.viel.aplayer.event.feedback
  */
 object DownloadCacheFeedbackFacts {
 
-    /** Queued (A download was accepted for a specific book; a provisional started state). */
+    /** A download was accepted for a specific book; a provisional started state. */
     fun queued(bookId: String): FeedbackFact =
         bookTaskFact(
             message = FeedbackMessages.downloadCacheQueued(),
@@ -21,7 +21,7 @@ object DownloadCacheFeedbackFacts {
             lifecycle = FeedbackLifecycle.PROVISIONAL
         )
 
-    /** Paused (An in-flight download was paused for a specific book). */
+    /** An in-flight download was paused for a specific book. */
     fun paused(bookId: String): FeedbackFact =
         bookTaskFact(
             message = FeedbackMessages.downloadCachePaused(),
@@ -30,7 +30,7 @@ object DownloadCacheFeedbackFacts {
             lifecycle = FeedbackLifecycle.FINAL
         )
 
-    /** Resumed (A paused download resumed for a specific book). */
+    /** A paused download resumed for a specific book. */
     fun resumed(bookId: String): FeedbackFact =
         bookTaskFact(
             message = FeedbackMessages.downloadCacheResumed(),
@@ -39,7 +39,7 @@ object DownloadCacheFeedbackFacts {
             lifecycle = FeedbackLifecycle.FINAL
         )
 
-    /** Deleted (Cached playback data was removed for a specific book). */
+    /** Cached playback data was removed for a specific book. */
     fun deleted(bookId: String): FeedbackFact =
         bookTaskFact(
             message = FeedbackMessages.downloadCacheDeleted(),
@@ -49,7 +49,7 @@ object DownloadCacheFeedbackFacts {
         )
 
     /**
-     * Deleted All (Every manual download was cleared)
+     * Every manual download was cleared.
      *
      * This is an app-wide cache action, so it stays on [FeedbackContext.Global] and never shares an
      * identity with any single-book delete.
@@ -63,7 +63,7 @@ object DownloadCacheFeedbackFacts {
         )
 
     /**
-     * Notification Permission Denied (The listener declined the download notification permission)
+     * The listener declined the download notification permission.
      *
      * An app-wide informational hint on its own topic so it never absorbs a per-book task outcome.
      */
@@ -76,7 +76,7 @@ object DownloadCacheFeedbackFacts {
         )
 
     /**
-     * Command Failed (A download cache command failed)
+     * A download cache command failed.
      *
      * A non-null [bookId] keeps the failure on the specific book's task identity; a bulk command failure
      * (no single book) falls back to [FeedbackContext.Global]. The redacted message is a render argument

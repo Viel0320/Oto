@@ -5,14 +5,12 @@ import android.util.Base64
 import androidx.core.content.edit
 import java.util.UUID
 
-// WebDAV credentials are persisted in separate SharedPreferences initially; LibraryRootEntity only references credentialId, allowing future Keystore migration.
 data class WebDavCredential(
     val id: String,
     val username: String,
     val password: String
 )
 
-// This store encapsulates connection credentials, preventing usernames/passwords from scattering into Provider, UI, or Room tables.
 class WebDavCredentialStore(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -27,12 +25,9 @@ class WebDavCredentialStore(context: Context) {
             username = username,
             password = password
         )
-        // Groups preference fields by credentialId, enabling concurrent storage of multiple WebDAV connections.
         preferences.edit {
             putString(key(credentialId, KEY_USERNAME), username)
                 .putString(key(credentialId, KEY_PASSWORD), encodedPassword)
-                // Legacy Per-Root TLS Cleanup (Remove obsolete local TLS bypass state)
-                // Unsafe TLS is now controlled only by the global AppSettings switch, so persisted root-level flags must not influence future requests.
                 .remove(key(credentialId, LEGACY_KEY_ALLOW_INSECURE_TLS))
             }
         return credential
@@ -54,12 +49,9 @@ class WebDavCredentialStore(context: Context) {
 
     fun delete(credentialId: String?) {
         if (credentialId.isNullOrBlank()) return
-        // Erases credentials when deleting WebDAV root to avoid leaving stale username/password records in SharedPreferences.
         preferences.edit {
             remove(key(credentialId, KEY_USERNAME))
                 .remove(key(credentialId, KEY_PASSWORD))
-                // Legacy Per-Root TLS Cleanup (Delete obsolete TLS bypass marker with the credential)
-                // Keeps removed roots from leaving misleading compatibility flags behind in SharedPreferences.
                 .remove(key(credentialId, LEGACY_KEY_ALLOW_INSECURE_TLS))
         }
     }

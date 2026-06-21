@@ -1,6 +1,5 @@
 package com.viel.aplayer.abs.sync
 
-// Resource Cleanup Support: Import Closeable, CancellationException, and cancel extensions for proper background scope lifecycle management.
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
@@ -20,23 +19,19 @@ import kotlinx.coroutines.launch
 import java.io.Closeable
 
 /**
- * ABS Sync Task Coordinator (Manages application-scoped ABS catalog synchronization)
+ * Manages application-scoped ABS catalog synchronization.
  * Coordinates manual and automatic ABS catalog sync jobs outside SettingsViewModel lifetimes while preventing concurrent writes for the same root.
  */
 class AbsSyncTaskCoordinator(
     private val libraryRootDao: LibraryRootDao,
     private val synchronizer: AbsCatalogSynchronizer,
-    // Application Event Sink (Reports background ABS sync feedback without routing through playback)
-    // ABS sync is an application task, so its user-facing messages now share the process-wide event stream.
     private val appEventSink: AppEventSink,
-    // Root Preflight Refresh (Updates root state before ABS catalog synchronization)
-    // Injects the application-service boundary so the coordinator can block unavailable roots without owning protocol-specific availability logic.
     private val rootPreflight: (suspend (String) -> LibraryRootAvailabilityUpdate?)? = null,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 ) : Closeable {
 
     /**
-     * Release running scopes (To terminate pending sync task events on teardown)
+     * To terminate pending sync task events on teardown.
      */
     override fun close() {
         scope.cancel()
@@ -48,7 +43,7 @@ class AbsSyncTaskCoordinator(
     val events: SharedFlow<AbsSyncTaskResult> = _events.asSharedFlow()
 
     /**
-     * Start Sync Task (Launches an application-level background synchronization job)
+     * Launches an application-level background synchronization job.
      * Returns false when the selected root is already running; otherwise starts a guarded sync task that validates root availability first.
      */
     fun start(rootId: String, origin: AbsSyncTaskOrigin): Boolean {
@@ -77,8 +72,6 @@ class AbsSyncTaskCoordinator(
                     return@launch
                 }
                 if (preflight != null && !preflight.isSyncAvailable) {
-                    // Unavailable Root Short-Circuit (Stops ABS sync before remote catalog requests begin)
-                    // Emits the same result channel and toast path as failures while preserving the refreshed root status in Room.
                     val feedback = buildRootUnavailableSyncMessage(preflight)
                     val errMsg = "ROOT_UNAVAILABLE:${preflight.availability.status}"
                     _events.emit(
@@ -113,8 +106,6 @@ class AbsSyncTaskCoordinator(
                     )
                 )
             } catch (error: CancellationException) {
-                // Coroutine Cancellation Propagation (Treat lifecycle cancellation as coordinator control flow)
-                // Graph teardown, test cleanup, and future caller-initiated cancellation should stop ABS work without emitting user-facing failure events.
                 throw error
             } catch (error: Exception) {
                 val errMsg = error.message ?: "ABS_BACKGROUND_SYNC_FAILED"
@@ -139,13 +130,12 @@ class AbsSyncTaskCoordinator(
         return true
     }
 
-    // Use unified AbsLogSanitizer to sanitize sensitive error information.
     private fun String.redactAbsError(): String =
         AbsLogSanitizer.sanitizeText(this)
 }
 
 /**
- * Sync Task Origin (Categorizes the source of the synchronization trigger)
+ * Categorizes the source of the synchronization trigger.
  * Allows UI consumers to distinguish user-initiated manual synchronization from automatic synchronization following server registration.
  */
 enum class AbsSyncTaskOrigin {
@@ -154,7 +144,7 @@ enum class AbsSyncTaskOrigin {
 }
 
 /**
- * Sync Task Result (Represents the lightweight result event dispatched to the UI)
+ * Represents the lightweight result event dispatched to the UI.
  * Contains synchronization details on success and a compact user-facing error message when execution is blocked or fails.
  */
 data class AbsSyncTaskResult(

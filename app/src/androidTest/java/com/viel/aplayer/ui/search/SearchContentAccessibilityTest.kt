@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Search Content Accessibility Test (Locks touch target semantics for search shell commands)
+ * Locks touch target semantics for search shell commands.
  *
  * Exercises SearchContent directly so history command regressions are caught without loading the
  * route, ViewModel, or app dependency di that is unrelated to the accessibility contract.
@@ -35,8 +35,6 @@ class SearchContentAccessibilityTest {
 
         composeRule.setContent {
             APlayerTheme(dynamicColor = false) {
-                // Search History Fixture (Render the history header that owns the Clear All command)
-                // A single history row is enough to compose the command while keeping the test focused on button semantics.
                 SearchContent(
                     query = TextFieldValue(""),
                     searchResults = emptyList(),
@@ -57,8 +55,6 @@ class SearchContentAccessibilityTest {
             }
         }
 
-        // Clear History Button Contract (Verify accessibility action and minimum target size together)
-        // The assertion fails if the command is rendered as raw clickable text instead of a Material button.
         composeRule
             .onNodeWithText(clearAllText)
             .assertHasClickAction()

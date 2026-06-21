@@ -12,7 +12,7 @@ import com.viel.aplayer.library.availability.buildUnavailableRootsSyncMessage
 import java.io.IOException
 
 /**
- * Scan Outcome Kind (Stable command result categories for scan callers)
+ * Stable command result categories for scan callers.
  * Groups scanner results into success, partial, blocked, failed, and retryable meanings shared by UI and WorkManager callers.
  */
 enum class ScanOutcomeKind {
@@ -24,7 +24,7 @@ enum class ScanOutcomeKind {
 }
 
 /**
- * Scan Outcome (Command-level scan result contract)
+ * Command-level scan result contract.
  * Carries the persisted session when one exists plus the user-facing feedback fact and WorkManager result mapping for background callers.
  */
 data class ScanOutcome(
@@ -35,13 +35,13 @@ data class ScanOutcome(
 )
 
 /**
- * Scan Outcome Policy (Maps scan sessions, preflight blocks, and exceptions into one command result language)
+ * Maps scan sessions, preflight blocks, and exceptions into one command result language.
  * Keeps user feedback text, retry classification, and empty-library success handling out of runners, services, and workers.
  */
 object ScanOutcomePolicy {
 
     /**
-     * Completed Scan Mapping (Turns a persisted scan session into success or partial semantics)
+     * Turns a persisted scan session into success or partial semantics.
      * Partial imports remain successful commands but keep a distinct outcome kind so callers can surface softer warnings consistently.
      */
     fun fromCompletedSession(
@@ -50,8 +50,6 @@ object ScanOutcomePolicy {
         skippedRoots: List<LibraryRootAvailabilityUpdate> = emptyList()
     ): ScanOutcome {
         if (session.status != AudiobookSchema.ScanStatus.COMPLETED) {
-            // Completed Session Policy Guard (Rejects sessions that never reached the scanner completion state)
-            // Direct policy callers receive a failed outcome instead of mapping ABANDONED or RUNNING rows into success or partial results.
             return fromFailure(
                 IllegalStateException("Scan session ended as ${session.status}")
             )
@@ -91,7 +89,7 @@ object ScanOutcomePolicy {
     }
 
     /**
-     * Blocked Scan Mapping (Builds a shared no-work outcome when no library can be used)
+     * Builds a shared no-work outcome when no library can be used.
      *
      * The scanner still protects its importer from no-work commands, but the rendered feedback stays
      * access-form-neutral so users do not see separate local, WebDAV, or catalog-backed library wording.
@@ -112,7 +110,7 @@ object ScanOutcomePolicy {
     }
 
     /**
-     * No Scan Work Required Mapping (Reports a successful no-op when another library access form is available)
+     * Reports a successful no-op when another library access form is available.
      *
      * Catalog-backed libraries can be available even when the directory importer has no SAF or WebDAV root
      * to traverse. This outcome avoids telling the listener that no library is available while keeping the
@@ -128,7 +126,7 @@ object ScanOutcomePolicy {
         )
 
     /**
-     * Failure Mapping (Classifies scan exceptions for Worker retry and user feedback)
+     * Classifies scan exceptions for Worker retry and user feedback.
      * IO failures are treated as transient retry candidates; other exceptions are permanent command failures until proven otherwise.
      */
     fun fromFailure(error: Throwable): ScanOutcome {
@@ -146,7 +144,7 @@ object ScanOutcomePolicy {
     }
 
     /**
-     * Skipped Roots Context (Keys rescan feedback to a single skipped root when one is identifiable)
+     * Keys rescan feedback to a single skipped root when one is identifiable.
      *
      * A lone skipped root keeps its stable, non-sensitive [FeedbackContext.LibraryRoot] identity; multiple
      * skipped roots fall back to [FeedbackContext.Global] because the message reports only a count.
@@ -164,7 +162,7 @@ object ScanOutcomePolicy {
 }
 
 /**
- * Composite Feedback Message Builder (Combines resource-backed fragments for scan summaries)
+ * Combines resource-backed fragments for scan summaries.
  *
  * Scan outcomes still expose one feedback fact, while individual fragments remain resource keys for
  * localization and snapshot testing.

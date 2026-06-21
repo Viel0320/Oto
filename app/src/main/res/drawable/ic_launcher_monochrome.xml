@@ -4,7 +4,6 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- The themed launcher icon uses this alpha-only headset shape so Android launchers can apply wallpaper-derived foreground and background colors. -->
     <group
         android:scaleX="2.5"
         android:scaleY="2.5"

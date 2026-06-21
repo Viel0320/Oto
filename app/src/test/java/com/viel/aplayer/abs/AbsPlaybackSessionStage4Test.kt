@@ -129,8 +129,6 @@ class AbsPlaybackSessionStage4Test {
         syncer.openSession(book, remoteItemId = "item-1")
         syncer.openSession(book, remoteItemId = "item-1")
 
-        // Idempotent Open Regression (Prevents resume commands from creating duplicate ABS server sessions)
-        // PlaybackManager may ensure a session when local play resumes, so the syncer must no-op when a session row is already active.
         assertEquals(1, api.openCallCount)
         assertNotNull(playbackSessionDao.getByBookId(book.id))
     }
@@ -162,8 +160,6 @@ class AbsPlaybackSessionStage4Test {
 
         syncer.openSession(book, remoteItemId = "item-1")
 
-        // Playback Session TTL Fallback (Recreates old ABS runtime sessions instead of trusting persisted ids forever)
-        // The TTL is applied when reusing a local session row, so long playback is not cut off but stale app-restored rows cannot suppress a new server open.
         assertEquals(1, api.openCallCount)
         val session = playbackSessionDao.getByBookId(book.id)
         assertEquals("fresh-session", session?.sessionId)
@@ -201,16 +197,12 @@ class AbsPlaybackSessionStage4Test {
             durationMs = 200_000L
         )
 
-        // Expired Session Sync Guard (Avoids sending progress to an ABS session id outside the fallback freshness window)
-        // The next play/open command can create a replacement session; this direct sync call should only remove the stale local row.
         assertEquals(0, api.syncCallCount)
         assertNull(playbackSessionDao.getByBookId(book.id))
     }
 
     @Test
     fun `sync should skip upload when remote progress conflicts`() = kotlinx.coroutines.runBlocking {
-        // Remote Conflict Upload Guard (Verifies live sync does not overwrite a divergent ABS checkpoint)
-        // The server position is intentionally far ahead of the local position, so the sync call must be skipped instead of queued or sent.
         val book = absBook()
         val api = SuccessfulPlaybackApi(remoteProgress = AbsUserProgressDto(currentTime = 100.0, lastUpdate = 3000L))
         val playbackSessionDao = FakePlaybackSessionDao().apply {
@@ -252,8 +244,6 @@ class AbsPlaybackSessionStage4Test {
 
     @Test
     fun `pending flush should discard stale retry when remote progress conflicts`() = kotlinx.coroutines.runBlocking {
-        // Pending Conflict Disposal (Prevents stale retry payloads from overwriting newer server progress)
-        // Opening a new session flushes pending rows, and this test confirms the retry row is deleted once a real remote conflict is detected.
         val book = absBook()
         val api = SuccessfulPlaybackApi(remoteProgress = AbsUserProgressDto(currentTime = 100.0, lastUpdate = 3000L))
         val playbackSessionDao = FakePlaybackSessionDao()
@@ -317,8 +307,6 @@ class AbsPlaybackSessionStage4Test {
 
         syncer.openSession(book, remoteItemId = "item-1")
 
-        // Pending Progress TTL Fallback (Drops old retry payloads before automatic flush)
-        // Retry rows are local recovery data, so expired rows must be removed without posting stale progress to the newly opened ABS session.
         assertEquals(1, api.openCallCount)
         assertEquals(0, api.syncCallCount)
         assertNull(pendingDao.getByBookId(book.id))
@@ -342,8 +330,6 @@ class AbsPlaybackSessionStage4Test {
         val local = BookProgressEntity(bookId = "book-1", globalPositionMs = 1_000L, lastPlayedAt = 2_000L)
         val remoteNew = AbsUserProgressDto(currentTime = 100.0, lastUpdate = 3_000L)
 
-        // Newer Remote Authority (Documents cross-device progress download semantics)
-        // A large position gap alone must not block download when the server checkpoint was updated after the local checkpoint.
         assertTrue(resolver.shouldApplyRemoteProgress(local, remoteNew, isCurrentlyPlaying = false))
     }
 
@@ -383,8 +369,6 @@ class AbsPlaybackSessionStage4Test {
             durationMs = 200_000L
         )
 
-        // Newer Local Authority (Documents upload arbitration beyond position delta)
-        // Playback creates a fresh local checkpoint, so an older remote timestamp must not block the session sync request.
         assertEquals(1, api.syncCallCount)
         assertNull(pendingDao.getByBookId(book.id))
     }
@@ -401,8 +385,6 @@ class AbsPlaybackSessionStage4Test {
         )
 
         try {
-            // Remote Probe Cancellation Regression (Keeps upload arbitration from converting coroutine cancellation into RemoteProbeFailed)
-            // A cancelled ABS progress request must escape the decision boundary so parent playback sync jobs can stop promptly.
             coordinator.resolveUploadDecision(
                 book = book,
                 localProgress = localProgress,
@@ -425,8 +407,6 @@ class AbsPlaybackSessionStage4Test {
         )
 
         try {
-            // Playback Probe Cancellation Regression (Prevents cancelled startup probes from being treated as absent remote progress)
-            // The player should not continue local preparation after the coroutine hierarchy has requested cancellation.
             coordinator.preparePlayback(book.id)
             fail("Expected CancellationException to propagate from playback preparation")
         } catch (error: CancellationException) {
@@ -436,8 +416,6 @@ class AbsPlaybackSessionStage4Test {
 
     @Test
     fun `conflict resolver should tolerate thirty seconds of progress drift`() {
-        // Thirty-Second Drift Tolerance (Documents the maximum accepted local-vs-remote progress delta)
-        // Exactly thirty seconds is treated as in-sync, while any larger delta requires explicit conflict handling.
         val resolver = AbsProgressConflictResolver()
         val local = BookProgressEntity(bookId = "book-1", globalPositionMs = 60_000L, lastPlayedAt = 2_000L)
 
@@ -460,8 +438,6 @@ class AbsPlaybackSessionStage4Test {
     )
 
     private fun freshSessionOpenedAt(): Long {
-        // Fresh Session Fixture Timestamp (Keeps preloaded session rows inside the runtime TTL during tests)
-        // These fixtures target progress conflict behavior, so the session TTL must not become the failing condition.
         return System.currentTimeMillis()
     }
 
@@ -470,11 +446,7 @@ class AbsPlaybackSessionStage4Test {
         book: BookEntity,
         localProgress: BookProgressEntity?
     ) = AbsProgressConflictCoordinator(
-        // Conflict Coordinator Fixture (Assembles the production arbitration service with minimal fake gateways)
-        // The fakes provide only the progress and book snapshots needed by upload and pending-flush decisions.
         apiClient = api,
-        // Conflict Gateway Fixture (Reuse fake across split catalog and metadata seams)
-        // The coordinator reads book/file data from catalog and updates readStatus only through metadata on remote acceptance.
         bookCatalogGateway = FakeBookQueryGateway(book),
         bookMetadataGateway = FakeBookQueryGateway(book),
         progressGateway = FakeProgressGateway(localProgress),
@@ -496,8 +468,6 @@ class AbsPlaybackSessionStage4Test {
         override suspend fun getLibraryItemsMinified(baseUrl: String, token: String, libraryId: String) = AbsLibraryItemsResponseDto()
         override suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>) = emptyList<AbsLibraryItemDto>()
         override suspend fun getProgressOrNull(baseUrl: String, token: String, itemId: String): AbsUserProgressDto? {
-            // Remote Progress Failure Fixture (Allows tests to distinguish cancellation from ordinary null progress)
-            // Existing success-path tests keep returning remoteProgress, while cancellation tests inject the exact throwable instance.
             remoteProgressFailure?.let { error -> throw error }
             return remoteProgress
         }
@@ -550,8 +520,6 @@ class AbsPlaybackSessionStage4Test {
             mirror: AbsItemMirrorEntity,
             syncState: AbsSyncStateEntity
         ) {
-            // Playback Session Catalog Fixture Scope (Provides the catalog interface without accepting progress writes)
-            // Session tests validate upload/download arbitration through ProgressGateway, so catalog materialization is intentionally inert here.
         }
         override suspend fun replaceMirrors(mirrors: List<AbsItemMirrorEntity>) = Unit
         override suspend fun saveSyncState(syncState: AbsSyncStateEntity) = Unit
@@ -580,7 +548,6 @@ class AbsPlaybackSessionStage4Test {
         override suspend fun updateBookReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus) {
             if (book.id == bookId) book = book.copy(readStatus = readStatus)
         }
-        // Mock Update Book Details (Mock interface matching including series parameter)
         override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String) = Unit
         override suspend fun getFilesForBookSync(bookId: String): List<BookFileEntity> = emptyList()
         override suspend fun getAllFilesForBookSync(bookId: String): List<BookFileEntity> = emptyList()

@@ -52,8 +52,6 @@ class ManualCachePlaybackDataSource(
         }
     }
 
-    // Manual Cache Playback Policy (Use only the user-owned manual cache before falling back to streamed upstream reads)
-    // Playback disk caching is intentionally removed, so uncached remote playback relies on ExoPlayer's in-memory LoadControl buffering.
     private fun selectDataSource(dataSpec: DataSpec): DataSource {
         val bookFileId = VfsPlaybackUri.bookFileId(dataSpec.uri)
             ?: return upstreamDataSourceFactory.createDataSource()
@@ -85,8 +83,6 @@ class ManualCachePlaybackDataSource(
         private val playbackFileLookup: PlaybackFileLookup,
         private val playbackRootLookup: PlaybackRootLookup
     ) : DataSource.Factory {
-        // Factory Boundary (Create one stateful manual-cache playback data source per Media3 load path)
-        // Each instance owns its active delegate so manual-cache hits and streamed upstream fallbacks stay isolated across concurrent loads.
         override fun createDataSource(): DataSource =
             ManualCachePlaybackDataSource(
                 manualCache = manualCache,

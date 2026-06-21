@@ -45,7 +45,7 @@ import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Tablet landscape player layout (Component rendering double-column player panels in wide screens)
+ * Component rendering double-column player panels in wide screens.
  * Implements clean layouts for tablet screens and folding displays.
  * Applies symmetrical padding structures and spacing margins to provide professional visual hierarchies.
  */
@@ -73,17 +73,12 @@ fun PlayerLandscapeTablet(
     onModeChange: (PlayerScreenMode) -> Unit,
     animatedBgColor: Color,
     glassEffectMode: GlassEffectMode,
-    // Player Floating Haze Source (Use the stable app-level sampler for player glass surfaces)
-    // PlayerScreen passes the resolved app-level source so chapter sheets, bookmark dialogs, controls, and header menus stay on one HazeState.
     chapterSheetHazeState: HazeState?,
     modifier: Modifier = Modifier,
     safeDrawingPadding: PaddingValues
 ) {
-    // Resolve window dimensions (To query device width coordinates without reading LocalConfiguration parameters directly)
     val windowClass = LocalAppWindowSizeClass.current
 
-    // Sync Previous Mode: Tracks the previous playback tab mode to allow custom transition logic when returning to PLAYER mode.
-    // Updates synchronously inside LaunchedEffect when currentMode changes.
     var prevMode by remember { mutableStateOf(currentMode) }
     LaunchedEffect(currentMode) {
         prevMode = currentMode
@@ -102,10 +97,6 @@ fun PlayerLandscapeTablet(
                 PlayerScreenMode.SUBTITLES -> PlayerContentShell.PlaybackShell
             }
         }
-
-        // ==========================================
-        // 1. Left side tab content column (Ratio 1f)
-        // ==========================================
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -128,13 +119,11 @@ fun PlayerLandscapeTablet(
                 ) { shell ->
                     when (shell) {
                         PlayerContentShell.PlaybackShell -> {
-                            // Sync Playback Mode State: Tracks and locks the active playback sub-view (subtitles or player artwork cover).
-                            // This state only updates when currentMode is SUBTITLES or PLAYER, freezing the view during exit transitions to other content shells.
                             var lastPlaybackMode by remember { mutableStateOf(currentMode) }
                             if (currentMode == PlayerScreenMode.PLAYER || currentMode == PlayerScreenMode.SUBTITLES) {
                                 lastPlaybackMode = currentMode
                             }
-                            
+
                             AnimatedContent(
                                 targetState = lastPlaybackMode,
                                 modifier = Modifier.fillMaxSize(),
@@ -147,7 +136,6 @@ fun PlayerLandscapeTablet(
                                 when (topMode) {
                                     PlayerScreenMode.SUBTITLES -> {
                                         Box(modifier = Modifier.fillMaxSize()) {
-                                            // Subtitles view layout (To render parsed lyrics elements using stateless components)
                                             PlaybackPositionSubtitlesView(
                                                 playbackProgressState = playbackProgressState,
                                                 subtitles = metadata.subtitles,
@@ -157,7 +145,6 @@ fun PlayerLandscapeTablet(
                                         }
                                     }
                                     else -> {
-                                        // Tablet main cover
                                         PlayerCover(
                                             bookId = metadata.id,
                                             isWideScreen = windowClass.isWideScreen,
@@ -174,7 +161,6 @@ fun PlayerLandscapeTablet(
                             }
                         }
                         PlayerContentShell.Bookmarks -> {
-                            // Bookmark list layout (To delegate custom bookmark lists to stateless component)
                             Box(modifier = Modifier.fillMaxSize()) {
                                 PlaybackPositionBookmarkListView(
                                     playbackProgressState = playbackProgressState,
@@ -189,8 +175,6 @@ fun PlayerLandscapeTablet(
                                     onConfirmDelete = onConfirmDeleteBookmark,
                                     onConfirmUpdate = onConfirmUpdateBookmark,
                                     onDismissDialogs = onDismissBookmarkDialogs,
-                                    // Bookmark Dialog Haze Routing (Reuse the stable player floating source)
-                                    // Edit/delete bookmark dialogs share chapterSheetHazeState with the chapter sheet and player chrome to avoid source rebinding.
                                     hazeState = chapterSheetHazeState,
                                     glassEffectMode = glassEffectMode,
                                     modifier = Modifier.fillMaxSize()
@@ -205,10 +189,6 @@ fun PlayerLandscapeTablet(
                                     authorSections = fullUiState.relatedAuthorSections,
                                     narratorSections = fullUiState.relatedNarratorSections,
                                     recentBooks = fullUiState.recentlyAddedBooks,
-                                    /*
-                                     * Related Row Action Split (Keep navigation separate from playback)
-                                     * Row taps open Detail through the app shell, while the play button keeps the existing direct playback path.
-                                     */
                                     onBookClick = actions.content.onOpenRelatedBookDetail,
                                     onPlayClick = actions.content.onLoadRelatedBook
                                 )
@@ -218,7 +198,6 @@ fun PlayerLandscapeTablet(
                 }
             }
 
-            // Bottom navigation tabs (To coordinate active tab state in left column)
             BottomNavTabs(
                 selectedTab = currentMode,
                 playbackSpeed = playbackSpeed,
@@ -231,10 +210,6 @@ fun PlayerLandscapeTablet(
                 }
             )
         }
-
-        // ==========================================
-        // 2. Right side tablet controls & title header (Ratio 1f)
-        // ==========================================
         Surface(
             modifier = Modifier
                 .weight(1f)
@@ -256,10 +231,8 @@ fun PlayerLandscapeTablet(
                     hazeState = chapterSheetHazeState
                 )
 
-                // Push control panel down (To align controls at bottom boundaries)
                 Spacer(modifier = Modifier.weight(1f))
-                
-                // Tablet playback controls (To render timeline markers and speed values)
+
                 PlayerControlPanelStateful(
                     playbackProgressState = playbackProgressState,
                     currentChapter = currentChapter,

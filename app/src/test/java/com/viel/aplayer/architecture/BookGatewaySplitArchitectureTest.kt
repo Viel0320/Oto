@@ -5,7 +5,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Book Gateway Split Architecture Test (Pins the post-facade gateway deepening)
+ * Pins the post-facade gateway deepening.
  *
  * Prevents production callers from depending on the compatibility BookQueryGateway aggregate after the
  * catalog, metadata, chapter, bookmark, and deletion seams were split.
@@ -43,16 +43,12 @@ class BookGatewaySplitArchitectureTest {
         )
 
         assertTrue(
-            // Split Gateway File Guard (Lock the named seams so future work does not collapse them back into one interface)
-            // Each expected file represents one caller-facing capability slice in the library data gateway package.
             "Split book gateway files must exist beside the compatibility aggregate.",
             expectedFiles.all { name -> gatewayRoot.resolve(name).isFile }
         )
     }
 
     private fun resolveSourceRoot(): File {
-        // Source Root Resolution (Supports both module and repository working directories)
-        // Gradle can execute JVM tests from different directories, so the test checks both stable source-root candidates.
         val candidates = listOf(
             File("src/main/java/com/viel/aplayer"),
             File("app/src/main/java/com/viel/aplayer")

@@ -1,7 +1,7 @@
 package com.viel.aplayer.logger
 
 /**
- * ABS Sync Logger (Catalog synchronization and background synchronization worker logs)
+ * Catalog synchronization and background synchronization worker logs.
  *
  * Boundaries of responsibility:
  * 1. Logs root-level sync plans, minified index results, batch details requests, local upserts, stale markers, remote deleted lists, and WorkManager task scheduling.
@@ -124,7 +124,7 @@ internal object AbsSyncLogger {
     }
 
     /**
-     * Item Materialization Failure Log (Routes per-item catalog write failures through the shared ABS sanitizer)
+     * Routes per-item catalog write failures through the shared ABS sanitizer.
      * Best-effort sync can continue after one item fails, while the emitted diagnostic still retains the root, item, exception type, and redacted exception message.
      */
     fun logItemMaterializationFailure(rootId: String, itemId: String?, errorClass: String, message: String?) {
@@ -140,14 +140,12 @@ internal object AbsSyncLogger {
     }
 
     /**
-     * Item Materialization Failure Message Builder (Formats item-level failures without touching Android Logcat)
+     * Formats item-level failures without touching Android Logcat.
      * JVM tests assert this builder directly so sensitive exception payloads cannot regress before the final emitter redaction pass.
      */
     internal fun buildItemMaterializationFailureMessage(rootId: String, itemId: String?, errorClass: String, message: String?): String =
         "item materialization failure: rootId=${AbsLogSanitizer.shortId(rootId)}, itemId=${AbsLogSanitizer.shortId(itemId)}, errorClass=$errorClass, message=${AbsLogSanitizer.compact(message)}"
 
-    // Catalog Upsert Log Scope (Keeps catalog sync logging aligned with structural writes only)
-    // Remote progress is reported by authorized progress logs, so this message records only the book, file, and chapter materialization counts.
     fun logUpsertItem(rootId: String, itemId: String?, bookId: String, fileCount: Int, chapterCount: Int) {
         AbsLogEmitter.debug(
             TAG,

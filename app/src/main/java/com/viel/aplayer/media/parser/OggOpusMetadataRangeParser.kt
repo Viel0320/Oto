@@ -3,7 +3,6 @@ package com.viel.aplayer.media.parser
 import com.viel.aplayer.media.AudiobookMetadata
 import java.nio.charset.StandardCharsets
 
-// Ogg/Opus packet, comment, granule, and picture block parsing logic is fully self-contained in this file.
 internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
     override fun supports(displayName: String): Boolean =
         displayName.endsWith(".ogg", ignoreCase = true) ||
@@ -75,7 +74,6 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
             trackIndex = RangeAudioParserSupport.normalizeTrackIndex(
                 RangeAudioParserSupport.mergeFirstNonBlank(comments["TRACKNUMBER"], comments["TRACK"])
             ),
-            // Ogg/Opus/Vorbis comment sets are open-ended; reuse the unified description priorities to prevent COMMENT taking precedence over SUMMARY.
             description = MetadataDescriptionRules.firstDescriptionFromFields(comments),
             year = RangeAudioParserSupport.mergeFirstNonBlank(comments["DATE"], comments["YEAR"]),
             durationMs = durationMs
@@ -85,10 +83,8 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
         var cursor = startOffset
         if (cursor + 8 > bytes.size) return emptyMap()
 
-        // Range Check (Validates vendorLength against unsigned bounds and integer overflow limits)
-        // Ensures the parsed length does not exceed the remaining capacity of the current byte buffer.
         val vendorLengthLong = RangeAudioParserSupport.run { bytes.readUInt32LE(cursor) }
-        val maxRemainingVendor = bytes.size - cursor - 8 // 后续还有 commentCount 需要 4 字节
+        val maxRemainingVendor = bytes.size - cursor - 8
         if (vendorLengthLong !in 0L..maxRemainingVendor) {
             return emptyMap()
         }
@@ -108,8 +104,6 @@ internal object OggOpusMetadataRangeParser : RangeAudioFormatParser {
             if (cursor + 4 > bytes.size) return comments
             val lengthLong = RangeAudioParserSupport.run { bytes.readUInt32LE(cursor) }
             cursor += 4
-            // Entry Boundary Check (Performs unsigned safety checks on each comment entry length)
-            // Ensures the length falls entirely within [0, bytes.size - cursor] to prevent integer overflow vulnerabilities.
             if (lengthLong !in 0L..(bytes.size - cursor).toLong()) {
                 return comments
             }

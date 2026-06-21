@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget Outer Shell Background (Dark rounded container shell providing contrast and depth so the 2x2 widget floats legibly on both light and dark system wallpapers) -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <corners android:radius="28dp" />
     <solid android:color="#1A171E" />

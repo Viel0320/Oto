@@ -19,32 +19,22 @@ class AbsSyncWorker(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val rootId = inputData.getString(KEY_ROOT_ID) ?: return Result.failure()
-        // Worker Execution Logging (Distinguishes worker lifecycle states)
-        // Logs startup separately so diagnostics can tell queued work from actually executed work.
         AbsSyncLogger.logWorkerStart(rootId)
-        // ABS Sync Worker Dependency Resolution (Fetch only feedback and catalog-sync capabilities)
-        // The worker should not learn settings, playback, or VFS dependencies while mirroring a single ABS root.
         val workerDependencies = APlayerApplication.getAbsSyncWorkerDependencies(applicationContext)
         val preflight = LibraryRootStore(applicationContext).refreshRootStatus(rootId)
             ?: return Result.failure()
         if (!preflight.isSyncAvailable) {
-            // Worker Root Preflight Guard (Blocks background ABS sync when the target root is unavailable)
-            // Refreshes persisted root status and reports the skipped sync before catalog requests are attempted.
             val message = buildRootUnavailableSyncMessage(preflight)
             AbsSyncLogger.logWorkerFailure(
                 rootId = rootId,
                 errorClass = "RootUnavailable",
                 message = "ROOT_UNAVAILABLE:${preflight.availability.status}"
             )
-            // Worker Feedback Dispatch (Use the app-level sink instead of the playback event bus)
-            // WorkManager runs outside the UI lifecycle, so user-facing sync messages must go through the process-wide feedback seam.
             workerDependencies.appEventSink.emitFeedback(
                 LibraryAccessFeedbackFacts.syncBlocked(rootId = rootId, detailMessage = message)
             )
             return Result.failure()
         }
-        // Worker Retry Boundary Delegation (Route catalog execution through the cancellable retry adapter)
-        // Keeping this call explicit makes preflight failures and active sync failures use separate lifecycle decisions.
         return runSync(rootId, preflight.root, workerDependencies)
     }
 
@@ -52,7 +42,7 @@ class AbsSyncWorker(
         const val KEY_ROOT_ID = "root_id"
 
         /**
-         * Worker Sync Execution Boundary (Separates Android worker setup from ABS catalog execution)
+         * Separates Android worker setup from ABS catalog execution.
          * Keeping the retry adapter in this focused seam lets tests verify cancellation propagation without constructing WorkManager runtime objects.
          */
         internal suspend fun runSync(
@@ -61,8 +51,6 @@ class AbsSyncWorker(
             workerDependencies: AbsSyncWorkerDependencies
         ): Result {
             return runCatchingCancellable {
-                // Worker Cancellation Propagation (Preserve WorkManager coroutine cancellation during ABS catalog sync)
-                // Transient sync failures should become retries, but cancellation must not be misreported as a retryable catalog error.
                 workerDependencies.absCatalogSynchronizer.syncRoot(root)
                 AbsSyncLogger.logWorkerSuccess(rootId)
                 Result.success()

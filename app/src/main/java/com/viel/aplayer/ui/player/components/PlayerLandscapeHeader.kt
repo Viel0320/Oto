@@ -35,22 +35,15 @@ import com.viel.aplayer.ui.player.PlayerActions
 import com.viel.aplayer.ui.settings.PlayerSettingsState
 import dev.chrisbanes.haze.HazeState
 
-// Landscape player header component.
-//
-// Decoupled to an independent file to display the book title, author information, and a "more options" menu focused on playback-display controls.
-// In landscape mode, to maximize immersion, this header floats directly on top of the background gradient without utilizing any extra background cards.
 @Composable
 fun PlayerLandscapeHeader(
     metadata: BookMetadataState,
     settings: PlayerSettingsState,
     actions: PlayerActions,
     glassEffectMode: GlassEffectMode,
-    // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState?,
     modifier: Modifier = Modifier
 ) {
-    // Localized Landscape Header Copy (Share player chrome resources with the portrait app bar)
-    // Landscape mode renders its own menu, but the dropdown stays non-destructive and only resolves the progress-mode label locally.
     val unknownText = stringResource(R.string.common_unknown)
     val unknownTitle = stringResource(R.string.common_unknown_title)
     val showProgressText = stringResource(
@@ -95,8 +88,6 @@ fun PlayerLandscapeHeader(
                 hazeState = hazeState,
                 glassEffectMode = glassEffectMode
             ) {
-                // Landscape Progress Mode Entry (Keep player chrome dropdown aligned with portrait)
-                // The menu no longer exposes library deletion, so landscape playback controls remain focused on display-mode switching.
                 DropdownMenuItem(
                     text = {
                         Text(showProgressText)
@@ -117,7 +108,7 @@ fun PlayerLandscapeHeaderPreview() {
     APlayerTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             PlayerLandscapeHeader(
-                metadata = BookMetadataState(title = "三体：黑暗森林", author = "刘慈欣", narrator = "王明"),
+                metadata = BookMetadataState(title = "The Dark Forest", author = "Cixin Liu", narrator = "Narrator"),
                 settings = PlayerSettingsState(),
                 actions = PlayerActions(),
                 glassEffectMode = GlassEffectMode.Material,

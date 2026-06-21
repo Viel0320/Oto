@@ -23,20 +23,20 @@ import com.viel.aplayer.media.parser.Mp4MetadataFrameReader
 import java.util.UUID
 
 /**
- * Audiobook Draft Entity Construction Factory (BookDraftFactory)
- * 
+ * BookDraftFactory.
+ *
  * A pure entity mapping factory decoupled from the original ConflictClaimStep.
  * It maps audiobook metadata resolved from manifests, tags, or heuristic classification into core APlayer database entities:
  * BookEntity, BookFileEntity, and ChapterEntity, and bundles them into a BookDraft.
- * 
- * This isolation decouples decision algorithms from data-mapping details, 
+ *
+ * This isolation decouples decision algorithms from data-mapping details,
  * keeping core step classes focused and avoiding god-class anti-patterns.
  */
 @OptIn(UnstableApi::class)
 internal class BookDraftFactory(private val metadataResolver: MetadataResolver) {
 
     /**
-     * Build Draft Entity for Single Audio Book (Single-file mapping)
+     * Single-file mapping.
      * Constructs a BookDraft containing a BookEntity, a BookFileEntity, and associated chapters from metadata.
      */
     fun buildSingleAudioDraft(
@@ -47,8 +47,6 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
     ): BookDraft {
         val fileId = UUID.randomUUID().toString()
         val title = singleAudioBookTitle(audio.metadata, audio.file.displayName)
-        // Single-File Series Extraction (Extract series using album -> title -> filename priority)
-        // Resolves the series name prioritizing album over title, with the filename as a fallback.
         val series = resolveSeries(audio.metadata.album, audio.metadata.title, audio.file.displayName)
 
         val book = BookEntity(
@@ -65,7 +63,6 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             totalFileSize = audio.file.fileSize,
             coverPath = cover?.originalPath,
             thumbnailPath = cover?.thumbnailPath,
-            // Deprecated: backgroundColorArgb field is fully deprecated
             series = series
         )
         val file = audio.toBookFile(bookId, fileId, 0, AudiobookSchema.FileStatus.READY)
@@ -80,16 +77,13 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
                 )
             }
         } else {
-            // Defer Single-Track Virtual Chapters (Query-side projection migration)
-            // Avoids persisting a single virtual chapter to the database when no embedded chapters are found.
-            // Displays default chapter behavior at query time to prevent polluting database tables, keeping progress tracking decoupled.
             emptyList()
         }
         return BookDraft(book, listOf(file), chapters)
     }
 
     /**
-     * Build Draft Entity for Manifest Audiobook (Manifest-file mapping)
+     * Manifest-file mapping.
      * Constructs a BookDraft from manifest specifications (CUE/M3U8), including track durations and metadata suggestions.
      */
     suspend fun buildManifestDraft(
@@ -106,8 +100,6 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         year: String = "",
         description: String = "",
         series: String = "",
-        // Manifest Book Status Override (Partial import support)
-        // Allows CUE/M3U8 imports with missing references to persist directly as PARTIAL books.
         bookStatus: AudiobookSchema.BookStatus = AudiobookSchema.BookStatus.READY,
         cover: CoverExtractor.CoverResult?
     ): BookDraft {
@@ -128,7 +120,6 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             start += file.durationMs
         }
 
-        // Chapter Source Mapping: Map sourceType to the corresponding ChapterSource enum value.
         val chapterSource = when (sourceType) {
             AudiobookSchema.SourceType.CUE -> AudiobookSchema.ChapterSource.CUE
             AudiobookSchema.SourceType.M3U8 -> AudiobookSchema.ChapterSource.M3U8
@@ -186,18 +177,14 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             totalFileSize = audioBookFiles.sumOf { it.fileSize } + manifestFile.fileSize,
             coverPath = cover?.originalPath,
             thumbnailPath = cover?.thumbnailPath,
-            // Manifest Status Assignment (Resolved import state)
-            // Stores PARTIAL only on the logical book while available manifest/audio rows remain playable READY file claims.
             status = bookStatus,
-            // Deprecated: backgroundColorArgb field is fully deprecated
-            // Manifest Series Mapping (Map the series parameter into BookEntity)
             series = series
         )
         return BookDraft(book, listOf(manifestFile) + audioBookFiles, chapters)
     }
 
     /**
-     * Build Draft Entity for Heuristically Aggregated Audiobook (Heuristic mapping)
+     * Heuristic mapping.
      * Constructs a BookDraft from a heuristically grouped set of audio files, generating track-based virtual chapters.
      */
     fun buildGeneratedDraft(
@@ -230,8 +217,6 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             chapterStart += file.durationMs
             chapter
         }
-        // Heuristic Series Extraction (Extract series using album -> title -> filename priority)
-        // Resolves the series name prioritizing first chapter's album over title, with filename as fallback.
         val series = resolveSeries(firstChapterMetadata.album, firstChapterMetadata.title, orderedFiles.first().file.displayName)
 
         val book = BookEntity(
@@ -250,7 +235,6 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             totalFileSize = bookFiles.sumOf { it.fileSize },
             coverPath = cover?.originalPath,
             thumbnailPath = cover?.thumbnailPath,
-            // Deprecated: backgroundColorArgb field is fully deprecated
             series = series
         )
         Log.i(TAG, "Generated audiobook draft: title=${plan.title.logValue()}, source=${source.displayName.logValue()}, files=${orderedFiles.size}")
@@ -258,7 +242,7 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
     }
 
     /**
-     * Read Manifest Fallback Metadata (Initial track reading)
+     * Initial track reading.
      * Extracts tag information from the first audio track in a manifest list as a fallback for missing manifest attributes.
      */
     suspend fun firstManifestAudioMetadata(audioRefs: List<FileRef>): ManifestAudioMetadata? {
@@ -266,14 +250,12 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         return runCatchingCancellable {
             ManifestAudioMetadata(firstAudio, metadataResolver.extract(firstAudio))
         }.onFailure { error ->
-            // Release Warning Boundary (Sanitize manifest fallback metadata failures)
-            // The VFS display identifier may include source coordinates, so retained warnings must pass through SecureLog.
             SecureLog.warn(TAG, "Failed to read manifest fallback metadata: ${firstAudio.vfsDisplayId()}", error)
         }.getOrNull()
     }
 
     /**
-     * Resolve Manifest Metadata Priority (Precedence rule evaluator)
+     * Precedence rule evaluator.
      * Evaluates final book metadata fields following the precedence: Manifest > Embedded tags > File name.
      */
     fun resolveManifestBookMetadata(
@@ -293,8 +275,6 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
             narrator = firstNonBlank(manifestMetadata.narrator, firstAudio?.metadata?.narrator),
             year = firstNonBlank(manifestMetadata.year, firstAudio?.metadata?.year),
             description = firstNonBlank(manifestMetadata.description, sidecarDescription, firstAudio?.metadata?.description),
-            // Manifest Series Precedence (Prioritize album name over track title, falling back to file name)
-            // Resolves the series field prioritizing album over title, with the filename as a fallback.
             series = resolveSeries(
                 firstAudio?.metadata?.album.orEmpty(),
                 firstAudio?.metadata?.title.orEmpty(),
@@ -323,7 +303,6 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         bookId: String,
         id: String,
         index: Int,
-        // File Status Type Safe: Use AudiobookSchema.FileStatus enum.
         status: AudiobookSchema.FileStatus,
         overrideDurationMs: Long? = null
     ): BookFileEntity = file.toAudioBookFile(bookId, id, index, status, overrideDurationMs ?: metadata.durationMs)
@@ -332,7 +311,6 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         bookId: String,
         id: String,
         index: Int,
-        // File Status Type Safe: Use AudiobookSchema.FileStatus enum.
         status: AudiobookSchema.FileStatus,
         overrideDurationMs: Long? = null
     ): BookFileEntity = toAudioBookFile(bookId, id, index, status, overrideDurationMs ?: 0L)
@@ -341,7 +319,6 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         bookId: String,
         id: String,
         index: Int,
-        // File Status Type Safe: Use AudiobookSchema.FileStatus enum.
         status: AudiobookSchema.FileStatus,
         durationMs: Long
     ): BookFileEntity =
@@ -376,16 +353,11 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         return chapters.drop(index + 1).firstOrNull { it.fileKey == current.fileKey }?.fileOffsetMs?.minus(current.fileOffsetMs)
     }
 
-    // Heuristic Series Resolver (Prioritize album over title, falling back to file name)
-    // Extracts the series property hierarchy: metadata.album takes highest priority, 
-    // followed by metadata.title, and lastly defaulting to the file's base display name.
     private fun resolveSeries(album: String, title: String, displayName: String): String =
         album.trim()
             .ifBlank { title.trim() }
             .ifBlank { displayName.substringBeforeLast('.') }
 
-    // Single-File Title Precedence (Prioritize song title over album, falling back to file name)
-    // Adjusts title resolution hierarchy for single audiobooks to prioritize metadata.title over metadata.album, with filename as final fallback.
     private fun singleAudioBookTitle(metadata: AudiobookMetadata, displayName: String): String =
         metadata.title.trim()
             .ifBlank { metadata.album.trim() }
@@ -419,7 +391,6 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
         val narrator: String,
         val year: String,
         val description: String,
-        // Manifest Series Property (Tracks the series name mapped during manifest parsing)
         val series: String
     )
 
@@ -429,7 +400,7 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
 }
 
 /**
- * Escape JSON Special Characters (Formatting security utility)
+ * Formatting security utility.
  * Sanitizes backslashes and double quotes in raw strings before manual JSON template composition.
  * Prevents structural breakdowns and runtime parsing crashes when handling URIs with escape sequences.
  */

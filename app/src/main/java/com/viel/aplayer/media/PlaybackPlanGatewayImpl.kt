@@ -11,7 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Playback Plan Service (Dedicated playback startup materializer)
+ * Dedicated playback startup materializer.
  *
  * Builds BookPlaybackPlan models from Room book, file, and progress rows without expanding the generic
  * BookCatalogGateway interface. This keeps playback startup logic local to a named playback-plan service.
@@ -24,15 +24,11 @@ class PlaybackPlanGatewayImpl(
 ) : PlaybackPlanGateway {
     @OptIn(UnstableApi::class)
     override suspend fun buildPlaybackPlan(bookId: String): BookPlaybackPlan? = withContext(Dispatchers.IO) {
-        // Playback Plan Timing Boundary (Measure DAO reads as one playback-start operation)
-        // The logger keeps the previous latency visibility while the implementation now lives outside BookQueryService.
         val planBuildStart = SystemClock.elapsedRealtime()
         val bookQueryStart = SystemClock.elapsedRealtime()
         val book = bookDao.getBookById(bookId) ?: return@withContext null
         val bookQueryCost = SystemClock.elapsedRealtime() - bookQueryStart
 
-        // Playback Cover Self-Healing (Preserve artwork repair side effect during plan creation)
-        // Playback startup still opportunistically validates cached covers so player artwork can recover without a separate UI query.
         coverRecoveryHelper.checkAndTriggerCoverRegeneration(book)
 
         val filesQueryStart = SystemClock.elapsedRealtime()
@@ -56,8 +52,6 @@ class PlaybackPlanGatewayImpl(
         }
 
         val artworkPath = book.coverPath
-        // Artwork URI Resolution (Translate stored cover paths for Media3 consumers)
-        // Keeping resolver injection here prevents playback callers from knowing Android content URI details.
         val artworkUri = if (!artworkPath.isNullOrBlank()) {
             coverUriResolver.toContentUri(artworkPath)?.toUri()
         } else {

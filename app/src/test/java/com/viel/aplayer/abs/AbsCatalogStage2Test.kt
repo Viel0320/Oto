@@ -130,11 +130,7 @@ class AbsCatalogStage2Test {
             syncedAt = 11_000L
         )
 
-        // Remote Recency Regression Guard (Locks Recently Added ordering to ABS catalog time instead of sync execution time)
-        // If this falls back to syncedAt, all books imported in one ABS run tie and the home list keeps its upstream title order.
         assertEquals(remoteAddedAt, firstSyncBook.addedAt)
-        // Local Recency Stability Guard (Protects existing shelf order from later ABS metadata refreshes)
-        // Once a local book exists, resync should not replace its original addedAt with either remote mutations or current clock time.
         assertEquals(existingAddedAt, resyncedBook.addedAt)
     }
 
@@ -168,11 +164,8 @@ class AbsCatalogStage2Test {
             mediaType = "podcast"
         )
 
-        // Track-based playback validation. The core pipeline relies strictly on 'tracks' to build BookFileEntities, so only books with tracks pass the criteria.
         assertTrue(isAbsPlayableBook(playable))
-        // Missing tracks exclusion. Items having 'audioFiles' but lacking 'tracks' cannot provide play URLs and must be excluded from the local catalog mirrors.
         assertTrue(!isAbsPlayableBook(audioFilesOnly))
-        // MediaType book constraint. Even with complete tracks, items whose mediaType is not 'book' must not enter the audiobook catalog mirrors.
         assertTrue(!isAbsPlayableBook(podcast))
     }
 
@@ -240,8 +233,6 @@ class AbsCatalogStage2Test {
         synchronizer.syncRootWithSummary(root)
 
         val bookId = idMapper.bookId(serverKey, "item-1")
-        // Catalog Progress Exclusion (Locks the catalog synchronizer to structural materialization only)
-        // Authorized media progress is present in the response, but this path must not write playback state without the dedicated progress synchronizer.
         assertEquals(AudiobookSchema.ReadStatus.NOT_STARTED, catalogStore.books[bookId]?.readStatus)
         assertNull(catalogStore.progress[bookId])
     }
@@ -281,7 +272,7 @@ class AbsCatalogStage2Test {
                 serverKey = serverKey,
                 libraryId = "lib-1",
                 /**
-                 * Generate Hash Fingerprint (Aligns test metadata with SHA-256 fingerprint logic)
+                 * Aligns test metadata with SHA-256 fingerprint logic.
                  * Ensures the mock sync state fullListFingerprint uses the same hash computation as the synchronizer class.
                  */
                 fullListFingerprint = AbsCatalogSynchronizer.minifiedFingerprint(listOf(existingItem))
@@ -289,8 +280,6 @@ class AbsCatalogStage2Test {
         )
         val credentialStore = createCredentialStore(token = "token-1", baseUrl = "https://example.com/audiobookshelf")
         val progressGateway = FakeProgressGateway(catalogStore.progress)
-        // Authorized Progress Gateway Fixture (Share one fake for catalog reads and metadata writes)
-        // This keeps readStatus updates visible on catalogStore.books while matching the production split gateway constructor.
         val progressBookGateway = FakeBookQueryGateway(catalogStore.books, mapOf(existingBook.id to existingFiles))
         val authorizedProgressSynchronizer = AbsAuthorizedProgressSynchronizer(
             apiClient = FakeAbsApiClient(
@@ -323,8 +312,6 @@ class AbsCatalogStage2Test {
 
         val summary = synchronizer.syncRootWithSummary(root)
 
-        // Reused Mirror Progress Bridge (Ensures unchanged catalog rows still receive resolver-approved user progress)
-        // The item detail list is empty in this path, so the update can only arrive through the generic authorized progress synchronizer.
         assertEquals(0, summary.syncedBooks)
         assertEquals(1, summary.authorizedProgress.remoteProgressCount)
         assertEquals(1, summary.authorizedProgress.appliedCount)
@@ -464,11 +451,7 @@ class AbsCatalogStage2Test {
 
         synchronizer.syncRoot(root)
 
-        // Network resilience logic. When detail batch fetches fail entirely, existing but currently unseen mirrors should not be marked as STALE,
-        // preventing network fluctuations from incorrectly triggering deletion confirmation processes.
         assertEquals(AudiobookSchema.AbsMirrorState.ACTIVE, store.mirrors["stale-item"]?.state)
-        // Minified data limits. The minified response only discovers items and lacks track/URL details;
-        // hence, we must not write new books to the local mirrors without detail responses to prevent unplayable empty items.
         assertNull(store.books[idMapper.bookId(serverKey, "item-1")])
     }
 
@@ -500,8 +483,6 @@ class AbsCatalogStage2Test {
         ),
         progress: AbsUserProgressDto? = null,
         updatedAt: Long = 100L,
-        // ABS Fixture Added Time (Models remote catalog recency independently from test execution time)
-        // Recently Added regressions need configurable ABS addedAt values instead of a fixed shared fixture timestamp.
         addedAt: Long = 50L
     ): AbsLibraryItemDto {
         val tracks = (1..trackCount).map { index ->
@@ -617,8 +598,6 @@ class AbsCatalogStage2Test {
             mirror: AbsItemMirrorEntity,
             syncState: AbsSyncStateEntity
         ) {
-            // Catalog Store Fixture Scope (Mirrors the production boundary by avoiding progress writes during catalog upsert)
-            // Progress remains available to FakeProgressGateway so authorized progress tests can prove the separate merge path.
             books[book.id] = book
             mirrors[mirror.remoteItemId] = mirror
             this.syncState = syncState

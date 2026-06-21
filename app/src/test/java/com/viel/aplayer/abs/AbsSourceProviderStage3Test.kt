@@ -62,7 +62,6 @@ class AbsSourceProviderStage3Test {
             )
             error("Expected exception")
         } catch (_: Exception) {
-            // expected
         }
     }
 
@@ -137,8 +136,6 @@ class AbsSourceProviderStage3Test {
                 provider.openInputStream(node, offset = 5).close()
                 fail("Expected ignored ABS range responses to fail")
             } catch (error: AbsApiError) {
-                // Ignored Range Regression (Protects seek and resume from replaying ABS streams from byte zero)
-                // The provider must reject HTTP 200 after requesting a non-zero byte offset because the server did not prove offset alignment.
                 assertEquals("RANGE_IGNORED", error.code)
             }
 
@@ -176,8 +173,6 @@ class AbsSourceProviderStage3Test {
             provider.readRange(node, offset = Long.MAX_VALUE - 1L, length = 8)
 
             val request = server.takeRequest()
-            // ABS Range Overflow Regression (Locks pathological metadata probes to a saturated HTTP byte interval)
-            // A near-Long.MAX_VALUE offset plus a positive bounded length used to wrap the request end into a negative number, producing malformed Range headers.
             assertEquals("bytes=${Long.MAX_VALUE - 1L}-${Long.MAX_VALUE}", request.getHeader("Range"))
         }
     }
@@ -208,8 +203,6 @@ class AbsSourceProviderStage3Test {
                 provider.openInputStream(node).close()
                 fail("Expected typed ABS auth expiration")
             } catch (error: AbsAuthExpiredException) {
-                // Stream Auth Boundary (Refreshes credentials for future attempts while failing the current media request)
-                // Download orchestration receives one deterministic auth-expired failure and can leave partial Media3 cache data intact.
                 assertEquals("cred-1", error.credentialId)
                 assertEquals("root-1", error.rootId)
                 assertEquals(AbsTokenRefreshResult.Success("token-2"), error.refreshResult)
@@ -243,8 +236,6 @@ class AbsSourceProviderStage3Test {
 
         val book = store.books.values.firstOrNull()
         assertNotNull(book)
-        // ABS Cover Decoupled (Since cover synchronization is decoupled, catalog sync does not write cover paths)
-        // Cover download is moved to the self-healing flow, so new books are synced with null cover paths.
         org.junit.Assert.assertNull(book?.coverPath)
         org.junit.Assert.assertNull(book?.thumbnailPath)
     }
@@ -269,7 +260,7 @@ class AbsSourceProviderStage3Test {
     }
 
     /**
-     * Test Cleartext Settings (Opts MockWebServer HTTP streams into transport compatibility)
+     * Opts MockWebServer HTTP streams into transport compatibility.
      *
      * ABS media stream tests use local HTTP endpoints to inspect headers and Range behavior; production
      * code still defaults to blocking cleartext unless the user enables the global setting.
@@ -358,8 +349,6 @@ class AbsSourceProviderStage3Test {
             mirror: AbsItemMirrorEntity,
             syncState: AbsSyncStateEntity
         ) {
-            // Source Provider Catalog Fixture Scope (Stores only catalog rows needed for virtual file resolution)
-            // Playback progress is intentionally absent because source provider tests exercise ABS path construction, not progress merging.
             books[book.id] = book
             mirrors[mirror.remoteItemId] = mirror
             this.syncState = syncState

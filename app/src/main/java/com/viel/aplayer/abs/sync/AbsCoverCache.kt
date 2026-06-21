@@ -35,8 +35,6 @@ class AbsCoverCache(
         .callTimeout(30, TimeUnit.SECONDS)
         .addInterceptor(AbsAuthInterceptor(credentialStore))
         .build(),
-    // ABS Cover Settings Provider (Supplies cached unsafe-network settings for cover transport checks)
-    // AbsCoverCache sends its own OkHttp requests outside RealAbsApiClient, so constructor injection keeps the runtime policy dependency explicit and testable.
     private val settingsProvider: () -> AppSettings = {
         AppSettingsRepository.getInstance(context.applicationContext).cachedSettings
     }
@@ -44,9 +42,6 @@ class AbsCoverCache(
     override suspend fun downloadCover(root: com.viel.aplayer.data.entity.LibraryRootEntity, remoteItemId: String): CoverExtractor.CoverResult =
         withContext(Dispatchers.IO) {
             val start = AbsCoverLogger.mark()
-            // Segregated Cover Log Stages (Differentiate download vs processing issues)
-            // Cover download and cover processing are logged as two distinct phases.
-            // This aids in diagnosing whether an error stems from network retrieval failure or local processing/saving failure.
             AbsCoverLogger.logDownloadStart(rootId = root.id, remoteItemId = remoteItemId)
             val credential = requireNotNull(credentialStore.get(root.credentialId)) {
                 "Missing ABS credential for root ${root.id}"
@@ -54,10 +49,7 @@ class AbsCoverCache(
             if (credential.token.isBlank()) {
                 AbsAuthLogger.logMissingCredential(path = "AbsCoverCache.downloadCover", rootId = root.id, credentialId = root.credentialId)
             }
-            // ABS Cover Endpoint (Build the cover URL structurally using unified AbsUrlResolver)
             val coverUrl = AbsUrlResolver.resolveCoverUrl(credential.baseUrl, remoteItemId)
-            // ABS Cover Cleartext Guard (Reject HTTP before bearer credentials leave the process)
-            // The cover cache attaches Authorization itself, so the global transport policy must run before the request builder adds the bearer token header.
             UnsafeNetworkPolicy.requireCleartextHttpAllowed(
                 url = coverUrl.toString(),
                 settings = settingsProvider(),
@@ -101,18 +93,11 @@ class AbsCoverCache(
                     rootId = root.id,
                     remoteItemId = remoteItemId,
                     contentType = httpResponse.header("Content-Type"),
-                    // Heap Memory Protection (Avoid reading full body into memory for logging)
-                    // Do not call `body.bytes()` solely for logging purposes, as it reads the entire remote cover image into the JVM heap.
-                    // Instead, use Content-Length or default to -1 if missing; the final file size on disk is recorded after processing.
                     byteCount = contentLength.takeIf { it in 0..Int.MAX_VALUE.toLong() }?.toInt() ?: -1,
                     costMs = AbsCoverLogger.elapsedMs(start)
                 )
                 val sourceId = "abs-cover:${root.id}:$remoteItemId"
                 return@withContext runCatching {
-                    // Stream-based Image Processing (Mitigate peak heap allocation during batch synchronization)
-                    // The OkHttp response body byte stream is passed directly to the local image processor.
-                    // This prevents holding both the full raw cover ByteArray and the decoded thumbnail Bitmap in memory simultaneously,
-                    // significantly reducing peak heap memory usage during batch catalog synchronization.
                     coverExtractor.processExternalImage(sourceId) {
                         httpResponse.body.byteStream()
                     }

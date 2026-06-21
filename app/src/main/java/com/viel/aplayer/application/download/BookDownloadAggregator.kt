@@ -21,8 +21,6 @@ data class FileDownloadSnapshot(
 )
 
 object BookDownloadAggregator {
-    // Book Download Aggregate (Project Media3 file-level downloads into one durable book-level row)
-    // UI and recovery code observe book progress, while DownloadManager remains the authoritative source for per-file state.
     fun aggregate(
         bookId: String,
         files: List<BookFileEntity>,

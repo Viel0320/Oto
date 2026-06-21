@@ -15,7 +15,7 @@ import kotlin.math.ceil
 object PlaybackStateMapper {
 
     /**
-     * Calculate the integer percentage of global progress (range: 0 - 100) based on the current absolute playback position and total duration.
+     * range: 0 - 100. based on the current absolute playback position and total duration.
      *
      * @param currentPosition The currently played duration (in milliseconds).
      * @param duration The total duration of the book (in milliseconds).
@@ -32,8 +32,8 @@ object PlaybackStateMapper {
     }
 
     /**
-     * Calculate the progress ratio (range: 0.0f - 1.0f) for mini-player rendering.
-     * It internally decides whether to return relative progress within a chapter or global physical progress automatically based on whether chapter progress mode (isChapterMode) is active.
+     * range: 0.0f - 1.0f. for mini-player rendering.
+     * isChapterMode. is active.
      *
      * @param currentPosition The absolute position of the current player (in milliseconds).
      * @param duration The total duration of the book (in milliseconds).

@@ -3,7 +3,7 @@ package com.viel.aplayer.logger
 import android.util.Log
 
 /**
- * ABS Logging Common Base (Base components for ABS logging support)
+ * Base components for ABS logging support.
  *
  * Design Goals:
  * 1. Ensure all ABS loggers share the same clock timing and sanitization logic to keep logging formats consistent.
@@ -17,7 +17,7 @@ internal object AbsLogClock {
 }
 
 /**
- * ABS Log Sanitizer (Utility to redact sensitive information in log text)
+ * Utility to redact sensitive information in log text.
  *
  * Uses pure string operations without relying on Android runtime classes to facilitate standard JVM unit testing for credential leaks.
  */
@@ -27,8 +27,6 @@ internal object AbsLogSanitizer {
     private val passwordJsonRegex = Regex("\"password\"\\s*:\\s*\"[^\"]*\"", RegexOption.IGNORE_CASE)
     private val authorizationRegex = Regex("(Authorization\\s*[:=]\\s*Bearer\\s+)(\\S+)", RegexOption.IGNORE_CASE)
     private val tokenQueryRegex = Regex("((?:token|password)=)([^&#\\s]+)", RegexOption.IGNORE_CASE)
-    // Embedded URL Detection Pattern (Finds full HTTP URLs inside free-form exception messages)
-    // Dedicated URL fields already call sanitizeUrl; this fallback catches URLs that arrive inside mapper, parser, or transport error text.
     private val embeddedHttpUrlRegex = Regex("https?://\\S+", RegexOption.IGNORE_CASE)
 
     fun sanitizeText(raw: String?): String {
@@ -43,7 +41,7 @@ internal object AbsLogSanitizer {
     }
 
     /**
-     * URL Sanitization (Remove query and fragment sections before sanitizing and compacting URLs)
+     * Remove query and fragment sections before sanitizing and compacting URLs.
      * This keeps the request path needed for debugging while ensuring signature tokens do not slip into logs.
      */
     fun sanitizeUrl(raw: String?): String =
@@ -63,7 +61,7 @@ internal object AbsLogSanitizer {
     fun shortId(raw: String?, maxLength: Int = 48): String = compact(raw, maxLength)
 
     /**
-     * Embedded URL Secret Stripping (Removes query and fragment values from exception text URLs)
+     * Removes query and fragment values from exception text URLs.
      * Exception messages can contain full request URLs outside dedicated URL fields, so the general text sanitizer drops secret-bearing URL tails before token-specific redaction runs.
      */
     private fun stripEmbeddedUrlSecrets(value: String): String =
@@ -71,7 +69,7 @@ internal object AbsLogSanitizer {
 }
 
 /**
- * ABS Log Emitter (Unified output emitter routing messages to Logcat)
+ * Unified output emitter routing messages to Logcat.
  *
  * Performs a final sanitization sweep on all messages before emitting them to ensure sensitive values are redacted even if callers forgot to sanitize inputs.
  */
@@ -81,8 +79,6 @@ internal object AbsLogEmitter {
     }
 
     fun warn(tag: String, message: String) {
-        // Release Warning Boundary (Reuse the secure retained-log emitter)
-        // ABS callers already sanitize domain values, and SecureLog performs the final path and throwable-safe scrub before Log.w.
         SecureLog.warn(tag, message)
     }
 }

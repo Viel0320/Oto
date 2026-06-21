@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 /**
- * Application Event Sink (Centralizes app-shell feedback delivery)
+ * Centralizes app-shell feedback delivery.
  *
  * This interface gives ViewModels, application services, and infrastructure coordinators one app-level
  * event entry point so they emit feedback facts instead of routing Toast or Dialog commands directly.
@@ -26,7 +26,7 @@ interface AppEventSink {
     val events: SharedFlow<AppShellEvent>
 
     /**
-     * Emit Feedback Fact (Publishes one resource-keyed feedback fact through the selected render mode)
+     * Publishes one resource-keyed feedback fact through the selected render mode.
      *
      * Returning the structured delivery result lets callers and tests distinguish delivered, merged, and
      * dropped feedback without depending on SharedFlow implementation details.
@@ -36,7 +36,7 @@ interface AppEventSink {
 }
 
 /**
- * Default Application Event Sink (Buffered hot stream for process-wide feedback events)
+ * Buffered hot stream for process-wide feedback events.
  *
  * A small overflow buffer absorbs short bursts while the Compose app shell collector is active. Every
  * feedback fact enters the same delivery policy before its mutually exclusive render mode decides whether
@@ -70,7 +70,7 @@ class DefaultAppEventSink(
     }
 
     /**
-     * Schedule Provisional Release (Renders a held provisional only if it survives the hold)
+     * Renders a held provisional only if it survives the hold.
      *
      * The delayed task runs on the injected scope so graph teardown can cancel any unrendered provisional.
      * A provisional replaced by a newer one or cancelled by a final resolves to merged in the delivery

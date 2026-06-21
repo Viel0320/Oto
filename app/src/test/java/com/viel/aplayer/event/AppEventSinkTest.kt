@@ -28,7 +28,6 @@ import kotlin.time.Duration.Companion.milliseconds
 class AppEventSinkTest {
     @Test
     fun `app feedback reports dropped when no shell collector is active`() {
-        // No Collector Scenario (Protects against SharedFlow.tryEmit pretending an unobserved event was visible)
         val sink = DefaultAppEventSink()
         val result = sink.emitFeedback(downloadFinal())
 
@@ -83,7 +82,6 @@ class AppEventSinkTest {
         assertTrue(sink.emitFeedback(speedFinal()) is FeedbackDeliveryResult.Delivered)
         runCurrent()
 
-        // The held provisional's scheduled release must not add a second toast.
         advanceTimeBy(400.milliseconds)
         runCurrent()
         assertEquals(1, received.size)

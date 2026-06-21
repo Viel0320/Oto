@@ -4,12 +4,10 @@ import android.content.Context
 import java.io.InputStream
 
 /**
- * 封面处理兼容外壳。
+ * Compatibility shell for cover processing.
  *
- * 真正的封面图片落地、缩略图生成和主色提取实现
- * 已经全部迁移到 `ImageProcessor`。
- *
- * 这里保留原类名和 `CoverResult` 类型，只做转发，避免波及大量调用点。
+ * Keeps the legacy class name and result type while forwarding actual cover persistence,
+ * thumbnail generation, and color extraction to [ImageProcessor].
  */
 class CoverExtractor(private val context: Context) {
     data class CoverResult(
@@ -19,7 +17,7 @@ class CoverExtractor(private val context: Context) {
     )
 
     /**
-     * Save Custom Cover From URI (Delegate custom cover stream processing to ImageProcessor)
+     * Delegate custom cover stream processing to ImageProcessor.
      *
      * Enables callers to trigger center cropping and scaling operations directly from an external Content URI.
      */
@@ -27,13 +25,13 @@ class CoverExtractor(private val context: Context) {
         ImageProcessor.saveCustomCoverFromUri(context, bookId, coverUriString)
 
     /**
-     * 保存 parser 提供的内嵌封面字节。
+     * Persists embedded artwork bytes produced by audio metadata parsers.
      */
     suspend fun saveEmbeddedImage(sourceId: String, artBytes: ByteArray): CoverResult =
         ImageProcessor.saveEmbeddedImage(context, sourceId, artBytes)
 
     /**
-     * 处理外部 sidecar 图片流。
+     * Processes an external sidecar image stream without exposing storage details to callers.
      */
     suspend fun processExternalImage(sourceId: String, openStream: suspend () -> InputStream?): CoverResult =
         ImageProcessor.processExternalImage(context, sourceId, openStream)

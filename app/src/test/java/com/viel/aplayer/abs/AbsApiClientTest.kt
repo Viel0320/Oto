@@ -34,13 +34,10 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.io.path.createTempDirectory
 
-// Local Android Runtime Alignment (Runs AndroidX DataStore through the app-supported SDK path)
-// Robolectric pins Build.VERSION.SDK_INT to API 32 so the test avoids android.jar's default SDK 0 behavior, which makes DataStore use a Windows-incompatible legacy rename path.
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class AbsApiClientTest {
 
-    // RemoveInvalidEnumCompileError: Remove test asserting invalid String source type since compiler now enforces type-safe enum.
     @Test
     fun `source kind must not fallback to saf for unknown value`() {
         assertEquals(LibrarySourceKind.ABS, LibrarySourceKind.from(AudiobookSchema.LibrarySourceType.ABS))
@@ -48,8 +45,6 @@ class AbsApiClientTest {
 
     @Test
     fun `server version comparator should reject lower malformed and missing versions`() {
-        // Version comparator boundary lock. The version gating during connection setup depends on this comparator,
-        // so we must seal all boundary conditions to prevent improper authorization of older versions (e.g., 2.35.0), nulls, or non-numeric strings.
         assertEquals(0, compareAbsServerVersion("2.35.1", MIN_SUPPORTED_ABS_SERVER_VERSION))
         assertTrue(compareAbsServerVersion("2.35.2", MIN_SUPPORTED_ABS_SERVER_VERSION) > 0)
         assertTrue(compareAbsServerVersion("2.35.10", MIN_SUPPORTED_ABS_SERVER_VERSION) > 0)
@@ -203,8 +198,6 @@ class AbsApiClientTest {
             val firstLibrariesRequest = server.takeRequest()
             val refreshRequest = server.takeRequest()
             val retryLibrariesRequest = server.takeRequest()
-            // Request-Level Refresh Retry (Keeps authorize refresh separate from the original REST call)
-            // The first request proves old-token failed, the refresh request updates credentials, and the retry uses only the new token once.
             assertEquals("/audiobookshelf/api/libraries", firstLibrariesRequest.path)
             assertEquals("Bearer old-token", firstLibrariesRequest.getHeader("Authorization"))
             assertEquals("/audiobookshelf/api/authorize", refreshRequest.path)
@@ -300,8 +293,6 @@ class AbsApiClientTest {
                 }
                 error("Expected unsupported version rejection")
             } catch (error: Exception) {
-                // Network Layer Diagnostic Contract (Keeps low-level ABS errors localization-free)
-                // Unsupported server versions must be rejected during /status without emitting user-facing copy from the client layer.
                 assertTrue(error.message?.contains("version unsupported") == true)
                 assertTrue(error.message?.contains(MIN_SUPPORTED_ABS_SERVER_VERSION) == true)
                 val statusRequest = server.takeRequest()
@@ -318,7 +309,6 @@ class AbsApiClientTest {
         val client = RealAbsApiClient(
             client = OkHttpClient.Builder()
                 .addInterceptor(Interceptor { chain ->
-                    // Thread separation verification. Record the actual thread executing the HTTP transaction, enforcing the regression requirement that offloads network requests from the calling coroutine thread.
                     networkThreadName.set(Thread.currentThread().name)
                     Response.Builder()
                         .request(chain.request())
@@ -341,7 +331,7 @@ class AbsApiClientTest {
     }
 
     /**
-     * Test Cleartext Settings (Opts MockWebServer HTTP endpoints into transport compatibility)
+     * Opts MockWebServer HTTP endpoints into transport compatibility.
      *
      * Production defaults stay strict; only these local protocol tests enable HTTP because MockWebServer
      * serves plain HTTP unless each test provisions TLS certificates.

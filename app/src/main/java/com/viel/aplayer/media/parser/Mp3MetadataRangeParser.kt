@@ -3,8 +3,6 @@ package com.viel.aplayer.media.parser
 import com.viel.aplayer.media.AudiobookMetadata
 import kotlin.math.roundToLong
 
-// All MP3 format parsing details are consolidated in this file:
-// Parses ID3v2, ID3v1 tags and calculates Xing/VBRI/CBR durations without delegating to external helper classes.
 internal object Mp3MetadataRangeParser : RangeAudioFormatParser {
     override fun supports(displayName: String): Boolean =
         displayName.endsWith(".mp3", ignoreCase = true)
@@ -13,7 +11,6 @@ internal object Mp3MetadataRangeParser : RangeAudioFormatParser {
         input: RangeAudioParserInput,
         options: RangeAudioParseOptions
     ): RangeAudioParseResult {
-        // Delegate ID3 v1/v2 parsing to the shared Id3TagReader helper to deduplicate tag processing logic.
         val id3v2 = Id3TagReader.readId3v2(input, options)
         val id3v1 = Id3TagReader.readId3v1(input)
         val audioStartOffset = id3v2?.bytesConsumed ?: 0L

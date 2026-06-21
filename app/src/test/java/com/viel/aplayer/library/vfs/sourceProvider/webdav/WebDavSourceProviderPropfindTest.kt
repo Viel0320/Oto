@@ -21,8 +21,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-// Local WebDAV PROPFIND Runtime (Exercise Multi-Status parsing through the real provider and VFS cache boundary)
-// These tests verify that failed WebDAV response blocks never become SourceNode values or persisted directory snapshots.
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class WebDavSourceProviderPropfindTest {
@@ -52,8 +50,6 @@ class WebDavSourceProviderPropfindTest {
 
                 val children = vfs.listChildren(rootDirectoryNode(rootFor(server)))
 
-                // Failed Response Cache Guard (Prevent phantom WebDAV children from being persisted)
-                // A response-level 404 in a 207 body must be filtered before VFS cache replacement, otherwise scanner retries would keep replaying invalid children.
                 assertEquals(emptyList<String>(), children.map { node -> node.metadata.sourcePath })
                 assertEquals(emptyList<String>(), cache.replacedChildren.map { metadata -> metadata.sourcePath })
                 assertEquals("PROPFIND", server.takeRequest().method)
@@ -75,8 +71,6 @@ class WebDavSourceProviderPropfindTest {
 
                 val children = provider.listChildren(rootDirectoryNode(rootFor(server)).sourceNode)
 
-                // Successful Propstat Selection (Ignore failed property blocks even when they appear first)
-                // WebDAV servers may report missing optional properties before successful metadata, so parsing must bind SourceNode fields to the 2xx propstat only.
                 assertEquals(listOf("book.mp3"), children.map { node -> node.metadata.sourcePath })
                 assertEquals(128L, children.single().metadata.fileSize)
                 assertEquals("audio/mpeg", children.single().metadata.mimeType)
@@ -86,8 +80,6 @@ class WebDavSourceProviderPropfindTest {
     }
 
     private suspend fun withCleartextAllowed(block: suspend () -> Unit) {
-        // Mock Server Transport Policy (Temporarily enable local HTTP for WebDAV protocol tests)
-        // Production defaults still block cleartext; the test flips the cached setting only around MockWebServer requests and restores it afterward.
         val repository = AppSettingsRepository.getInstance(RuntimeEnvironment.getApplication())
         repository.updateCleartextTrafficAllowed(true)
         repository.awaitCleartextSetting(enabled = true)
@@ -100,8 +92,6 @@ class WebDavSourceProviderPropfindTest {
     }
 
     private suspend fun AppSettingsRepository.awaitCleartextSetting(enabled: Boolean) {
-        // Cleartext Test Gate Synchronization (Wait until provider-visible cached settings match local HTTP usage)
-        // WebDAV requests read cachedSettings synchronously, so this loop prevents races between DataStore writes and MockWebServer dispatch.
         withTimeout(2_000L) {
             while (cachedSettings.isCleartextTrafficAllowed != enabled) {
                 delay(10L)
@@ -119,8 +109,6 @@ class WebDavSourceProviderPropfindTest {
         )
 
     private fun rootDirectoryNode(root: LibraryRootEntity): VfsNode {
-        // Root Directory Fixture (Bypass PROPFIND root resolution so tests isolate listChildren parsing)
-        // The VFS and provider only need a directory SourceNode with the configured root to issue the directory PROPFIND request.
         val metadata = SourceFileMetadata(
             sourcePath = "",
             identity = root.id,
@@ -145,8 +133,6 @@ class WebDavSourceProviderPropfindTest {
         propstatStatus: String,
         contentLength: String
     ): String {
-        // PROPFIND XML Fixture (Build a single-response Multi-Status body)
-        // Keeping the XML builder tiny makes each test explicit about the response status and propstat status being exercised.
         val responseStatusXml = responseStatus?.let { "<d:status>$it</d:status>" }.orEmpty()
         return """
             <d:multistatus xmlns:d="DAV:">

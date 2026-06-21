@@ -4,11 +4,11 @@ import androidx.room.Embedded
 import androidx.room.Relation
 
 /**
- * Audiobook Chapter Track Composition (Combined data object wrapping chapter metadata with physical asset states)
- * 
- * Uses Room's official one-to-one relationship mapping (@Relation) to query the logical Chapter entity
+ * Combined data object wrapping chapter metadata with physical asset states.
+ *
+ * @Relation. to query the logical Chapter entity
  * alongside its underlying physical BookFile asset snapshot.
- * This dynamically propagates VFS track states (e.g. READY / MISSING) into active chapter screens.
+ * e.g. READY / MISSING. into active chapter screens.
  * This design avoids structural modifications to the database schema, introducing zero migration risks.
  */
 data class ChapterWithBookFile(

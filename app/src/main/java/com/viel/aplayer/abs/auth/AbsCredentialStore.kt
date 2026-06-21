@@ -16,15 +16,14 @@ import java.util.UUID
 private val Context.absCredentialDataStore: DataStore<Preferences> by preferencesDataStore(name = "abs_credentials")
 
 /**
- * ABS Credential Store (Responsible for storing sensitive connection tokens and server parameters safely)
- * 
+ * Responsible for storing sensitive connection tokens and server parameters safely.
+ *
  * Design Constraints:
  * 1. Room DB references and outer UI layers query using `credentialId` and never query tokens directly.
  * 2. Backed by DataStore for now; the implementation can be upgraded to Keystore-encrypted storage seamlessly.
  */
 class AbsCredentialStore private constructor(
     private val dataStore: DataStore<Preferences>,
-    // Pure Codegen: Instantiate Moshi without reflection support since all DTOs have generated adapters.
     private val moshi: Moshi = Moshi.Builder().build()
 ) {
     private val adapter = moshi.adapter(AbsCredential::class.java)
@@ -48,8 +47,6 @@ class AbsCredentialStore private constructor(
         dataStore.edit { preferences ->
             preferences[credentialKey(credential.id)] = adapter.toJson(credential)
         }
-        // Logging Credential Persistence (Log authentication details to help trace initialization issues)
-        // Strictly logs non-sensitive parameters (credentialId, baseUrl, userId, username), omitting raw tokens.
         AbsAuthLogger.logCredentialSave(
             baseUrl = credential.baseUrl,
             credentialId = credential.id,
@@ -68,7 +65,6 @@ class AbsCredentialStore private constructor(
                 runCatching { adapter.fromJson(raw) }
                     .getOrNull()
             }
-        // Logging Retrieval Outcome (Tracks query cache hits to distinguish invalid ID calls from corrupted records)
         AbsAuthLogger.logCredentialGet(credentialId = credentialId, found = credential != null)
         return credential
     }
@@ -78,12 +74,9 @@ class AbsCredentialStore private constructor(
         dataStore.edit { preferences ->
             preferences.remove(credentialKey(credentialId))
         }
-        // Logging Deletion Events (Logs critical cleanup operations to aid in tracing unauthorized request events)
         AbsAuthLogger.logCredentialDelete(credentialId)
     }
 
-    // Token Refresh Persistence (Updates only the bearer token while preserving the credential identity and server metadata)
-    // ABS token refresh must not create a new credential ID because library roots already reference the existing record.
     suspend fun updateToken(credentialId: String, newToken: String): AbsCredential? {
         val existing = get(credentialId) ?: return null
         return save(
@@ -97,7 +90,6 @@ class AbsCredentialStore private constructor(
     }
 
     fun normalizeBaseUrl(baseUrl: String): String {
-        // Use unified AbsUrlResolver to validate and normalize the base URL format.
         return AbsUrlResolver.resolveBaseUrl(baseUrl).toString().trimEnd('/')
     }
 
@@ -108,7 +100,6 @@ class AbsCredentialStore private constructor(
         @Volatile
         private var INSTANCE: AbsCredentialStore? = null
 
-        // JVM Unit Test Constructor (Exposes initialization factory to run test scripts without Android contexts)
         internal fun createForTesting(dataStore: DataStore<Preferences>): AbsCredentialStore =
             AbsCredentialStore(dataStore = dataStore)
 
@@ -118,7 +109,6 @@ class AbsCredentialStore private constructor(
             }
         }
 
-        // Test Singleton Reset (Exposes state cleaner to prevent test instances from sharing the cached DataStore)
         internal fun resetForTesting() {
             INSTANCE = null
         }

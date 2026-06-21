@@ -10,7 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.viel.aplayer.shared.settings.GlassEffectMode
 
 /**
- * Visual Effect Environment (Captures runtime capability signals for expensive UI effects)
+ * Captures runtime capability signals for expensive UI effects.
  *
  * Low-RAM devices and system power-save mode are treated as production constraints because Haze blur,
  * full-screen artwork sampling, and animated glass controls compete directly with playback stability.
@@ -22,7 +22,7 @@ data class VisualEffectEnvironment(
 )
 
 /**
- * Visual Effect Policy (Resolves requested decoration settings into executable UI modes)
+ * Resolves requested decoration settings into executable UI modes.
  *
  * The persisted user preference remains unchanged, while the runtime mode can degrade to Material when
  * the current device is unlikely to handle continuous blur effects smoothly.
@@ -43,7 +43,7 @@ object VisualEffectPolicy {
 }
 
 /**
- * Remember Visual Effect Environment (Reads Android runtime capability flags once per app shell)
+ * Reads Android runtime capability flags once per app shell.
  *
  * These flags change rarely; resolving them at the top-level shell gives every screen a single consistent
  * answer without coupling individual composables to ActivityManager or PowerManager.

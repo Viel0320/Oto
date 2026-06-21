@@ -71,7 +71,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
- * Search Screen (Stateless search screen adapter)
+ * Stateless search screen adapter.
  *
  * Receives all state and callbacks from SearchRoute, then forwards them to the stateless SearchContent.
  */
@@ -88,23 +88,13 @@ fun SearchScreen(
     onDeleteHistory: (SearchHistoryItem) -> Unit,
     onClearHistory: () -> Unit,
     onBack: () -> Unit,
-    /*
-     * Active Search Detail Book Id (Search result source visibility selector)
-     *
-     * Forwarded from the overlay host so stateless SearchContent can hide only the selected
-     * search-result cover during the Search -> Detail shared-element handoff.
-     */
     activeSearchDetailBookId: String? = null,
     onNavigateToDetail: (String) -> Unit,
     onLoadBook: (String) -> Unit,
     onNavigateToPlayer: () -> Unit,
-    // Haze Screen Input (Receives the already-owned app-level sampling source)
-    // SearchContent can render glass controls without gaining route or ViewModel responsibilities.
     hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode
 ) {
-    // Search Content Delegation (Keep screen-level adapter thin and stateless)
-    // The adapter centralizes derived command suggestions while leaving SearchContent preview-friendly.
     SearchContent(
         query = query,
         searchResults = searchResults,
@@ -128,12 +118,10 @@ fun SearchScreen(
 }
 
 /**
- * SearchContent Setup (Stateless Search Content UI)
+ * Renders the search surface from immutable state and callbacks supplied by the route.
  *
- * Pure stateless search content UI rendering component (Stateless).
- * Through architectural separation and component decoupling, SearchContent no longer depends on any specific ViewModel or business data stream.
- * All complex logics like query input, search trigger, history deletion, and book click are converted into declarative parameters and Lambda callbacks,
- * greatly simplifying UI responsibilities, eliminating unnecessary recompositions, and providing barrier-free instant preview capabilities for Compose Previews.
+ * Keeping query input, search execution, history deletion, and book opening as parameters leaves this
+ * component previewable and prevents it from depending on a concrete ViewModel or persistence stream.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -149,23 +137,14 @@ fun SearchContent(
     onDeleteHistory: (SearchHistoryItem) -> Unit,
     onClearHistory: () -> Unit,
     onBack: () -> Unit,
-    /*
-     * Active Search Detail Book Id (Search-result source visibility selector)
-     *
-     * Hides only the selected search-result thumbnail during Search -> Detail motion, keeping
-     * Home recent and Home list sources independent even when they contain the same audiobook.
-     */
     activeSearchDetailBookId: String? = null,
     onNavigateToDetail: (String) -> Unit,
     onLoadBook: (String) -> Unit,
     onNavigateToPlayer: () -> Unit,
-    // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode,
     autoFocus: Boolean = true,
 ) {
-    // Localized Search Screen Copy (Resolve runtime search labels, empty states, and icon accessibility text)
-    // Search result titles and history queries are user data, while the surrounding search chrome is app-authored UI copy.
     val searchPlaceholderText = stringResource(R.string.search_placeholder, SEARCH_DIRECTIVE_HINT)
     val backContentDescription = stringResource(R.string.back_content_description)
     val clearContentDescription = stringResource(R.string.clear_content_description)
@@ -181,8 +160,6 @@ fun SearchContent(
     val scrollState = rememberLazyListState()
     val screenHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
 
-    // Search Horizontal Insets (Combine physical safeDrawing bounds with the app-wide responsive screen padding token)
-    // This keeps the overlay aligned with other screens when AppWindowSizeClass changes its horizontal rhythm.
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
     val searchStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection) + screenHorizontalPadding
@@ -205,30 +182,20 @@ fun SearchContent(
         }
     }
 
-    // Detect whether Haze frosted glass mode is enabled and sampling source is not null
-    // Determine Glass Blur Status (Enable blur only if in Haze mode and state is provided)
     val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
 
     Scaffold(
-        // Apply Haze Background (Frosted Glass Mask Setup)
-        // If Haze mode is enabled, set Scaffold container base color to transparent, and mount drawBackdrop modifier with background translucent blend.
-        // This makes the entire search interface refract underlying APlayerNavHost content, forming a beautiful frosted texture.
-        // Fall back to native M3 background color in non-Haze mode.
         modifier = modifier
             .fillMaxSize()
             .then(
                 if (isBlur) {
                     Modifier
-                        // Search Overlay Haze Layer (Use the direct Haze material for full-screen backdrop sampling)
                         .hazeEffect(
                             state = hazeState,
                             style = HazeMaterials.ultraThin()
                         )
-                        // Chain background to append a translucent mask color (light/dark adaptive) to prevent search screen contents from blending with home page text
                         .background(
-                            // Theme Aware Translucent Mask (Use LocalDarkTheme to resolve background mask color instead of system theme defaults) Read dark mode status.
                             if (LocalDarkTheme.current) {
-                                // Preserve Search Backdrop Blur Visibility (Reduce the forced-dark Haze mask opacity) Keep enough dark contrast while allowing the sampled background texture to remain visible.
                                 Color.Black.copy(alpha = 0.32f)
                             } else {
                                 Color.White.copy(alpha = 0.6f)
@@ -248,27 +215,22 @@ fun SearchContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester)
-                            // Safe Drawing Margin (Cutout Avoidance Padding)
-                            // Apply WindowInsets.safeDrawing horizontal physical safety margins here
-                            // to ensure internal back and clear icons are not clipped in landscape mode, while allowing SearchBar background to fill screen edges.
                             .padding(
                                 start = safeDrawingPadding.calculateStartPadding(layoutDirection),
                                 end = safeDrawingPadding.calculateEndPadding(layoutDirection)
                             ),
-                        placeholder = { 
+                        placeholder = {
                             Text(
                                 text = searchPlaceholderText,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
-                            ) 
+                            )
                         },
                         leadingIcon = {
                             IconButton(
                                 onClick = handleBack,
                                 modifier = Modifier.padding(start = 4.dp)
                             ) {
-                                // Search Top Bar Navigation Icon Color (Surface contrast alignment)
-                                // Explicitly tint the custom SearchBar back icon with onSurface so it matches standard TopAppBar navigation icons.
                                 Icon(
                                     Icons.AutoMirrored.Rounded.ArrowBack,
                                     contentDescription = backContentDescription,
@@ -282,8 +244,6 @@ fun SearchContent(
                                     onClick = onClearQuery,
                                     modifier = Modifier.padding(end = 4.dp)
                                 ) {
-                                    // Search Top Bar Action Icon Color (Surface contrast alignment)
-                                    // Explicitly tint the custom SearchBar clear icon with onSurface so it remains consistent with other top bar action icons.
                                     Icon(
                                         Icons.Rounded.Clear,
                                         contentDescription = clearContentDescription,
@@ -300,9 +260,9 @@ fun SearchContent(
                             unfocusedIndicatorColor = Color.Transparent,
                         ),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { 
+                        keyboardActions = KeyboardActions(onSearch = {
                             focusManager.clearFocus()
-                            onSearch(query.text) 
+                            onSearch(query.text)
                         }),
                         singleLine = true,
                         shape = SearchBarDefaults.inputFieldShape
@@ -312,7 +272,6 @@ fun SearchContent(
                 onExpandedChange = {
                     if (!it) handleBack()
                 },
-                // Search bar also participates in frosting. If Haze is enabled, search box uses transparent/light mask, otherwise falls back to SearchBar native color.
                 colors = SearchBarDefaults.colors(
                     containerColor = if (isBlur) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh
                 ),
@@ -322,15 +281,10 @@ fun SearchContent(
                     LazyColumn(
                         state = scrollState,
                         modifier = Modifier.fillMaxSize(),
-                        // Apply dynamically calculated start/end physical safe area Padding to resolve landscape cutout clipping entirely
                         contentPadding = PaddingValues(
                             start = searchStartPadding,
                             end = searchEndPadding,
                             top = 16.dp,
-                            // Keyboard Inset Avoidance (Adaptive Bottom Padding Adjustment)
-                            // Bind bottom padding to WindowInsets.ime instead of only navigationBars.
-                            // When keyboard pops up, bottom padding adaptively adds keyboard height, preventing elements from being blocked by the soft keyboard.
-                            // Falling back to native NavigationBar bottom padding when keyboard is hidden.
                             bottom = 16.dp + WindowInsets.ime.asPaddingValues().calculateBottomPadding()
                         ),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -360,8 +314,6 @@ fun SearchContent(
                                             .align(Alignment.CenterEnd)
                                             .minimumInteractiveComponentSize()
                                     ) {
-                                        // Clear History Command (Expose standard button semantics and a 48dp target)
-                                        // TextButton supplies button role and click action, while minimumInteractiveComponentSize keeps the touch target at the accessibility floor.
                                         Text(
                                             text = clearAllText,
                                             maxLines = 1,
@@ -376,16 +328,16 @@ fun SearchContent(
                             ) { index ->
                                 val history = searchHistory[index]
                                 androidx.compose.material3.ListItem(
-                                    modifier = Modifier.clickable { 
+                                    modifier = Modifier.clickable {
                                         focusManager.clearFocus()
-                                        onSearch(history.query) 
+                                        onSearch(history.query)
                                     },
-                                    headlineContent = { 
+                                    headlineContent = {
                                         Text(
                                             text = history.query,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
-                                        ) 
+                                        )
                                     },
                                     leadingContent = {
                                         Icon(
@@ -422,12 +374,10 @@ fun SearchContent(
                     LazyColumn(
                         state = scrollState,
                         modifier = Modifier.fillMaxSize(),
-                        // Apply dynamically calculated left/right physical safety paddings, ensuring search results list avoids cutout occlusion
                         contentPadding = PaddingValues(
                             start = searchStartPadding,
                             end = searchEndPadding,
                             top = 16.dp,
-                            // Similarly bind bottom padding to WindowInsets.ime here, ensuring that when search has results, the last items are still fully scrollable and visible when keyboard is raised.
                             bottom = 16.dp + WindowInsets.ime.asPaddingValues().calculateBottomPadding()
                         ),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -451,27 +401,27 @@ fun SearchContent(
                             ) { index ->
                                 val cmd = commandSuggestions[index]
                                 androidx.compose.material3.ListItem(
-                                    modifier = Modifier.clickable { 
+                                    modifier = Modifier.clickable {
                                         val text = query.text
                                         val cursor = query.selection.start
                                         val lastSpace = text.lastIndexOf(' ', cursor - 1)
-                                        
+
                                         val prefix = if (lastSpace == -1) "" else text.substring(0, lastSpace + 1)
                                         val suffix = text.substring(cursor)
                                         val newText = "$prefix${cmd.token}$suffix"
                                         val newCursorPos = prefix.length + cmd.token.length
-                                        
+
                                         onQueryChange(TextFieldValue(
                                             text = newText,
                                             selection = TextRange(newCursorPos)
                                         ))
                                     },
-                                    headlineContent = { 
+                                    headlineContent = {
                                         Text(
                                             text = cmd.token,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
-                                        ) 
+                                        )
                                     },
                                     supportingContent = {
                                         Text(
@@ -533,35 +483,18 @@ fun SearchContent(
                                     author = result.author,
                                     narrator = result.narrator,
                                     duration = result.totalDurationMs,
-                                    // Search Thumbnail Selection (Thumbnail Small Preferred)
-                                    // Search results use small thumbnail image size, reusing CoverImageSourceSelector.small.
-                                    // Thumbnail-preferred rule is centrally expressed in the selector, so adjustments don't require changes in the search page.
                                     coverPath = CoverImageSourceSelector.small(
                                         thumbnailPath = result.thumbnailPath,
                                         coverPath = result.coverPath
                                     ),
                                     coverLastUpdated = result.coverLastUpdated,
                                     progressPercent = result.progressPercent,
-                                    /*
-                                     * Search Detail Source Activity (Search-result source trigger)
-                                     *
-                                     * Activates only for the result opened from Search so the
-                                     * selected thumbnail exits without affecting Home channels.
-                                     */
                                     isDetailTargetActive = result.id == activeSearchDetailBookId,
-                                    /*
-                                     * Search Detail Shared Element Key (Search channel binding)
-                                     *
-                                     * Uses the search-specific key so Search result artwork cannot
-                                     * pair with Home recent or Home list covers for the same book.
-                                     */
                                     sharedElementKey = SharedElementKeys.search2detailCover(result.id),
-                                    onClick = { 
+                                    onClick = {
                                         focusManager.clearFocus()
                                         onNavigateToDetail(result.id)
                                     },
-                                    // Named Play Action Binding (Keep search result play command aligned with ListItem's expanded signature)
-                                    // The reusable row now has optional accessibility label parameters after the play lambda, so this callback must be named to avoid binding it as label text.
                                     onPlayClick = {
                                         focusManager.clearFocus()
                                         onLoadBook(result.id)
@@ -580,9 +513,7 @@ fun SearchContent(
 }
 
 /**
- * SearchCommand Model (Search Directive Helper Model)
- *
- * Helper model for search directive parameters.
+ * Describes one stable search directive token and its localized explanation.
  */
 data class SearchCommand(
     val token: String,
@@ -590,14 +521,8 @@ data class SearchCommand(
 )
 
 /**
- * Built-in Directives (Static Filter Directives)
- *
- * Statically defined built-in advanced filter directives.
+ * Built-in directive tokens recognized by the search query parser.
  */
-// Search Directive Syntax (Keep query command tokens stable while localizing their visible descriptions)
-// SearchQueryPlanner recognizes the English directive names, so suggestions insert those tokens even when the explanatory copy follows the active locale.
-// Search Placeholder Token Hint (Inject fixed parser syntax into the localized placeholder)
-// Translators localize the surrounding sentence only; the query planner still owns these command tokens as stable search syntax.
 private const val SEARCH_DIRECTIVE_HINT = "year: author: narrator:"
 
 private val searchCommands = listOf(
@@ -607,9 +532,7 @@ private val searchCommands = listOf(
 )
 
 /**
- * Resolve Directives (Smart Directive Matching)
- *
- * Intelligently matches and calculates appropriate filter directives based on current input text and cursor position.
+ * Matches filter directive suggestions against the word currently being edited.
  */
 fun commandSuggestionsFor(value: TextFieldValue): List<SearchCommand> {
     val text = value.text
@@ -634,8 +557,6 @@ fun SearchScreenEmptyPreview() {
             query = TextFieldValue(""),
             searchResults = emptyList(),
             searchHistory = listOf(
-                // Preview History Projection (Use the scene item so previews exercise the production UI contract)
-                // This keeps Compose previews independent from the persistence-layer DataStore entry class.
                 SearchHistoryItem("Android Development", System.currentTimeMillis()),
                 SearchHistoryItem("Jetpack Compose", System.currentTimeMillis())
             ),
@@ -660,8 +581,6 @@ fun SearchScreenEmptyPreview() {
 @Composable
 fun SearchScreenResultsPreview() {
     val mockBooks = listOf(
-        // Preview Search Snapshot (Use the search scene projection instead of database entities)
-        // The preview mirrors the runtime UI contract and helps prevent Room relationship types from returning to SearchContent.
         SearchResultSnapshot(
             id = "id1",
             title = "In the Megachurch",

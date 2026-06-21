@@ -17,7 +17,7 @@ import com.viel.aplayer.shared.settings.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
 
 /**
- * Search Overlay (Stateless animated overlay shell)
+ * Stateless animated overlay shell.
  *
  * Owns only visibility animation and full-screen surface styling. State collection and query effects
  * are handled by SearchRoute, while SearchScreen renders the passed state.
@@ -31,12 +31,8 @@ fun SearchOverlay(
     glassEffectMode: GlassEffectMode,
     content: @Composable () -> Unit
 ) {
-    // Search Overlay Back Handling (Dismiss overlay state from Android system back)
-    // The search surface is rendered above Home instead of as a Nav3 destination, so the overlay must consume system back while it is visible.
     BackHandler(enabled = visible, onBack = onBack)
 
-    // Search Overlay Animation Policy (Adapt transition style for frosted glass rendering)
-    // Haze mode uses fade-only transitions to avoid blur sampler clipping during slide movement.
     val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
     AnimatedVisibility(
         visible = visible,
@@ -54,8 +50,6 @@ fun SearchOverlay(
     ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
-            // Transparent Haze Surface (Reveal the sampled background only when Haze is active)
-            // Non-Haze mode keeps the Material background so the route behaves like a full-screen page.
             color = if (isBlur) Color.Transparent else MaterialTheme.colorScheme.background
         ) {
             content()

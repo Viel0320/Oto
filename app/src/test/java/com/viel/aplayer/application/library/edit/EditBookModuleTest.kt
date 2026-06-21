@@ -21,7 +21,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Edit Book Module Test (Locks edit-scene read and command delegation)
+ * Locks edit-scene read and command delegation.
  * Verifies selected-book reads, text metadata updates, and custom cover saves outside EditBookViewModel.
  */
 class EditBookModuleTest {
@@ -75,8 +75,6 @@ class EditBookModuleTest {
             series = "Series"
         )
 
-        // Edit Title Boundary Normalization (Pins title trimming to the application edit module)
-        // Direct command callers can bypass EditBookViewModel, so this assertion verifies the persistence gateway receives canonical title metadata.
         assertEquals(
             listOf(
                 UpdateBookDetailsCall(
@@ -110,8 +108,6 @@ class EditBookModuleTest {
             )
         }.exceptionOrNull()
 
-        // Blank Edit Title Rejection (Prevents English UI fallback text from becoming real book metadata)
-        // The edit command must fail before gateway writes so empty user input cannot persist as the localized display placeholder.
         assertTrue(failure is IllegalArgumentException)
         assertEquals("EDIT_TITLE_REQUIRED", failure?.message)
         assertEquals(emptyList<UpdateBookDetailsCall>(), queryGateway.updateCalls)
@@ -131,11 +127,7 @@ class EditBookModuleTest {
         queryGateway: FakeBookQueryGateway = FakeBookQueryGateway(),
         coverGateway: FakeCoverAssetGateway = FakeCoverAssetGateway()
     ): DefaultEditBookModule {
-        // Edit Module Fixture (Supplies only editable metadata and cover gateway behavior)
-        // The fake query gateway records edit-scene calls and fails fast if the module drifts into unrelated library operations.
         return DefaultEditBookModule(
-            // Edit Gateway Split Fixture (Reuse one fake for catalog read and metadata write seams)
-            // The constructor now mirrors production by separating editable-book loading from metadata mutation.
             bookCatalogGateway = queryGateway,
             bookMetadataGateway = queryGateway,
             coverAssetGateway = coverGateway
@@ -153,8 +145,6 @@ class EditBookModuleTest {
         thumbnailPath: String? = null,
         lastScannedAt: Long = 0L
     ): BookEntity {
-        // Editable Book Fixture (Supplies persisted fields for edit-draft projection assertions)
-        // The fake gateway returns a Room entity so the module test can verify the adapter hides it from callers.
         return BookEntity(
             id = BOOK_ID,
             rootId = "root-id",

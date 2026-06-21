@@ -26,7 +26,6 @@ class DynamicColorSchemeTest {
     @Test
     fun scheme_is_seed_driven_not_uninitialised() {
         val scheme = dynamicColorScheme(seedColor = seed, isDark = false, style = PaletteStyle.Content)
-        // A seed-derived primary should be opaque and distinct from the surface role.
         assertTrue(scheme.primary.alpha > 0f)
         assertNotEquals(scheme.primary, scheme.surface)
     }

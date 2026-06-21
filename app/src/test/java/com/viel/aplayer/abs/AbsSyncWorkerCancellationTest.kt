@@ -64,8 +64,6 @@ class AbsSyncWorkerCancellationTest {
         val dependencies = FakeWorkerDependencies(synchronizer)
 
         try {
-            // Worker Cancellation Regression (Prevents WorkManager cancellation from being converted into Result.retry)
-            // The fake API cancels during the real catalog synchronizer path, so this assertion covers the worker retry boundary.
             AbsSyncWorker.runSync(
                 rootId = "root-1",
                 root = absRoot(),
@@ -89,8 +87,6 @@ class AbsSyncWorkerCancellationTest {
         )
 
         try {
-            // Detail Batch Cancellation Regression (Covers the first expanded item fetch boundary)
-            // A cancelled batch request must escape the worker instead of being downgraded into per-item fallback or Result.success.
             AbsSyncWorker.runSync(
                 rootId = "root-1",
                 root = absRoot(),
@@ -116,8 +112,6 @@ class AbsSyncWorkerCancellationTest {
         )
 
         try {
-            // Retry Cancellation Regression (Prevents cancellation from consuming all retry attempts)
-            // Ordinary batch failures may enter item fallback, but the first cancelled retry must stop the whole sync.
             AbsSyncWorker.runSync(
                 rootId = "root-1",
                 root = absRoot(),
@@ -142,8 +136,6 @@ class AbsSyncWorkerCancellationTest {
         )
 
         try {
-            // Materialization Cancellation Regression (Covers database reads inside item upsert)
-            // Item-level best effort may absorb ordinary mapping or persistence failures, but not coroutine cancellation.
             AbsSyncWorker.runSync(
                 rootId = "root-1",
                 root = absRoot(),
@@ -174,8 +166,6 @@ class AbsSyncWorkerCancellationTest {
         )
 
         try {
-            // Authorized Progress Cancellation Regression (Covers the post-catalog merge boundary)
-            // The catalog rows may already have a success sync state, but cancellation must not become a progress failure summary.
             AbsSyncWorker.runSync(
                 rootId = "root-1",
                 root = absRoot(),
@@ -205,8 +195,6 @@ class AbsSyncWorkerCancellationTest {
             )
         )
         runBlocking {
-            // Worker Credential Fixture (Keeps the synchronizer on its production credential lookup path)
-            // The test only varies the remote API cancellation, so credentials remain valid and deterministic.
             store.save(
                 baseUrl = "https://example.com/audiobookshelf",
                 token = "token-1",
@@ -217,7 +205,7 @@ class AbsSyncWorkerCancellationTest {
     }
 
     /**
-     * Catalog Cancellation API Base (Keeps all deeper cancellation tests on the same successful setup path)
+     * Keeps all deeper cancellation tests on the same successful setup path.
      * Individual subclasses override only the detail or progress boundary that should cancel, keeping worker assertions focused.
      */
     private abstract class CatalogCancellationAbsApi : AbsApiClient {
@@ -263,8 +251,6 @@ class AbsSyncWorkerCancellationTest {
         var detailRequestCount: Int = 0
 
         override suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>): List<AbsLibraryItemDto> {
-            // Batch Cancellation Fixture (Cancels on the first expanded item request)
-            // This reproduces cancellation being treated as a batch failure and falling into single-item retry.
             detailRequestCount += 1
             throw cancellation
         }
@@ -276,8 +262,6 @@ class AbsSyncWorkerCancellationTest {
         var detailRequestCount: Int = 0
 
         override suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>): List<AbsLibraryItemDto> {
-            // Retry Cancellation Fixture (Fails the aggregate batch, then cancels the first fallback request)
-            // The request count proves cancellation stops before the retry loop consumes its remaining attempts.
             detailRequestCount += 1
             if (detailRequestCount == 1) error("batch failed before retry")
             throw cancellation
@@ -331,8 +315,6 @@ class AbsSyncWorkerCancellationTest {
     ) : BookCatalogGateway {
         override val audiobooks: Flow<List<com.viel.aplayer.data.entity.BookWithProgress>> = flowOf(emptyList())
         override suspend fun getBookById(id: String): BookEntity? {
-            // Authorized Progress Merge Cancellation Fixture (Cancels at the first local catalog lookup)
-            // The catalog synchronizer must treat this as cooperative cancellation rather than a recoverable progress merge failure.
             throw cancellation
         }
         override fun observeBookById(id: String): Flow<BookEntity?> = flowOf(null)
@@ -349,7 +331,6 @@ class AbsSyncWorkerCancellationTest {
     }
 
     private class NoOpBookMetadataGateway : BookMetadataGateway {
-        // Update signature to ReadStatus enum for type safety.
         override suspend fun updateBookReadStatus(bookId: String, readStatus: AudiobookSchema.ReadStatus) = Unit
         override suspend fun updateBookDetails(id: String, title: String, author: String, narrator: String, description: String, year: String, series: String) = Unit
         override fun updateMetadata(bookId: String, title: String?, author: String?, narrator: String?, description: String?, duration: Long) = Unit
@@ -364,7 +345,7 @@ class AbsSyncWorkerCancellationTest {
 
     private companion object {
         /**
-         * Playable Detail Fixture (Creates the smallest ABS book detail that passes the catalog materialization gate)
+         * Creates the smallest ABS book detail that passes the catalog materialization gate.
          * The cancellation tests need a real upsert path, so the item includes one track with a valid content URL.
          */
         fun playableDetail(itemId: String): AbsLibraryItemDto =
@@ -395,8 +376,6 @@ class AbsSyncWorkerCancellationTest {
         override suspend fun status(baseUrl: String): AbsStatusDto = AbsStatusDto(serverVersion = "2.35.1", isInit = true)
         override suspend fun login(baseUrl: String, username: String, password: String): AbsLoginResponseDto = throw UnsupportedOperationException()
         override suspend fun authorize(baseUrl: String, token: String): AbsAuthorizeResponseDto {
-            // Remote API Cancellation Fixture (Injects cancellation at the first catalog request boundary)
-            // This keeps the regression focused on worker error mapping rather than catalog item transformation.
             throw cancellation
         }
         override suspend fun getLibraries(baseUrl: String, token: String): List<AbsLibraryDto> = emptyList()
@@ -445,8 +424,6 @@ class AbsSyncWorkerCancellationTest {
     ) : AbsCatalogStore {
         var syncState: AbsSyncStateEntity? = null
         override suspend fun getBookById(bookId: String): BookEntity? {
-            // Catalog Materialization Cancellation Fixture (Allows tests to cancel inside the upsert path)
-            // The default remains an empty in-memory store so existing worker cancellation tests keep their original setup.
             cancellationOnGetBook?.let { cancellation -> throw cancellation }
             return null
         }
@@ -459,15 +436,12 @@ class AbsSyncWorkerCancellationTest {
             mirror: AbsItemMirrorEntity,
             syncState: AbsSyncStateEntity
         ) {
-            // Catalog Store Cancellation Fixture (Accepts failure-state writes caused by the synchronizer finally path)
-            // The worker assertion is about exception propagation, so catalog persistence is intentionally inert.
             this.syncState = syncState
         }
         override suspend fun replaceMirrors(mirrors: List<AbsItemMirrorEntity>) = Unit
         override suspend fun saveSyncState(syncState: AbsSyncStateEntity) {
             this.syncState = syncState
         }
-        // Update signature to BookStatus enum for type safety.
         override suspend fun updateBookStatus(bookId: String, status: AudiobookSchema.BookStatus) = Unit
     }
 }

@@ -19,8 +19,6 @@ class DownloadRequestRepairerTest {
             files = listOf(testFile("file-1"), testFile("file-2"), testFile("file-3"))
         )
 
-        // Idempotent Repair Selection (Only absent file-level requests are resubmitted)
-        // This protects recovery from duplicating DownloadIndex rows after partial submission or process death.
         assertEquals(listOf("file-2"), missing.map { file -> file.id })
     }
 

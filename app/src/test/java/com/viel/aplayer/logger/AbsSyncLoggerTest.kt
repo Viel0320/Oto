@@ -15,8 +15,6 @@ class AbsSyncLoggerTest {
             message = "failed with Bearer secret-token password=abc url=https://example.com/items/1?apiKey=hidden&token=url-token#trace"
         )
 
-        // ABS Item Failure Redaction Contract (Keeps item-level sync diagnostics safe before the Logcat emitter runs)
-        // The builder preserves compact root, item, and exception fields while removing bearer credentials, passwords, and URL query material from exception text.
         assertTrue(message.contains("item materialization failure"))
         assertTrue(message.contains("rootId=abs-root-1234567890"))
         assertTrue(message.contains("itemId=abs-item-0987654321"))

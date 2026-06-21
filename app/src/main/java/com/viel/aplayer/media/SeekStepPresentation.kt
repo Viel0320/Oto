@@ -5,8 +5,6 @@ import androidx.annotation.StringRes
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.settings.SeekStepSeconds
 
-// Seek Step Presentation Resolver (Centralizes icons and accessibility labels for short seek controls)
-// Notification, widget, and full-player controls all call this resolver so a step-size change cannot leave one surface with stale copy or artwork.
 object SeekStepPresentation {
     @DrawableRes
     fun backwardIcon(step: SeekStepSeconds): Int =

@@ -60,11 +60,10 @@ fun PlayerControlPanelStateful(
 }
 
 /**
- * Player control panel component (PlayerControlPanel).
+ * Renders the lower section of the full-screen player from explicit state and callbacks.
  *
- * This panel occupies the lower section of the full screen player, vertically arranging three sub-sections: chapter title, playback progress bar, and playback control buttons.
- * It has been refactored to completely remove any dependencies on PlayerViewModel and its internal UI state classes.
- * All states are explicitly passed down using primitive types and general entity parameters to achieve layer 3 stateless pure-rendering separation and maximum recomposition isolation.
+ * The panel remains stateless so high-frequency playback progress can be isolated by
+ * PlayerControlPanelStateful without forcing the full player layout to recompose.
  *
  * @param currentPosition The current physical playback progress of the player (in milliseconds).
  * @param bufferedPosition The current physical buffered progress of the player (in milliseconds).
@@ -93,16 +92,12 @@ fun PlayerControlPanel(
     actions: PlayerActions,
     buttonColor: Color,
     glassEffectMode: GlassEffectMode,
-    // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null
 ) {
     Column(
-        // Hardcoded padding(horizontal = 24.dp) has been stripped, moving control of layout padding to external callers to achieve full edge-to-edge layout or custom indentations.
-        // Add 8dp of padding to the entire play control panel container to prevent control panel sub-elements from sticking to the edges, improving visual elegance and touch experience.
         modifier = modifier
             .fillMaxWidth()
     ) {
-        // Chapter title display component, decoupled from ViewModel, directly calling the stateless component by passing the unpacked current chapter title and other parameters.
         ChapterDisplay(
             currentChapterTitle = currentChapter?.title ?: metadata.title,
             onChapterClick = actions.content.onShowChapterList,
@@ -113,14 +108,11 @@ fun PlayerControlPanel(
         )
         Spacer(Modifier.height(16.dp))
 
-        // Progress bar display component, decoupled from ViewModel, directly passing the current playback position, total duration, and corresponding chapter partitions to achieve peak rendering performance.
         PlaybackProgress(
             currentPosition = currentPosition,
             bufferedPosition = bufferedPosition,
             totalDuration = totalDuration,
             isChapterMode = isChapterMode,
-            // Player Chapter Projection Forwarding (Pass scene chapters directly to progress rendering)
-            // The timeline helper now works on player projections, so the control panel no longer rehydrates database chapter entities.
             chapters = metadata.chapters,
             markers = metadata.getChapterMarkers(totalDuration),
             onSeek = { pos -> actions.playback.onSeek(pos, true) },
@@ -128,8 +120,7 @@ fun PlayerControlPanel(
             glassEffectMode = glassEffectMode
         )
         Spacer(Modifier.height(24.dp))
-        
-        // Playback control component, passing fillMaxWidth to allow the five control buttons at the bottom to expand horizontally with equal spacing, adapting to container widths of various sizes.
+
         PlaybackControls(
             isPlaying = isPlaying,
             playbackSeekStepConfig = settings.playbackSeekStepConfig,
@@ -156,7 +147,7 @@ fun PlayerControlPanelPreview() {
                 bookId = "book_1",
                 bookFileId = "file_1",
                 index = 1,
-                title = "第一章：危机纪元",
+                title = "Chapter 1: Crisis Era",
                 startPositionMs = 0L,
                 durationMs = 360000L,
                 fileOffsetMs = 0L,
@@ -164,9 +155,9 @@ fun PlayerControlPanelPreview() {
             ),
             metadata = BookMetadataState(
                 id = "book_1",
-                title = "三体：黑暗森林",
-                author = "刘慈欣",
-                narrator = "王明",
+                title = "The Dark Forest",
+                author = "Cixin Liu",
+                narrator = "Narrator",
                 coverPath = null,
                 thumbnailPath = null,
                 coverLastUpdated = 0L,
@@ -176,7 +167,7 @@ fun PlayerControlPanelPreview() {
                         "book_1",
                         "file_1",
                         1,
-                        "引子",
+                        "Prologue",
                         0L,
                         180000L,
                         0L,
@@ -187,7 +178,7 @@ fun PlayerControlPanelPreview() {
                         "book_1",
                         "file_1",
                         2,
-                        "第一章：危机纪元",
+                        "Chapter 1: Crisis Era",
                         180000L,
                         360000L,
                         180000L,

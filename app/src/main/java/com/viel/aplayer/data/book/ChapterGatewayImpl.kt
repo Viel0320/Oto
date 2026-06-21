@@ -25,7 +25,7 @@ import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 /**
- * Chapter Service (Implements ChapterGateway)
+ * Implements ChapterGateway.
  *
  * Owns chapter timeline reads and persistence. Both reads project a virtual single-track chapter when the
  * database has no parsed chapters (see [projectChaptersWithTrackFallback]). [saveChapters] is fire-and-forget
@@ -38,7 +38,6 @@ class ChapterGatewayImpl(
 ) : ChapterGateway, Closeable {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
-        // Background chapter writes may carry physical paths, so release-retained errors go through SecureLog.
         SecureLog.error("ChapterGatewayImpl", "协程在 ChapterGatewayImpl 运行中捕获到未处理异常", exception)
     }
 
@@ -55,7 +54,6 @@ class ChapterGatewayImpl(
     }
 
     override suspend fun getChaptersForBookSync(bookId: String): List<ChapterWithBookFile> = withContext(Dispatchers.IO) {
-        // Same projection rule as the reactive flow so notifications and the player stay aligned.
         val chapters = chapterDao.getChaptersForBookList(bookId)
         val book = bookDao.getBookById(bookId)
         val files = bookDao.getFilesForBookList(bookId)
@@ -65,7 +63,6 @@ class ChapterGatewayImpl(
     override fun saveChapters(bookId: String, chapters: List<ChapterEntity>) {
         scope.launch {
             if (bookDao.getBookById(bookId) != null) {
-                // Delete + bulk insert run inside a single Room transaction to prevent partial chapter state.
                 chapterDao.replaceChapters(bookId, chapters)
             }
         }
@@ -77,7 +74,7 @@ class ChapterGatewayImpl(
 }
 
 /**
- * Unified Query-Time Chapters Projection Rules (Dynamic fallback mapping logic)
+ * Dynamic fallback mapping logic.
  *
  * Rules:
  * 1. Preserves existing parsed database chapters; does not override authentic tags.
@@ -103,12 +100,10 @@ internal fun projectChaptersWithTrackFallback(
     return sortedFiles.mapIndexed { trackIndex, file ->
         val safeDurationMs = when {
             file.durationMs > 0L -> file.durationMs
-            // Recover duration from the global book record when a single track is missing its own duration.
             sortedFiles.size == 1 && book.totalDurationMs > 0L -> book.totalDurationMs
             else -> 0L
         }.coerceAtLeast(0L)
         val chapter = ChapterEntity(
-            // Stable name-based UUID keeps Compose lists and notification tracks from flickering on unstable ids.
             id = syntheticTrackProjectionChapterId(book.id, file.id),
             bookId = book.id,
             bookFileId = file.id,
@@ -128,7 +123,7 @@ internal fun projectChaptersWithTrackFallback(
 }
 
 /**
- * Stable Synthetic ID Generation (In-memory UUID builder)
+ * In-memory UUID builder.
  * Generates a stable name-based UUID for virtual track-chapter projection schemas so in-memory rows never
  * pollute persistent primary keys.
  */
@@ -136,7 +131,7 @@ internal fun syntheticTrackProjectionChapterId(bookId: String, fileId: String): 
     UUID.nameUUIDFromBytes("track-projection:$bookId:$fileId".toByteArray(StandardCharsets.UTF_8)).toString()
 
 /**
- * Resolve Dynamic Chapter Title (Label generation priorities)
+ * Label generation priorities.
  * Prioritizes the book title for single-file tracks and individual track display names for multi-file books.
  */
 internal fun projectedTrackChapterTitle(

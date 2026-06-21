@@ -17,8 +17,6 @@ class DownloadProgressPoller(
 ) {
     private var pollJob: Job? = null
 
-    // Active Progress Polling Start (Keep one lightweight loop for all active manual-download tasks)
-    // Media3 listener callbacks cover state transitions, while this loop samples byte progress between those transitions and writes it back to Room.
     @Synchronized
     fun start() {
         if (pollJob?.isActive == true) return
@@ -27,8 +25,6 @@ class DownloadProgressPoller(
         }
     }
 
-    // Active Progress Polling Stop (Cancel the loop during graph teardown without touching DownloadManager state)
-    // DownloadGraph already owns service and cache shutdown, so this method only releases the coroutine worker.
     @Synchronized
     fun stop() {
         pollJob?.cancel()
@@ -50,8 +46,6 @@ class DownloadProgressPoller(
                 runCatching {
                     reconciler.reconcileBook(bookId)
                 }.onFailure { error ->
-                    // Polling Failure Isolation (Keep other active books syncing when one aggregate fails)
-                    // The reconciler logs its own detailed failure path, while this guard prevents one exception from killing the progress loop.
                     DownloadSyncLogger.logBookReconcileFailure(
                         bookId = bookId,
                         errorClass = error::class.java.simpleName,

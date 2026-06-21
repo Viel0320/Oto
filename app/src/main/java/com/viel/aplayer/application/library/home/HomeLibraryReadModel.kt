@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /**
- * Home Book Item (Room-free catalog projection for the bookshelf)
+ * Room-free catalog projection for the bookshelf.
  * Carries the metadata, progress, and application-level status fields rendered or sorted by Home without exposing Room relationship rows or schema enums.
  */
 data class HomeBookItem(
@@ -53,8 +53,6 @@ data class HomeBookItem(
     val isNotStarted: Boolean
 )
 
-// Map HomeBookItem to DetailBookItem (Abstract boundary mapping from UI layer to application layer)
-// This encapsulates the conversion logic of book projections, allowing it to be easily unit-tested and keeping Composables focused on pure rendering.
 fun HomeBookItem.toDetailBookItem(): DetailBookItem {
     return DetailBookItem(
         id = id,
@@ -76,14 +74,14 @@ fun HomeBookItem.toDetailBookItem(): DetailBookItem {
 }
 
 /**
- * Home Library Read Model (Scene-level catalog surface for the home screen)
+ * Scene-level catalog surface for the home screen.
  * Exposes raw Home projections and root presence while keeping page-level catalog organization inside the Home ViewModel.
  */
 interface HomeLibraryReadModel {
     val audiobooks: Flow<List<HomeBookItem>>
 
     /**
-     * Registered Library Presence Stream (Home-level media source availability)
+     * Home-level media source availability.
      * Exposes a boolean root-presence signal so Home can distinguish an unconfigured app from an empty scanned catalog without depending on SettingsRootItem or persistence entities.
      */
     val hasRegisteredLibraryRoots: Flow<Boolean>
@@ -91,7 +89,7 @@ interface HomeLibraryReadModel {
 }
 
 /**
- * Home Library Use Cases (Scene-level commands owned by the home screen)
+ * Scene-level commands owned by the home screen.
  * Groups home catalog commands without exposing settings, playback, subtitle, or detail-editing library capabilities.
  */
 interface HomeLibraryUseCases {
@@ -107,7 +105,7 @@ interface HomeLibraryUseCases {
     suspend fun regenerateCoverAndMetadata(bookId: String)
 
     /**
-     * Recover Missing Covers (Deferred home-start cover self-heal sweep)
+     * Deferred home-start cover self-heal sweep.
      * Home triggers this shortly after first paint so the catalog stream no longer probes covers inline on every emission.
      */
     suspend fun recoverMissingCovers()
@@ -116,7 +114,7 @@ interface HomeLibraryUseCases {
 }
 
 /**
- * Default Home Library Read Model (Adapter from granular library gateways to the home scene interface)
+ * Adapter from granular library gateways to the home scene interface.
  * Keeps Home callers off the broad transition facade while the composition root still owns it for other screens.
  */
 class DefaultHomeLibraryReadModel(
@@ -125,21 +123,17 @@ class DefaultHomeLibraryReadModel(
 ) : HomeLibraryReadModel {
     override val audiobooks: Flow<List<HomeBookItem>>
         get() = bookCatalogGateway.homeCatalogRows.map { books ->
-            // Home Catalog Projection Mapping (Keep data-layer SQL rows behind the home adapter)
-            // Home UI needs only renderable catalog fields and progress flags, so the adapter strips persistence enums here.
             books.map { it.toHomeBookItem() }
         }
 
     override val hasRegisteredLibraryRoots: Flow<Boolean>
         get() = libraryRootGateway.observeLibraryRoots().map { roots ->
-            // Home Library Root Presence Projection (Expose only whether any media source has been registered)
-            // The Home scene needs this boolean to decide if the onboarding FAB should remain visible without importing settings rows or Room root entities.
             roots.isNotEmpty()
         }
 }
 
 /**
- * Default Home Library Use Cases (Adapter from granular gateways to home-scoped commands)
+ * Adapter from granular gateways to home-scoped commands.
  * Centralizes trigger labels and gateway selection so LibraryViewModel does not learn the broader facade surface.
  */
 class DefaultHomeLibraryUseCases(
@@ -164,8 +158,6 @@ class DefaultHomeLibraryUseCases(
 
 
     override suspend fun updateReadStatus(bookId: String, readStatus: LibraryReadStatus) {
-        // Home Read Status Update (Use the semantic metadata seam for bookshelf state changes)
-        // Home commands no longer depend on catalog search or file inventory just to change the user's reading status.
         bookMetadataGateway.updateBookReadStatus(bookId, readStatus.toSchemaReadStatus())
     }
 
@@ -188,7 +180,7 @@ class DefaultHomeLibraryUseCases(
 }
 
 /**
- * Home Book Projection Mapping (Translate the lightweight catalog row into the home scene item)
+ * Translate the lightweight catalog row into the home scene item.
  * Localizes data-layer projection knowledge inside the adapter while preserving every raw field the Home ViewModel needs for filtering, sorting, grouping, and recents.
  */
 private fun HomeCatalogRow.toHomeBookItem(): HomeBookItem {

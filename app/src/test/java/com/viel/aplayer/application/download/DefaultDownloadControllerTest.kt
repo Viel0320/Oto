@@ -18,7 +18,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * Download Controller Command Test (Runs with Robolectric because DownloadRequest construction uses android.net.Uri)
+ * Runs with Robolectric because DownloadRequest construction uses android.net.Uri.
  * The test still fakes download boundaries, but Android URI parsing must match the runtime environment.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -44,8 +44,6 @@ class DefaultDownloadControllerTest {
 
         controller.downloadBook(BOOK_ID)
 
-        // Remote Audio Submission Order (Only missing remote audio files become Media3 DownloadRequests)
-        // SAF files and manifest rows are not cached manually, and existing DownloadIndex rows are skipped for idempotent retries.
         assertEquals(listOf("abs-1", "webdav-3"), runtimeGateway.addedRequestIds)
         val metadata = metadataDao.rows[BOOK_ID]
         assertEquals(DownloadStatus.QUEUED, metadata?.status)
@@ -81,8 +79,6 @@ class DefaultDownloadControllerTest {
 
         controller.downloadBook(BOOK_ID)
 
-        // Local-Only Cache Guard (Avoid creating stale manual-download metadata for SAF-only books)
-        // A later read model can derive no-cache state from the missing row instead of seeing an unreachable queued task.
         assertNull(metadataDao.rows[BOOK_ID])
         assertEquals(emptyList<String>(), runtimeGateway.addedRequestIds)
         assertEquals(listOf(BOOK_ID), notifier.cancelled)
@@ -117,12 +113,8 @@ class DefaultDownloadControllerTest {
 
         controller.deleteDownload(BOOK_ID)
 
-        // Book-Level Manual Cache Cleanup (Remove only remote file-level download records before clearing the aggregate row)
-        // Deletion cleanup must not attempt to remove SAF media from Media3 because local files were never submitted to L1 manual cache.
         assertEquals(listOf("webdav-1", "abs-1"), runtimeGateway.removedFileIds)
         assertNull(metadataDao.rows[BOOK_ID])
-        // Book Notification Cleanup (Remove the visible per-book progress row when its durable task is deleted)
-        // A deleted manual cache task must disappear from both Room-backed UI and Android notification surfaces in the same command.
         assertEquals(listOf(BOOK_ID), notifier.cancelled)
     }
 
@@ -157,15 +149,11 @@ class DefaultDownloadControllerTest {
         controller.pauseDownload(BOOK_ID)
         controller.resumeDownload(BOOK_ID)
 
-        // Per-Book Pause Semantics (Use Media3 stop reasons for selected remote files only)
-        // SAF rows and manifest rows were never submitted to manual cache, so pause and resume must not touch them or the global queue.
         assertEquals(
             listOf("webdav-1" to 1, "abs-1" to 1, "webdav-1" to 0, "abs-1" to 0),
             runtimeGateway.stopReasons
         )
         assertEquals(DownloadStatus.QUEUED, metadataDao.rows[BOOK_ID]?.status)
-        // Book Notification Status Refresh (Mirror pause and resume commands into the per-book notification)
-        // These command-side publishes cover user actions immediately, before the next Media3 callback or progress poll reconciles byte counts.
         assertEquals(listOf(DownloadStatus.PAUSED, DownloadStatus.QUEUED), notifier.published.map { metadata -> metadata.status })
     }
 

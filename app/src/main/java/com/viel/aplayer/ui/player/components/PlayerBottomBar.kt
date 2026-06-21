@@ -60,8 +60,8 @@ import com.viel.aplayer.ui.player.PlayerScreenMode
  * Slot-based bottom bar scaffold for the player screen.
  *
  * This is a layout-only container with no knowledge of speed, sleep, or tab
- * concerns. It fixes the shared geometry — 24.dp horizontal padding, a 48.dp
- * tall row split as start action / centered tab group / end action — and owns
+ * concerns. It fixes the shared geometry with 24.dp horizontal padding, a 48.dp
+ * tall row split as start action / centered tab group / end action, and owns
  * the orientation-aware bottom inset so callers never duplicate that policy.
  *
  * The [tabs] slot runs inside a [selectableGroup] so TalkBack treats its
@@ -75,10 +75,6 @@ fun PlayerBottomBar(
     modifier: Modifier = Modifier,
     tabs: @Composable RowScope.() -> Unit
 ) {
-    // Wrap the bottom bar with Column.
-    //
-    // Instead of applying navigationBarsPadding() directly here, we precisely control the height by sequentially placing a 16.dp anti-mistouch Spacer and the system navigationBarsPadding Spacer at the bottom.
-    // This ensures the navigation click interaction area remains elevated while matching the transport button hit area.
     Column(modifier = modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
@@ -191,22 +187,11 @@ fun BottomNavTabs(
     }
 }
 
-// ==========================================
-// Jetpack Compose @Preview Code Area
-// ==========================================
-
-// 1. Preview of active Tab.
-//
-// Simulates selecting "SUBTITLES" by default, supporting dynamic click switching via Live Edit in Android Studio preview panel.
 @Preview(name = "BottomNavTabs - Active Tab", showBackground = true)
 @Composable
 fun BottomNavTabsPreview_Active() {
     APlayerTheme {
-        // Preview environment setup.
-        //
-        // Explicitly inject portrait configuration presets for bottom bar preview.
         CompositionLocalProvider(
-            // Provide AppWindowSizeClass: Inject portrait configuration preset for preview
             LocalAppWindowSizeClass provides AppWindowSizeClass.PortraitPhone
         ) {
             Surface(color = MaterialTheme.colorScheme.background) {
@@ -224,18 +209,11 @@ fun BottomNavTabsPreview_Active() {
     }
 }
 
-// 2. Preview of inactive Tabs.
-//
-// Simulates returning to the main player (PlayerScreenMode.PLAYER) where all tabs use outlined icons and inactive color.
 @Preview(name = "BottomNavTabs - All Inactive", showBackground = true)
 @Composable
 fun BottomNavTabsPreview_Inactive() {
     APlayerTheme {
-        // Preview environment setup.
-        //
-        // Explicitly inject portrait configuration presets for the bottom bar inactive indicator state preview.
         CompositionLocalProvider(
-            // Provide AppWindowSizeClass: Inject portrait configuration preset for preview
             LocalAppWindowSizeClass provides AppWindowSizeClass.PortraitPhone
         ) {
             Surface(color = MaterialTheme.colorScheme.background) {
@@ -409,7 +387,7 @@ private fun PlayerRelatedBottomTabButton(
  *
  * The specific tab buttons own titles and AVD resources, while this helper owns
  * the common semantics, sizing, interaction source, and selected tint behavior.
- * Selection drives an AnimatedVectorDrawable morph (outline to filled) via
+ * outline to filled. via
  * [rememberAnimatedVectorPainter]; the painter is tinted with onSurface so the
  * single white-filled asset adapts to light, dark, and dynamic color schemes,
  * with the inactive variant dimmed through the tint alpha.

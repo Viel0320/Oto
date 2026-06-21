@@ -11,7 +11,6 @@ interface ScanSessionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: ScanSessionEntity)
 
-    // Coordinator writes RUNNING first, then completes or abandons explicitly.
     @Query("UPDATE scan_sessions SET status = 'COMPLETED', completedAt = :completedAt, discoveredBookCount = :discoveredBookCount, unavailableBookCount = :unavailableBookCount, partialBookCount = :partialBookCount, updatedBookCount = :updatedBookCount, summaryJson = :summaryJson WHERE id = :id")
     suspend fun markCompleted(
         id: String,
@@ -23,8 +22,6 @@ interface ScanSessionDao {
         summaryJson: String = ""
     )
 
-    // Scan Failure State Recording (Persist an explicit abandoned status before returning the session)
-    // The outcome mapper can then distinguish failed scan lifecycles from completed empty scans.
     @Query("UPDATE scan_sessions SET status = 'ABANDONED', abandonedAt = :abandonedAt WHERE id = :id")
     suspend fun markAbandoned(id: String, abandonedAt: Long = System.currentTimeMillis())
 

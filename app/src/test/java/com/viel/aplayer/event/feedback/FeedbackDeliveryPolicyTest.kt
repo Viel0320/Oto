@@ -18,10 +18,8 @@ class FeedbackDeliveryPolicyTest {
     fun `final replaces same-identity pending provisional`() {
         val held = policy.evaluate(speedProvisional()) as FeedbackDeliveryDecision.Hold
 
-        // A final for the same identity arrives before the hold expires.
         assertEquals(FeedbackDeliveryDecision.Deliver, policy.evaluate(speedFinal()))
 
-        // The earlier provisional release now no-ops because the slot was cancelled.
         assertEquals(FeedbackDeliveryDecision.Merged, policy.releasePending(speedProvisional(), held.generation))
     }
 
@@ -38,7 +36,6 @@ class FeedbackDeliveryPolicyTest {
         val first = policy.evaluate(speedProvisional()) as FeedbackDeliveryDecision.Hold
         val second = policy.evaluate(speedProvisional()) as FeedbackDeliveryDecision.Hold
 
-        // The first generation was superseded by the second.
         assertEquals(FeedbackDeliveryDecision.Merged, policy.releasePending(speedProvisional(), first.generation))
         assertEquals(FeedbackDeliveryDecision.Deliver, policy.releasePending(speedProvisional(), second.generation))
     }
@@ -59,14 +56,12 @@ class FeedbackDeliveryPolicyTest {
     fun `provisional after a visible final in the window is merged`() {
         assertEquals(FeedbackDeliveryDecision.Deliver, policy.evaluate(speedFinal()))
 
-        // Same identity provisional within the merge window is redundant.
         assertEquals(FeedbackDeliveryDecision.Merged, policy.evaluate(speedProvisional()))
     }
 
     @Test
     fun `different identities do not replace each other`() {
         policy.evaluate(speedProvisional())
-        // Sleep timer shares the playback control category but is a different topic.
         val sleepHeld = policy.evaluate(sleepProvisional())
         assertEquals(true, sleepHeld is FeedbackDeliveryDecision.Hold)
     }
@@ -74,7 +69,6 @@ class FeedbackDeliveryPolicyTest {
     @Test
     fun `different categories do not replace each other`() {
         assertEquals(FeedbackDeliveryDecision.Deliver, policy.evaluate(speedFinal()))
-        // A download-cache final has a different category and is not merged by the playback final.
         assertEquals(FeedbackDeliveryDecision.Deliver, policy.evaluate(downloadFinal(FeedbackSeverity.COMPLETED)))
     }
 

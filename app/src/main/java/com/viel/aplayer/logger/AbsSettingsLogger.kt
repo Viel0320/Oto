@@ -3,7 +3,7 @@ package com.viel.aplayer.logger
 import com.viel.aplayer.data.db.AudiobookSchema
 
 /**
- * ABS Settings Logger (User actions and settings interface logging)
+ * User actions and settings interface logging.
  *
  * Boundaries of responsibility:
  * 1. Only logs user-triggered events like test connections, adding servers, manual sync requests, scheduling background syncs, and deleting servers.
@@ -94,7 +94,6 @@ internal object AbsSettingsLogger {
         )
     }
 
-    // Update AbsSettingsLogger to use type-safe AudiobookSchema.LibrarySourceType: Replacing sourceType String with LibrarySourceType enum.
     fun logDeleteServerStart(rootId: String, sourceType: AudiobookSchema.LibrarySourceType) {
         AbsLogEmitter.debug(
             TAG,

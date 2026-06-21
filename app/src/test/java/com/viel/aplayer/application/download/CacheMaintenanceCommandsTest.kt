@@ -26,8 +26,6 @@ class CacheMaintenanceCommandsTest {
 
         commands.deleteAllManualDownloads()
 
-        // Manual Download Bulk Deletion (Preserve one book-level cleanup path for every persisted task)
-        // Duplicate metadata rows are collapsed before delegation so the controller owns file-level Media3 cleanup exactly once per book.
         assertEquals(listOf("book-1", "book-2"), downloadController.deletedBookIds)
     }
 

@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /**
- * Default Detail Book Module (Adapter from granular gateways to the detail scene)
+ * Adapter from granular gateways to the detail scene.
  * Centralizes source formatting, availability refresh, and live book observation so DetailViewModel no longer reaches into root, file, or availability gateways.
  */
 class DefaultDetailBookModule(
@@ -41,8 +41,6 @@ class DefaultDetailBookModule(
             )
         }
 
-        // Detail Source Location Assembly (Combine selected book, source files, and root label)
-        // The module performs root/file lookup once per selection so the ViewModel only receives display-ready text.
         return sourceLocationFormatter.format(
             snapshot = snapshot,
             files = files,
@@ -53,11 +51,7 @@ class DefaultDetailBookModule(
     override fun observeLiveSnapshot(snapshot: DetailSnapshot): Flow<DetailSnapshot> {
         return bookCatalogGateway.observeBookById(snapshot.bookId)
             .map { updatedBook ->
-                // Selected Book Guard (Ignore unexpected observer rows for non-selected ids)
-                // The DAO should already scope emissions by id, but this guard keeps the module safe against fake or future adapter drift.
                 if (updatedBook != null && updatedBook.id == snapshot.bookId) {
-                    // Live Detail Item Mapping (Collapse the Room row into the detail scene projection)
-                    // Only metadata needed by Detail rendering is copied, while playback progress remains the selection-time value managed by the ViewModel/service sync.
                     snapshot.withItem(
                         DetailBookItem(
                             id = updatedBook.id,
@@ -74,8 +68,6 @@ class DefaultDetailBookModule(
                             thumbnailPath = updatedBook.thumbnailPath,
                             lastScannedAt = updatedBook.lastScannedAt,
                             progressPercent = snapshot.progressPercent,
-                            // Live Detail Read Status Projection (Refresh manual read status with live book metadata)
-                            // The action dialog consumes DetailBookItem only, so live database updates must carry readStatus through the same projection boundary.
                             readStatus = updatedBook.readStatus.toLibraryReadStatus()
                         )
                     )

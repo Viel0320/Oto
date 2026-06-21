@@ -1,7 +1,7 @@
 package com.viel.aplayer.logger
 
 /**
- * ABS Cover Cache Logger (Cover cache operations logging)
+ * Cover cache operations logging.
  *
  * Boundaries of responsibility:
  * 1. Only logs cover download, cover processing, missing covers, and cover cache failures.

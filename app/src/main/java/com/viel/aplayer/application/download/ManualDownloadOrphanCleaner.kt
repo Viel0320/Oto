@@ -15,7 +15,7 @@ data class ManualDownloadOrphanCleanupResult(
 )
 
 /**
- * Manual Download Orphan Cleaner (Remove L1 cache keys no longer referenced by durable book metadata)
+ * Remove L1 cache keys no longer referenced by durable book metadata.
  *
  * The manual cache uses BookFileEntity.id as its cache key, so cleanup can compare cache keys against
  * the same remote-audio selector used by DownloadController without opening provider streams.

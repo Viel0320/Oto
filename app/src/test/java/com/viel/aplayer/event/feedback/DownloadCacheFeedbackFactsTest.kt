@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Download Cache Feedback Facts Test (Locks the per-book cache outcome contract and identity separation)
+ * Locks the per-book cache outcome contract and identity separation.
  *
  * Verifies queued is a provisional started state keyed to the book, single-book actions stay separate
  * across books, and bulk/permission outcomes never share identity with single-book tasks.
@@ -37,8 +37,6 @@ class DownloadCacheFeedbackFactsTest {
         val resumed = DownloadCacheFeedbackFacts.resumed("book-1")
         val deleted = DownloadCacheFeedbackFacts.deleted("book-1")
 
-        // The queued provisional and the final outcomes share one identity so the final replaces the
-        // pending queued toast for the same book.
         assertEquals(queued, paused.outcome.identity)
         assertEquals(queued, resumed.outcome.identity)
         assertEquals(queued, deleted.outcome.identity)
@@ -75,7 +73,6 @@ class DownloadCacheFeedbackFactsTest {
         assertEquals(FeedbackTopic.DownloadNotificationPermission, identity.topic)
         assertEquals(FeedbackContext.Global, identity.context)
         assertEquals(FeedbackSeverity.HINT, fact.outcome.severity)
-        // A distinct topic keeps it from absorbing a per-book task outcome.
         assertNotEquals(
             DownloadCacheFeedbackFacts.queued("book-1").outcome.identity,
             identity
@@ -98,7 +95,6 @@ class DownloadCacheFeedbackFactsTest {
         val first = DownloadCacheFeedbackFacts.commandFailed("book-1", "error A")
         val second = DownloadCacheFeedbackFacts.commandFailed("book-1", "error B")
 
-        // Different redacted detail must not split the identity; only the book/topic decide aggregation.
         assertEquals(first.outcome.identity, second.outcome.identity)
         assertTrue(first.message is FeedbackMessage.Resource)
     }

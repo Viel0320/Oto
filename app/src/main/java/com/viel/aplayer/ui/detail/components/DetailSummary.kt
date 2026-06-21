@@ -19,37 +19,34 @@ import androidx.core.text.HtmlCompat
 import com.viel.aplayer.R
 
 /**
- * DetailSummary Setup (Detail Summary Component)
+ * Renders the detail-page summary title and description body.
  *
- * Detail page book summary component (DetailSummary).
- * Contains "Summary" title label and HTML parsed description content.
- * Uses SelectableTextView to support system-level text selection.
+ * Description text can opt into an internal scroll region when the parent owns a fixed height.
+ * The body remains backed by SelectableTextView so Android system text selection stays available.
  */
 @Composable
 fun DetailSummary(
     description: String,
     modifier: Modifier = Modifier,
-    isScrollable: Boolean = false // New parameter: Controls whether the content area is allowed to scroll
+    isScrollable: Boolean = false
 ) {
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
-        // 1. Fixed Title Part: Always displayed at the top of the component
         Text(
             text = stringResource(R.string.summary_label),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
         )
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         val summaryDescription = remember(description) {
             renderDescriptionText(description)
         }
-        
-        // 2. Scrollable Content Area: If isScrollable is true, occupies remaining space and allows inner scrolling
+
         val contentModifier = if (isScrollable) {
             Modifier
-                .weight(1f) // Occupy all remaining height except the title when parent layout height is fixed
+                .weight(1f)
                 .verticalScroll(rememberScrollState())
         } else {
             Modifier
@@ -68,16 +65,17 @@ fun DetailSummary(
     }
 }
 
-// Regular expression for HTML tag detection, used to check if description contains HTML formatting
+/**
+ * Detects whether stored summary text already contains HTML markup before it reaches Compose.
+ */
 private val htmlDescriptionPattern = Regex("""</?[a-zA-Z][a-zA-Z0-9]*(\s[^>]*)?/?>""")
 
 /**
- * Render Description Text (Helper Method)
+ * Converts stored summary text into the CharSequence expected by SelectableTextView.
  *
- * Helper method for rendering description text.
- * 1. Parser/import layer is responsible for line break normalization and literal "\n" restoration.
- * 2. UI layer only determines whether HTML parsing is needed, avoiding display component coupling with audio tag format differences.
- * 3. Non-HTML content keeps the original text format as stored in the database.
+ * Parser and import layers own line-break normalization and literal "\n" restoration.
+ * This UI helper only chooses whether Android HTML parsing is needed, so display rendering
+ * does not depend on source-specific audio tag formats.
  */
 private fun renderDescriptionText(rawDescription: String): CharSequence {
     return if (htmlDescriptionPattern.containsMatchIn(rawDescription)) {

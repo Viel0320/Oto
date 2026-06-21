@@ -16,8 +16,6 @@ import org.junit.Test
 class PlaybackFeedbackMappingTest {
     @Test
     fun `shutdown scheduled maps to quantity message and playback session shutdown outcome`() {
-        // The bridge must preserve the delay quantity for plural rendering and classify the outcome as a
-        // playback-control session shutdown, not a content recovery.
         val fact = PlaybackDomainEvent.PlaybackFinishedShutdownScheduled(delaySeconds = 5).toFeedbackFact()
 
         val resource = fact.message as FeedbackMessage.Quantity
@@ -44,7 +42,6 @@ class PlaybackFeedbackMappingTest {
         val identity = fact.outcome.identity
         assertEquals(FeedbackCategory.RECOVERY, identity.category)
         assertEquals(FeedbackTopic.PlaybackSourcePreflight, identity.topic)
-        // The display name must not leak into the aggregation identity.
         assertEquals(FeedbackContext.MissingObject, identity.context)
         assertEquals(FeedbackSeverity.BLOCKED, fact.outcome.severity)
         assertEquals(FeedbackRenderMode.DIALOG, fact.renderMode)

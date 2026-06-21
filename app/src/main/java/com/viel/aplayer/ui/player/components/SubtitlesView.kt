@@ -41,8 +41,6 @@ fun SubtitlesView(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Localized Subtitle Empty State (Resolve the no-subtitles message through resources)
-    // Subtitle line content is media data, but the empty-state label belongs to the player UI.
     val emptySubtitlesText = stringResource(R.string.subtitles_empty)
     val listState = rememberLazyListState()
     val density = androidx.compose.ui.platform.LocalDensity.current
@@ -81,7 +79,7 @@ fun SubtitlesView(
             if (scrollIndex != -1 && autoScrollEnabled) {
                 val visibleItems = listState.layoutInfo.visibleItemsInfo
                 val isVisible = visibleItems.any { it.index == scrollIndex }
-                val shouldSnap = isFirstScroll || !isVisible || 
+                val shouldSnap = isFirstScroll || !isVisible ||
                                  kotlin.math.abs(scrollIndex - listState.firstVisibleItemIndex) > 10
 
                 if (shouldSnap) {
@@ -121,13 +119,13 @@ fun SubtitlesView(
                             fontSize = if (isHighlighted) 30.sp else 18.sp,
                             lineHeight = if (isHighlighted) 34.sp else 28.sp
                         ),
-                        color = if (isHighlighted) MaterialTheme.colorScheme.primary 
+                        color = if (isHighlighted) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { 
+                            .clickable {
                                 autoScrollEnabled = true
-                                onSeek(subtitle.startTime) 
+                                onSeek(subtitle.startTime)
                             },
                         textAlign = TextAlign.Start
                     )

@@ -15,7 +15,7 @@ import com.viel.aplayer.abs.sync.AbsSyncTaskCoordinator
 import java.io.Closeable
 
 /**
- * ABS Graph (Owns Audiobookshelf credentials, remote clients, catalog sync, and playback session sync)
+ * Owns Audiobookshelf credentials, remote clients, catalog sync, and playback session sync.
  * Keeps remote protocol construction separate from local library and playback di wiring.
  */
 @UnstableApi
@@ -27,12 +27,10 @@ internal class AbsGraph(
     val uiEvents: UiEventGraph
 ) : Closeable {
     val absCredentialStore by lazy {
-        // ABS Credential Store: Securely manages credentials for Audiobookshelf.
         AbsCredentialStore.getInstance(context.applicationContext)
     }
 
     val absApiClient by lazy {
-        // ABS Client Client: Sends REST calls to Audiobookshelf endpoints.
         RealAbsApiClient(
             appSettingsRepository = data.settingsRepository,
             credentialStore = absCredentialStore
@@ -40,13 +38,10 @@ internal class AbsGraph(
     }
 
     val absConnectionTester by lazy {
-        // ABS Connection Tester: Validates tokens and lists selectable book libraries for settings flows.
         AbsConnectionTester(absApiClient)
     }
 
     val absCoverCache by lazy {
-        // ABS Cover Cache Policy Wiring (Shares the app settings repository with standalone cover downloads)
-        // Cover images are fetched outside RealAbsApiClient, so the di injects cached settings to enforce the same cleartext transport policy as catalog and media requests.
         AbsCoverCache(
             context = context.applicationContext,
             settingsProvider = { data.settingsRepository.cachedSettings }
@@ -54,7 +49,6 @@ internal class AbsGraph(
     }
 
     val absPlaybackCredentialResolver by lazy {
-        // ABS Credential Resolver: Resolves credential details for remote playback.
         AbsPlaybackCredentialResolver(
             libraryRootDao = data.database.libraryRootDao(),
             credentialStore = absCredentialStore
@@ -62,7 +56,6 @@ internal class AbsGraph(
     }
 
     val absProgressConflictCoordinator: AbsProgressConflictCoordinator by lazy {
-        // Progress Conflict Coordinator: Arbitrates conflicting play timestamps.
         AbsProgressConflictCoordinator(
             apiClient = absApiClient,
             bookCatalogGateway = library.bookCatalogGateway,
@@ -73,7 +66,6 @@ internal class AbsGraph(
     }
 
     val absAuthorizedProgressSynchronizer: AbsAuthorizedProgressSynchronizer by lazy {
-        // Authorized Progress Synchronizer: Merges user progress snapshots for startup and catalog-triggered refreshes.
         AbsAuthorizedProgressSynchronizer(
             apiClient = absApiClient,
             credentialProvider = { root ->
@@ -87,7 +79,6 @@ internal class AbsGraph(
     }
 
     val absCatalogSynchronizer: AbsCatalogSynchronizer by lazy {
-        // ABS Catalog Synchronizer: Mirrors server library catalogs and delegates user progress merging to the shared progress synchronizer.
         AbsCatalogSynchronizer(
             apiClient = absApiClient,
             credentialStore = absCredentialStore,
@@ -97,7 +88,6 @@ internal class AbsGraph(
     }
 
     val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer by lazy {
-        // Playback Session Syncer: Submits media play progress intervals to servers.
         AbsPlaybackSessionSyncer(
             apiClient = absApiClient,
             absPlaybackSessionDao = data.database.absPlaybackSessionDao(),
@@ -109,7 +99,6 @@ internal class AbsGraph(
     }
 
     private val absSyncTaskCoordinatorLazy = lazy {
-        // Sync Task Coordinator: Coordinates background Audiobookshelf catalog runs.
         AbsSyncTaskCoordinator(
             libraryRootDao = data.database.libraryRootDao(),
             synchronizer = absCatalogSynchronizer,
@@ -119,15 +108,13 @@ internal class AbsGraph(
     }
 
     /**
-     * ABS Sync Task Coordinator Accessor (Preserves lazy background coordinator construction)
+     * Preserves lazy background coordinator construction.
      * The backing Lazy lets di teardown close active sync scopes without creating unused remote synchronization machinery.
      */
     val absSyncTaskCoordinator: AbsSyncTaskCoordinator
         get() = absSyncTaskCoordinatorLazy.value
 
     override fun close() {
-        // Initialized ABS Disposal (Close only background coordination resources that were actually started)
-        // This prevents shutdown from allocating ABS sync infrastructure when no ABS work ran in the process.
         closeInitializedAbsGraphResources(listOf(absSyncTaskCoordinatorLazy))
     }
 }

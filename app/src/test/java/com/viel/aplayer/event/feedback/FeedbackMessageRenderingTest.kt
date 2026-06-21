@@ -11,7 +11,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 /**
- * Feedback Message Rendering Test (Exercises Android resource resolution for feedback messages)
+ * Exercises Android resource resolution for feedback messages.
  * Robolectric keeps the test on the real Resources path so plural selection is verified where Toast copy is rendered.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -22,8 +22,6 @@ class FeedbackMessageRenderingTest {
     fun `quantity feedback renders singular and plural scan completion copy`() {
         val context = RuntimeEnvironment.getApplication()
 
-        // Counted Scan Completion Rendering (Locks the user-visible singular and plural English forms)
-        // This catches regressions where counted feedback accidentally routes through getString and renders "1 books".
         assertEquals(
             "Media library sync completed. Added 1 book.",
             FeedbackMessages.scanCompletedWithDiscoveredBooks(1).render(context)
@@ -38,8 +36,6 @@ class FeedbackMessageRenderingTest {
     fun `composite quantity feedback renders both independent book counts`() {
         val context = RuntimeEnvironment.getApplication()
 
-        // Multi-Count Feedback Rendering (Verifies each ABS sync count chooses its own plural branch)
-        // Added and failed totals can differ, so the renderer must combine two quantity messages instead of formatting one plain string.
         assertEquals(
             "ABS background sync completed: added 1 book, failed 2 books",
             FeedbackMessages.absBackgroundSyncCompleted(1, 2).render(context)
@@ -54,8 +50,6 @@ class FeedbackMessageRenderingTest {
     fun `manual quantity feedback uses Android plural resources directly`() {
         val context = RuntimeEnvironment.getApplication()
 
-        // Generic Quantity Rendering (Covers the FeedbackMessage.Quantity branch independently from factory helpers)
-        // A direct quantity message proves render delegates to getQuantityString with the stored resource, quantity, and args.
         val one = FeedbackMessage.Quantity(R.plurals.feedback_sleep_timer_minutes, quantity = 1)
         val many = FeedbackMessage.Quantity(R.plurals.feedback_sleep_timer_minutes, quantity = 2)
 
@@ -68,8 +62,6 @@ class FeedbackMessageRenderingTest {
         val context = RuntimeEnvironment.getApplication()
         val localizedContext = AppLocaleController.wrapContext(context, AppLanguage.Japanese)
 
-        // Localized Feedback Resource Rendering (Verifies the renderer consumes the supplied configuration context)
-        // Android 12L routes in-app language through wrapContext, so Toast feedback must resolve copy from that context instead of the Activity base resources.
         assertEquals(
             "\u518D\u751F\u901F\u5EA6\u3092\u30EA\u30BB\u30C3\u30C8\u3057\u307E\u3057\u305F",
             FeedbackMessages.playbackSpeedReset().render(localizedContext)
@@ -80,9 +72,6 @@ class FeedbackMessageRenderingTest {
     fun `playback blocking feedback appends stopped playback scope when title is available`() {
         val context = RuntimeEnvironment.getApplication()
 
-        // Stopped Playback Scope Rendering (Locks the impact text onto the shared message source)
-        // Generic dialog messages are still regular FeedbackMessage values, but their rendered copy must
-        // name the affected book when the media domain can provide it.
         assertEquals(
             "Security blocked cleartext HTTP playback. Enable it in settings first.\nPlayback stopped: Book A",
             FeedbackMessages.playbackCleartextBlocked("Book A").render(context)
@@ -93,9 +82,6 @@ class FeedbackMessageRenderingTest {
     fun `semantic track unavailable feedback keeps routing payload while rendering stopped scope`() {
         val context = RuntimeEnvironment.getApplication()
 
-        // Semantic Playback Message Rendering (Preserves dialog routing while adding impact copy)
-        // TrackUnavailable cannot be wrapped in Composite because the app shell pattern-matches this type
-        // to open the skip-confirmation dialog.
         assertEquals(
             "The current track file is unavailable. Check whether you want to skip to another track.\nPlayback stopped: Book A",
             FeedbackMessages.playbackTrackUnavailable("book-1", 2, "Book A").render(context)

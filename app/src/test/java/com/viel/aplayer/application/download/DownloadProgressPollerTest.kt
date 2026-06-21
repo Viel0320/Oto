@@ -47,8 +47,6 @@ class DownloadProgressPollerTest {
         advanceTimeBy(1_000L)
         runCurrent()
 
-        // Active Progress Sampling (Poll queued/downloading rows repeatedly until the aggregate becomes terminal)
-        // Starting the poller twice must still keep one loop, while intermediate byte values are persisted before completion.
         assertEquals(listOf(BOOK_ID, BOOK_ID, BOOK_ID), reconciled)
         assertEquals(DownloadStatus.COMPLETED, dao.getMetadata(BOOK_ID)?.status)
         assertEquals(100L, dao.getMetadata(BOOK_ID)?.downloadedBytes)

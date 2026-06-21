@@ -11,7 +11,7 @@ import com.viel.aplayer.timeline.PositionMapper
 import java.util.concurrent.CopyOnWriteArraySet
 
 /**
- * Notification Playback Window Wrapper (Expose chapter or full-book bounds to system notifications)
+ * Expose chapter or full-book bounds to system notifications.
  */
 @OptIn(UnstableApi::class)
 class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
@@ -21,62 +21,47 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
     private var files: List<BookFileEntity> = emptyList()
     private var chapters: List<ChapterEntity> = emptyList()
     private var isChapterMode: Boolean = false
-    // Notification Seek Increments (Mirror the service-owned ExoPlayer short seek settings)
-    // The notification wrapper overrides seekBack/seekForward, so it must keep its own display-window increments in sync.
     private var seekBackIncrementMs: Long = 10_000L
     private var seekForwardIncrementMs: Long = 20_000L
-    // Track Previous Display Boundaries (Detect transition events across chapter indexes within one track)
     private var lastDisplayWindow: DisplayWindow? = null
 
-    // ForwardingPlayer wraps callbacks for normal player events; we keep the original listeners for manual timeline updates.
     override fun addListener(listener: Player.Listener) {
         sessionListeners.add(listener)
         super.addListener(listener)
     }
 
-    // Manual listener bookkeeping mirrors addListener so mode changes stop notifying removed MediaSession listeners.
     override fun removeListener(listener: Player.Listener) {
         sessionListeners.remove(listener)
         super.removeListener(listener)
     }
 
-    // The service updates this whenever playback switches to a file from another book.
     fun updateBookTimeline(bookId: String, files: List<BookFileEntity>, chapters: List<ChapterEntity>) {
         this.bookId = bookId
         this.files = files.sortedBy { it.index }
         this.chapters = chapters.sortedBy { it.startPositionMs }
-        // Reset Cache Limits (Clear stored display boundaries when metadata is updated)
         lastDisplayWindow = null
         notifyTimelineShapeChanged()
     }
 
-    // Settings changes only affect the displayed progress window, not actual ExoPlayer playback.
     fun setChapterMode(enabled: Boolean) {
         if (isChapterMode == enabled) return
         isChapterMode = enabled
-        // 模式切换会改变通知进度条长度，需要立刻通知 MediaSession 刷新。
         lastDisplayWindow = null
         notifyTimelineShapeChanged()
     }
 
-    // Bookmarks and persistence need the stable global position, regardless of notification display mode.
     fun currentGlobalPosition(): Long = currentRawGlobalPosition()
 
-    // Short Seek Increment Sync (Updates notification-window seek distances without changing chapter timeline mapping)
-    // These values affect only seekBack and seekForward; progress-bar seeking still maps through the current display window.
     fun setSeekIncrements(backwardMs: Long, forwardMs: Long) {
         seekBackIncrementMs = backwardMs.coerceAtLeast(0L)
         seekForwardIncrementMs = forwardMs.coerceAtLeast(0L)
     }
 
 
-    // Notification seek bars read duration from MediaSession; expose current chapter length when chapter mode is enabled.
     override fun getDuration(): Long = currentDisplayWindow().also(::refreshNotificationWindowIfNeeded).durationMs
 
-    // Notification seek bars read current position from MediaSession; expose relative chapter progress when needed.
     override fun getCurrentPosition(): Long = currentDisplayWindow().also(::refreshNotificationWindowIfNeeded).positionMs
 
-    // Keep buffering proportional to the displayed timeline so Android notification progress remains coherent.
     override fun getBufferedPosition(): Long =
         currentDisplayWindowWithBuffer(currentBufferedGlobalPosition()).also(::refreshNotificationWindowIfNeeded).bufferedPositionMs
 
@@ -85,36 +70,26 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
         return if (duration > 0) ((bufferedPosition * 100L) / duration).toInt().coerceIn(0, 100) else 0
     }
 
-    // Expose Original contentPosition (Ensure real playback offset is preserved for internal diagnostics)
     override fun getContentPosition(): Long = wrappedPlayer.contentPosition.coerceKnown()
 
-    // Expose Original contentDuration (Ensure total stream duration is preserved from window overrides)
     override fun getContentDuration(): Long = wrappedPlayer.contentDuration.coerceKnown()
 
-    // Notification Seek Back Increment (Expose configured rewind distance to Media3 controllers)
-    // The wrapper performs seek math itself, so this getter mirrors the private value rather than reading the wrapped player.
     override fun getSeekBackIncrement(): Long = seekBackIncrementMs
 
-    // Notification Seek Forward Increment (Expose configured fast-forward distance to Media3 controllers)
-    // The wrapper performs seek math itself, so this getter mirrors the private value rather than reading the wrapped player.
     override fun getSeekForwardIncrement(): Long = seekForwardIncrementMs
 
-    // A notification seek in the current displayed window is mapped back to the real playlist item and file offset.
     override fun seekTo(positionMs: Long) {
         seekDisplayPosition(positionMs)
     }
 
-    // App-internal seeks already provide the real file index and file offset, so keep this path unmodified.
     override fun seekTo(mediaItemIndex: Int, positionMs: Long) {
         wrappedPlayer.seekTo(mediaItemIndex, positionMs)
     }
 
-    // Notification rewind follows the same displayed timeline as the notification progress bar.
     override fun seekBack() {
         seekDisplayPosition((currentPosition - seekBackIncrementMs).coerceAtLeast(0L))
     }
 
-    // Notification fast-forward follows the same displayed timeline as the notification progress bar.
     override fun seekForward() {
         seekDisplayPosition((currentPosition + seekForwardIncrementMs).coerceAtMost(duration))
     }
@@ -126,7 +101,6 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
             return
         }
 
-        // Chapter mode treats notification seeks as relative to the current chapter; global mode uses the whole book.
         val targetGlobal = if (isChapterMode && chapters.isNotEmpty()) {
             val window = currentDisplayWindow()
             (window.globalStartMs + positionMs.coerceIn(0L, window.durationMs)).coerceIn(0L, totalDuration)
@@ -150,7 +124,6 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
             return DisplayWindow(0L, position, position, totalDuration)
         }
 
-        // Notification chapter mode uses the same chapter boundaries as the Compose UI.
         val chapter = ChapterTimeline.currentChapter(chapters, globalPosition)
         val chapterStart = ChapterTimeline.start(chapter)
         val chapterDuration = ChapterTimeline.duration(chapters, chapter, totalDuration)
@@ -194,7 +167,6 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
                 .add(EVENT_POSITION_DISCONTINUITY)
                 .build()
         )
-        // Notify MediaSession that duration/currentPosition semantics changed even though ExoPlayer media did not.
         sessionListeners.forEach { listener ->
             listener.onTimelineChanged(currentTimeline, TIMELINE_CHANGE_REASON_SOURCE_UPDATE)
             listener.onEvents(this, events)
@@ -206,7 +178,6 @@ class NotificationProgressPlayer(player: Player) : ForwardingPlayer(player) {
         lastDisplayWindow = window
         if (previous == null) return
         if (previous.globalStartMs != window.globalStartMs || previous.durationMs != window.durationMs) {
-            // Force Notification Repaints (Trigger updates when crossing chapter bounds within the same physical file)
             notifyTimelineShapeChanged()
         }
     }

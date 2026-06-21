@@ -1,7 +1,5 @@
 package com.viel.aplayer.widget
 
-// Compose state imports. Imports produceState and getValue extensions to declare and bind asynchronously loaded state variables within compositions.
-// ColorProvider migration. The legacy unit.ColorProvider package is deprecated; refactored to color.ColorProvider in Glance 1.1.0+ structures to avoid compiler deprecation warnings.
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -47,35 +45,27 @@ import com.viel.aplayer.media.SeekStepPresentation
 import com.viel.aplayer.shared.settings.SeekStepSeconds
 
 /**
- * Modern declarative desktop media control widget.
- * 
- * Core Responsibilities:
- * 1. Extends GlanceAppWidget, adhering to Jetpack Glance declarative coding standards.
- * 2. Utilizes PreferencesGlanceStateDefinition to bind with the main process DataStore for real-time state monitoring and presentation.
- * 3. Supports Material 3 dynamic color styling (GlanceTheme), adapting directly to the system wallpaper color palette on Android 12+.
- * 4. Renders a tight 2x2 adaptive dual-line layout with compact visual balance.
+ * Declarative desktop media control widget.
+ *
+ * Reads Glance preferences written by the playback process, renders compact metadata and transport
+ * controls, and relies on GlanceTheme for launcher-provided dynamic color support.
  */
 class PlayerWidget : GlanceAppWidget() {
 
-    // Datastore preferences configuration. Configures Glance internal state storage to use Preferences definition.
     override val stateDefinition = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
-            // 1. Read persisted playback metadata from the Datastore.
             val prefs = currentState<Preferences>()
             val isPlaying = prefs[PlayerWidgetStateHelper.KEY_IS_PLAYING] ?: false
-            
-            // Placeholder fallbacks. Provide friendly placeholder fallbacks for empty metadata cases.
-            val title = prefs[PlayerWidgetStateHelper.KEY_TITLE].let { 
-                if (it.isNullOrEmpty()) "APlayer" else it 
+
+            val title = prefs[PlayerWidgetStateHelper.KEY_TITLE].let {
+                if (it.isNullOrEmpty()) "APlayer" else it
             }
-            val author = prefs[PlayerWidgetStateHelper.KEY_AUTHOR].let { 
+            val author = prefs[PlayerWidgetStateHelper.KEY_AUTHOR].let {
                 if (it.isNullOrEmpty()) context.getString(R.string.player_widget_fallback_author) else it
             }
             val coverPath = prefs[PlayerWidgetStateHelper.KEY_COVER_PATH] ?: ""
-            // Widget Seek Step State (Validate stored widget step values before resolving resources)
-            // Widget DataStore can lag behind service updates, so invalid values fall back to the same direction defaults as AppSettings.
             val backwardStep = SeekStepSeconds.fromSecondsOrDefault(
                 prefs[PlayerWidgetStateHelper.KEY_SEEK_BACKWARD_SECONDS],
                 SeekStepSeconds.Ten
@@ -85,13 +75,10 @@ class PlayerWidget : GlanceAppWidget() {
                 SeekStepSeconds.Twenty
             )
 
-            // 2. State bridging optimization. The UI composition layer only bridges Glance states to Bitmap representations; I/O bounds, downsampling, and fallbacks are delegated to WidgetCoverArtRenderer.
-            // This prevents scattering disk operations and BitmapFactory operations within UI components, ensuring the widget retrieves a small memory-safe bitmap rather than using main-feed large image cache footprints.
             val bitmap by produceState<Bitmap?>(initialValue = null, coverPath) {
                 value = WidgetCoverArtRenderer.loadCoverBitmap(coverPath)
             }
 
-            // 3. Wrap the composition in GlanceTheme to inherit Material 3 dynamic color schemes.
             GlanceTheme {
                 WidgetLayout(
                     context = context,
@@ -107,7 +94,7 @@ class PlayerWidget : GlanceAppWidget() {
     }
 
     /**
-     * Widget UI construction. Renders the 2x2 desktop widget layout with high fidelity.
+     * Renders the compact widget layout from already-resolved playback state.
      */
     @Composable
     private fun WidgetLayout(
@@ -119,7 +106,6 @@ class PlayerWidget : GlanceAppWidget() {
         backwardStep: SeekStepSeconds,
         forwardStep: SeekStepSeconds
     ) {
-        // Card click navigation. Clicking empty card areas launches MainActivity smoothly via SingleTop, instead of automatically pulling up full-screen player interfaces.
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
@@ -130,7 +116,6 @@ class PlayerWidget : GlanceAppWidget() {
                 .cornerRadius(16.dp)
                 .clickable(actionStartActivity(openAppIntent))
         ) {
-            // 1. Render the physical cover art as the full-screen cropped background.
             if (coverBitmap != null) {
                 Image(
                     provider = ImageProvider(coverBitmap),
@@ -139,7 +124,6 @@ class PlayerWidget : GlanceAppWidget() {
                     contentScale = ContentScale.Crop
                 )
             } else {
-                // Fallback background. Use the bundled default neon-gradient placeholder when no cover is present.
                 Image(
                     provider = ImageProvider(R.drawable.widget_cover_placeholder),
                     contentDescription = context.getString(R.string.player_widget_background_placeholder_description),
@@ -148,14 +132,12 @@ class PlayerWidget : GlanceAppWidget() {
                 )
             }
 
-            // 2. Dark scrim overlay. Superimpose a 55% transparent black scrim; ColorProvider requires explicit day and night definitions for identical colors.
             Box(
                 modifier = GlanceModifier
                     .fillMaxSize()
                     .background(ColorProvider(day = Color.Black.copy(alpha = 0.55f), night = Color.Black.copy(alpha = 0.55f)))
             ) {}
 
-            // 3. Compact flex columns. Center content containers vertically and horizontally, contracting vertical paddings to preserve miniature layouts.
             Column(
                 modifier = GlanceModifier
                     .fillMaxSize()
@@ -163,7 +145,6 @@ class PlayerWidget : GlanceAppWidget() {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Meta alignment. Align text information horizontally using solid white and translucent white colors for optimal readability contrast.
                 Column(
                     modifier = GlanceModifier.fillMaxWidth().defaultWeight(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -172,7 +153,6 @@ class PlayerWidget : GlanceAppWidget() {
                     Text(
                         text = title,
                         style = TextStyle(
-                            // Solid white text color. Due to the lack of single-parameter constructors in Glance ColorProvider, pass identical colors for day and night parameters.
                             color = ColorProvider(day = Color.White, night = Color.White),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
@@ -182,7 +162,6 @@ class PlayerWidget : GlanceAppWidget() {
                     Text(
                         text = author,
                         style = TextStyle(
-                            // Translucent subtitle color. Pass identical day and night values to satisfy the dual-argument constructor and avoid compile issues.
                             color = ColorProvider(day = Color.White.copy(alpha = 0.7f), night = Color.White.copy(alpha = 0.7f)),
                             fontSize = 11.sp
                         ),
@@ -191,14 +170,11 @@ class PlayerWidget : GlanceAppWidget() {
                     )
                 }
 
-                // Playback row layout. Align playback controls horizontally with a compact width, appending an 8.dp bottom margin to keep icons off visual screen edges.
                 Row(
                     modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Skip backward action. Downscale the button size to 24dp.
-                    // The receiver is securely routed to the non-exported PlayerWidgetActionReceiver to prevent unauthorized system service access.
                     val rewindIntent = Intent(context, PlayerWidgetActionReceiver::class.java).apply {
                         action = PlayerWidgetActionReceiver.ACTION_REWIND
                     }
@@ -208,20 +184,14 @@ class PlayerWidget : GlanceAppWidget() {
                         modifier = GlanceModifier
                             .size(24.dp)
                             .clickable(actionSendBroadcast(rewindIntent)),
-                        // Icon Color Filtering (Color tint filtering for rewind button icon, using two-argument ColorProvider.day/night to comply with Glance API specifications)
                         colorFilter = ColorFilter.tint(ColorProvider(day = Color.White, night = Color.White))
                     )
 
-                    // Icon spacing contraction. Shrink spacer width to 16dp to avoid layout overflow.
                     Box(modifier = GlanceModifier.width(16.dp)) {}
 
-                    // Play/pause control button. Renders a 34dp container wrapping a 22dp icon.
-                    // The destination receiver is routed to the non-exported PlayerWidgetActionReceiver to prevent third-party applications from launching the service.
                     val playPauseIntent = Intent(context, PlayerWidgetActionReceiver::class.java).apply {
                         action = PlayerWidgetActionReceiver.ACTION_PLAY_PAUSE
                     }
-                    // Widget Play/Pause Presentation (Resolve icon and TalkBack action copy from the same playback state)
-                    // This prevents the widget from showing a state-specific glyph while announcing the older generic "Play or pause" label.
                     val playPauseIconRes = PlayerWidgetPlaybackPresentation.playPauseIcon(isPlaying)
                     val playPauseLabelRes = PlayerWidgetPlaybackPresentation.playPauseContentDescription(isPlaying)
                     Box(
@@ -242,8 +212,6 @@ class PlayerWidget : GlanceAppWidget() {
 
                     Box(modifier = GlanceModifier.width(16.dp)) {}
 
-                    // Skip forward action. Downscale the button size to 24dp.
-                    // Employs the non-exported PlayerWidgetActionReceiver to prevent external playback control command injections.
                     val forwardIntent = Intent(context, PlayerWidgetActionReceiver::class.java).apply {
                         action = PlayerWidgetActionReceiver.ACTION_FORWARD
                     }
@@ -253,7 +221,6 @@ class PlayerWidget : GlanceAppWidget() {
                         modifier = GlanceModifier
                             .size(24.dp)
                             .clickable(actionSendBroadcast(forwardIntent)),
-                        // Color filter tinting. Use a dual-argument ColorProvider to satisfy the new API constructors.
                         colorFilter = ColorFilter.tint(ColorProvider(day = Color.White, night = Color.White))
                     )
                 }

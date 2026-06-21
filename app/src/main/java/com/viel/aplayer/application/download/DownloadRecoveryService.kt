@@ -10,8 +10,6 @@ class DownloadRecoveryService(
     private val downloadBookReconcilerProvider: () -> DownloadBookReconciler,
     private val progressPollerStarter: () -> Unit = {}
 ) {
-    // Smart Recovery Gate (Check durable metadata before constructing DownloadManager-backed sync services)
-    // Completed rows stay durable and do not start the download runtime during process startup.
     suspend fun recoverIfNeeded(): Boolean = withContext(Dispatchers.IO) {
         if (!downloadMetadataDao.hasRecoverableTasks()) {
             DownloadSyncLogger.logRecoverySkipped()
@@ -23,8 +21,6 @@ class DownloadRecoveryService(
         tasks.forEach { task ->
             syncService.reconcileBook(task.bookId)
         }
-        // Recovery Progress Polling (Resume byte-progress sampling after startup reprojects recoverable tasks)
-        // Startup reconciliation can recreate active rows without a fresh user command, so recovery explicitly restarts the same polling path used by live events.
         progressPollerStarter()
         true
     }

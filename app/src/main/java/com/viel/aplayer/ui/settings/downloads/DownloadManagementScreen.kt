@@ -62,7 +62,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 
 /**
- * Download Management Screen (Settings-hosted manual cache task list)
+ * Settings-hosted manual cache task list.
  * Shows only user-requested L1 manual download aggregates so memory-buffered playback bytes are never treated as queue entries.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,7 +74,6 @@ fun DownloadManagementScreen(
     onResumeDownload: (String) -> Unit,
     onRetryDownload: (String) -> Unit,
     onDeleteDownload: (String) -> Unit,
-    // Callback to delete all manual download tasks
     onDeleteAllDownloads: () -> Unit,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
@@ -87,11 +86,8 @@ fun DownloadManagementScreen(
     val density = LocalDensity.current
     var topBarHeightPx by remember { mutableIntStateOf(0) }
     var deleteCandidate by remember { mutableStateOf<ManualDownloadTaskItem?>(null) }
-    // State to toggle the delete all confirmation dialog
     var showDeleteAllConfirm by remember { mutableStateOf(false) }
     val resolvedHazeState = downloadHazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
-    // Download Management Top Bar Offset (Reserve list space for the overlay chrome)
-    // The measured value matches Settings and Recovery sub-pages, while the fallback protects first composition.
     val measuredTopBarHeight = if (topBarHeightPx > 0) {
         with(density) { topBarHeightPx.toDp() }
     } else {
@@ -112,8 +108,6 @@ fun DownloadManagementScreen(
                     .fillMaxSize()
                     .then(
                         if (resolvedHazeState != null) {
-                            // Download Management Haze Source (Expose the task list as top-bar backdrop)
-                            // The toolbar is drawn above the Scaffold, so the sampled layer must be content-only.
                             Modifier.hazeSource(resolvedHazeState)
                         } else {
                             Modifier
@@ -150,7 +144,6 @@ fun DownloadManagementScreen(
                         )
                     }
                 },
-                // Add Delete All button in topbar actions (only active when there are download tasks)
                 actions = {
                     if (tasks.isNotEmpty()) {
                         IconButton(onClick = { showDeleteAllConfirm = true }) {
@@ -193,7 +186,6 @@ fun DownloadManagementScreen(
         )
     }
 
-    // Secondary confirmation dialog for deleting all tasks
     if (showDeleteAllConfirm) {
         SettingsTemplateDialog(
             onDismissRequest = { showDeleteAllConfirm = false },
@@ -224,7 +216,7 @@ fun DownloadManagementScreen(
 }
 
 /**
- * Download Management List (Render manual download rows or empty state)
+ * Render manual download rows or empty state.
  * Keeps task actions inside row-level icon buttons while retry stays on the permission-gated settings command path and destructive deletion still passes through a confirmation dialog.
  */
 @Composable
@@ -269,7 +261,7 @@ private fun DownloadManagementList(
 }
 
 /**
- * Download Task Row (Display one book-level manual cache aggregate)
+ * Display one book-level manual cache aggregate.
  * The row uses BookCacheStatus fields only, keeping Room and Media3 objects outside the settings presentation layer.
  */
 @Composable
@@ -327,7 +319,7 @@ private fun DownloadTaskRow(
 }
 
 /**
- * Download Task Actions (Map aggregate state to row-level commands)
+ * Map aggregate state to row-level commands.
  * Failed retries are routed through SettingsOverlay so new DownloadRequests still pass notification-permission preflight.
  */
 @Composable
@@ -365,8 +357,6 @@ private fun DownloadTaskActions(
             }
         }
         BookCacheState.NONE,
-        // Local Cache Action Guard (Do not offer queue actions for natively offline books)
-        // SAF-based books cannot be queued or downloaded, so actions remain a no-op stub for compilation safety.
         BookCacheState.LOCAL,
         BookCacheState.COMPLETED -> Unit
     }
@@ -379,8 +369,6 @@ private fun DownloadTaskActions(
     }
 }
 
-// Download Row Headline (Match notification progress-first title formatting)
-// Long authors are compacted before Compose ellipsizing so the work title remains visible in each management row.
 private fun ManualDownloadTaskItem.headlineText(status: BookCacheStatus): String =
     ManualDownloadDisplayTextPolicy.progressBookLabel(
         progressPercent = status.progressPercent,
@@ -388,8 +376,6 @@ private fun ManualDownloadTaskItem.headlineText(status: BookCacheStatus): String
         bookTitle = title
     )
 
-// Download Row Subtitle (Build compact supplemental text from aggregate cache state)
-// The progress percentage already appears in the headline and bar, so the subtitle keeps only state, numeric file count, and optional byte range.
 @Composable
 private fun subtitleText(status: BookCacheStatus): String {
     val stateText = stringResource(status.labelRes())
@@ -408,12 +394,9 @@ private fun subtitleText(status: BookCacheStatus): String {
     )
 }
 
-// Download Status Label (Map application cache states to stable localized row labels)
-// The labels are shared by icon descriptions and visible row status text.
 private fun BookCacheStatus.labelRes(): Int =
     when (state) {
         BookCacheState.NONE -> R.string.download_management_status_none
-        // Local Cache Status Res (Provide completed label for local books as a compile-safe fallback)
         BookCacheState.LOCAL -> R.string.download_management_status_completed
         BookCacheState.QUEUED -> R.string.download_management_status_queued
         BookCacheState.DOWNLOADING -> R.string.download_management_status_downloading
@@ -422,8 +405,6 @@ private fun BookCacheStatus.labelRes(): Int =
         BookCacheState.FAILED -> R.string.download_management_status_failed
     }
 
-// Download Status Icon (Render a compact visual state marker)
-// Icons mirror the detail top-bar states while adding a completed/error distinction for list scanning.
 private fun BookCacheStatus.statusIcon() =
     when (state) {
         BookCacheState.COMPLETED -> Icons.Rounded.CheckCircle
@@ -432,22 +413,16 @@ private fun BookCacheStatus.statusIcon() =
         BookCacheState.NONE,
         BookCacheState.QUEUED,
         BookCacheState.DOWNLOADING,
-        // Local Cache Icon (Use completed check icon for local books as a compile-safe fallback)
         BookCacheState.LOCAL -> Icons.Rounded.CheckCircle
     }
 
-// Download Status Content Description (Expose row icon meaning to accessibility services)
-// Reuses the visible status labels so screen readers and text UI stay aligned.
 private fun BookCacheStatus.statusContentDescriptionRes(): Int = labelRes()
 
-// Download Status Tint (Emphasize terminal success and failure states)
-// Active and paused states keep the normal primary tint to avoid implying an error.
 @Composable
 private fun BookCacheStatus.statusTint(): Color =
     when (state) {
         BookCacheState.FAILED -> MaterialTheme.colorScheme.error
         BookCacheState.COMPLETED,
-        // Local Cache Tint (Use primary tint for local check markers as a compile-safe fallback)
         BookCacheState.LOCAL -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }

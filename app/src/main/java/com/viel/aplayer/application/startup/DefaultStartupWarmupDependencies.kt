@@ -6,7 +6,7 @@ import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.entity.LibraryRootEntity
 
 /**
- * Startup Warmup DAO Adapter (Keeps cold-start freshness reads on persistence-only dependencies)
+ * Keeps cold-start freshness reads on persistence-only dependencies.
  * Root and sync-state lookups use DAO providers so constructing the warmup coordinator does not resolve scan scheduling, VFS, cover recovery, or ABS catalog adapters.
  */
 internal class DefaultStartupWarmupDependencies(

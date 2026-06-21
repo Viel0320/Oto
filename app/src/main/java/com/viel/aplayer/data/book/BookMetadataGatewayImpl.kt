@@ -13,7 +13,7 @@ import kotlinx.coroutines.withContext
 import java.io.Closeable
 
 /**
- * Book Metadata Service (Implements BookMetadataGateway)
+ * Implements BookMetadataGateway.
  *
  * Owns semantic metadata writes (read status, edited details, background tag updates). [updateMetadata] is
  * fire-and-forget on a private IO scope, so this service is [Closeable] and must be torn down by the graph.
@@ -23,7 +23,6 @@ class BookMetadataGatewayImpl(
 ) : BookMetadataGateway, Closeable {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
-        // Background metadata writes may carry physical paths, so release-retained errors go through SecureLog.
         SecureLog.error("BookMetadataGatewayImpl", "协程在 BookMetadataGatewayImpl 运行中捕获到未处理异常", exception)
     }
 
@@ -53,7 +52,6 @@ class BookMetadataGatewayImpl(
         description: String?,
         duration: Long
     ) {
-        // Background tag update: only writes when a field actually changes to avoid redundant SQLite churn.
         scope.launch {
             val existing = bookDao.getBookById(bookId) ?: return@launch
             val newTitle = if (!title.isNullOrBlank()) title else existing.title

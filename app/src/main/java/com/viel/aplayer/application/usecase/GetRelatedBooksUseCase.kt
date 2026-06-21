@@ -1,4 +1,3 @@
-// Package Relocation: Relocate use cases into the application layer so orchestration no longer sits in the domain package.
 package com.viel.aplayer.application.usecase
 
 import com.viel.aplayer.data.book.BookCatalogGateway
@@ -9,21 +8,21 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 /**
- * UseCase: Get related audiobooks (Service querying related catalog recommendations)
- * Features "Heuristic Recommendation" sorting by combining title similarity (LCS), year, narrator, and author weight scoring.
- * Refactored to bind BookCatalogGateway so recommendations depend only on catalog reads and filters.
+ * Builds related audiobook recommendations from catalog read models.
+ *
+ * Heuristic recommendation sorting combines title similarity, sequence position, year,
+ * narrator, author, and series signals while keeping repository row shapes behind this use case.
  */
 class GetRelatedBooksUseCase(private val repository: BookCatalogGateway) {
 
     /**
-     * Compute longest common substring (To score title similarity using dynamic programming algorithms)
+     * Scores title similarity by finding the longest shared contiguous text segment after whitespace normalization.
      */
     private fun getLongestCommonSubstringLength(s1: String, s2: String): Int {
         if (s1.isEmpty() || s2.isEmpty()) return 0
-        // Normalize comparison strings (To strip spaces and convert characters to lowercase for robust matches)
         val str1 = s1.lowercase().replace("\\s".toRegex(), "")
         val str2 = s2.lowercase().replace("\\s".toRegex(), "")
-        
+
         val dp = Array(str1.length + 1) { IntArray(str2.length + 1) }
         var maxLen = 0
         for (i in 1..str1.length) {
@@ -42,40 +41,36 @@ class GetRelatedBooksUseCase(private val repository: BookCatalogGateway) {
     }
 
     /**
-     * Parse sequence digits (To extract sequence index numbers from book title patterns)
+     * Extracts sequence indexes from common Arabic-number and Chinese-number book title patterns.
      */
     private fun extractSequenceIndex(title: String): Double? {
         val clean = title.lowercase().replace("\\s".toRegex(), "")
-        
-        // 1. Map relative Chinese markers
-        if (clean.contains("上册") || clean.endsWith("上")) return 1.0
-        if (clean.contains("中册") || clean.endsWith("中")) return 2.0
-        if (clean.contains("下册") || clean.endsWith("下")) return 3.0
-        
-        // 2. Match standard prefix patterns
-        val cnPattern = "第([一二三四五六七八九十]+)[部册卷季集]".toRegex()
+
+        if (clean.contains("\u4E0A\u518C") || clean.endsWith("\u4E0A")) return 1.0
+        if (clean.contains("\u4E2D\u518C") || clean.endsWith("\u4E2D")) return 2.0
+        if (clean.contains("\u4E0B\u518C") || clean.endsWith("\u4E0B")) return 3.0
+
+        val cnPattern = "\u7B2C([\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341]+)[\u90E8\u518C\u5377\u5B63\u7AE0\u96C6]".toRegex()
         cnPattern.find(clean)?.let { match ->
             val numStr = match.groupValues[1]
             return chineseToDecimal(numStr)
         }
-        
-        val numPattern = "第(\\d+)[部册卷季集]".toRegex()
+
+        val numPattern = "\u7B2C(\\d+)[\u90E8\u518C\u5377\u5B63\u7AE0\u96C6]".toRegex()
         numPattern.find(clean)?.let { match ->
             return match.groupValues[1].toDoubleOrNull()
         }
-        
-        // 3. Match trailing digits or parenthesized numbers
+
         val tailNumPattern = "(\\d+)\\s*$".toRegex()
         val parenNumPattern = "\\((\\d+)\\)".toRegex()
-        
+
         parenNumPattern.find(clean)?.let { match ->
             return match.groupValues[1].toDoubleOrNull()
         }
         tailNumPattern.find(clean)?.let { match ->
             return match.groupValues[1].toDoubleOrNull()
         }
-        
-        // 4. Fallback search for first non-year number digits
+
         val anyNumPattern = "(\\d+)".toRegex()
         anyNumPattern.findAll(clean).forEach { match ->
             val num = match.groupValues[1].toDoubleOrNull()
@@ -83,37 +78,55 @@ class GetRelatedBooksUseCase(private val repository: BookCatalogGateway) {
                 return num
             }
         }
-        
-        // 5. Check Chinese digit characters fallback
-        val simpleCnNums = listOf("一", "二", "三", "四", "五", "六", "七", "八", "九", "十")
+
+        val simpleCnNums = listOf(
+            "\u4E00",
+            "\u4E8C",
+            "\u4E09",
+            "\u56DB",
+            "\u4E94",
+            "\u516D",
+            "\u4E03",
+            "\u516B",
+            "\u4E5D",
+            "\u5341"
+        )
         for (i in simpleCnNums.indices) {
             if (clean.contains(simpleCnNums[i])) {
                 return (i + 1).toDouble()
             }
         }
-        
+
         return null
     }
 
     /**
-     * Chinese digits to decimal converter (To parse Chinese digit strings into double values)
+     * Parses compact Chinese numerals used in sequence titles into decimal values for recommendation ordering.
      */
     private fun chineseToDecimal(chinese: String): Double {
         val cnNums = mapOf(
-            '一' to 1.0, '二' to 2.0, '三' to 3.0, '四' to 4.0, '五' to 5.0,
-            '六' to 6.0, '七' to 7.0, '八' to 8.0, '九' to 9.0, '十' to 10.0
+            '\u4E00' to 1.0,
+            '\u4E8C' to 2.0,
+            '\u4E09' to 3.0,
+            '\u56DB' to 4.0,
+            '\u4E94' to 5.0,
+            '\u516D' to 6.0,
+            '\u4E03' to 7.0,
+            '\u516B' to 8.0,
+            '\u4E5D' to 9.0,
+            '\u5341' to 10.0
         )
         if (chinese.length == 1) {
             return cnNums[chinese[0]] ?: 0.0
         }
-        if (chinese.length == 2 && chinese[0] == '十') {
+        if (chinese.length == 2 && chinese[0] == '\u5341') {
             return 10.0 + (cnNums[chinese[1]] ?: 0.0)
         }
         var result = 0.0
         var temp = 0.0
         for (char in chinese) {
             val v = cnNums[char] ?: 0.0
-            if (char == '十') {
+            if (char == '\u5341') {
                 result += if (temp == 0.0) 10.0 else temp * 10.0
                 temp = 0.0
             } else {
@@ -125,7 +138,7 @@ class GetRelatedBooksUseCase(private val repository: BookCatalogGateway) {
     }
 
     /**
-     * Query related items flows (To stream related collections)
+     * To stream related collections.
      */
     operator fun invoke(
         currentId: String,
@@ -135,55 +148,41 @@ class GetRelatedBooksUseCase(private val repository: BookCatalogGateway) {
         val authorList = author.split(",")
             .map { it.trim() }
             .filter { it.isNotBlank() }
-        
+
         val narratorList = narrator.split(",")
             .map { it.trim() }
             .filter { it.isNotBlank() }
- 
-        // 1. Author collections flow
+
         val authorFlows = authorList.map { name ->
             repository.filterByAuthorLimited(name, currentId, 3).map { books ->
-                // Related Author Projection (Convert repository rows before leaving the use case)
-                // BookWithProgress remains an internal scoring/query shape while callers receive application-level recommendation candidates.
                 RelatedSection(name, books.map { it.toRelatedBookCandidate() })
             }
         }
- 
-        // 2. Narrator collections flow
+
         val narratorFlows = narratorList.map { name ->
             repository.filterByNarratorLimited(name, currentId, 3).map { books ->
-                // Related Narrator Projection (Convert repository rows before leaving the use case)
-                // This mirrors author sections so every outward related section has the same Room-free candidate type.
                 RelatedSection(name, books.map { it.toRelatedBookCandidate() })
             }
         }
- 
-        // 3. Recently added flow (excluding current creator and narrator)
+
         val recentFlow = repository.getRecentlyAddedExclusive(currentId, authorList, narratorList, 3)
             .map { books ->
-                // Recently Added Projection (Expose recommendation candidates instead of progress relation rows)
-                // The player adapter only needs stable display fields, so the data-layer wrapper is discarded here.
                 books.map { it.toRelatedBookCandidate() }
             }
 
-        //
-        // 4. Combined heuristic scoring flow (To calculate recommendation metrics dynamically)
-        // Combines audiobooks list and current book metadata flow to recalculate recommendations instantly upon edits.
         val currentBookFlow = repository.observeBookById(currentId)
         val heuristicFlow = combine(repository.audiobooks, currentBookFlow) { allBooks, currentBook ->
             if (currentBook == null) return@combine emptyList()
-            
+
             val currentTitle = currentBook.title
             val currentYear = currentBook.year
             val currentSeries = currentBook.series
-            
-            // Calculate candidate recommendation scores
+
             val scoredBooks = allBooks.filter { it.book.id != currentId }
                 .map { item ->
                     val book = item.book
                     var score = 0.0
-                    
-                    // A. Title similarity scoring (Highest priority)
+
                     val cleanCurrentTitle = currentTitle.replace("\\s".toRegex(), "")
                     val cleanCandidateTitle = book.title.replace("\\s".toRegex(), "")
                     var isTitleMatched = false
@@ -193,7 +192,7 @@ class GetRelatedBooksUseCase(private val repository: BookCatalogGateway) {
                                 score += 40.0
                                 isTitleMatched = true
                             }
-                            cleanCandidateTitle.contains(cleanCurrentTitle, ignoreCase = true) || 
+                            cleanCandidateTitle.contains(cleanCurrentTitle, ignoreCase = true) ||
                             cleanCurrentTitle.contains(cleanCandidateTitle, ignoreCase = true) -> {
                                 score += 30.0
                                 isTitleMatched = true
@@ -208,8 +207,6 @@ class GetRelatedBooksUseCase(private val repository: BookCatalogGateway) {
                         }
                     }
 
-                    // Related Heuristic Score Sequence Decay Adjustment (Deduct 50 points if candidate index is smaller)
-                    // Deducts 50.0 points from the recommendation score of candidate books with sequence numbers smaller than the current book to prioritize subsequent chapters.
                     if (isTitleMatched) {
                         val currentIndex = extractSequenceIndex(currentTitle)
                         val candidateIndex = extractSequenceIndex(book.title)
@@ -217,63 +214,52 @@ class GetRelatedBooksUseCase(private val repository: BookCatalogGateway) {
                             score = (score - 50.0).coerceAtLeast(1.0)
                         }
                     }
-                    
-                    // Related Heuristic Score Series Match (Add score boost if books belong to the same series)
-                    // If both the current book and candidate book have a matching non-empty series, boost the score by 35.0 to prioritize series-level related items.
+
                     if (currentSeries.isNotBlank() && book.series.isNotBlank() &&
                         currentSeries.trim().equals(book.series.trim(), ignoreCase = true)) {
                         score += 35.0
                     }
-                    
-                    // B. Author matched score: +10.0
+
                     if (authorList.isNotEmpty() && book.author.isNotBlank()) {
                         val candidateAuthors = book.author.split(",").map { it.trim() }
                         if (authorList.any { a -> candidateAuthors.any { ca -> ca.equals(a, ignoreCase = true) } }) {
                             score += 10.0
                         }
                     }
-                    
-                    // C. Narrator matched score: +8.0
+
                     if (narratorList.isNotEmpty() && book.narrator.isNotBlank()) {
                         val candidateNarrators = book.narrator.split(",").map { it.trim() }
                         if (narratorList.any { n -> candidateNarrators.any { cn -> cn.equals(n, ignoreCase = true) } }) {
                             score += 8.0
                         }
                     }
-                    
-                    // D. Publishing year matched score: +4.0
+
                     if (currentYear.isNotBlank() && book.year.isNotBlank() && currentYear == book.year) {
                         score += 4.0
                     }
-                    
-                    // E. Freshness weight tuning (Added Date)
+
                     score += book.addedAt.toDouble() / 1e13
-                    
+
                     Pair(item, score)
                 }
-            
-            // Filter candidates with matching scores
+
             val matchedBooks = scoredBooks.filter { it.second > 1e-5 }
                 .sortedByDescending { it.second }
                 .map { it.first }
-            
-            // Fallback backfill strategy (To fill up list with recently added items if recommendations are fewer than 5)
+
             val recommendedBooks = if (matchedBooks.size < 5) {
                 val matchedIds = matchedBooks.map { it.book.id }.toSet()
                 val fillerBooks = allBooks.filter { it.book.id != currentId && !matchedIds.contains(it.book.id) }
                     .sortedByDescending { it.book.addedAt }
                     .take(5 - matchedBooks.size)
-                
+
                 matchedBooks + fillerBooks
             } else {
                 matchedBooks.take(5)
             }
-            // Heuristic Candidate Projection (Return the application projection after scoring is complete)
-            // Keeping score inputs private lets the recommendation interface stay stable even if repository row shapes change later.
             recommendedBooks.map { it.toRelatedBookCandidate() }
         }
 
-        // Assemble data flows (To bundle same-author, same-narrator, and heuristic flows into RelatedData)
         return combine(
             if (authorFlows.isEmpty()) flowOf(emptyList()) else combine(authorFlows) { it.toList() },
             if (narratorFlows.isEmpty()) flowOf(emptyList()) else combine(narratorFlows) { it.toList() },
@@ -286,7 +272,7 @@ class GetRelatedBooksUseCase(private val repository: BookCatalogGateway) {
 }
 
 /**
- * Consolidated related details (Data payload representing recommendations collections)
+ * Data payload representing recommendations collections.
  */
 data class RelatedData(
     val authorSections: List<RelatedSection>,
@@ -296,7 +282,7 @@ data class RelatedData(
 )
 
 /**
- * Related Section Projection (Groups recommendation candidates for application callers)
+ * Groups recommendation candidates for application callers.
  * Lives in the application layer because the grouping is built from query/read-model concerns rather than a pure domain invariant.
  */
 data class RelatedSection(
@@ -305,7 +291,7 @@ data class RelatedSection(
 )
 
 /**
- * Related Book Candidate Projection (Room-free recommendation item)
+ * Room-free recommendation item.
  * Carries the display and playback fields needed by downstream scene adapters without exposing BookWithProgress or BookEntity.
  */
 data class RelatedBookCandidate(
@@ -321,7 +307,7 @@ data class RelatedBookCandidate(
 )
 
 /**
- * Related Candidate Mapping (Hide repository progress wrappers at the use-case boundary)
+ * Hide repository progress wrappers at the use-case boundary.
  * Converts BookWithProgress exactly once so player and future scenes consume the same application recommendation shape.
  */
 private fun BookWithProgress.toRelatedBookCandidate(): RelatedBookCandidate {

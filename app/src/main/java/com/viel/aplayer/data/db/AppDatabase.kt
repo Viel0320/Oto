@@ -35,7 +35,6 @@ import com.viel.aplayer.data.entity.DownloadMetadataEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
 
-// Type Converter Registration: Register the newly created converters class on AppDatabase so Room maps enums properly.
 @TypeConverters(AudiobookDatabaseConverters::class)
 @Database(
     entities = [
@@ -54,23 +53,16 @@ import com.viel.aplayer.data.entity.ScanSessionEntity
         AbsPendingProgressSyncEntity::class,
         DownloadMetadataEntity::class
     ],
-    // Production Schema Baseline (Starts the supported Room migration history at version 41)
-    // Schema versions before 41 are intentionally removed from source control, so future releases must add explicit forward-only migrations from this baseline instead of rebuilding user data.
-    // Download Metadata Schema Version (Adds the book-level manual download aggregate table)
-    // Version 43 keeps the existing user catalog intact while introducing the offline-cache metadata boundary.
     version = 43,
     exportSchema = true
 )
-// Restore AppDatabase Declaration: Restore the abstract class declaration to compile database schema correctly.
 abstract class AppDatabase : RoomDatabase() {
     abstract fun bookDao(): BookDao
     abstract fun chapterDao(): ChapterDao
     abstract fun bookmarkDao(): BookmarkDao
     abstract fun libraryRootDao(): LibraryRootDao
     abstract fun scanSessionDao(): ScanSessionDao
-    // Directory Cache DAO (Expose query interfaces for scanning timestamps of local directories)
     abstract fun directoryCacheDao(): DirectoryCacheDao
-    // Directory Children Cache DAO (Expose direct directory listing snapshots for WebDAV scan reuse)
     abstract fun directoryChildCacheDao(): DirectoryChildCacheDao
     abstract fun absSyncStateDao(): AbsSyncStateDao
     abstract fun absItemMirrorDao(): AbsItemMirrorDao
@@ -84,22 +76,20 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        // Drop Bookmark Foreign Keys Migration (Recreate bookmarks table without foreign keys to prevent data loss on file remapping)
         private val MIGRATION_41_42 = object : Migration(41, 42) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // Recreate bookmarks table: SQLite does not support dropping foreign keys directly via ALTER TABLE, so a full table recreation is required.
                 db.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS `bookmarks_new` (
-                        `id` TEXT NOT NULL, 
-                        `bookId` TEXT NOT NULL, 
-                        `globalPositionMs` INTEGER NOT NULL, 
-                        `bookFileId` TEXT, 
-                        `fileOffsetMs` INTEGER NOT NULL, 
-                        `fileFingerprint` TEXT, 
-                        `anchorStatus` TEXT NOT NULL, 
-                        `title` TEXT NOT NULL, 
-                        `createdAt` INTEGER NOT NULL, 
+                        `id` TEXT NOT NULL,
+                        `bookId` TEXT NOT NULL,
+                        `globalPositionMs` INTEGER NOT NULL,
+                        `bookFileId` TEXT,
+                        `fileOffsetMs` INTEGER NOT NULL,
+                        `fileFingerprint` TEXT,
+                        `anchorStatus` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
                         PRIMARY KEY(`id`)
                     )
                     """.trimIndent()
@@ -117,8 +107,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // Download Metadata Migration (Creates the app-level aggregate table for manual download status)
-        // This migration only adds new storage and indices, so books, files, chapters, progress, bookmarks, roots, and ABS mirror rows remain untouched.
         internal val MIGRATION_42_43 = object : Migration(42, 43) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -142,8 +130,6 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                // Non-Destructive Database Builder (Reject unsupported schema gaps instead of wiping persisted user data)
-                // Room will fail fast when a future schema change lacks an explicit migration, protecting progress, bookmarks, roots, and ABS mirror rows from silent destructive rebuilds.
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
@@ -156,9 +142,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // Title: Close Database Instance (Close the active database instance and reset its singleton reference to allow data import)
-        // Explicitly terminates Room operations and releases file locks so the database file can be replaced cleanly.
-        // Catches and swallows any close exceptions (e.g. from missing files in stale test environments) to ensure singleton reset always completes.
         fun closeInstance() {
             synchronized(this) {
                 INSTANCE?.let {
@@ -167,8 +150,6 @@ abstract class AppDatabase : RoomDatabase() {
                             it.close()
                         }
                     } catch (_: Exception) {
-                        // Title: Ignore Close Exception (Swallow database close exceptions when instance is already invalid)
-                        // Prevents errors from stale test contexts or missing databases from aborting the close workflow.
                     } finally {
                         INSTANCE = null
                     }

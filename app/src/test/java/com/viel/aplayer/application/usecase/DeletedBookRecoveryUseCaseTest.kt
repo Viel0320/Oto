@@ -16,7 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Deleted Book Recovery Use Case Test (Locks soft-delete restore rules)
+ * Locks soft-delete restore rules.
  * Uses fake stores and fake availability probes so recovery logic is verified without SAF, WebDAV, or ABS network access.
  */
 class DeletedBookRecoveryUseCaseTest {
@@ -241,7 +241,6 @@ class DeletedBookRecoveryUseCaseTest {
             return true
         }
 
-        // UpdateFileStatusesReturn: Return type-safe FileStatus enum from fileStatuses helper.
         fun fileStatuses(): Map<String, AudiobookSchema.FileStatus> =
             filesByBookId[BOOK_ID].orEmpty().associate { file -> file.id to file.status }
     }
@@ -297,7 +296,6 @@ class DeletedBookRecoveryUseCaseTest {
                 lastModified = 0L
             )
 
-        // UpdateMirrorHelperState: Adapt mirror helper signature to accept type-safe AbsMirrorState enum.
         private fun mirror(state: AudiobookSchema.AbsMirrorState): AbsItemMirrorEntity =
             AbsItemMirrorEntity(
                 localBookId = BOOK_ID,

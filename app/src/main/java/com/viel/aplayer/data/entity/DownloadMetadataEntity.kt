@@ -12,8 +12,6 @@ enum class DownloadStatus {
     FAILED
 }
 
-// Download Metadata Aggregate (Stores the book-level view derived from Media3 file-level downloads)
-// NONE is intentionally absent from this table; application read models derive no-cache state when a row does not exist.
 @Entity(
     tableName = "download_metadata",
     indices = [

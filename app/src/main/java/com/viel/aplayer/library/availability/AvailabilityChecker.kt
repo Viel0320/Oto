@@ -20,10 +20,7 @@ import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceKind
 import com.viel.aplayer.library.vfs.sourceProvider.LibrarySourceProviderFactory
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavException
 
-// Encapsulate Availability State (Storage Decoupling)
-// Uses a dedicated data model instead of plain Booleans to properly distinguish SAF revocations, WebDAV authentication errors, and network issues.
 data class AvailabilityResult(
-    // Availability Status Type Safe: Use AudiobookSchema.AvailabilityStatus enum for type safety.
     val status: AudiobookSchema.AvailabilityStatus,
     val checkedAt: Long = System.currentTimeMillis(),
     val errorCode: String? = null,
@@ -32,15 +29,9 @@ data class AvailabilityResult(
     val isAvailable: Boolean get() = status == AudiobookSchema.AvailabilityStatus.AVAILABLE
 }
 
-// Verify Remote and Local Storage Availability (Infrastructure Interface)
-// Serves as the central component for validating root directories and book files across SAF, WebDAV, and ABS.
 class AvailabilityChecker(
     private val context: Context,
-    // ABS Credential Lookup (Supports protocol-level root preflight checks)
-    // Injects the credential store so ABS roots can be validated through server APIs instead of the non-directory VFS placeholder.
     private val absCredentialStore: AbsCredentialStore = AbsCredentialStore.getInstance(context.applicationContext),
-    // ABS API Probe Client (Supports lightweight server and library checks)
-    // Keeps ABS root availability checks in the infrastructure boundary while allowing tests to inject deterministic transport fakes.
     private val absApiClient: AbsApiClient = RealAbsApiClient(appSettingsRepository = AppSettingsRepository.getInstance(context.applicationContext))
 ) {
     private val database = AppDatabase.getInstance(context.applicationContext)
@@ -51,11 +42,7 @@ class AvailabilityChecker(
     suspend fun checkRoot(root: LibraryRootEntity): AvailabilityResult =
         when (LibrarySourceKind.from(root.sourceType)) {
             LibrarySourceKind.SAF -> checkSafRoot(root)
-            // Resolve WebDAV Roots Via VFS (Network Decoupling)
-            // Relies on VFS/Provider checking; OkHttp and network errors map to unified availability states.
             LibrarySourceKind.WEBDAV -> checkVfsRoot(root)
-            // ABS Root Protocol Check (Uses catalog authentication instead of directory traversal)
-            // ABS roots do not expose a browsable directory root, so availability is defined by reachable credentials and a still-existing book library.
             LibrarySourceKind.ABS -> checkAbsRoot(root)
             null -> AvailabilityResult(
                 status = AudiobookSchema.AvailabilityStatus.UNSUPPORTED,
@@ -81,8 +68,6 @@ class AvailabilityChecker(
                     )
                 }
             }
-            // Resolve Files Via VFS Paths (Storage Decoupling)
-            // Verify file presence by calling vfs.resolve with sourcePath rather than mapping back to raw SAF content URIs.
             val node = vfs.resolve(root, VfsPath(file.sourcePath))
             if (node != null && vfs.exists(node)) {
                 AvailabilityResult(status = AudiobookSchema.AvailabilityStatus.AVAILABLE)
@@ -95,8 +80,6 @@ class AvailabilityChecker(
         }.getOrElse { throwable -> throwable.toAvailabilityResult() }
 
     suspend fun checkBookFiles(files: List<BookFileEntity>): Map<String, AvailabilityResult> {
-        // Group Checks by Parent Directory (Performance Optimization)
-        // Group files by rootId and parent directory to avoid redundant SAF document tree resolutions for multi-file audiobooks.
         if (files.isEmpty()) return emptyMap()
         val results = linkedMapOf<String, AvailabilityResult>()
         files.groupBy { it.rootId }.forEach { (rootId, rootFiles) ->
@@ -105,12 +88,8 @@ class AvailabilityChecker(
                 rootFiles.forEach { file -> results[file.id] = notFoundResult() }
             } else {
                 when (LibrarySourceKind.from(root.sourceType)) {
-                    // File-Tree Bulk Checks (Preserve directory-source availability semantics)
-                    // Routes SAF and WebDAV files through parent directory listings so local libraries and remote file-tree sources avoid per-file probes during recovery and detail refresh.
                     LibrarySourceKind.SAF,
                     LibrarySourceKind.WEBDAV -> checkVfsBookFiles(root, rootFiles, results)
-                    // ABS Track Checks (Preserve catalog-source availability semantics)
-                    // Keeps ABS on individual readable probes because ABS track paths are catalog stream URLs rather than enumerable VFS directory children.
                     LibrarySourceKind.ABS -> checkAbsBookFiles(rootFiles, results)
                     null -> rootFiles.forEach { file ->
                         results[file.id] = AvailabilityResult(
@@ -137,8 +116,6 @@ class AvailabilityChecker(
                         siblings.forEach { file -> results[file.id] = notFoundResult() }
                         return@forEach
                     }
-                    // Query Child Paths in Directory (Performance Optimization)
-                    // Confirms file existence by matching against child paths instead of performing separate, heavy findFile walks for each file.
                     val existingChildPaths = vfs.listChildren(directory)
                         .asSequence()
                         .filterNot { it.metadata.isDirectory }
@@ -162,10 +139,6 @@ class AvailabilityChecker(
         files: List<BookFileEntity>,
         results: MutableMap<String, AvailabilityResult>
     ) {
-        // Fallback to Individual ABS File Checks (Protocol Limitation Guard)
-        // The Audiobookshelf API does not support typical directory enumerations and listChildren() returns empty.
-        // We must perform individual checkBookFile runs using ABS-specific HEAD/readable semantics,
-        // otherwise the entire audiobook is mistakenly flagged as unavailable.
         files.forEach { file ->
             results[file.id] = checkBookFile(file)
         }
@@ -173,8 +146,6 @@ class AvailabilityChecker(
 
     private suspend fun checkVfsRoot(root: LibraryRootEntity): AvailabilityResult =
         runCatchingCancellable {
-            // Query VFS Root Existence (Network Decoupling)
-            // Determines existence using the VFS layer to avoid raw, unmanaged HTTP requests in core logic.
             val exists = vfs.root(root)?.let { vfs.exists(it) } == true
             if (exists) {
                 AvailabilityResult(status = AudiobookSchema.AvailabilityStatus.AVAILABLE)
@@ -206,7 +177,7 @@ class AvailabilityChecker(
     }
 
     /**
-     * ABS Root Availability Check (Validates server credentials and selected library membership)
+     * Validates server credentials and selected library membership.
      * Confirms the saved token still authorizes successfully and that the configured book library ID is still returned by the server.
      */
     private suspend fun checkAbsRoot(root: LibraryRootEntity): AvailabilityResult =
@@ -241,8 +212,6 @@ class AvailabilityChecker(
         val status = webDavError?.availabilityStatus
             ?: absError?.availabilityStatus
             ?: AudiobookSchema.AvailabilityStatus.UNKNOWN
-        // Propagate Mapping Error Codes (Diagnostics Preservation)
-        // Passes down the remote errorCode mapped by the provider, defaulting to UNKNOWN only for unhandled exceptions.
         return AvailabilityResult(
             status = status,
             errorCode = webDavError?.availabilityStatus?.name ?: absError?.code ?: this::class.java.simpleName,

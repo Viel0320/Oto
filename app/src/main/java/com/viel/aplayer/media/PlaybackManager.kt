@@ -35,44 +35,28 @@ import kotlinx.coroutines.withContext
 class PlaybackManager private constructor(context: Context) {
 
     private val appContext = context.applicationContext
-    // Coroutine Exception Handler (Intercept uncaught coroutine errors to prevent process crashes)
-    // Captures failures arising from broken local tracks, network disconnects, or storage issues.
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         PlaybackWorkflowLogger.error("playbackManager coroutine failure", exception)
     }
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob() + exceptionHandler)
 
-    // Playback Runtime Dependency View (Resolve only the media-core dependencies used by this manager)
-    // This keeps PlaybackManager from depending on the full application container while preserving the existing singleton lifecycle.
     private val playbackDependencies = com.viel.aplayer.APlayerApplication.getPlaybackRuntimeDependencies(appContext)
-    // Playback Catalog Gateway (Resolve only book metadata and track inventory for runtime coordination)
-    // PlaybackManager does not mutate bookmarks, chapters, or text metadata, so the catalog seam keeps the runtime dependency narrow.
     private val bookCatalogGateway = playbackDependencies.bookCatalogGateway
     private val progressGateway = playbackDependencies.progressGateway
-    // Playback Availability Gateway (Owns status-writing recovery checks for failed or missing tracks)
-    // PlaybackManager uses this seam for failover discovery instead of binding availability refreshes to progress persistence.
     private val bookAvailabilityGateway = playbackDependencies.bookAvailabilityGateway
     private val absPlaybackSessionSyncer = playbackDependencies.absPlaybackSessionSyncer
     private val playbackSourcePreflight = playbackDependencies.playbackSourcePreflight
-    // Playback Domain Event Sink (Publishes media-core outcomes without constructing UI events)
-    // The application bridge translates these playback facts into Toasts or dialogs outside the media package.
     private val playbackEventSink = playbackDependencies.playbackDomainEventSink
 
-    // Configuration Repository Reference (Access runtime settings such as cleartext HTTP configurations)
     private val settingsRepository = AppSettingsRepository.getInstance(appContext)
-    // Automatic Rewind Coordinator Reference (Initialize manager to coordinate pause-rewind triggers)
     private val autoRewindManager = AutoRewindManager.getInstance(appContext)
 
-    // High-Frequency Poller (Isolate database writes from high-frequency UI updates to follow single-responsibility rules)
     private val progressSyncTracker: ProgressSyncTracker
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
-    // Autoplay Intention Buffer (Cache play requests issued while MediaController is establishing its connection)
-    // Prevents loss of command triggers initiated during cold startup before setup completes.
     private var pendingPlayWhenReady = false
 
-    // Exposed Flows for UI to observe
     private val _playbackState = MutableStateFlow(Player.STATE_IDLE)
     val playbackState = _playbackState.asStateFlow()
 
@@ -82,8 +66,6 @@ class PlaybackManager private constructor(context: Context) {
     private val _currentMediaItem = MutableStateFlow<MediaItem?>(null)
     val currentMediaItem = _currentMediaItem.asStateFlow()
 
-    // External Subtitle Dispatcher (Expose a hot stream of external subtitles to the subscriber UI)
-    // Media3/ExoPlayer manages internal tag parses natively; hence, only physical sidecar files are tracked here.
     private val _currentSubtitles = MutableStateFlow<List<SubtitleLine>>(emptyList())
     val currentSubtitles = _currentSubtitles.asStateFlow()
 
@@ -101,16 +83,12 @@ class PlaybackManager private constructor(context: Context) {
 
     private var currentPlan: BookPlaybackPlan? = null
 
-    // State Transition Cache (Store playing state of previous frame to identify transition from active to paused)
-    // Used to accurately capture events such as headset unplug or manual pauses to trigger auto-rewind.
     private var lastIsPlaying = false
 
-    /** Book Identifier Snapshot (Retrieve active plan book ID thread-safely without suspending) */
+    /** Retrieve active plan book ID thread-safely without suspending. */
     val currentPlayingBookId: String?
         get() = currentPlan?.bookId
 
-    // Retained Player Listener (Define persistent member variable to avoid inner anonymous classes)
-    // Ensures listener is successfully released on teardown to prevent context leakage.
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             val controller = mediaController ?: return
@@ -170,7 +148,6 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     init {
-        // Coordinate Poller (Instantiate tracker and bind lambdas to update position StateFlows directly)
         progressSyncTracker = ProgressSyncTracker(
             context = appContext,
             bookCatalogGateway = bookCatalogGateway,
@@ -191,8 +168,6 @@ class PlaybackManager private constructor(context: Context) {
 
     private fun initializeController() {
         val sessionToken = SessionToken(appContext, ComponentName(appContext, PlaybackService::class.java))
-        // Custom Session Interceptor (Decode service-originated playback commands)
-        // Converts legacy media-session callbacks into playback-domain events instead of UI events.
         controllerFuture = MediaController.Builder(appContext, sessionToken)
             .setListener(object : MediaController.Listener {
                 override fun onCustomCommand(
@@ -204,8 +179,6 @@ class PlaybackManager private constructor(context: Context) {
                         "EVENT_SKIP_SILENCE" -> {
                         }
                         "EVENT_TRACK_UNAVAILABLE" -> {
-                            // Damaged Track Intercept (Extract payload and publish a playback-domain recovery event)
-                            // The app-level bridge uses the feedback presentation to choose one renderer.
                             val bookId = args.getString("bookId") ?: ""
                             val queueIndex = args.getInt("queueIndex", -1)
                             val bookTitle = args.getString("bookTitle")
@@ -219,19 +192,15 @@ class PlaybackManager private constructor(context: Context) {
                 }
             })
             .buildAsync()
-        
+
         controllerFuture?.addListener({
-            // Async Future Awaiter (Await token retrieval inside IO thread to satisfy warning check rules)
-            // ListenableFuture.get() remains a blocking call; wrapping in withContext(Dispatchers.IO) conforms to coroutine safety.
             scope.launch {
                 try {
                     val controller = withContext(Dispatchers.IO) { controllerFuture?.get() }
                     mediaController = controller
                     controller?.let { conn ->
                         setupController(conn)
-                        // Cold-start restore may set the playback plan before MediaController connects; apply it once ready.
                         currentPlan?.let { setBookPlaybackPlan(it) }
-                        // Widget Update Bypass (Widget features are deprecated; widget refresh triggers are omitted)
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -241,7 +210,6 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     private fun setupController(controller: MediaController) {
-        // Baseline Cache Snapshot (Synchronize local states with active MediaController attributes)
         lastIsPlaying = controller.isPlaying
         _isPlaying.value = controller.isPlaying
         _playbackState.value = controller.playbackState
@@ -249,12 +217,11 @@ class PlaybackManager private constructor(context: Context) {
         progressSyncTracker.updateProgress(controller)
         _playbackSpeed.value = controller.playbackParameters.speed
 
-        // Shared Listener Binding (Attach retained player listener to avoid anonymous leak routes)
         controller.addListener(playerListener)
     }
 
     /**
-     * Commit Playback Offset (Flush memory cached positions down to database storage)
+     * Flush memory cached positions down to database storage.
      *
      * Retained to satisfy contract calls from settings controls and AutoRewindManager.
      */
@@ -263,23 +230,18 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     /**
-     * Apply Playback Configuration (Initialize playback engine with files, artwork, and offsets)
+     * Initialize playback engine with files, artwork, and offsets.
      *
      * Executed on Main thread within coroutine. Maps plan values and routes control logic.
      */
     fun setBookPlaybackPlan(plan: BookPlaybackPlan, playWhenReady: Boolean = false) {
         scope.launch {
-            // Performance Monitor Anchor (Capture start timestamp to profile pre-apply latency)
             val setPlanStart = SystemClock.elapsedRealtime()
-            // Retrieve Configuration (Fetch settings from settingsRepository settingsFlow)
             val settingsReadStart = SystemClock.elapsedRealtime()
             val settings = settingsRepository.settingsFlow.first()
             val settingsReadCost = SystemClock.elapsedRealtime() - settingsReadStart
-            // Bypass Interrupted Self-Healing (Bypassed since cold start restoration has been applied)
             val finalPlan = plan
 
-            // DB-Only Root Preflight (Reject media source creation when Room already marks the root inactive)
-            // This check deliberately avoids file opens, SAF traversal, WebDAV requests, and ABS API calls before MediaController receives media items.
             when (val preflight = playbackSourcePreflight.check(finalPlan, settings)) {
                 PlaybackSourcePreflightResult.Available -> Unit
                 PlaybackSourcePreflightResult.CleartextHttpBlocked -> {
@@ -309,15 +271,11 @@ class PlaybackManager private constructor(context: Context) {
                 playWhenReady = playWhenReady
             )
 
-            // UI Thread Transition (Switch thread context back to Main to handle UI update constraints)
             withContext(Dispatchers.Main) {
-                // Bypassing Lock Activation (Prevent erroneous auto-rewind triggers during track reloading)
                 autoRewindManager.ignoreNextAutoRewind = true
 
                 val previousBookId = this@PlaybackManager.currentPlan?.bookId
                 val previousAbsSessionSnapshot = if (previousBookId != null && previousBookId != finalPlan.bookId) {
-                    // ABS Switch Snapshot (Capture old-book coordinates before currentPlan points at the next book)
-                    // The remote close path must use the outgoing plan and controller position, not the replacement plan that is about to load.
                     captureAbsSessionSnapshot()
                 } else {
                     null
@@ -328,15 +286,11 @@ class PlaybackManager private constructor(context: Context) {
                     scheduleAbsSessionTransition(previousAbsSessionSnapshot, finalPlan.bookId)
                 }
 
-                // State Prefetching (Publish initial positions instantly to prevent UI frame flickers)
                 val totalDur = finalPlan.files.sumOf { it.durationMs }
                 _currentPosition.value = finalPlan.startGlobalPositionMs
                 _bufferedPosition.value = finalPlan.startGlobalPositionMs
                 _duration.value = totalDur
-                // Widget Refresh Bypass (Omit Widget refresh since widget is deprecated)
 
-                // Playback Plan Application (Runs only after root lifecycle and unsafe-network preflight pass)
-                // The previous placeholder HTTP check is replaced by PlaybackSourcePreflight, which inspects the persisted remote root endpoints behind VFS media URIs.
                 val preApplyCost = SystemClock.elapsedRealtime() - setPlanStart
                 com.viel.aplayer.logger.PlaybackTimingLogger.logPreApplyCost(
                     bookId = plan.bookId,
@@ -348,13 +302,11 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     private fun applyPlaybackPlan(plan: BookPlaybackPlan) {
-        // Phase Latency Tracking (Split operation into translation phase and controller update phase)
         val applyPlanStart = SystemClock.elapsedRealtime()
-        // Plan Mapper (Delegate compile logic to PlaybackPlanBuilder to detach transport translation details)
         val mediaItems = PlaybackPlanBuilder.buildMediaItems(plan)
         val mediaItemsBuildCost = SystemClock.elapsedRealtime() - applyPlanStart
         val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(plan.startGlobalPositionMs, plan.files)
-        
+
         mediaController?.let { controller ->
             val controllerDispatchStart = SystemClock.elapsedRealtime()
             controller.setMediaItems(mediaItems, fileIndex, positionInFile)
@@ -371,15 +323,11 @@ class PlaybackManager private constructor(context: Context) {
                 positionInFile = positionInFile
             )
             if (pendingPlayWhenReady) {
-                // Autoplay Command Flush (Consume autoplay command post-prepare to prevent asynchronous loss)
                 pendingPlayWhenReady = false
                 controller.play()
-                // Consume Command Logging (Mark autoplay execution for latency analysis)
                 com.viel.aplayer.logger.PlaybackTimingLogger.logAutoplayConsumed(plan.bookId)
             }
-            // Subtitle Delay Ingestion (ViewModel handles lazy load of subtitle tracks upon track transitions)
             _currentSubtitles.value = emptyList()
-            // Loading a book should create/update BookProgress immediately, even before playback events fire.
             progressSyncTracker.persistProgress(plan.bookId, fileIndex, positionInFile)
         } ?: run {
             val totalApplyCost = SystemClock.elapsedRealtime() - applyPlanStart
@@ -390,11 +338,8 @@ class PlaybackManager private constructor(context: Context) {
         }
     }
 
-    // Commands
     fun play() {
         scope.launch {
-            // Local Play First (Resume audible playback before remote ABS session bookkeeping)
-            // The background session open is idempotent, so resume after a pause-close can recover server tracking without delaying controls.
             mediaController?.play()
             currentPlan?.bookId?.let { bookId -> scheduleAbsSessionOpen(bookId) }
         }
@@ -402,8 +347,6 @@ class PlaybackManager private constructor(context: Context) {
 
     fun pause() {
         scope.launch {
-            // Local Pause First (Apply the user-visible control before remote ABS teardown)
-            // Slow ABS close requests must not keep audio playing after the user presses pause on weak networks.
             mediaController?.pause()
             scheduleAbsSessionClose(captureAbsSessionSnapshot(), skipIfPlaybackResumed = true)
         }
@@ -411,7 +354,7 @@ class PlaybackManager private constructor(context: Context) {
 
 
     /**
-     * Logarithmic Volume Scalar (Get or set player engine volume without affecting system settings)
+     * Get or set player engine volume without affecting system settings.
      *
      * Used in volume fades to gradually quiet the playback smoothly.
      */
@@ -424,27 +367,21 @@ class PlaybackManager private constructor(context: Context) {
         }
 
     fun seekTo(globalPositionMs: Long) {
-        // Main-Thread Seek Enforcement (Redirect request to application main thread to safely interact with MediaController)
         scope.launch {
             val controller = mediaController ?: return@launch
             val mediaParts = PlaybackMediaId.parse(controller.currentMediaItem?.mediaId) ?: return@launch
             val bookId = mediaParts.bookId
-            // Track Query Ingestion (Query track configuration details through the catalog gateway)
-            // Global seek mapping requires only stored track inventory and should not inherit bookmark or metadata writes.
             val files = bookCatalogGateway.getFilesForBookSync(bookId)
             if (files.isNotEmpty()) {
                 val totalDuration = files.sumOf { it.durationMs }
                 val targetGlobal = globalPositionMs.coerceIn(0L, totalDuration.coerceAtLeast(0L))
                 val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(targetGlobal, files)
-                // Seek Position Mapping (Locate track index and track offset matching global timestamp)
                 controller.seekTo(fileIndex, positionInFile)
                 controller.play()
                 _currentPosition.value = targetGlobal
                 _bufferedPosition.value = targetGlobal
                 _duration.value = totalDuration
-                // Delay Subtitle Loading (Defer parsing to prevent sync disk reads during seek movements)
                 _currentSubtitles.value = emptyList()
-                // User-initiated seek must persist immediately so BookProgress is not dependent on later callbacks.
                 progressSyncTracker.persistProgress(bookId, fileIndex, positionInFile)
             }
         }
@@ -459,21 +396,19 @@ class PlaybackManager private constructor(context: Context) {
     fun release() {
         progressSyncTracker.stopPolling()
         scope.cancel()
-        // Listener Teardown (Deregister member listener explicitly from MediaController to prevent memory leaks)
         mediaController?.removeListener(playerListener)
         controllerFuture?.let {
             MediaController.releaseFuture(it)
             controllerFuture = null
         }
         mediaController = null
-        // Singleton Cleanup Lock (Perform cleanup within companion lock to maintain concurrency safety)
         synchronized(Companion) {
             INSTANCE = null
         }
     }
 
     /**
-     * Retrieve Controller Instance (Get connected MediaController asynchronously using coroutine wait logic)
+     * Get connected MediaController asynchronously using coroutine wait logic.
      *
      * Awaits future completion using Dispatchers.IO to safely resolve blocking calls without halting UI.
      */
@@ -484,7 +419,6 @@ class PlaybackManager private constructor(context: Context) {
         val future = controllerFuture ?: return null
         return try {
             withContext(Dispatchers.IO) {
-                // Future Blocking Guard (Resolve .get() on IO thread pool to prevent blocking caller thread)
                 future.get()
             }.also { mediaController = it }
         } catch (e: Exception) {
@@ -494,25 +428,23 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     /**
-     * Get Active Book ID (Resolve ID of the currently playing audiobook)
+     * Resolve ID of the currently playing audiobook.
      *
      * Checks both the active MediaItem configuration and the loaded fallback plan.
      */
     fun getCurrentBookId(): String? {
-        // Safe ID Parsing (Read StateFlow memory snapshot to avoid concurrent thread access conflicts)
         val mediaId = currentMediaItem.value?.mediaId ?: currentPlan?.bookId
         return PlaybackMediaId.parse(mediaId)?.bookId ?: mediaId
     }
 
     /**
-     * Terminate Playback Session (Suspend active playback, clear queue, and reset flows)
+     * Suspend active playback, clear queue, and reset flows.
      *
      * Block-waits controller readiness to ensure stop command hits ExoPlayer even from background threads.
      */
     suspend fun stopPlayback() {
         val controller = getController()
         val snapshot = withContext(Dispatchers.Main) {
-            // Prevent Redundant Actions (Toggle ignoreNextAutoRewind flag prior to stop to suppress post-pause rewinds)
             autoRewindManager.ignoreNextAutoRewind = true
             val capturedSnapshot = if (controller != null) {
                 controller.pause()
@@ -537,8 +469,6 @@ class PlaybackManager private constructor(context: Context) {
 
     private fun scheduleAbsSessionTransition(previousSnapshot: AbsSessionSnapshot?, nextBookId: String) {
         scope.launch(Dispatchers.IO) {
-            // ABS Book Switch Ordering (Close the previous remote session before opening the next one)
-            // The local player can move to the new book immediately, while remote session bookkeeping stays ordered in the background.
             closeAbsSessionIfNeeded(previousSnapshot)
             openAbsSessionIfNeeded(nextBookId)
         }
@@ -563,8 +493,6 @@ class PlaybackManager private constructor(context: Context) {
     private suspend fun isSnapshotPlayingAgain(snapshot: AbsSessionSnapshot?): Boolean {
         if (snapshot == null) return false
         return withContext(Dispatchers.Main) {
-            // Pause Close Latest-Only Guard (Drops stale background close work after the same book resumes)
-            // A quick pause/play sequence should keep the newly active local playback from being invalidated by the older pause teardown.
             currentPlan?.bookId == snapshot.bookId && mediaController?.isPlaying == true
         }
     }
@@ -588,8 +516,6 @@ class PlaybackManager private constructor(context: Context) {
     private suspend fun resolveCloseProgress(snapshot: AbsSessionSnapshot): BookProgressEntity? {
         val capturedProgress = snapshot.toProgressEntity()
         if (capturedProgress != null) {
-            // ABS Close Progress Flush (Persist the controller snapshot before sending remote close)
-            // Closing uses the same fresh local checkpoint that the UI just observed, avoiding stale 10-second polling data.
             progressGateway.saveProgress(capturedProgress)
             return capturedProgress
         }
@@ -620,29 +546,24 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     /**
-     * Failover Next Track (Skip forward to the next available playable audio track)
+     * Skip forward to the next available playable audio track.
      *
      * @param bookId The unique identifier of the book.
      * @param queueIndex The track index that failed to load.
      */
     fun skipToNextAvailableTrack(bookId: String, queueIndex: Int) {
         scope.launch {
-            // Failover Track Search With Status Refresh (Finds the next eligible track while persisting checked availability)
-            // PlaybackManager depends on the explicit refresh-named gateway method because failover inspection writes READY/MISSING states.
             val next = bookAvailabilityGateway.findNextAvailablePlaybackFileAndRefreshStatus(bookId, queueIndex)
             if (next != null) {
                 val (nextIndex, _) = next
                 com.viel.aplayer.logger.PlaybackFailureLogger.logSelfHealSuccess(nextIndex)
                 mediaController?.let { controller ->
-                    // Execute Redirect (Command controller to transition to the recovered track index)
                     controller.seekTo(nextIndex, 0L)
                     controller.prepare()
                     controller.play()
                 }
             } else {
                 PlaybackWorkflowLogger.warn("playbackManager no next available track: bookId=$bookId, queueIndex=$queueIndex")
-                // Failover Exhausted Event (Notify the app layer that recovery cannot continue)
-                // The media manager reports the domain outcome while UI rendering remains outside playback-core.
                 val bookTitle = currentPlan?.takeIf { it.bookId == bookId }?.title
                 playbackEventSink.emit(PlaybackDomainEvent.NoAvailableTrackAfterFailure(bookTitle))
             }
@@ -658,7 +579,7 @@ class PlaybackManager private constructor(context: Context) {
     }
 
     /**
-     * ABS Session Snapshot (Captures local playback coordinates before the active plan mutates)
+     * Captures local playback coordinates before the active plan mutates.
      * Background remote close calls use this immutable snapshot so book switches and stop commands cannot read a newer plan with an older position.
      */
     private data class AbsSessionSnapshot(

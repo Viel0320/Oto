@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <!-- Cover Cache Directory (Declare public cache directory for cover art, mapped via FileProvider to prevent SystemUI ENOENT file not found crashes during cross-process access) -->
     <cache-path name="covers" path="covers/" />
 </paths>

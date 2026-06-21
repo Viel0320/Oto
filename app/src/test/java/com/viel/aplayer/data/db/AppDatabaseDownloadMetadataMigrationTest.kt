@@ -12,8 +12,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-// Download Metadata Migration Harness (Validates the non-destructive 42 to 43 schema upgrade)
-// The migration must add only the download aggregate table while preserving existing catalog and playback rows.
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class AppDatabaseDownloadMetadataMigrationTest {
@@ -42,8 +40,6 @@ class AppDatabaseDownloadMetadataMigrationTest {
             AppDatabase.MIGRATION_42_43
         )
 
-        // Existing Data Preservation (Confirms the additive migration does not rewrite user catalog state)
-        // Books, files, progress, bookmarks, roots, and ABS mirror data are representative of the user-owned tables called out in the phase plan.
         assertEquals("Migration Book", migrated.singleString("SELECT title FROM books WHERE id = 'book-1'"))
         assertEquals("file-1", migrated.singleString("SELECT id FROM book_files WHERE id = 'file-1'"))
         assertEquals(123L, migrated.singleLong("SELECT globalPositionMs FROM book_progress WHERE bookId = 'book-1'"))

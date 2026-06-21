@@ -24,7 +24,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Settings Controls Accessibility Test (Locks Settings row semantics for TalkBack)
+ * Locks Settings row semantics for TalkBack.
  *
  * Exercises reusable Settings controls directly so accessibility regressions are caught at the
  * component boundary without mounting the full Settings route or persistence di.
@@ -54,13 +54,9 @@ class SettingsControlsAccessibilityTest {
             }
         }
 
-        // Toggle Focus Contract (Allow exactly one clickable semantics node for a boolean setting)
-        // The old row-click-plus-Switch pattern exposed two click targets, while the fixed row owns the only toggle action.
         composeRule.onAllNodes(hasClickAction(), useUnmergedTree = true).assertCountEquals(1)
         composeRule.onAllNodes(switchMatcher, useUnmergedTree = true).assertCountEquals(1)
 
-        // Toggle Announcement Contract (Bind title, subtitle, role, checked state, and state text to one node)
-        // TalkBack should announce the row as a single switch instead of separating the label text from the visual Switch.
         composeRule
             .onNode(switchMatcher and hasText(title) and hasText(subtitle))
             .assertHasClickAction()
@@ -86,33 +82,21 @@ class SettingsControlsAccessibilityTest {
             }
         }
 
-        // Segmented Row Container Contract (Keep the descriptive Settings row passive)
-        // A segmented control has multiple valid choices, so a click target containing the title would be ambiguous.
         composeRule.onAllNodes(hasClickAction() and hasText(title), useUnmergedTree = true).assertCountEquals(0)
 
-        // Segmented Choice Group Contract (Mark the concrete segment row as a mutually exclusive group)
-        // Accessibility services can then announce the individual segment buttons as related alternatives.
         composeRule.onAllNodes(selectableGroupMatcher, useUnmergedTree = true).assertCountEquals(1)
     }
 
     private companion object {
-        // Role Matcher (Reads the public Compose semantics role property directly)
-        // Keeping matchers local avoids depending on optional test helper names that can move across Compose BOM updates.
         private fun hasRole(role: Role): SemanticsMatcher =
             SemanticsMatcher.expectValue(SemanticsProperties.Role, role)
 
-        // Toggle State Matcher (Reads the merged switch checked state from the row node)
-        // The regression needs the parent row, not the decorative Switch child, to own this state.
         private fun hasToggleableState(state: ToggleableState): SemanticsMatcher =
             SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, state)
 
-        // State Description Matcher (Reads localized TalkBack state text from the row node)
-        // This ensures the custom On/Off state description stays bound to the setting label.
         private fun hasStateDescription(description: String): SemanticsMatcher =
             SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, description)
 
-        // Selectable Group Matcher (Detects the radio-style grouping marker on segmented controls)
-        // The group marker belongs on the segment row rather than the outer Settings layout row.
         private fun hasSelectableGroup(): SemanticsMatcher =
             SemanticsMatcher.keyIsDefined(SemanticsProperties.SelectableGroup)
     }

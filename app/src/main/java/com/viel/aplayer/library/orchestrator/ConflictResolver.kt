@@ -5,7 +5,7 @@ import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.library.FileIdentity
 
 /**
- * Ownership Conflict Resolver (Import domain policy)
+ * Import domain policy.
  *
  * Owns the deterministic source-priority rule for file ownership conflicts.
  * The pipeline asks this resolver what to do; database mutation and draft construction stay outside this class.
@@ -13,7 +13,7 @@ import com.viel.aplayer.library.FileIdentity
 internal class ConflictResolver {
 
     /**
-     * Resolve Manifest Ownership (CUE/M3U8 conflict policy)
+     * CUE/M3U8 conflict policy.
      *
      * Applies cue > m3u8 > other for persisted owners, turns missing manifest references into PARTIAL imports,
      * and returns refresh/replace/skip commands without touching the database.
@@ -35,8 +35,6 @@ internal class ConflictResolver {
             return ConflictResolution.CreateBook(bookStatus)
         }
 
-        // Run Conflict Guard (Uncommitted owner protection)
-        // In-flight owners are not preempted here because their draft commands may already be queued outside the database boundary.
         if (reservation.runConflicts.isNotEmpty()) {
             return ConflictResolution.Skip
         }
@@ -49,8 +47,6 @@ internal class ConflictResolver {
                     files = completeClaim.files
                 )
             } else {
-                // Same-Owner Partial Replacement (Manifest drift handling)
-                // Rebuilds the existing manifest book as PARTIAL when references disappear, preserving progress through replacement migration.
                 ConflictResolution.ReplaceBooks(
                     bookIds = listOf(completeClaim.bookId),
                     bookStatus = bookStatus
@@ -68,8 +64,6 @@ internal class ConflictResolver {
             incomingPriority > sourcePriority(existingClaimIndex.sourceTypeForBook(bookId))
         }
         return if (canReplacePersistedOwners) {
-            // Higher-Priority Replacement (Persisted owner reassignment)
-            // Emits the obsolete owners to remove after the incoming manifest draft has been inserted and migrated.
             ConflictResolution.ReplaceBooks(
                 bookIds = existingBookIds,
                 bookStatus = bookStatus
@@ -79,7 +73,6 @@ internal class ConflictResolver {
         }
     }
 
-    // Source Priority Type Safe: Use AudiobookSchema.SourceType? enum for priority rank resolution.
     private fun sourcePriority(sourceType: AudiobookSchema.SourceType?): Int =
         when (sourceType) {
             AudiobookSchema.SourceType.CUE -> 3
@@ -89,21 +82,20 @@ internal class ConflictResolver {
 }
 
 /**
- * Conflict Resolution Result (Import decision contract)
+ * Import decision contract.
  *
  * Represents what the scan pipeline should emit after comparing an incoming owner with existing reservations.
  */
 internal sealed interface ConflictResolution {
     /**
-     * Create New Book (Uncontested ownership)
+     * Uncontested ownership.
      *
      * Indicates that the incoming source owns its files and should be inserted as READY or PARTIAL.
      */
-    // Create Book Type Safe: Use BookStatus enum instead of String for type safety.
     data class CreateBook(val bookStatus: AudiobookSchema.BookStatus) : ConflictResolution
 
     /**
-     * Refresh Existing Book (Idempotent rescan)
+     * Idempotent rescan.
      *
      * Indicates that all claimed files already belong to the same book and only visibility markers need refreshing.
      */
@@ -113,18 +105,17 @@ internal sealed interface ConflictResolution {
     ) : ConflictResolution
 
     /**
-     * Replace Existing Books (Priority reassignment)
+     * Priority reassignment.
      *
      * Indicates that lower-priority or stale same-owner rows should be removed after state migration.
      */
-    // Replace Books Type Safe: Use BookStatus enum instead of String for type safety.
     data class ReplaceBooks(
         val bookIds: List<String>,
         val bookStatus: AudiobookSchema.BookStatus
     ) : ConflictResolution
 
     /**
-     * Skip Incoming Source (Winner already exists)
+     * Winner already exists.
      *
      * Indicates that an equal/higher-priority owner already holds the files, so no command should be emitted.
      */

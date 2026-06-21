@@ -11,7 +11,7 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 
 /**
- * Bookmark Service (Implements BookmarkGateway)
+ * Implements BookmarkGateway.
  *
  * Owns bookmark reads and writes. On insert it resolves global playback coordinates into a per-file
  * (index, offset, fingerprint) anchor via [PositionMapper] so bookmarks survive file re-ordering.
@@ -34,7 +34,6 @@ class BookmarkGatewayImpl(
 
     override suspend fun addBookmark(bookId: String, position: Long, title: String) = withContext(Dispatchers.IO) {
         val files = bookDao.getFilesForBookList(bookId)
-        // Map global position onto the owning track so the anchor stays valid if files are re-sequenced.
         val (bookFileId, fileOffsetMs, fingerprint, anchorStatus) = if (files.isNotEmpty()) {
             val (fileIndex, offset) = PositionMapper.globalToFilePosition(position, files)
             val file = files.getOrNull(fileIndex)

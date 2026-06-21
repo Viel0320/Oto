@@ -6,7 +6,7 @@ import java.io.InputStream
 import java.nio.charset.Charset
 
 /**
- * Parser Sidecar Manager (Centralize sidecar image/text evaluation routines to decouple directory traversal from step layers)
+ * Centralize sidecar image/text evaluation routines to decouple directory traversal from step layers.
  *
  * Consolidates helper logic for locating nearby covers and text summaries,
  * ensuring CueManifestParser, M3u8ManifestParser, and HeuristicAudioAggregator
@@ -52,8 +52,6 @@ object ManifestSidecarSupport {
         openTextFile: suspend (FileRef) -> InputStream?
     ): SidecarPayload =
         SidecarPayload(
-            // Heuristic Text Selection (No manifest anchor is available for same-name matching)
-            // Standard description names or a single txt sibling remain eligible through ManifestSidecarSelectionPolicy.
             description = readTxtDescription(
                 textFiles = directoryContext.textFiles,
                 openTextFile = openTextFile,

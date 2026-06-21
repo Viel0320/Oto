@@ -16,8 +16,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-// Download Metadata DAO Harness (Exercises the real Room DAO used by offline-cache recovery)
-// These tests lock the persistence boundary before Media3 runtime code starts depending on the aggregate table.
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class DownloadMetadataDaoTest {
@@ -48,8 +46,6 @@ class DownloadMetadataDaoTest {
 
             val recoverable = dao.getRecoverableTasks().map { it.bookId }
 
-            // Recoverable State Filter (Starts download runtime only for active or retryable work)
-            // COMPLETED rows stay durable but must not force DownloadManager creation during app startup.
             assertEquals(listOf("queued", "downloading", "paused", "failed"), recoverable)
             assertTrue(dao.hasRecoverableTasks())
         } finally {

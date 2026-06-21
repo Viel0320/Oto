@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <!-- Portable Settings Backup Allowlist (Keep legacy Android auto-backup limited to portable preferences)
-         Android lint requires excludes to sit inside an included path, so this rule names only app_settings.preferences_pb and leaves databases, credentials, search history, and device markers outside backup by absence. -->
     <include domain="file" path="datastore/app_settings.preferences_pb"/>
 </full-backup-content>

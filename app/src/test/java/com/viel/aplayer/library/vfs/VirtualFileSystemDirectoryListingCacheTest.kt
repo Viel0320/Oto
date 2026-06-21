@@ -35,8 +35,6 @@ class VirtualFileSystemDirectoryListingCacheTest {
 
         val children = vfs.listChildren(directory)
 
-        // Cached Directory Replay (Verifies VFS can serve scanner listings from child snapshots)
-        // A non-null cache result must bypass provider listChildren while rebuilding VfsNode values from cached metadata.
         assertEquals(listOf("cached.m4b"), children.map { node -> node.metadata.displayName })
         assertEquals(0, provider.listChildrenCalls)
         assertEquals(1, cache.getChildrenCalls)
@@ -57,8 +55,6 @@ class VirtualFileSystemDirectoryListingCacheTest {
 
         val children = vfs.listChildren(directory)
 
-        // Provider Fallback Refresh (Stores successful provider listings back into the directory cache)
-        // Null cache results preserve live provider traversal and then refresh only the direct children snapshot for the scanner.
         assertEquals(listOf("live.m4b"), children.map { node -> node.metadata.displayName })
         assertEquals(1, provider.listChildrenCalls)
         assertEquals(1, cache.replaceChildrenCalls)
@@ -94,8 +90,6 @@ class VirtualFileSystemDirectoryListingCacheTest {
 
         val children = vfs.listChildren(directory)
 
-        // Stale Directory Cache Refresh (Pins VFS fallback behavior when cachedAt falls outside the freshness window)
-        // Expired Room child rows must be treated as a cache miss so the provider listing replaces stale children with a fresh snapshot.
         assertEquals(listOf("live.m4b"), children.map { node -> node.metadata.displayName })
         assertEquals(1, provider.listChildrenCalls)
         assertEquals(listOf("live.m4b"), dao.rows.map { row -> row.displayName })
@@ -116,8 +110,6 @@ class VirtualFileSystemDirectoryListingCacheTest {
 
         val bytes = vfs.readRange(file, offset = 0L, length = 3)
 
-        // Range Boundary Guard (Keeps directory child snapshots out of bounded byte reads)
-        // readRange must continue to call the source provider directly and never consume directory listing cache rows.
         assertEquals(listOf(1, 2, 3), bytes?.map { byte -> byte.toInt() })
         assertEquals(1, provider.readRangeCalls)
         assertEquals(0, cache.getChildrenCalls)

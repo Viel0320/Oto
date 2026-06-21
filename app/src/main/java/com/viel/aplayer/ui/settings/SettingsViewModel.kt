@@ -25,23 +25,16 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * Settings view model (Handler for configuration persistence interactions)
+ * Handler for configuration persistence interactions.
  * Manages reactive settings flows and dispatches business operations.
  */
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-    // Settings Screen Dependency View (Resolve only settings-page operations and feedback)
     private val settingsDependencies = APlayerApplication.getSettingsScreenDependencies(application)
-    // Title: Settings Abstractions Binding (Bind settings ViewModel to read and command abstractions)
-    // Decouples ViewModel from the concrete data repository class.
     private val settingsReadModel = settingsDependencies.settingsReadModel
     private val settingsCommands = settingsDependencies.settingsCommands
-    // Title: Bind FormatSettingsRootUseCase (Inject formatting usecase for display snapshot formatting)
-    // Avoids static utility dependencies and decouples DB entities from SettingsViewModel.
     private val formatSettingsRootUseCase = settingsDependencies.formatSettingsRootUseCase
-    // Settings Root Scene Interfaces
     private val settingsRootReadModel = settingsDependencies.settingsRootReadModel
     private val settingsRootCommands = settingsDependencies.settingsRootCommands
-    // Settings Query Use Cases
     private val settingsLibraryMaintenanceUseCase = settingsDependencies.settingsLibraryMaintenanceUseCase
     private val appEventSink = settingsDependencies.appEventSink
     private val libraryRootManagementUseCase = settingsDependencies.libraryRootManagementUseCase
@@ -50,7 +43,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val downloadManagementReadModel = settingsDependencies.downloadManagementReadModel
     private val downloadController = settingsDependencies.downloadController
 
-    // Title: Initialize Preferences Handler (Pass settings write interface to preferences handler)
     val preferencesHandler = SettingsPreferencesHandler(
         settingsCommands = settingsCommands,
         scope = viewModelScope,
@@ -62,14 +54,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         testWebDavConnectionUseCase = settingsDependencies.testWebDavConnectionUseCase,
         settingsQueryUseCase = settingsDependencies.settingsQueryUseCase,
         settingsRootCommands = settingsRootCommands,
-        // Title: Pass formatting UseCase (Wire formatSettingsRootUseCase into the connection handler)
         formatSettingsRootUseCase = formatSettingsRootUseCase,
         appEventSink = appEventSink,
         scope = viewModelScope,
         app = getApplication()
     )
 
-    // Settings Overlay Visibility State
     private val _isVisible = MutableStateFlow(false)
     val isVisible: StateFlow<Boolean> = _isVisible.asStateFlow()
 
@@ -77,7 +67,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _isVisible.value = visible
     }
 
-    // Title: Expose Connection Handlers States (Retrieve reactive UI states directly from ConnectionHandler)
     val absConnectionState: StateFlow<AbsConnectionUiState> = connectionHandler.absConnectionState
     val webDavConnectionState: StateFlow<WebDavConnectionUiState> = connectionHandler.webDavConnectionState
 
@@ -92,8 +81,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val libraryRootDisplays: StateFlow<List<SettingsRootItem>> = settingsRootReadModel
         .observeRootSnapshots()
         .map { snapshots ->
-            // Title: Map Snapshots with UseCase (Delegate formatting logic to FormatSettingsRootUseCase)
-            // Removes direct imports of AudiobookSchema and decouples model mapping completely.
             snapshots.map(formatSettingsRootUseCase::formatSnapshot)
         }.stateIn(
             scope = viewModelScope,
@@ -113,7 +100,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             isVisible.collect { visible ->
                 if (visible) {
-                    // Title: Refresh library root sync statuses on visibility change
                     settingsRootCommands.refreshAllRootStatuses()
                 }
             }
@@ -125,7 +111,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Handle SAF root relocation (To update local library path and clear incremental cache)
+     * To update local library path and clear incremental cache.
      */
     fun onSafRootRelocated(id: String, newUri: Uri) {
         viewModelScope.launch {
@@ -142,7 +128,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    // Title: Update WebDAV Configuration (Modify remote server connection directory credentials)
     fun updateWebDavRoot(
         id: String,
         url: String,
@@ -171,7 +156,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    // Title: Deregister Library Root (Shutdown playback, clear DB rows, and release Android permissions)
     fun deleteLibraryRoot(root: SettingsRootItem) {
         viewModelScope.launch {
             AbsSettingsLogger.logDeleteServerStart(rootId = root.rootId, sourceType = root.sourceType)
@@ -187,8 +171,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    // Title: Export User Data (Trigger the export usecase to package databases and settings to SAF selected ZIP file)
-    // Opens the destination output stream and dispatches the task to IO dispatcher, broadcasting status via appEventSink.
     fun exportUserData(uri: Uri) {
         viewModelScope.launch {
             val context = getApplication<Application>()
@@ -222,8 +204,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    // Title: Import User Data and Restart (Execute the restore usecase and perform a clean process restart)
-    // Runs overwrite actions, then terminates active components, schedules main activity relaunch, and exits the process.
     suspend fun peekImportManifest(uri: Uri): BackupManifest? {
         val context = getApplication<Application>()
         return runCatching {
@@ -240,7 +220,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 appEventSink.emitFeedback(DataTransferFeedbackFacts.importStreamFailed())
                 return@launch
             }
-            // Version guard: reject backups from a newer database schema.
             val manifest = inputStream.use { importUserDataUseCase.peekManifest(it) }
             if (manifest != null && !importUserDataUseCase.isManifestCompatible(manifest)) {
                 appEventSink.emitFeedback(
@@ -260,7 +239,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 importUserDataUseCase.execute(dataStream)
             }.onSuccess { result ->
                 if (result.isSuccess) {
-                    // Trigger Application Restart
                     val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                     }
@@ -311,7 +289,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Delete All Downloads (Clears all local offline downloads and task list items)
+     * Clears all local offline downloads and task list items.
      * Triggers the cache maintenance commands to evict all manually cached audio files and drops
      * the download queue states from persistence, reporting outcome to the app feedback sink.
      */
@@ -327,9 +305,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         appEventSink.emitFeedback(DownloadCacheFeedbackFacts.notificationPermissionDenied())
     }
 
-    // Title: Run Download Management Command (Apply manual cache operations from settings pages)
-    // Uses typed cache-task facts after the command has updated Media3/Room state; bulk commands pass a
-    // null book id so failures fall back to the app-wide download cache identity.
     private fun runDownloadCommand(
         bookId: String?,
         successFact: FeedbackFact,

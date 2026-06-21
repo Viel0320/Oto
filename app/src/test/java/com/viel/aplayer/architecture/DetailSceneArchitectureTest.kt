@@ -5,7 +5,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Detail Scene Architecture Test (Pins the stage-two detail dependency migration)
+ * Pins the stage-two detail dependency migration.
  * Prevents DetailViewModel and new detail scene modules from drifting back to LibraryFacade or Room entity expansion.
  */
 class DetailSceneArchitectureTest {
@@ -51,8 +51,6 @@ class DetailSceneArchitectureTest {
 
     @Test
     fun detailDependencyViewDoesNotInheritLibraryPresentationDependencies() {
-        // Title: Update di path in test (Point to di/dependencies/PresentationDependencies.kt)
-        // Changes relative path to target the dependencies subdirectory under di.
         val dependenciesSource = resolveSourceRoot().resolve("di/dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
         val detailInterface = dependenciesSource.substringAfter("interface DetailScreenDependencies")
             .substringBefore("/**\n * Home Screen Dependencies")
@@ -127,8 +125,6 @@ class DetailSceneArchitectureTest {
     }
 
     private fun resolveSourceRoot(): File {
-        // Source Root Resolution (Supports both module and repository working directories)
-        // Gradle can execute JVM tests from different directories, so the test checks both stable source-root candidates.
         val candidates = listOf(
             File("src/main/java/com/viel/aplayer"),
             File("app/src/main/java/com/viel/aplayer")
@@ -138,8 +134,6 @@ class DetailSceneArchitectureTest {
     }
 
     private fun forbiddenDetailRoomBoundaryTerms(): List<String> {
-        // Detail Boundary Forbidden Terms (Catch both imports and direct type-name regressions)
-        // Boundary files should traffic in DetailSnapshot and DetailBookItem, not Room entities or Room relation projections.
         return listOf(
             "com.viel.aplayer.data.entity",
             "BookWithProgress",

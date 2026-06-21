@@ -10,27 +10,20 @@ import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Cover Image Cache Logger (Aggregated logging for cover image loading, cache hits, and failures)
+ * Aggregated logging for cover image loading, cache hits, and failures.
  *
  * This object does not perform image loading or business logic operations. It aggregates facts emitted by UI pages,
  * Coil callbacks, and ABS cover handlers into a centralized logging portal to prevent logs from being scattered across components.
  */
 object CoverImageCacheLogger {
     private const val TAG = "CoverImageCache"
-    // Cover Request Context Registry
-    // Debugging registry mapped to identify the UI scene and variant in the global event listener.
-    // It does not carry business logic and is periodically cleared using TTL and capacity limits to prevent completed ImageRequest instances from leaking.
     private val requestContexts = ConcurrentHashMap<Int, RegisteredRequestContext>()
-    // Fetcher Type Capture (Stores the fetcher class caught by Coil's fetchStart listener to be evaluated in final success callbacks)
-    // This allows the logging system to differentiate between local disk cache hits and raw file decodes.
     private val requestFetcherClasses = ConcurrentHashMap<Int, String>()
-    // Light Statistics Accumulation (Accumulate memory-only diagnostic metrics for memory vs disk cache performance)
-    // Protects the in-memory statistics map using a standard synchronization lock to ensure thread safety without heavy storage overhead.
     private val statsLock = Any()
     private val sceneVariantStats = linkedMapOf<String, SceneVariantStats>()
 
     /**
-     * Cover Cache Key Identifier (Determines whether a cache key represents an audiobook cover image request)
+     * Determines whether a cache key represents an audiobook cover image request.
      * The global Coil EventListener only receives the raw image request, so we centralize the namespace checks
      * to avoid duplicate hardcoded string checks in other layers.
      */
@@ -38,8 +31,8 @@ object CoverImageCacheLogger {
         cacheKey?.startsWith("cover:") == true
 
     /**
-     * Cache Key Variant Extractor (Extract the variant segment suffix from the standard cache key format)
-     * Provides the global event listener with a stable variant identification (e.g. small, medium, backdrop, main1200)
+     * Extract the variant segment suffix from the standard cache key format.
+     * e.g. small, medium, backdrop, main1200.
      * even when the specific UI class name is missing, facilitating cache performance diagnostics.
      */
     fun variantFromCacheKey(cacheKey: String?): String =
@@ -57,7 +50,7 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * Request Context Registration (Register the UI scene, variant, and source path when the ImageRequest is constructed)
+     * Register the UI scene, variant, and source path when the ImageRequest is constructed.
      * Enables the global ImageLoader EventListener to lookup the context from a raw ImageRequest object,
      * ensuring we can accurately log scene-specific metrics.
      */
@@ -80,7 +73,7 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * Remember Fetcher Class (Temporarily store the fetcher class name captured during the fetchStart cycle)
+     * Temporarily store the fetcher class name captured during the fetchStart cycle.
      * The fetcher class name is only accessible during fetchStart, so we hold it until success/error/cancel callbacks
      * trigger to normalize the decode source.
      */
@@ -90,21 +83,21 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * Take Fetcher Class (Retrieve and remove the registered fetcher class name from the cache)
+     * Retrieve and remove the registered fetcher class name from the cache.
      * Prevents temporary memory-allocated string identifiers from hanging indefinitely after request completion.
      */
     fun takeFetcherClass(request: ImageRequest): String? =
         requestFetcherClasses.remove(requestIdentity(request))
 
     /**
-     * Clear Fetcher Class (Purge the fetcher class name cache for canceled or failed image request pipelines)
+     * Purge the fetcher class name cache for canceled or failed image request pipelines.
      */
     fun clearFetcherClass(request: ImageRequest) {
         requestFetcherClasses.remove(requestIdentity(request))
     }
 
     /**
-     * Resolve Request Context (Lookup the registered request context from the active request contexts registry)
+     * Lookup the registered request context from the active request contexts registry.
      * If the lookup fails due to recycling or timing differences, returns a fallback context mapping to "unknown" scene
      * and the variant inferred from the cache key to keep the logging pipeline running.
      */
@@ -131,7 +124,7 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * Request Logger (Records the requested decode size without forcing original-size variants into fake pixel dimensions)
+     * Records the requested decode size without forcing original-size variants into fake pixel dimensions.
      * The target size is preformatted by the caller so bounded and unbounded requests share one diagnostic path.
      */
     fun logRequest(
@@ -148,7 +141,7 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * Pipeline Success Logger (Log successful image loading completion events from the global Coil listener)
+     * Log successful image loading completion events from the global Coil listener.
      * Records cache hits, load latencies, and Bitmap allocations to check whether images are shared
      * efficiently across different UI screens.
      */
@@ -171,7 +164,7 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * Pipeline Error Logger (Log image request failure exceptions from the global Coil listener)
+     * Log image request failure exceptions from the global Coil listener.
      * Combines the cache key, variant, and cost duration to help diagnose decoding or fetching errors
      * without needing to reproduce them on individual screens.
      */
@@ -183,8 +176,6 @@ object CoverImageCacheLogger {
         decodeCostMs: Long,
         error: Throwable
     ) {
-        // Release Error Boundary (Sanitize retained Coil pipeline failures)
-        // Image loading exceptions may include provider paths or request URLs, so the release-visible error path must use SecureLog.
         SecureLog.error(
             TAG,
             "pipeline error: scene=$scene, variant=$variant, sourceKeyHash=${hashSource(source)}, key=${cacheKey ?: "none"}, decodeCostMs=$decodeCostMs, error=${error::class.java.simpleName}: ${error.message}",
@@ -193,8 +184,8 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * Pipeline Cancel Logger (Log image request cancellation events from the global Coil listener)
-     * Differentiates routine cancellations (e.g. from rapid scrolling) from actual cache misses or errors
+     * Log image request cancellation events from the global Coil listener.
+     * e.g. from rapid scrolling. from actual cache misses or errors
      * to keep overall reliability statistics accurate.
      */
     fun logPipelineCancel(
@@ -211,7 +202,7 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * Bitmap Byte Count Extractor (Calculate the approximate heap size allocated for the decoded image)
+     * Calculate the approximate heap size allocated for the decoded image.
      * Reads allocationByteCount directly for BitmapDrawable, falling back to a "width * height * 4" estimation
      * for custom drawables to monitor memory footprints.
      */
@@ -241,7 +232,7 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * Normalize Decode Source (Map the low-level Coil DataSource and fetcher type to stable metrics labels)
+     * Map the low-level Coil DataSource and fetcher type to stable metrics labels.
      * Normalizes the source type into memory_hit, disk_hit, file_decode, or network, helping keep
      * image caching statistics clean and easy to interpret.
      */
@@ -255,7 +246,7 @@ object CoverImageCacheLogger {
         }
 
     /**
-     * Record Success Metric (Update the in-memory statistics metrics for the given scene and variant combination)
+     * Records in-memory statistics for the given scene and variant combination.
      * Aggregates hit counters and returns a snapshot of cache efficiency, allowing developers to inspect cache
      * performance patterns inside Logcat.
      */
@@ -285,7 +276,7 @@ object CoverImageCacheLogger {
     }
 
     /**
-     * Prune Expired Contexts (Clear stale request contexts to keep the registry map size bounded)
+     * Clear stale request contexts to keep the registry map size bounded.
      * Clears contexts that exceed the TTL limits when the cache exceeds capacity, protecting memory bounds
      * without interrupting active requests.
      */
@@ -299,7 +290,7 @@ object CoverImageCacheLogger {
     private fun requestIdentity(request: ImageRequest): Int = System.identityHashCode(request)
 
     /**
-     * Request Context DTO (Lightweight context structure containing metadata needed for pipeline diagnostics)
+     * Lightweight context structure containing metadata needed for pipeline diagnostics.
      * Avoids holding references to massive ImageRequest objects inside logs or event listener loops.
      */
     data class RequestContext(
@@ -310,7 +301,7 @@ object CoverImageCacheLogger {
     )
 
     /**
-     * Registered Request Context (Internal wrapper logging the registry timestamp to support TTL cleanup sweeps)
+     * Internal wrapper logging the registry timestamp to support TTL cleanup sweeps.
      */
     private data class RegisteredRequestContext(
         val scene: String,
@@ -321,7 +312,7 @@ object CoverImageCacheLogger {
     )
 
     /**
-     * Scene Variant Statistics (Internal statistics counters tracking successful cache allocations)
+     * Internal statistics counters tracking successful cache allocations.
      */
     private data class SceneVariantStats(
         var totalSuccesses: Int = 0,
@@ -333,7 +324,7 @@ object CoverImageCacheLogger {
     )
 
     /**
-     * Scene Variant Metrics Snapshot (Immutable stats projection showing cache ratios with single-decimal percentage formats)
+     * Immutable stats projection showing cache ratios with single-decimal percentage formats.
      */
     data class SceneVariantMetricsSnapshot(
         val totalSuccesses: Int,

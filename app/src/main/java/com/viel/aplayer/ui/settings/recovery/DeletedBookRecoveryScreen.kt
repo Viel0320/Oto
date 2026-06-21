@@ -52,7 +52,7 @@ import dev.chrisbanes.haze.hazeSource
 import com.viel.aplayer.ui.home.components.ListItem as BookListItem
 
 /**
- * Deleted Book Recovery Route (Connects the recovery ViewModel to the stateless screen)
+ * Connects the recovery ViewModel to the stateless screen.
  * Keeps lifecycle collection and modal actions outside the pure list renderer.
  */
 @Composable
@@ -76,7 +76,7 @@ fun DeletedBookRecoveryRoute(
 }
 
 /**
- * Deleted Book Recovery Screen (Renders recoverable books as a focused settings sub-page)
+ * Renders recoverable books as a focused settings sub-page.
  * Uses the existing book list row body while replacing the trailing action with a restore command.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,8 +92,6 @@ fun DeletedBookRecoveryScreen(
     glassEffectMode: GlassEffectMode,
     recoveryHazeState: HazeState? = null
 ) {
-    // Title: Read window size class (Obtain window size class to pass columnsCount to recovery list)
-    // Allows the recovery screen to dynamically adjust columns based on current layout state.
     val windowClass = LocalAppWindowSizeClass.current
     val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
@@ -102,8 +100,6 @@ fun DeletedBookRecoveryScreen(
     val density = LocalDensity.current
     var topBarHeightPx by remember { mutableIntStateOf(0) }
     val resolvedHazeState = recoveryHazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
-    // Recovery Top Bar Height Resolution (Reserve room for overlay chrome before the first measured frame)
-    // Matching Settings and About spacing prevents the restore list from sliding under the glass header.
     val measuredTopBarHeight = if (topBarHeightPx > 0) {
         with(density) { topBarHeightPx.toDp() }
     } else {
@@ -117,8 +113,6 @@ fun DeletedBookRecoveryScreen(
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                // Recovery Panel Width (Match Settings and About centered panel behavior on wide screens)
-                // Keeping the restore page at the same width prevents local sub-navigation from visually jumping between panels.
                 .fillMaxWidth()
         ) {
             Scaffold(
@@ -126,16 +120,11 @@ fun DeletedBookRecoveryScreen(
                     .fillMaxSize()
                     .then(
                         if (resolvedHazeState != null) {
-                            // Recovery Content Haze Source (Expose the restore list as the top-bar blur source)
-                            // The top bar is drawn above the list, so the sampled layer must be the content surface only.
                             Modifier.hazeSource(resolvedHazeState)
                         } else {
                             Modifier
                         }
                     ),
-                // Title: Dynamic Scaffold Background Color (Set containerColor to background when Haze is active)
-                // Overrides containerColor to background color under Haze mode so that hazeSource has a solid background to sample from,
-                // while keeping it transparent under Material mode to avoid duplicate draws.
                 containerColor = if (resolvedHazeState != null) MaterialTheme.colorScheme.background else Color.Transparent,
                 contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime)
             ) { innerPadding ->
@@ -181,7 +170,7 @@ fun DeletedBookRecoveryScreen(
 }
 
 /**
- * Deleted Book Recovery List (Displays recoverable books or a simple empty state)
+ * Displays recoverable books or a simple empty state.
  * Uses grid layout with dynamic columnsCount based on device layout size, aligning with the main catalog view.
  */
 @Composable
@@ -207,8 +196,6 @@ private fun DeletedBookRecoveryList(
             )
         }
     } else {
-        // Title: Grid layout for recovery books (Use LazyVerticalGrid to render books in responsive grid format)
-        // Adapts column counts dynamically to match catalog screens, utilizing the provided columnsCount.
         LazyVerticalGrid(
             columns = GridCells.Fixed(columnsCount),
             modifier = Modifier.fillMaxSize(),
@@ -242,7 +229,7 @@ private fun DeletedBookRecoveryList(
 }
 
 /**
- * Deleted Book Recovery Trailing Action (Renders restore button or per-row progress)
+ * Renders restore button or per-row progress.
  * Localizes the command through contentDescription while row-level loading blocks duplicate restore attempts.
  */
 @Composable
@@ -269,7 +256,7 @@ private fun DeletedBookRecoveryTrailingAction(
 }
 
 /**
- * Deleted Book Recovery Dialogs (Renders failure acknowledgement and partial-restore confirmation)
+ * Renders failure acknowledgement and partial-restore confirmation.
  * Uses the settings dialog template so recovery feedback matches the existing settings overlay surfaces.
  */
 @Composable
@@ -283,8 +270,6 @@ private fun DeletedBookRecoveryDialogs(
 ) {
     when (dialogState) {
         is DeletedBookRecoveryDialogState.RestoreConfirmation -> {
-            // Title: Render Restore Confirmation Dialog (Confirm book restoration with the user)
-            // Open a standard settings dialog to ensure the user actually wants to recover the book.
             SettingsTemplateDialog(
                 onDismissRequest = onDismissDialog,
                 hazeState = hazeState,

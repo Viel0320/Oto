@@ -19,10 +19,10 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Progress Synchronization Tracker (Helper class decoupled from PlaybackManager singletons)
+ * Helper class decoupled from PlaybackManager singletons.
  * Handles high-frequency polling loops and manages database persistence operations.
  * Isolates progress mathematical calculation models and defines precise lifecycle controls.
- * 
+ *
  * Decouples the legacy LibraryRepository by splitting operations into BookCatalogGateway and ProgressGateway.
  */
 class ProgressSyncTracker(
@@ -35,19 +35,14 @@ class ProgressSyncTracker(
     private val getCurrentPlan: () -> BookPlaybackPlan?,
     private val onProgressUpdated: (positionMs: Long, durationMs: Long, bufferedPositionMs: Long) -> Unit
 ) {
-    // Polling Job Coordinator (Coroutine job reference for active player progress loop, managed dynamically via playback states)
     private var pollingJob: Job? = null
 
-    // Progress Write Mutex (Serializes local checkpoint commits emitted by this tracker)
-    // Polling, seeking, auto-rewind, and track transitions can enqueue writes in rapid succession; this lock keeps their local persistence side effects ordered.
     private val progressWriteMutex = Mutex()
 
-    // Progress Snapshot Clock (Assigns strictly increasing creation timestamps to playback snapshots)
-    // System.currentTimeMillis can repeat within one millisecond, so this monotonic wrapper gives the DAO a deterministic freshness key.
     private val progressSnapshotClock = AtomicLong(0L)
 
     /**
-     * Start Polling Routine (Spawns the high-frequency progress polling coroutine)
+     * Spawns the high-frequency progress polling coroutine.
      * Refreshes UI progress flows every 500ms and commits state checkpoints to Room every 10s (20 cycles).
      * Automatically cancelled when the parent scope is destroyed or when stopPolling() is invoked.
      */
@@ -58,16 +53,13 @@ class ProgressSyncTracker(
             while (isActive) {
                 val controller = getController()
                 if (controller != null && controller.isPlaying) {
-                    // State Emission (Propagates global playback positions and overall duration counts to state flows)
                     updateProgress(controller)
                     saveCounter++
                     if (saveCounter >= 20) {
                         saveCounter = 0
-                        // Checkpoint Save (Persists current progress checkpoint to DB every 10 seconds)
                         saveProgressDirectly(controller)
                     }
                 }
-                // Dynamic Polling Interval (Delay 500ms during playback to keep UI precise; throttle to 2s when paused to save CPU)
                 val delayTime = if (getController()?.isPlaying == true) 500L else 2000L
                 delay(delayTime.milliseconds)
             }
@@ -75,7 +67,7 @@ class ProgressSyncTracker(
     }
 
     /**
-     * Stop Polling Routine (Terminates the active progress polling coroutine)
+     * Terminates the active progress polling coroutine.
      * Cancels the running job and cleans up references to prevent background coroutine leaks.
      */
     fun stopPolling() {
@@ -84,7 +76,7 @@ class ProgressSyncTracker(
     }
 
     /**
-     * Resolve Global Position (Calculates global position and duration relative to the current playback plan)
+     * Calculates global position and duration relative to the current playback plan.
      * Queries MediaController indices and local offsets to resolve overall progress via PositionMapper algorithms.
      *
      * @param player The active MediaController instance
@@ -101,8 +93,6 @@ class ProgressSyncTracker(
                 .coerceAtLeast(positionInFile)
             val globalBuffered = PositionMapper.fileToGlobalPosition(fileIndex, bufferedInFile, plan.files)
                 .coerceIn(globalPos, totalDur.coerceAtLeast(0L))
-            // Buffered Position Projection (Report ExoPlayer's item-local buffer as a book-global coordinate)
-            // Player UI renders a whole-book progress bar, so buffered bytes need the same multi-file timeline mapping as current position.
             onProgressUpdated(globalPos, totalDur, globalBuffered)
         } else {
             val currentPosition = player.currentPosition.coerceAtLeast(0L)
@@ -110,7 +100,6 @@ class ProgressSyncTracker(
             val bufferedPosition = player.bufferedPosition
                 .coerceAtLeast(currentPosition)
                 .coerceIn(currentPosition, duration.coerceAtLeast(currentPosition))
-            // Fallback Progress Check (Falls back to reporting raw media track position if no multi-file plan exists)
             onProgressUpdated(
                 currentPosition,
                 duration,
@@ -120,7 +109,7 @@ class ProgressSyncTracker(
     }
 
     /**
-     * Force Checkpoint Save (Executes progress serialization immediately upon state transitions, e.g., pause, seek, track skips)
+     * Executes progress serialization immediately upon state transitions, e.g., pause, seek, track skips.
      */
     fun saveProgress() {
         val controller = getController() ?: return
@@ -128,7 +117,7 @@ class ProgressSyncTracker(
     }
 
     /**
-     * Database Checkpoint Write (Helper resolving mediaId components and writing BookProgressEntity snapshots to SQLite)
+     * Helper resolving mediaId components and writing BookProgressEntity snapshots to SQLite.
      *
      * @param controller The active MediaController instance
      */
@@ -145,7 +134,7 @@ class ProgressSyncTracker(
     }
 
     /**
-     * Direct Progress Persistence (Manually overrides progress state, bypassing active player queries)
+     * Manually overrides progress state, bypassing active player queries.
      * Utilized during explicit seeks or plan loading, writing changes via background threads.
      *
      * @param bookId Target audiobook identifier
@@ -164,13 +153,9 @@ class ProgressSyncTracker(
     }
 
     private fun enqueueProgress(snapshot: ProgressSnapshot): Job = scope.launch {
-        // Fetch Track Configurations (Resolve physical audio files before committing a snapshot)
-        // Progress persistence needs track inventory for global-position mapping while keeping catalog reads outside the serialized write section.
         val files = bookCatalogGateway.getFilesForBookSync(snapshot.bookId)
         val progress = snapshot.toEntity(files) ?: return@launch
         val accepted = progressWriteMutex.withLock {
-            // Progress Ordering Guard (Prevent stale playback snapshots from overwriting newer checkpoints)
-            // The DAO also rejects older lastPlayedAt values so ordering survives delayed coroutine and process-level interleaving.
             progressGateway.saveProgressIfNewer(progress)
         }
         if (!accepted) return@launch
@@ -185,8 +170,6 @@ class ProgressSyncTracker(
     }
 
     private fun nextProgressSnapshotTime(): Long {
-        // Monotonic Snapshot Timestamp (Creates a stable freshness key at event capture time)
-        // Capturing this before asynchronous file lookup ensures an older polling save remains older even if it completes after a seek save.
         val wallClockTime = System.currentTimeMillis()
         return progressSnapshotClock.updateAndGet { previousTime ->
             maxOf(wallClockTime, previousTime + 1L)
@@ -201,8 +184,6 @@ class ProgressSyncTracker(
     ) {
         fun toEntity(files: List<BookFileEntity>): BookProgressEntity? {
             if (files.isEmpty()) return null
-            // Snapshot Coordinate Projection (Maps the captured file-local offset into durable progress columns)
-            // The file index is clamped against the current catalog so stale controller indices cannot create invalid file anchors.
             val safeFileIndex = fileIndex.coerceIn(0, files.lastIndex)
             val safePositionInFile = positionInFileMs.coerceAtLeast(0L)
             val totalDurationMs = files.sumOf { it.durationMs }.coerceAtLeast(0L)

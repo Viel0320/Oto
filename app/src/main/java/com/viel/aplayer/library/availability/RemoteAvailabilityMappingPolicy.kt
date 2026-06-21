@@ -5,15 +5,14 @@ import java.io.IOException
 import java.net.SocketTimeoutException
 
 /**
- * Remote Availability Mapping Policy (Centralizes protocol error-to-availability decisions)
+ * Centralizes protocol error-to-availability decisions.
  * Converts HTTP statuses and transport exceptions into the shared AvailabilityStatus language while preserving protocol-specific fallback semantics.
  */
 object RemoteAvailabilityMappingPolicy {
     /**
-     * HTTP Status Mapping Policy (Keeps remote protocol status translation behind one testable rule)
+     * Keeps remote protocol status translation behind one testable rule.
      * ABS treats unknown HTTP responses as UNKNOWN, while WebDAV treats unclassified HTTP failures as NETWORK_UNAVAILABLE to preserve existing provider behavior.
      */
-    // Return AvailabilityStatus: Change return type from String to AudiobookSchema.AvailabilityStatus enum.
     fun fromHttpStatus(statusCode: Int, protocol: RemoteAvailabilityProtocol): AudiobookSchema.AvailabilityStatus =
         when {
             statusCode == HTTP_UNAUTHORIZED -> AudiobookSchema.AvailabilityStatus.AUTH_FAILED
@@ -28,7 +27,7 @@ object RemoteAvailabilityMappingPolicy {
         }
 
     /**
-     * Transport Exception Mapping Policy (Separates timeout failures from general connectivity failures)
+     * Separates timeout failures from general connectivity failures.
      * Providers use the returned code and status to keep ABS/WebDAV exception types stable while sharing the classification rule.
      */
     fun fromTransportException(error: IOException): RemoteTransportFailure =
@@ -61,7 +60,7 @@ object RemoteAvailabilityMappingPolicy {
 }
 
 /**
- * Remote Availability Protocol (Names the provider family whose fallback semantics are being applied)
+ * Names the provider family whose fallback semantics are being applied.
  * The policy keeps protocol differences explicit so callers cannot silently inherit the wrong default for unclassified HTTP failures.
  */
 enum class RemoteAvailabilityProtocol {
@@ -70,12 +69,11 @@ enum class RemoteAvailabilityProtocol {
 }
 
 /**
- * Remote Transport Failure (Carries the shared status and protocol exception code together)
+ * Carries the shared status and protocol exception code together.
  * ABS callers need a compact error code, while WebDAV callers only need the availabilityStatus and timeout marker for message selection.
  */
 data class RemoteTransportFailure(
     val errorCode: String,
-    // Availability Status Type Safe: Use AudiobookSchema.AvailabilityStatus enum.
     val availabilityStatus: AudiobookSchema.AvailabilityStatus,
     val isTimeout: Boolean
 )

@@ -32,7 +32,7 @@ import com.viel.aplayer.ui.common.uiPerformanceTrace
 import dev.chrisbanes.haze.HazeState
 
 /**
- * Detail Route (Stateful detail page route adapter)
+ * Stateful detail page route adapter.
  *
  * Owns DetailViewModel collection, dynamic cover color state, and user-effect callbacks before handing
  * pure rendering work to DetailOverlay and DetailScreen.
@@ -44,39 +44,20 @@ fun DetailRoute(
     canStartNavigation: () -> Boolean,
     onPlayBook: (String) -> Unit,
     onNavigateToSearch: (String) -> Unit,
-    // Detail Action Edit Route (Delegate selected-book editing to the app shell)
-    // DetailRoute forwards the Detail action-dialog command without owning EditBookViewModel or overlay lifecycle.
     onEditBookRequested: (String) -> Unit,
-    // Detail Action Read Status Route (Delegate manual status changes)
-    // The home/library scene still owns the persistence command, while DetailRoute only carries the selected Detail id.
-    // Update Read Status: Update readStatus parameter type to ReadStatus enum.
     onUpdateReadStatus: (String, LibraryReadStatus) -> Unit,
-    // Detail Action Metadata Refresh Route (Delegate forced regeneration)
-    // Regeneration remains a library command so DetailRoute avoids media parsing or cache work.
     onForceRegenerate: (String) -> Unit,
-    // Detail Action Delete Route (Delegate destructive removal)
-    // App-level cleanup coordinates playback, Detail visibility, and catalog deletion around this callback.
     onDeleteBook: (String) -> Unit,
-    // Glass Effect Route Input (Receives app-level visual mode without hard-coded defaults)
-    // DetailRoute passes this value through to both the overlay shell and stateless screen.
     glassEffectMode: GlassEffectMode,
-    // Detail App Haze Source (Rejoin the app-level sampler)
-    // Detail registers its visible surface into the shell-owned HazeState so Search, Edit, and global dialogs keep one backdrop source while Detail is visible.
     appHazeState: HazeState? = null,
-    // Detail Transition Idle Callback (Expose overlay animation lifecycle to the app shell)
-    // The navigation layer uses this signal to defer rapid Detail re-entry until the previous shared-element return chain finishes.
     onTransitionIdleChanged: (Boolean) -> Unit = {},
 ) {
     val detailUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val darkTheme = LocalDarkTheme.current
-    // Detail Cover Seed (Resolve artwork from the scene snapshot instead of a Room entity)
-    // Dynamic theme state follows the selected detail item while keeping route code on the Detail boundary type.
     val coverPath = detailUiState.book?.item?.coverPath
     val coverLastUpdated = detailUiState.book?.item?.lastScannedAt ?: 0L
 
-    // Cover Color Route State (Reset per selected artwork and seed the detail theme from cached extraction)
-    // The color is route state because it coordinates theme selection and render callbacks without belonging to the stateless screen.
     var coverColor by remember(coverPath, coverLastUpdated) {
         mutableStateOf(ImageProcessor.getCachedColor(coverPath, coverLastUpdated)?.let { Color(it) })
     }
@@ -101,8 +82,6 @@ fun DetailRoute(
         }
     }
     val requestManualDownload: (String) -> Unit = { bookId ->
-        // Download Notification Permission Gate (Prevent invisible foreground downloads on Android 13+)
-        // The download domain receives only commands that passed presentation-level notification permission preflight.
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         ) {
             detailViewModel.downloadBook(bookId)
@@ -111,8 +90,6 @@ fun DetailRoute(
             showNotificationPermissionDialog = true
         }
     }
-    // Detail Trace State (Report overlay lifecycle and selected source without exposing book content)
-    // Visibility and permission-dialog flags are enough to associate layout churn with route-level state changes.
     val detailTraceState = "visible=${detailUiState.isVisible},hasBook=${detailUiState.book != null}," +
         "source=${detailUiState.entrySource},permissionDialog=$showNotificationPermissionDialog"
 
@@ -134,15 +111,11 @@ fun DetailRoute(
                 onPlayPressed = { detailViewModel.onPlayPressed() },
                 onSearchClick = { query ->
                     if (canStartNavigation()) {
-                        // In-Place Search Activation (Open search while preserving the selected detail context)
-                        // Search routing remains a host-level effect and does not mutate DetailScreen visibility.
                         onNavigateToSearch(query)
                     }
                 },
                 onPlayClick = {
                     detailUiState.book?.let { snapshot ->
-                        // Host Playback Command (Route selected detail item playback to PlayerViewModel in the app shell)
-                        // DetailScreen only reports the action; route-level wiring resolves the current book identifier.
                         onPlayBook(snapshot.bookId)
                     }
                 },
@@ -193,8 +166,6 @@ fun DetailRoute(
             }
         }
 
-        // Detail Theme Application (Apply book-seeded color only around the stateless detail screen)
-        // Keeping theme selection here prevents DetailScreen from needing ImageProcessor or dynamic theme knowledge.
         if (detailColorScheme != null) {
             MaterialTheme(colorScheme = animateColorScheme(detailColorScheme), content = screenBlock)
         } else {

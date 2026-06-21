@@ -21,7 +21,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 
 /**
- * Detail Overlay (Stateless animated overlay shell)
+ * Stateless animated overlay shell.
  *
  * Owns only overlay animation, shared-element scope publication, and haze source registration.
  * Route-level state and screen callbacks are injected through [content].
@@ -37,75 +37,34 @@ fun DetailOverlay(
     onTransitionIdleChanged: (Boolean) -> Unit = {},
     content: @Composable () -> Unit
 ) {
-    /*
-     * Detail Visibility Transition State (Animation lifecycle surface)
-     *
-     * Owns the actual AnimatedVisibility state object so the app shell can distinguish
-     * logical Detail visibility from the still-running enter/exit animation frames.
-     */
     val detailVisibilityState = remember { MutableTransitionState(false) }
 
     val isChangingTarget = detailVisibilityState.currentState != visible ||
         detailVisibilityState.targetState != visible
     if (detailVisibilityState.targetState != visible) {
-        /*
-         * Detail Target Visibility Sync (Start animation in the current composition)
-         *
-         * Updates the transition target immediately so the shared-element exit or enter chain
-         * starts in the same frame as the route visibility change instead of waiting for an effect.
-         */
         detailVisibilityState.targetState = visible
     }
 
-    /*
-     * Immediate Transition Busy Report (Close same-frame navigation gaps)
-     *
-     * AnimatedVisibility reports isIdle after recomposition, so the app shell needs an eager
-     * busy signal as soon as Detail's target visibility changes; otherwise a very fast Home/Search
-     * tap can retarget Detail before the exit shared-element chain starts.
-     */
     LaunchedEffect(visible) {
         if (isChangingTarget) {
             onTransitionIdleChanged(false)
         }
     }
 
-    /*
-     * Detail Transition Idle Report (Navigation gate signal)
-     *
-     * Reports whether the overlay transition is idle so navigation can queue a new Detail
-     * selection until the previous shared-element return chain has completed.
-     */
     LaunchedEffect(detailVisibilityState.isIdle) {
         onTransitionIdleChanged(detailVisibilityState.isIdle)
     }
 
-    // Detail Overlay Animation (Keep transition policy separate from DetailRoute state collection)
-    // A fixed 300ms duration preserves the existing enter/exit behavior while making this wrapper stateless.
     AnimatedVisibility(
         visibleState = detailVisibilityState,
         enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),
         exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(animationSpec = tween(300)),
         modifier = modifier
     ) {
-        /*
-         * Detail Animated Visibility Scope (Destination shared-element scope)
-         *
-         * Exposes this overlay's AnimatedVisibilityScope to nested detail artwork so the
-         * Home recent cover can morph into the detail cover during overlay enter and exit.
-         */
         CompositionLocalProvider(
-            /*
-             * Home To Detail Target Scope Provider (Detail cover target isolation)
-             *
-             * Publishes the DetailOverlay visibility scope through the Home->Detail-specific
-             * target local so detail covers never inherit full-player overlay visibility scopes.
-             */
             LocalHomeRecent2DetailTargetScope provides this@AnimatedVisibility,
             LocalAnimatedVisibilityScope provides this@AnimatedVisibility
         ) {
-            // Detail App Haze Boundary (Register visible Detail content into the shell sampler)
-            // App-level consumers such as Search, Edit, and global dialogs can sample Detail as the current backdrop without switching HazeState instances.
             Box(
                 modifier = Modifier
                     .fillMaxSize()

@@ -1,7 +1,7 @@
 package com.viel.aplayer.logger
 
 /**
- * ABS Stream Logger (Media streaming and Range requests logging)
+ * Media streaming and Range requests logging.
  *
  * Boundaries of responsibility:
  * 1. Only logs media streaming reads for AbsSourceProvider and its upper VFS entry points.

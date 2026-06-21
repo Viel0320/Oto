@@ -23,8 +23,6 @@ class DownloadStatusReadModelTest {
 
         val status = readModel.observeBookCacheStatus(BOOK_ID).first()
 
-        // Missing Metadata Projection (Derive UI None state from absent download metadata)
-        // NONE must not be persisted in Room, so the read model owns the conversion for detail and management screens.
         assertEquals(BookCacheState.NONE, status.state)
         assertEquals(0, status.progressPercent)
     }
@@ -49,8 +47,6 @@ class DownloadStatusReadModelTest {
 
         val status = readModel.observeBookCacheStatus(BOOK_ID).first()
 
-        // Download Metadata Projection (Keep file counts and byte progress stable for UI rendering)
-        // The percent is byte-based when total bytes are known so large remaining files are not hidden by completed chapter counts.
         assertEquals(BookCacheState.DOWNLOADING, status.state)
         assertEquals(4, status.totalFiles)
         assertEquals(2, status.completedFiles)
@@ -66,8 +62,6 @@ class DownloadStatusReadModelTest {
 
         val status = readModel.observeBookCacheStatus(BOOK_ID).first()
 
-        // SAF Cache Status Projection (SAF source roots correspond to native offline cache state)
-        // Direct local sources must bypass manual downloads and expose the LOCAL state.
         assertEquals(BookCacheState.LOCAL, status.state)
         assertEquals(0, status.progressPercent)
     }

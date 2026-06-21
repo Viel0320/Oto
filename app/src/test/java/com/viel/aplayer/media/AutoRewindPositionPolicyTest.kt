@@ -21,8 +21,6 @@ class AutoRewindPositionPolicyTest {
             files = files
         )
 
-        // Cross-File Rewind Mapping (Documents that auto rewind operates on the global audiobook timeline)
-        // A pause near the start of a later file should seek into the previous file instead of clamping inside the current track.
         assertEquals(0, target.mediaItemIndex)
         assertEquals(7_000L, target.positionMs)
         assertEquals(7_000L, target.globalPositionMs)
@@ -37,8 +35,6 @@ class AutoRewindPositionPolicyTest {
             files = emptyList()
         )
 
-        // Single-Item Fallback Mapping (Preserves controller-only rewind behavior when no BookPlaybackPlan exists)
-        // Without file durations, the policy cannot change media items and returns a current-item seek target.
         assertNull(target.mediaItemIndex)
         assertEquals(5_000L, target.positionMs)
         assertEquals(5_000L, target.globalPositionMs)
@@ -66,8 +62,6 @@ class AutoRewindPositionPolicyTest {
             now = 99L
         )
 
-        // Persisted Anchor Remapping (Keeps cold-start recovery consistent with live multi-track rewind)
-        // The saved progress moves to the target file and file-local position so future playback starts from the healed coordinate.
         assertEquals(7_000L, healed.globalPositionMs)
         assertEquals("file-1", healed.bookFileId)
         assertEquals(0, healed.currentFileIndex)
@@ -93,8 +87,6 @@ class AutoRewindPositionPolicyTest {
             now = 99L
         )
 
-        // Anchorless Recovery Fallback (Preserves legacy global-only correction when file rows are unavailable)
-        // Existing file anchor fields are not rewritten because there is no file list available for a trustworthy remap.
         assertEquals(0L, healed.globalPositionMs)
         assertEquals("file-2", healed.bookFileId)
         assertEquals(1, healed.currentFileIndex)

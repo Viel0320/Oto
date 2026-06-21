@@ -27,7 +27,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 /**
- * Detail Book Module Test (Locks detail-scene gateway delegation)
+ * Locks detail-scene gateway delegation.
  * Verifies live snapshot updates, availability refresh delegation, and root cache behavior outside DetailViewModel.
  */
 class DetailBookModuleTest {
@@ -100,11 +100,7 @@ class DetailBookModuleTest {
         availabilityGateway: FakeBookAvailabilityGateway = FakeBookAvailabilityGateway(),
         rootGateway: FakeLibraryRootGateway = FakeLibraryRootGateway()
     ): DefaultDetailBookModule {
-        // Module Fixture (Wires fake granular gateways exactly like LibraryGraph does)
-        // Each fake records only the detail-scene calls under test and fails fast for unrelated gateway methods.
         return DefaultDetailBookModule(
-            // Detail Catalog Fixture (Pass only catalog-capable fake data to the detail module)
-            // Detail reads selected book and file inventory without receiving metadata or bookmark command dependencies.
             bookCatalogGateway = queryGateway,
             bookAvailabilityGateway = availabilityGateway,
             libraryRootGateway = rootGateway
@@ -115,8 +111,6 @@ class DetailBookModuleTest {
         id: String = BOOK_ID,
         title: String = "Selected Book"
     ): DetailSnapshot {
-        // Detail Snapshot Fixture (Builds the Room-free selected item at the scene boundary)
-        // The module should treat this as the selected book identity and never infer selection from gateway internals.
         return DetailSnapshot(
             item = DetailBookItem(
                 id = id,

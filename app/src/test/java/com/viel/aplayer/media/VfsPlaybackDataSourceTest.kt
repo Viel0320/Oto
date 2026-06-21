@@ -125,8 +125,6 @@ class VfsPlaybackDataSourceTest {
         assertTrue(error is InterruptedIOException)
     }
 
-    // EOF Clipped Length Regression (Locks Media3 open length reporting near the physical file end)
-    // A bounded request starting at byte 250 of a 256-byte file must report and expose only the six bytes that can actually be read.
     @Test
     fun `open returns EOF clipped readable length when requested length exceeds file size`() {
         val source = VfsPlaybackDataSource(
@@ -209,8 +207,6 @@ class VfsPlaybackDataSourceTest {
         }
     }
 
-    // Bounded Range Fixture (Allows DataSource tests to model explicit Media3 byte-range requests)
-    // EOF clipping regressions require a caller-provided length, while existing cancellation and open-error tests keep the default unbounded contract.
     private fun dataSpec(
         position: Long = 0L,
         length: Long = androidx.media3.common.C.LENGTH_UNSET.toLong()

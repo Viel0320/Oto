@@ -21,8 +21,6 @@ class BookDownloadAggregatorTest {
             nowMillis = 10L
         )
 
-        // Completed Book Projection (Requires every file-level Media3 download to be complete)
-        // This prevents a multi-file book from showing as cached when only the first track is already available.
         requireNotNull(aggregate)
         assertEquals(DownloadStatus.COMPLETED, aggregate.status)
         assertEquals(2, aggregate.completedFiles)
@@ -44,8 +42,6 @@ class BookDownloadAggregatorTest {
             nowMillis = 20L
         )
 
-        // Failure Dominance (Any failed file makes the book-level manual download retryable)
-        // Keeping the existing createdAt preserves the first user action timestamp while updatedAt tracks the latest reconciliation.
         requireNotNull(aggregate)
         assertEquals(DownloadStatus.FAILED, aggregate.status)
         assertEquals(5L, aggregate.createdAt)
@@ -64,8 +60,6 @@ class BookDownloadAggregatorTest {
             nowMillis = 30L
         )
 
-        // Missing Request Repair State (Absent DownloadIndex rows keep the book recoverable)
-        // Recovery can resubmit only missing files instead of losing the durable book-level task.
         requireNotNull(aggregate)
         assertEquals(DownloadStatus.QUEUED, aggregate.status)
         assertEquals(1, aggregate.completedFiles)
@@ -82,8 +76,6 @@ class BookDownloadAggregatorTest {
             nowMillis = 40L
         )
 
-        // Empty Remote File Set (No metadata row is persisted when there is no remote file to cache)
-        // SAF-only books derive BookCacheStatus.None rather than creating a meaningless download task.
         assertNull(aggregate)
     }
 

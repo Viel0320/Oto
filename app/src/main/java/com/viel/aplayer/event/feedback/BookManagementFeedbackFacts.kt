@@ -3,7 +3,7 @@ package com.viel.aplayer.event.feedback
 import com.viel.aplayer.application.library.LibraryReadStatus
 
 /**
- * Book Management Feedback Facts (Command-owner fact factory for per-book management outcomes)
+ * Command-owner fact factory for per-book management outcomes.
  *
  * Book management feedback stays tied to the specific [FeedbackContext.Book] so the same action on
  * different books never absorbs another book's outcome. Cover and metadata regeneration is the one
@@ -14,7 +14,7 @@ import com.viel.aplayer.application.library.LibraryReadStatus
 object BookManagementFeedbackFacts {
 
     /**
-     * Bookmark Created (A bookmark was persisted for a specific book)
+     * A bookmark was persisted for a specific book.
      *
      * Both the dialog UI path and the media-session domain path converge on this identity so a near
      * simultaneous double trigger collapses to one toast instead of two.
@@ -28,7 +28,7 @@ object BookManagementFeedbackFacts {
         )
 
     /**
-     * Book Deleted (A book was removed from the library)
+     * A book was removed from the library.
      *
      * The copy distinguishes whether the source file was kept, but the deletion outcome stays keyed to
      * the book so deletions of different books never absorb each other.
@@ -41,7 +41,7 @@ object BookManagementFeedbackFacts {
             severity = FeedbackSeverity.COMPLETED
         )
 
-    /** Read Status Changed (The listener changed a book's read status). */
+    /** The listener changed a book's read status. */
     fun readStatusChanged(bookId: String, readStatus: LibraryReadStatus): FeedbackFact =
         bookFact(
             message = FeedbackMessages.homeReadStatusUpdated(readStatus),
@@ -51,7 +51,7 @@ object BookManagementFeedbackFacts {
         )
 
     /**
-     * Cover Metadata Regeneration Started (Cover and metadata rebuild began)
+     * Cover and metadata rebuild began.
      *
      * App-wide maintenance, so it stays on [FeedbackContext.Global] as a provisional started outcome that
      * the completed final outcome replaces if the rebuild finishes within the hold window.
@@ -63,7 +63,7 @@ object BookManagementFeedbackFacts {
             lifecycle = FeedbackLifecycle.PROVISIONAL
         )
 
-    /** Cover Metadata Regeneration Completed (Cover and metadata rebuild finished). */
+    /** Cover and metadata rebuild finished. */
     fun coverMetadataRegenerationCompleted(): FeedbackFact =
         coverMetadataFact(
             message = FeedbackMessages.homeCoverMetadataRegenerationCompleted(),

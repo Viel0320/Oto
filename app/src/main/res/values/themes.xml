@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Global Application Theme (Upgrades global base theme to the native DeviceDefault.NoActionBar style) -->
-    <!-- Enables zero-dependency compilation by avoiding legacy appcompat/material components, -->
-    <!-- and delegates light/dark transitions and status bar coloring directly to the Android OS to prevent flash-on-start. -->
     <style name="Theme.APlayer" parent="android:Theme.DeviceDefault.NoActionBar" />
 </resources>

@@ -4,7 +4,7 @@ import com.viel.aplayer.library.vfs.VfsNode
 import java.security.MessageDigest
 
 /**
- * VFS Range Cache Key (Builds stable file-safe identifiers for bounded metadata reads)
+ * Builds stable file-safe identifiers for bounded metadata reads.
  * Hashes root, source path, and file version inputs so cache file names never contain raw provider paths, etags, URLs, or
  * library identifiers.
  */
@@ -17,7 +17,7 @@ data class VfsRangeCacheKey(
     val length: Int
 ) {
     /**
-     * To File Name (Serializes the cache key into a deterministic disk block name)
+     * Serializes the cache key into a deterministic disk block name.
      * Uses only hexadecimal hash segments plus numeric range bounds, preserving a simple root-prefixed eviction pattern.
      */
     fun toFileName(): String =
@@ -25,7 +25,7 @@ data class VfsRangeCacheKey(
 
     companion object {
         /**
-         * Build From VFS Node (Creates a range key only for valid bounded reads)
+         * Creates a range key only for valid bounded reads.
          * Rejects negative offsets and non-positive lengths before hashing so callers can bypass invalid cache operations.
          */
         fun from(file: VfsNode, offset: Long, length: Int): VfsRangeCacheKey? {
@@ -38,8 +38,6 @@ data class VfsRangeCacheKey(
                     lastModified = file.metadata.lastModified,
                     fileSize = file.metadata.fileSize
                 ),
-                // Provider Version Presence (Separates metadata-versioned blocks from truly versionless remote reads)
-                // Either an ETag or a positive modified time can participate in the key, while sources lacking both use the shorter TTL fallback.
                 hasProviderVersion = file.metadata.etag?.isNotBlank() == true || file.metadata.lastModified > 0L,
                 offset = offset,
                 length = length
@@ -47,7 +45,7 @@ data class VfsRangeCacheKey(
         }
 
         /**
-         * Version Hash (Derives file-version identity without exposing raw etag or timestamps)
+         * Derives file-version identity without exposing raw etag or timestamps.
          * Prefers provider etags when available and falls back to lastModified plus fileSize for sources without etag support.
          */
         fun versionHash(etag: String?, lastModified: Long, fileSize: Long): String {
@@ -56,7 +54,7 @@ data class VfsRangeCacheKey(
         }
 
         /**
-         * Hash Identifier (Converts sensitive cache coordinates to short hexadecimal labels)
+         * Converts sensitive cache coordinates to short hexadecimal labels.
          * Produces compact SHA-256 prefixes that are deterministic enough for cache hits while avoiding reversible file names.
          */
         fun hashIdentifier(value: String): String {

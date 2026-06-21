@@ -1,7 +1,7 @@
 package com.viel.aplayer.logger
 
 /**
- * ABS Playback Logger (Playback session and remote progress synchronization logging)
+ * Playback session and remote progress synchronization logging.
  *
  * Boundaries of responsibility:
  * 1. Only logs events related to remote sessions like open, sync, close, pending flush, and credential resolution.

@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 /**
- * Default Deleted Book Recovery Module (Wires Room storage and provider availability into the recovery scene)
+ * Wires Room storage and provider availability into the recovery scene.
  * Keeps recovery reads and commands separate from SettingsRootCommands, LibraryFacade, and the home catalog module.
  */
 class DefaultDeletedBookRecoveryModule(
@@ -49,7 +49,7 @@ class DefaultDeletedBookRecoveryModule(
 }
 
 /**
- * Room Deleted Book Recovery Store (Adapts Room DAOs to the narrow recovery persistence seam)
+ * Adapts Room DAOs to the narrow recovery persistence seam.
  * Restricts restore writes to dedicated BookDao transactions and reads ABS mirror state locally without starting remote sync work.
  */
 private class RoomDeletedBookRecoveryStore(
@@ -81,7 +81,7 @@ private class RoomDeletedBookRecoveryStore(
 }
 
 /**
- * Recovery Projection Mapping (Converts DAO rows to the application recovery item)
+ * Converts DAO rows to the application recovery item.
  * Keeps SQL aliases and Compose-facing field names aligned while avoiding Room annotations in the UI model.
  */
 private fun DeletedBookRecoveryProjection.toRecoveryItem(): DeletedBookRecoveryItem =

@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Search Query Planner Test (Locks search directive parsing outside the ViewModel)
+ * Locks search directive parsing outside the ViewModel.
  * Verifies blank queries, directive routing, plain keyword search, and multi-token id intersection.
  */
 class SearchQueryPlannerTest {
@@ -91,8 +91,6 @@ class SearchQueryPlannerTest {
         calls: MutableList<String>,
         searchResults: Map<String, List<BookWithProgress>> = emptyMap()
     ): SearchQueryPlanner {
-        // Query Function Recorder (Captures selected gateway operation without a full gateway fake)
-        // Each lambda returns deterministic Flow values so planner tests can assert routing and intersection behavior directly.
         fun record(type: String, query: String): Flow<List<BookWithProgress>> {
             calls += "$type:$query"
             return flowOf(searchResults[query] ?: listOf(book("$type-$query")))
@@ -107,10 +105,7 @@ class SearchQueryPlannerTest {
         )
     }
 
-    // Update SearchQueryPlannerTest: Change book helper signature to use type-safe AudiobookSchema.SourceType enum.
     private fun book(id: String): BookWithProgress {
-        // Minimal Book Fixture (Creates only the fields required for search identity assertions)
-        // The planner only reads book ids, so the rest of the entity uses stable default metadata.
         return BookWithProgress(
             book = BookEntity(
                 id = id,

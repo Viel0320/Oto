@@ -4,7 +4,7 @@ import com.viel.aplayer.library.vfs.VfsNode
 import com.viel.aplayer.library.vfs.sourceProvider.SourceFileMetadata
 
 /**
- * Directory Listing Cache Boundary (Scanner-facing cache abstraction for direct child snapshots)
+ * Scanner-facing cache abstraction for direct child snapshots.
  * Keeps directory listing reuse isolated from playback, availability checks, and range reads by exposing only VfsNode
  * directory inputs plus SourceFileMetadata child snapshots.
  */
@@ -15,7 +15,7 @@ interface DirectoryListingCache {
 }
 
 /**
- * No-Op Directory Listing Cache (Default VFS behavior for non-scanner callers)
+ * Default VFS behavior for non-scanner callers.
  * Preserves provider-direct reads unless a scanner explicitly injects a Room-backed cache instance.
  */
 object NoOpDirectoryListingCache : DirectoryListingCache {

@@ -7,7 +7,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 /**
- * Detail Source Location Formatter Test (Locks safe source breadcrumb rendering)
+ * Locks safe source breadcrumb rendering.
  * Verifies detail source labels use registered root names and relative paths without leaking provider internals.
  */
 class DetailSourceLocationFormatterTest {
@@ -96,13 +96,10 @@ class DetailSourceLocationFormatterTest {
         assertEquals("SAF://Library", result)
     }
 
-    // DetailSourceLocationFormatterTest uses the application-level source enum at the snapshot boundary.
     private fun snapshot(
         sourceType: LibraryBookSourceType,
         title: String = "Local Book"
     ): DetailSnapshot {
-        // Detail Snapshot Fixture (Creates the transition snapshot without database entity dependencies)
-        // Only source type, root id, and title are relevant to formatter behavior in these tests.
         return DetailSnapshot(
             item = DetailBookItem(
                 id = "book-id",

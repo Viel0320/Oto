@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget Inner Card Background (Use a lighter border outline to create contrast between the cover card and the outer widget casing) -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <corners android:radius="22dp" />
     <solid android:color="#241B2B" />

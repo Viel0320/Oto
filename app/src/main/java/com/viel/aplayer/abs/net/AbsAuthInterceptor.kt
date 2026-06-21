@@ -22,8 +22,6 @@ class AbsAuthInterceptor(
         val originalRequest = chain.request()
         val auth = originalRequest.tag(AbsAuth::class.java) ?: return chain.proceed(originalRequest)
         
-        // Resolve token from credentialStore using credentialId if token is null/blank,
-        // falling back to the raw token.
         val token = auth.credentialId?.let { id ->
             credentialStore?.let { store ->
                 runBlocking { store.get(id)?.token }

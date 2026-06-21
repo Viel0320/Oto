@@ -15,7 +15,7 @@ interface AbsCatalogStore {
     suspend fun getMirrorsByRootId(rootId: String): List<AbsItemMirrorEntity>
     suspend fun getSyncState(rootId: String): AbsSyncStateEntity?
     /**
-     * Catalog Mirror Materialization Boundary (Persists only the ABS catalog shape)
+     * Persists only the ABS catalog shape.
      * Book progress is intentionally absent from this contract so remote progress must flow through AbsAuthorizedProgressSynchronizer.
      */
     suspend fun upsertCatalogMirror(
@@ -27,7 +27,6 @@ interface AbsCatalogStore {
     )
     suspend fun replaceMirrors(mirrors: List<AbsItemMirrorEntity>)
     suspend fun saveSyncState(syncState: AbsSyncStateEntity)
-    // Update Book Status Signature: Update status parameter type to BookStatus enum for type safety.
     suspend fun updateBookStatus(bookId: String, status: AudiobookSchema.BookStatus)
 }
 
@@ -64,7 +63,6 @@ abstract class AbsCatalogDao : AbsCatalogStore {
     protected abstract suspend fun insertSyncStateInternal(syncState: AbsSyncStateEntity)
 
     @Query("UPDATE books SET status = :status WHERE id = :bookId")
-    // Update Book Status Signature: Update status parameter type to BookStatus enum for type safety.
     abstract override suspend fun updateBookStatus(bookId: String, status: AudiobookSchema.BookStatus)
 
     @Transaction
@@ -84,8 +82,6 @@ abstract class AbsCatalogDao : AbsCatalogStore {
         if (chapters.isNotEmpty()) {
             insertChapters(chapters)
         }
-        // Catalog Materialization Scope (Persists catalog rows without applying remote listening state)
-        // Remote progress and read status are intentionally handled by AbsAuthorizedProgressSynchronizer after catalog rows exist.
         insertMirrorsInternal(listOf(mirror))
         insertSyncStateInternal(syncState)
     }

@@ -29,8 +29,6 @@ class ScanOutcomePolicyTest {
             isLibraryEmpty = false
         )
 
-        // Successful Scan Outcome (Maps persisted scan counts into the shared command result)
-        // Both manual scans and WorkManager observe this same success category and user-facing message.
         assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
         assertEquals(session, outcome.session)
         val feedback = outcome.feedback!!
@@ -38,7 +36,6 @@ class ScanOutcomePolicyTest {
         assertEquals(R.plurals.feedback_scan_completed_with_discovered_books, message.resId)
         assertEquals(2, message.quantity)
         assertEquals(listOf(2), message.args)
-        // A clean scan with no skipped roots stays a global library-access rescan outcome.
         val identity = feedback.outcome.identity
         assertEquals(FeedbackCategory.LIBRARY_ACCESS, identity.category)
         assertEquals(FeedbackTopic.Rescan, identity.topic)
@@ -64,8 +61,6 @@ class ScanOutcomePolicyTest {
             skippedRoots = listOf(skippedRoot)
         )
 
-        // Partial Scan Outcome (Preserves soft failures inside one command result)
-        // The policy keeps partial imports and skipped roots together so callers avoid emitting competing scan messages.
         assertEquals(ScanOutcomeKind.PARTIAL, outcome.kind)
         val feedback = outcome.feedback!!
         val message = feedback.message as FeedbackMessage.Composite
@@ -81,15 +76,11 @@ class ScanOutcomePolicyTest {
                 part.quantity == 1 &&
                 part.args == listOf(1)
         })
-        // Skipped Root Feedback Mapping (Asserts availability status is resource-backed instead of raw localized text)
-        // The root name remains a formatting argument while the TIMEOUT status chooses the stable localized feedback key.
         assertTrue(message.parts.any { part ->
             part is FeedbackMessage.Resource &&
                 part.resId == R.string.feedback_sync_root_unavailable_timeout &&
                 part.args == listOf("Remote Shelf")
         })
-        // Single Skipped Root Identity (One skipped root keys feedback to that stable, non-sensitive root)
-        // The display name stays a render argument while the rootId and access form form the identity.
         val identity = feedback.outcome.identity
         assertEquals(FeedbackCategory.LIBRARY_ACCESS, identity.category)
         assertEquals(FeedbackTopic.Rescan, identity.topic)
@@ -105,8 +96,6 @@ class ScanOutcomePolicyTest {
             isLibraryEmpty = false
         )
 
-        // Completed Session Policy Guard (Rejects sessions that never reached the scanner completion state)
-        // This keeps direct policy callers from mapping ABANDONED or RUNNING rows into success or partial command results.
         assertEquals(ScanOutcomeKind.FAILED, outcome.kind)
         assertNull(outcome.session)
         assertTrue(outcome.cause is IllegalStateException)
@@ -119,14 +108,11 @@ class ScanOutcomePolicyTest {
             hasAvailableLibrary = false
         )
 
-        // Blocked Scan Outcome (Represents a valid no-work command instead of a runner failure)
-        // No ScanSessionEntity exists because the runner should not start when no usable library is available.
         assertEquals(ScanOutcomeKind.BLOCKED, outcome.kind)
         assertNull(outcome.session)
         val feedback = outcome.feedback!!
         val message = feedback.message as FeedbackMessage.Resource
         assertEquals(R.string.feedback_scan_blocked_no_available_libraries, message.resId)
-        // Blocked rescan stays a library-access rescan outcome; no skipped root means a global context.
         val identity = feedback.outcome.identity
         assertEquals(FeedbackCategory.LIBRARY_ACCESS, identity.category)
         assertEquals(FeedbackTopic.Rescan, identity.topic)
@@ -151,8 +137,6 @@ class ScanOutcomePolicyTest {
         val retry = ScanOutcomePolicy.fromFailure(IOException("network down"))
         val failed = ScanOutcomePolicy.fromFailure(IllegalStateException("bad state"))
 
-        // Failure Classification Outcome (Separates transient infrastructure faults from permanent command failures)
-        // WorkManager adapters can use these categories without duplicating exception mapping logic.
         assertEquals(ScanOutcomeKind.RETRY, retry.kind)
         assertEquals(ScanOutcomeKind.FAILED, failed.kind)
         val retryMessage = retry.feedback!!.message as FeedbackMessage.Resource
@@ -162,7 +146,6 @@ class ScanOutcomePolicyTest {
         assertEquals(listOf("bad state"), failedMessage.args)
     }
 
-    // Update ScanOutcomePolicyTest: Change scanSession helper signature to use type-safe AudiobookSchema.ScanStatus enum.
     private fun scanSession(
         discovered: Int = 0,
         unavailable: Int = 0,

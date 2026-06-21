@@ -8,7 +8,7 @@ import java.io.IOException
 
 interface DownloadIndexSnapshotReader {
     /**
-     * Read File Snapshot (Return the current Media3 state for one file-level download)
+     * Return the current Media3 state for one file-level download.
      * Missing rows represent a request that must be repaired or resubmitted by the download command layer.
      */
     suspend fun getSnapshot(fileId: String): FileDownloadSnapshot?
@@ -20,8 +20,6 @@ class Media3DownloadIndexSnapshotReader(
     private val activeDownloadsProvider: () -> List<Download> = { emptyList() }
 ) : DownloadIndexSnapshotReader {
     override suspend fun getSnapshot(fileId: String): FileDownloadSnapshot? {
-        // Active Download Snapshot (Prefer DownloadManager's in-memory progress over persisted DownloadIndex rows)
-        // Media3 does not persist every byte increment to DownloadIndex, so live downloads must be sampled from the runtime list for smooth UI progress.
         activeDownloadsProvider().firstOrNull { download -> download.request.id == fileId }
             ?.let { download -> return download.toFileDownloadSnapshot() }
         val download = try {

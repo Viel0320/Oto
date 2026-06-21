@@ -7,7 +7,7 @@ import kotlinx.coroutines.withContext
 
 interface DownloadBookReconciler {
     /**
-     * Reconcile Book Download (Project current file-level download state into durable book metadata)
+     * Project current file-level download state into durable book metadata.
      * Startup recovery depends only on this command and does not need the concrete sync service implementation.
      */
     suspend fun reconcileBook(bookId: String)
@@ -20,18 +20,12 @@ class DownloadSyncService(
     private val manualDownloadNotificationGateway: ManualDownloadNotificationGateway = ManualDownloadNotificationGateway.NoOp,
     private val nowProvider: () -> Long = { System.currentTimeMillis() }
 ) : DownloadBookReconciler {
-    // Book Reconciliation (Rebuild one durable book-level download aggregate from Media3 file-level state)
-    // DownloadIndex remains authoritative for per-file progress while Room stores the app-facing aggregate used by UI and recovery.
     override suspend fun reconcileBook(bookId: String) = withContext(Dispatchers.IO) {
         val mark = DownloadSyncLogger.mark()
         runCatching {
-            // Shared Manual Cache Eligibility (Reuse the same remote-audio selector as download submission)
-            // Reconciliation must not count SAF media or manifest rows as missing DownloadIndex entries, or mixed-source books would report stale queued progress.
             val files = downloadableBookFileSelector.remoteAudioFilesForBook(bookId)
             val existing = downloadMetadataDao.getMetadata(bookId)
             if (existing == null) {
-                // Deleted Metadata Guard (Do not recreate user-deleted manual download tasks from stale callbacks)
-                // Media3 removal events and progress polling can arrive after the command deletes Room metadata, so missing rows are treated as intentional absence.
                 manualDownloadNotificationGateway.cancel(bookId)
                 return@withContext
             }

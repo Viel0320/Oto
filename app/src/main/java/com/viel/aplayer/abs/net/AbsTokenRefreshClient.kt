@@ -7,7 +7,5 @@ sealed interface AbsTokenRefreshResult {
 }
 
 interface AbsTokenRefreshClient {
-    // Token Refresh Boundary (Refreshes one credential record without exposing broader ABS API operations)
-    // Stream and REST retry paths depend on this narrow contract so media providers do not learn catalog or playback APIs.
     suspend fun refreshToken(credentialId: String): AbsTokenRefreshResult
 }

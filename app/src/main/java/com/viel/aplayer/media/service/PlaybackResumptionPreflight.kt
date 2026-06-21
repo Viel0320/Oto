@@ -8,7 +8,7 @@ import com.viel.aplayer.media.PlaybackSourcePreflightResult
 import com.viel.aplayer.shared.settings.AppSettings
 
 /**
- * Resumption Source Preflight (Keeps MediaSession resume aligned with foreground playback policy)
+ * Keeps MediaSession resume aligned with foreground playback policy.
  * VFS media IDs hide the original root policy, so resumption must validate the BookPlaybackPlan before exposing MediaItems to Media3.
  */
 internal class PlaybackResumptionPreflight(
@@ -17,7 +17,7 @@ internal class PlaybackResumptionPreflight(
     private val playbackEventSink: PlaybackDomainEventSink
 ) {
     /**
-     * Require Resumable Source (Blocks MediaSession restoration before media-item construction)
+     * Blocks MediaSession restoration before media-item construction.
      * Emits the same playback-domain events as normal foreground playback so UI feedback does not degrade into generic load failures.
      */
     suspend fun requireAvailable(plan: BookPlaybackPlan) {

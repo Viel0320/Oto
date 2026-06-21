@@ -6,7 +6,7 @@ import com.viel.aplayer.application.library.player.PlayerRelatedBook
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkActions
 
 /**
- * Player Content Actions (Player-scoped tab and related-book commands)
+ * Player-scoped tab and related-book commands.
  *
  * Separates recommendation row navigation from explicit playback so Related rows can open Detail
  * while their play affordance still starts the selected audiobook immediately.
@@ -22,7 +22,7 @@ data class PlayerContentActions(
 )
 
 /**
- * Player Actions Aggregator (Playback, bookmark, and content operation groups)
+ * Playback, bookmark, and content operation groups.
  *
  * Keeps high-frequency transport controls, bookmark commands, and content navigation in separate
  * payloads so callers do not need a broad player facade to wire scene-specific behavior.
@@ -34,7 +34,7 @@ data class PlayerActions(
 )
 
 /**
- * Remember Player Actions (Bind UI callbacks to the active player-scene owners)
+ * Bind UI callbacks to the active player-scene owners.
  *
  * Direct playback commands stay on PlaybackViewModel, while Detail navigation is injected by the
  * app shell because only the shell owns DetailTransitionGate and full-player visibility.
@@ -113,8 +113,6 @@ fun rememberActions(
     }
 }
 
-// Mini player actions aggregate (Declarative triggers for minimized playback actions)
-// Represents UI callbacks for the mini player components, relocated to PlayerActions.kt to achieve compact code packaging.
 data class MiniPlayerActions(
     val onPlayPauseClick: () -> Unit = {},
     val onHide: () -> Unit = {},

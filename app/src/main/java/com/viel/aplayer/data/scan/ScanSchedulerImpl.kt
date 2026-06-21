@@ -32,8 +32,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * Library Ingestion Coordination Service (Implements ScanScheduler)
- * 
+ * Implements ScanScheduler.
+ *
  * Core Design Goals:
  * 1. Eradicate God-Class Repositories: Integrates with LibraryRootStore and ScanSessionRunner in the M6c phase, breaking all ties to the bloated BookLibraryRepository.
  * 2. Re-anchor Serial Scans Lock: Manages a private Mutex internally to coordinate COLD_START_LIGHT and USER_GLOBAL scan modes safely.
@@ -41,37 +41,21 @@ import kotlinx.coroutines.withContext
 class ScanSchedulerImpl(
     context: Context,
     private val coverRecoveryGateway: CoverRecoveryGateway,
-    // Shared VFS Facade (Dependency injection reference)
-    // Reference to the module's single VFS reader, avoiding internal self-initialization.
     private val vfsFileInterface: VfsFileInterface,
-    // Scanner Directory Cache (Injects scanner-only directory child snapshots)
-    // Keeps WebDAV listing reuse inside ingestion flows while playback and availability checks continue using direct VFS providers.
     private val directoryListingCache: DirectoryListingCache = NoOpDirectoryListingCache,
-    // Application Event Sink (Reports scan feedback without depending on playback coordination)
-    // ScanSchedulerImpl is an application ingestion module, so Toast requests now use the app-level feedback seam directly.
     private val appEventSink: AppEventSink
 ) : ScanScheduler, java.io.Closeable {
 
-    // Safe Application Context Binding (Memory leak avoidance)
-    // Binds applicationContext to avoid tracking Activity lifecycle contexts.
     private val appContext = context.applicationContext
 
-    // Root Status Adapter Construction (Infrastructure adapter seam)
-    // Wraps LibraryRootStore so ScanSession owns root eligibility state while ScanSchedulerImpl keeps Android construction details.
     private val rootStore = LibraryRootStore(appContext)
 
-    // Private Sync Exception Handler (Task crash safety block)
-    // Captures background exception states to avoid uncaught background thread failures.
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         ScanWorkflowLogger.error("scanService coroutine failure", exception)
     }
 
-    // Background Ingestion Coroutine Scope (Resource-isolated execution pool)
-    // Manages background tasks on the IO dispatch thread pool to prevent blocking main routines.
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
 
-    // Serial Scan Exclusion Mutex (Database transaction isolation)
-    // Excludes concurrent scanner invocations to prevent SQLite concurrent lock and transaction errors.
     private val scanMutex = Mutex()
 
     override suspend fun syncLibrary(trigger: String): ScanOutcome = scanMutex.withLock {
@@ -82,12 +66,9 @@ class ScanSchedulerImpl(
     }
 
     override fun scheduleLibrarySync(trigger: String, requiresNetwork: Boolean) {
-        // Update ScanSchedulerImpl to use type-safe AudiobookSchema.ScanTrigger: Convert trigger string to ScanTrigger enum before scheduling.
         val scanTrigger = runCatching { AudiobookSchema.ScanTrigger.valueOf(trigger) }
             .getOrDefault(AudiobookSchema.ScanTrigger.USER)
         val policy = WorkSchedulingPolicy.librarySync(trigger = scanTrigger, requiresNetwork = requiresNetwork)
-        // Enqueue Unique Work (Apply trigger-aware replacement and connectivity policy)
-        // Cold-start scans keep debounce behavior, while user/root-edit scans replace stale queued work so new root settings are not dropped.
         val workManager = WorkManager.getInstance(appContext)
         val requestBuilder = OneTimeWorkRequestBuilder<LibrarySyncWorker>()
             .setInputData(
@@ -110,13 +91,10 @@ class ScanSchedulerImpl(
     }
 
     /**
-     * Core Sync Execution (Metadata synchronization and recovery)
+     * Metadata synchronization and recovery.
      * Dispatches reachability checks, scans folders, and launches cover self-healing procedures.
      */
     private suspend fun runSyncLibrary(trigger: String): ScanOutcome = withContext(Dispatchers.IO) {
-        // Scan Session Adapter Assembly (Command execution seam)
-        // Builds concrete Android and Room adapters once per command while ScanSession owns status transitions and outcome mapping.
-        // Update ScanSchedulerImpl to use type-safe AudiobookSchema.ScanTrigger: Convert trigger string to ScanTrigger enum before executing ScanCommand.
         val scanTrigger = runCatching { AudiobookSchema.ScanTrigger.valueOf(trigger) }
             .getOrDefault(AudiobookSchema.ScanTrigger.USER)
         createScanSession().execute(ScanCommand(scanTrigger))
@@ -129,8 +107,6 @@ class ScanSchedulerImpl(
                 rootStore.refreshPermissionStatuses()
             },
             importAdapter = { type, allowedRootIds ->
-                // Runner Import Adapter (Inventory stream and import transaction bridge)
-                // Delegates the heavy scan work to ScanSessionRunner while keeping runner construction outside the command state module.
                 ScanSessionRunner(
                     context = appContext,
                     vfsFileInterface = vfsFileInterface,
@@ -144,8 +120,6 @@ class ScanSchedulerImpl(
         )
 
     private fun logScanOutcome(trigger: String, outcome: ScanOutcome) {
-        // Outcome Logging (Records the unified scan result category at the service boundary)
-        // This keeps diagnostics aligned with the command result returned to WorkManager and foreground callers.
         when (outcome.kind) {
             ScanOutcomeKind.SUCCESS,
             ScanOutcomeKind.PARTIAL -> {
@@ -165,14 +139,10 @@ class ScanSchedulerImpl(
     }
 
     private fun emitScanOutcomeFeedback(outcome: ScanOutcome) {
-        // Outcome Feedback Emission (Publishes the policy-selected feedback fact once per scan command)
-        // Both manual scans and WorkManager-triggered scans now use the same outcome fact instead of separate service/worker mappings.
         outcome.feedback?.let { feedback -> appEventSink.emitFeedback(feedback) }
     }
 
     override fun close() {
-        // Terminate Active Sync Pipelines (Shutdown resource cleanup)
-        // Cancels the private scope upon service teardown to abort active directory synchronization tasks.
         scope.cancel()
     }
 }

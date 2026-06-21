@@ -28,8 +28,6 @@ class PlaybackResumptionPreflightTest {
 
         val error = runCatching { preflight.requireAvailable(playbackPlan(rootId = ROOT_ID)) }.exceptionOrNull()
 
-        // Missing Root Regression (Locks MediaSession resume to the same persisted-root gate as foreground playback)
-        // A deleted or unresolvable root must fail before Media3 receives VFS media IDs and must publish a typed source-preflight event.
         assertTrue(error is UnsupportedOperationException)
         assertEquals(
             listOf(
@@ -53,8 +51,6 @@ class PlaybackResumptionPreflightTest {
 
         val error = runCatching { preflight.requireAvailable(playbackPlan(rootId = ROOT_ID)) }.exceptionOrNull()
 
-        // Inactive Root Regression (Preserves user-facing root context for resumed playback failures)
-        // System media resume should surface the same unavailable-root event payload that normal playback uses for localized feedback.
         assertTrue(error is UnsupportedOperationException)
         assertEquals(
             listOf(
@@ -74,7 +70,6 @@ class PlaybackResumptionPreflightTest {
         val preflight = playbackResumptionPreflight(
             root = libraryRoot(
                 sourceType = AudiobookSchema.LibrarySourceType.WEBDAV,
-                // Use remote domain (Ensure it is not treated as local/LAN by isLocalOrLan)
                 sourceUri = "http://example.com/audiobooks"
             ),
             settings = AppSettings(isCleartextTrafficAllowed = false),
@@ -83,8 +78,6 @@ class PlaybackResumptionPreflightTest {
 
         val error = runCatching { preflight.requireAvailable(playbackPlan(rootId = ROOT_ID)) }.exceptionOrNull()
 
-        // Cleartext Resume Policy Regression (Blocks insecure HTTP roots before MediaSession creates resumable media items)
-        // The dedicated cleartext event keeps security-policy feedback distinct from generic playback loader failures.
         assertTrue(error is UnsupportedOperationException)
         assertEquals(listOf(PlaybackDomainEvent.CleartextPlaybackBlocked("Resume Fixture")), eventSink.emittedEvents)
     }
@@ -137,18 +130,14 @@ class PlaybackResumptionPreflightTest {
             this.root = root
         }
 
-        // Update PlaybackResumptionPreflightTest: Match FakeLibraryRootDao updateRootGrantState to use type-safe AudiobookSchema.LibraryRootStatus.
         override suspend fun updateRootGrantState(id: String, displayName: String, grantedAt: Long, status: AudiobookSchema.LibraryRootStatus) = Unit
 
-        // Update PlaybackResumptionPreflightTest: Match FakeLibraryRootDao updateRootScanState to use type-safe AudiobookSchema.LibraryRootStatus.
         override suspend fun updateRootScanState(id: String, lastScannedAt: Long, status: AudiobookSchema.LibraryRootStatus) = Unit
 
-        // Update PlaybackResumptionPreflightTest: Match FakeLibraryRootDao updateRootStatus to use type-safe AudiobookSchema.LibraryRootStatus.
         override suspend fun updateRootStatus(id: String, status: AudiobookSchema.LibraryRootStatus) {
             root = root?.takeIf { it.id == id }?.copy(status = status) ?: root
         }
 
-        // Update PlaybackResumptionPreflightTest: Match FakeLibraryRootDao updateRootAvailability to use type-safe AudiobookSchema.AvailabilityStatus.
         override suspend fun updateRootAvailability(
             id: String,
             availabilityStatus: AudiobookSchema.AvailabilityStatus,
@@ -163,8 +152,6 @@ class PlaybackResumptionPreflightTest {
         }
 
         private fun isActiveAbsRoot(root: LibraryRootEntity): Boolean {
-            // Active ABS Root Fixture Filter (Mirror the dedicated startup-warmup DAO query)
-            // Playback resume tests only need LibraryRootDao compatibility, so the fake returns ABS roots with the same active-source predicate as production.
             return root.status == AudiobookSchema.LibraryRootStatus.ACTIVE &&
                 root.sourceType == AudiobookSchema.LibrarySourceType.ABS
         }
@@ -192,7 +179,6 @@ class PlaybackResumptionPreflightTest {
             lastModified = 1L
         )
 
-    // Update PlaybackResumptionPreflightTest: Change libraryRoot helper signature to use type-safe enums.
     private fun libraryRoot(
         sourceType: AudiobookSchema.LibrarySourceType = AudiobookSchema.LibrarySourceType.SAF,
         sourceUri: String = "content://library-root",

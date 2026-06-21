@@ -17,8 +17,6 @@ class ManifestParserBudgetTest {
             openStream = { buildM3u8EntryPayload(itemCount = 50_000).byteInputStream(Charsets.UTF_8) }
         )
 
-        // Manifest Entry Budget Regression (Locks playlist imports to a finite item payload)
-        // A 50k-item M3U8 file should keep the deterministic first entries without retaining the full list in memory.
         assertEquals(10_000, result.items.size)
         assertEquals("track-10000.mp3", result.items.last().uri)
         assertEquals("Track 10000", result.items.last().title)
@@ -34,8 +32,6 @@ class ManifestParserBudgetTest {
             }
         )
 
-        // Manifest Text Budget Regression (Bounds playlist metadata, item titles, and item paths)
-        // Oversized user-controlled M3U8 strings should be clipped before they enter import state.
         assertEquals(8_192, result.metadata.title?.length)
         assertEquals(8_192, result.items.single().title?.length)
         assertEquals(8_192, result.items.single().uri.length)
@@ -48,8 +44,6 @@ class ManifestParserBudgetTest {
             openStream = { buildCueEntryPayload(itemCount = 50_000).byteInputStream(Charsets.UTF_8) }
         )
 
-        // Manifest Entry Budget Regression (Locks CUE file and chapter collections to finite payloads)
-        // A 50k-entry CUE sheet should keep a deterministic partial import instead of growing parser state without bound.
         assertEquals(10_000, result?.referencedFiles?.size)
         assertEquals(10_000, result?.chapters?.size)
         assertEquals("track-10000.mp3", result?.referencedFiles?.last())
@@ -64,8 +58,6 @@ class ManifestParserBudgetTest {
             openStream = { buildSingleCueTextPayload(oversizedText).byteInputStream(Charsets.UTF_8) }
         )
 
-        // Manifest Text Budget Regression (Bounds CUE metadata, chapter titles, and referenced paths)
-        // Oversized user-controlled CUE strings should be clipped before processed chapters are constructed.
         assertTrue(result?.metadata?.title?.length == 8_192)
         assertTrue(result?.metadata?.author?.length == 8_192)
         assertTrue(result?.metadata?.narrator?.length == 8_192)
@@ -77,7 +69,7 @@ class ManifestParserBudgetTest {
     }
 
     /**
-     * Oversized M3U8 Fixture (Creates a deterministic high-item playlist input)
+     * Creates a deterministic high-item playlist input.
      *
      * Builds the same user-controlled sidecar shape used by playlist imports while avoiding filesystem fixtures.
      */
@@ -91,7 +83,7 @@ class ManifestParserBudgetTest {
         }
 
     /**
-     * Oversized M3U8 Text Fixture (Creates one valid playlist item with pathological strings)
+     * Creates one valid playlist item with pathological strings.
      *
      * Exercises metadata, EXTINF title, and local path clipping separately from the item-count budget.
      */
@@ -104,7 +96,7 @@ class ManifestParserBudgetTest {
         }
 
     /**
-     * Oversized CUE Fixture (Creates deterministic file and chapter growth)
+     * Creates deterministic file and chapter growth.
      *
      * Repeats FILE/TRACK/INDEX groups so the parser exercises both referenced-file and chapter collection budgets.
      */
@@ -119,7 +111,7 @@ class ManifestParserBudgetTest {
         }
 
     /**
-     * Oversized CUE Text Fixture (Creates one valid CUE entry with pathological strings)
+     * Creates one valid CUE entry with pathological strings.
      *
      * Exercises global metadata, file path, and chapter-title clipping independently from collection-size limits.
      */

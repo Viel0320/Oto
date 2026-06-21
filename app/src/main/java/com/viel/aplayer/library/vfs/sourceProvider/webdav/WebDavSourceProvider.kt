@@ -36,15 +36,18 @@ import java.util.Locale
 import java.util.TimeZone
 import javax.xml.parsers.DocumentBuilderFactory
 
-// WebDavException (Maps HTTP and network errors to standardized availability statuses to avoid exposing OkHttp details upstream)
+/**
+ * Maps WebDAV HTTP and network failures to standardized availability statuses.
+ */
 class WebDavException(
-    // WebDAV Status Type Safe: Use AudiobookSchema.AvailabilityStatus enum.
     val availabilityStatus: AudiobookSchema.AvailabilityStatus,
     message: String,
     cause: Throwable? = null
 ) : IOException(message, cause)
 
-// WebDavResource (Internal provider model representing HTTP resources with href, etag, and protocol-specific details)
+/**
+ * Represents one HTTP resource returned by a WebDAV PROPFIND response.
+ */
 private data class WebDavResource(
     val sourcePath: String,
     val href: String,
@@ -57,14 +60,20 @@ private data class WebDavResource(
     val mimeType: String?
 )
 
-// Content Range Window (Parsed HTTP byte interval returned by WebDAV partial responses)
-// The provider validates only the start and inclusive end offsets because VFS callers already know the requested byte window and do not need total-size coupling here.
+/**
+ * Stores the parsed byte interval returned by a WebDAV partial response.
+ *
+ * The provider validates only the start and inclusive end offsets because VFS callers already
+ * know the requested byte window and do not need total-size coupling here.
+ */
 private data class ContentRangeWindow(
     val start: Long,
     val end: Long
 )
 
-// WebDavSourceProvider (OkHttp-powered provider implementing PROPFIND, GET, and Range reads as the primary remote source path)
+/**
+ * OkHttp-powered WebDAV source provider for PROPFIND, GET, and byte-range reads.
+ */
 class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
     override val kind: LibrarySourceKind = LibrarySourceKind.WEBDAV
     override val capabilities: SourceCapabilities = SourceCapabilities(
@@ -76,8 +85,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
 
     private val appSettingsRepository = AppSettingsRepository.getInstance(context.applicationContext)
 
-    // WebDAV Client Factory (Shares TLS bypass construction with settings connection tests)
-    // The provider still decides whether insecure TLS is allowed for each root, but client construction no longer duplicates certificate logic.
     private val clientFactory = WebDavHttpClientFactory(
         connectTimeoutSeconds = 10,
         readTimeoutSeconds = 45,
@@ -86,8 +93,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
 
     private val credentialStore = WebDavCredentialStore(context.applicationContext)
 
-    // Resolve Client Policy (Selects trusted or insecure WebDAV client from the global settings switch)
-    // Root-level TLS exceptions are intentionally ignored so certificate bypass behavior remains controlled by one user-visible setting.
     private fun getClient(): OkHttpClient =
         clientFactory.clientFor(UnsafeNetworkPolicy.isInsecureTlsAllowed(appSettingsRepository.cachedSettings))
 
@@ -134,11 +139,9 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             .get()
             .applyAuth(file.root)
             .apply {
-                // Player seek requests include offsets; maps them to HTTP Range headers to stream directly from desired offsets.
                 if (offset > 0L) header("Range", "bytes=$offset-")
             }
             .build()
-        // Records the start timestamp of the GET/Range stream requests to calculate overall network latency.
         val openStart = com.viel.aplayer.logger.VfsLogger.mark()
         val response = executeRequest(file.root, request)
         if (offset > 0L && response.code == HTTP_RANGE_NOT_SATISFIABLE) {
@@ -153,8 +156,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             throw response.toWebDavException("GET")
         }
         if (offset > 0L) {
-            // Offset Stream Integrity (Validate open-ended partial responses before exposing the stream)
-            // Seek playback uses this stream as if it starts exactly at the requested offset, so a missing or shifted Content-Range must close the response and fail.
             try {
                 response.requireMatchingContentRange(start = offset, end = null, operation = "GET")
             } catch (error: WebDavException) {
@@ -163,13 +164,10 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             }
         }
 
-        // Obtains the response payload body, verified as non-null.
         val body = response.body
         val stream = body.byteStream()
 
-        // Falls back to skipping bytes locally if servers ignore Range headers and return HTTP 200, preserving seek semantics.
         if (offset > 0L && response.code == HTTP_OK) {
-            // Fallback skip actions block on network reads; must execute on Dispatchers.IO instead of inheriting caller thread.
             withContext(Dispatchers.IO) { runCatching { skipFully(stream, offset) } }
                 .onFailure {
                     stream.close()
@@ -182,7 +180,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                 }
         }
 
-        // Success Logger (Records connection details after the offset seek and fallback skip complete successfully)
         com.viel.aplayer.logger.VfsLogger.logWebDavOpen(
             sourcePath = file.metadata.sourcePath,
             offset = offset,
@@ -191,16 +188,13 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             success = true
         )
 
-        // Proxy Stream (Wraps native input stream to trigger response.close() on close, avoiding OkHttp socket leaks)
         return ResponseClosingInputStream(stream, response)
     }
 
     override suspend fun readRange(file: SourceNode, offset: Long, length: Int): ByteArray? =
         withContext(Dispatchers.IO) {
-            // Bounded Reads (Metadata range readers require closed intervals; open-ended bytes=offset- requests are prohibited)
             if (file.metadata.isDirectory || offset < 0L || length <= 0) return@withContext ByteArray(0)
             val rangeEnd = boundedRangeEnd(file, offset, length) ?: return@withContext null
-            // Records the start timestamp of range segment queries.
             val rangeStart = com.viel.aplayer.logger.VfsLogger.mark()
             val request = Request.Builder()
                 .url(urlFor(file.root, file.metadata.sourcePath, directory = false))
@@ -211,7 +205,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             executeRequestBlocking(file.root, request).use { response ->
                 when {
                     response.code == HTTP_RANGE_NOT_SATISFIABLE -> {
-                        // Logs out-of-bounds requests returning HTTP 416.
                         com.viel.aplayer.logger.VfsLogger.logWebDavRange(
                             sourcePath = file.metadata.sourcePath,
                             offset = offset,
@@ -222,7 +215,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                         return@withContext null
                     }
                     response.code == HTTP_OK -> {
-                        // Closes response immediately if servers return the whole file (HTTP 200) instead of the range.
                         com.viel.aplayer.logger.VfsLogger.logWebDavRange(
                             sourcePath = file.metadata.sourcePath,
                             offset = offset,
@@ -234,12 +226,9 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                     }
                     !response.isSuccessful -> throw response.toWebDavException("GET Range")
                 }
-                // Closed Range Integrity (Validate bounded partial responses before filling metadata buffers)
-                // Range cache and parsers key bytes by the requested interval, so a 206 response must prove both the start and inclusive end offsets.
                 response.requireMatchingContentRange(start = offset, end = rangeEnd, operation = "GET Range")
                 val body = response.body
                 val result = body.byteStream().use { stream -> stream.readAtMost(length) }
-                // Logs successful range query metrics with read byte counts.
                 com.viel.aplayer.logger.VfsLogger.logWebDavRange(
                     sourcePath = file.metadata.sourcePath,
                     offset = offset,
@@ -252,8 +241,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
         }
 
     override suspend fun openFileDescriptor(file: SourceNode): ParcelFileDescriptor? {
-        // File Descriptor Prevention (Remote resource limitation)
-        // WebDAV remote source does not support file descriptor mapping; metadata, cover extraction, and streaming must utilize stream reading and Range capabilities.
         return null
     }
 
@@ -266,8 +253,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
 
     private suspend fun propfind(root: LibraryRootEntity, sourcePath: String, depth: String): List<WebDavResource> =
         withContext(Dispatchers.IO) {
-            // Enforces Dispatchers.IO scope for PROPFIND network I/O and XML body parsing to protect the Main thread.
-            // Tracks start timestamp to profile aggregate connection and parse times.
             val propfindStart = com.viel.aplayer.logger.VfsLogger.mark()
             val url = urlFor(root, sourcePath, directory = true)
             val request = Request.Builder()
@@ -286,7 +271,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                 }
                 val body = response.body
                 val contentLength = body.contentLength()
-                // Size Check (Rejects response payload immediately if Content-Length exceeds security thresholds to prevent memory exhaustion)
                 if (contentLength > MAX_PROPFIND_RESPONSE_SIZE) {
                     throw WebDavException(
                         availabilityStatus = AudiobookSchema.AvailabilityStatus.SERVER_ERROR,
@@ -295,7 +279,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                 }
 
                 val xml = try {
-                    // Safe Read (Reads stream with real-time limits to protect against chunked responses ignoring content length headers)
                     body.byteStream().use { stream ->
                         stream.readStringWithLimit(MAX_PROPFIND_RESPONSE_SIZE)
                     }
@@ -308,7 +291,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                 }
 
                 if (xml.isBlank()) {
-                    // Profile empty response latencies.
                     com.viel.aplayer.logger.VfsLogger.logWebDavPropfind(
                         sourcePath = sourcePath, depth = depth,
                         costMs = com.viel.aplayer.logger.VfsLogger.elapsedMs(propfindStart),
@@ -317,7 +299,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                     return@withContext listOf(rootFallbackResource(root))
                 }
                 val resources = parsePropfindResponse(root, xml)
-                // Profile complete request latencies with returned items.
                 com.viel.aplayer.logger.VfsLogger.logWebDavPropfind(
                     sourcePath = sourcePath, depth = depth,
                     costMs = com.viel.aplayer.logger.VfsLogger.elapsedMs(propfindStart),
@@ -329,31 +310,24 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
 
     private suspend fun executeRequest(root: LibraryRootEntity, request: Request): Response =
         withContext(Dispatchers.IO) {
-            // GET and Range requests block on connection handshakes; switches context to IO threads to isolate blocks.
             executeRequestBlocking(root, request)
         }
 
     private fun executeRequestBlocking(root: LibraryRootEntity, request: Request): Response =
         try {
-            // Unsafe Network Request Gate (Validate transport before sending WebDAV credentials or stream requests)
-            // The provider checks every PROPFIND, GET, and Range request centrally so new WebDAV operations cannot bypass the cleartext policy.
             UnsafeNetworkPolicy.requireCleartextHttpAllowed(
                 url = request.url.toString(),
                 settings = appSettingsRepository.cachedSettings,
                 operation = "WebDAV ${request.method}"
             )
-            // Execute Request: Select client instance according to the global SSL verification setting and run network call.
             getClient().newCall(request).execute()
         } catch (error: WebDavException) {
             throw error
         } catch (error: IOException) {
             val failure = RemoteAvailabilityMappingPolicy.fromTransportException(error)
             val diagnosticUrl = request.url.redactedForLog()
-            // WebDAV Transport Failure Mapping (Shares timeout/connectivity classification with other remote sources)
-            // The provider still logs WebDAV-specific request URLs and throws WebDavException for existing VFS callers.
             com.viel.aplayer.logger.VfsLogger.logWebDavError(
                 url = diagnosticUrl,
-                // Status Type Safe: Use the string name representation of availabilityStatus.
                 status = failure.availabilityStatus.name,
                 errorClass = error.javaClass.simpleName
             )
@@ -372,7 +346,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
         try {
             val factory = DocumentBuilderFactory.newInstance().apply {
                 isNamespaceAware = true
-                // Disables external entity resolution to protect parsing routines from local/remote exploit vectors.
                 runCatching { setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
                 runCatching { setFeature("http://xml.org/sax/features/external-general-entities", false) }
                 runCatching { setFeature("http://xml.org/sax/features/external-parameter-entities", false) }
@@ -380,8 +353,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             val document = factory.newDocumentBuilder().parse(InputSource(xml.reader()))
             val responseNodes = document.documentElement.elementsByLocalName("response")
             responseNodes.mapNotNull { response ->
-                // PROPFIND Response Status Gate (Skip failed resources inside mixed Multi-Status payloads)
-                // WebDAV 207 responses can contain per-resource 403/404 entries, and those entries must not become scanner-visible or cacheable children.
                 if (!response.hasSuccessfulResponseStatus()) return@mapNotNull null
                 val href = response.firstText("href") ?: return@mapNotNull null
                 val sourcePath = sourcePathFromHref(root, href)
@@ -412,19 +383,13 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
         }
 
     private fun Element.hasSuccessfulResponseStatus(): Boolean {
-        // PROPFIND Resource Status Gate (Trust absent response status but reject explicit non-2xx statuses)
-        // Some servers rely only on propstat statuses, while explicit response-level failures describe the entire resource and must be filtered.
         val status = directFirstText("status") ?: return true
         return status.isSuccessfulWebDavStatus()
     }
 
     private fun Element.successfulPropElement(): Element? {
-        // PROPFIND Propstat Selection (Use only successful WebDAV property blocks)
-        // Multi-Status entries may report failed optional properties before successful ones, so parser output must come from the first 2xx propstat block only.
         val propstats = directElementsByLocalName("propstat")
         if (propstats.isEmpty()) {
-            // Legacy Prop Fallback (Accept non-standard flat prop blocks only when no propstat wrapper exists)
-            // This keeps compatibility with minimal servers while avoiding accidental selection of failed propstat descendants.
             return directElementsByLocalName("prop").firstOrNull()
         }
         return propstats
@@ -434,8 +399,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
     }
 
     private fun String.isSuccessfulWebDavStatus(): Boolean {
-        // WebDAV Status Parser (Extract HTTP status code from response and propstat status lines)
-        // Numeric parsing is stricter than substring matching, preventing malformed status text from authorizing failed resources.
         val statusCode = HTTP_STATUS_LINE_PATTERN.matchEntire(trim())
             ?.groupValues
             ?.getOrNull(1)
@@ -447,14 +410,11 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
     private fun Request.Builder.applyAuth(root: LibraryRootEntity): Request.Builder = apply {
         val credential = credentialStore.get(root.credentialId)
         if (credential != null && (credential.username.isNotBlank() || credential.password.isNotBlank())) {
-            // Authorization headers are compiled dynamically before dispatching, avoiding plain credentials storage in DB.
             header("Authorization", Credentials.basic(credential.username, credential.password, Charsets.UTF_8))
         }
     }
 
     private fun Response.toWebDavException(method: String): WebDavException {
-        // WebDAV HTTP Failure Mapping (Delegates protocol-specific fallback rules to RemoteAvailabilityMappingPolicy)
-        // WebDAV keeps its historical NETWORK_UNAVAILABLE default for unclassified HTTP failures while sharing common auth/not-found/server mappings.
         val status = RemoteAvailabilityMappingPolicy.fromHttpStatus(
             statusCode = code,
             protocol = RemoteAvailabilityProtocol.WEBDAV
@@ -466,8 +426,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
     }
 
     private fun Response.requireMatchingContentRange(start: Long, end: Long?, operation: String) {
-        // Content Range Validation (Guarantee that 206 responses match the requested byte window)
-        // VFS seek, metadata parsing, and range caching trust byte offsets, so mismatched WebDAV partial responses must fail before bytes reach callers.
         if (code != HTTP_PARTIAL_CONTENT) return
         val parsed = header("Content-Range")?.parseContentRangeWindow()
         val endMatches = end == null || parsed?.end == end
@@ -480,8 +438,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
     }
 
     private fun String.parseContentRangeWindow(): ContentRangeWindow? {
-        // Content Range Parser (Extract the byte interval from RFC-style Content-Range values)
-        // Invalid, missing, or unsatisfiable forms return null so the validator treats them as untrusted partial content.
         val match = CONTENT_RANGE_PATTERN.matchEntire(trim()) ?: return null
         val start = match.groupValues[1].toLongOrNull() ?: return null
         val end = match.groupValues[2].toLongOrNull() ?: return null
@@ -496,8 +452,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
                 message = "Invalid WebDAV sourceUri: ${root.sourceUri}"
             )
         val builder = base.newBuilder()
-            // WebDAV Request URL Sanitizer (Discard legacy userinfo before building network URLs)
-            // Previously persisted roots may still contain username:password authority data, so request construction strips it before logs or sockets can observe it.
             .username("")
             .password("")
             .query(null)
@@ -512,7 +466,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
     }
 
     /**
-     * WebDAV Log Sanitizer (Remove username, password, query, and fragment from diagnostic URLs)
+     * Remove username, password, query, and fragment from diagnostic URLs.
      *
      * Provider exceptions use this view so timeout and HTTP failure messages never echo URL-embedded credentials.
      */
@@ -582,7 +536,6 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
     private fun parseWebDavDate(value: String?): Long {
         if (value.isNullOrBlank()) return 0L
         return runCatching {
-            // ThreadLocal initializer guarantees non-null formatters; safe-calls to eliminate platform warning.
             WEB_DAV_DATE_FORMAT.get()?.parse(value)?.time ?: 0L
         }.getOrDefault(0L)
     }
@@ -638,12 +591,8 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
             ?.takeIf { it.isNotBlank() }
 
     private fun Element.directElementsByLocalName(localName: String): List<Element> =
-        // Direct Child Element Lookup (Avoid descendant status leakage across response and propstat levels)
-        // WebDAV response status and propstat status have different meanings, so status lookup must not climb into nested property blocks.
         (0 until childNodes.length).mapNotNull { index ->
             val child = childNodes.item(index)
-            // Namespace-Compatible Name Match (Support both DAV-prefixed XML and minimal unprefixed XML)
-            // DOM localName is ideal for namespaced documents, while nodeName keeps non-namespaced test and server payloads readable.
             val childName = child.localName ?: child.nodeName
             if (child.nodeType == Node.ELEMENT_NODE && childName == localName) child as? Element else null
         }
@@ -665,16 +614,10 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
         private const val HTTP_NOT_FOUND = 404
         private const val HTTP_RANGE_NOT_SATISFIABLE = 416
         private const val DEFAULT_RANGE_BUFFER_SIZE = 16 * 1024
-        // Safety Limit (Defines 8MB upper bound for PROPFIND responses to prevent out-of-memory states from large XML inputs)
         private const val MAX_PROPFIND_RESPONSE_SIZE = 8 * 1024 * 1024
-        // Content Range Pattern (Accept only byte-unit partial ranges with numeric start and end offsets)
-        // Total size may be numeric or unknown because offset integrity depends on the served interval, not the declared resource length.
         private val CONTENT_RANGE_PATTERN = Regex("""^bytes\s+(\d+)-(\d+)/(?:\d+|\*)$""")
-        // WebDAV Status Line Pattern (Capture the three-digit code from HTTP status lines embedded in 207 XML)
-        // PROPFIND response and propstat gates use this parser so mixed Multi-Status bodies cannot authorize failed entries via loose text matching.
         private val HTTP_STATUS_LINE_PATTERN = Regex("""^HTTP/\S+\s+(\d{3})(?:\s+.*)?$""")
 
-        // SimpleDateFormat is thread-unsafe; uses ThreadLocal to support concurrent callback resolutions during scans.
         private val WEB_DAV_DATE_FORMAT = ThreadLocal.withInitial {
             SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", Locale.US).apply {
                 timeZone = TimeZone.getTimeZone("GMT")
@@ -684,7 +627,7 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
 }
 
 /**
- * Stream Wrap Proxy (Binds Response lifetime to InputStream close requests)
+ * Binds Response lifetime to InputStream close requests.
  * Releases underlying response connections to protect sockets from leaks during seek/track transition.
  */
 private class ResponseClosingInputStream(
@@ -708,7 +651,7 @@ private class ResponseClosingInputStream(
 }
 
 /**
- * Bounded Read Utility (Converts stream bytes to String up to a fixed limit)
+ * Converts stream bytes to String up to a fixed limit.
  * Enforces size checks using 4KB chunks, aborting connection when limit is breached.
  */
 private fun InputStream.readStringWithLimit(maxBytes: Int): String {

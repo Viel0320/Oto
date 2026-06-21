@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 
 /**
- * Settings Section Header Component (Separates reusable Settings header rendering from scene orchestration)
+ * Separates reusable Settings header rendering from scene orchestration.
  * Feature sections can share one consistent header primitive while SettingsScreen stays focused on ordering functional clusters.
  * Horizontal insets are sourced from AppWindowSizeClass so headers align with responsive settings rows on every window width.
  */

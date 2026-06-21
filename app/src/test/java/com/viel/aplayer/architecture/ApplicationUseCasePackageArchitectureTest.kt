@@ -5,7 +5,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Application Use Case Package Architecture Test (Pins orchestration package ownership)
+ * Pins orchestration package ownership.
  * Ensures use cases stay in the application layer while the domain package remains free of workflow orchestration classes.
  */
 class ApplicationUseCasePackageArchitectureTest {
@@ -80,14 +80,10 @@ class ApplicationUseCasePackageArchitectureTest {
     }
 
     private fun retiredUseCasePackage(): String {
-        // Retired Package Literal Assembly (Keeps this test from matching its own guard string)
-        // The guarded package is assembled at runtime so source scans only fail on real production or test imports.
         return listOf("com.viel.aplayer.domain", "usecase").joinToString(".")
     }
 
     private fun resolveMainSourceRoot(): File {
-        // Main Source Root Resolution (Supports both module and repository working directories)
-        // Gradle can execute JVM tests from app/ or the repository root, so both stable source-root candidates are checked.
         val candidates = listOf(
             File("src/main/java/com/viel/aplayer"),
             File("app/src/main/java/com/viel/aplayer")
@@ -97,8 +93,6 @@ class ApplicationUseCasePackageArchitectureTest {
     }
 
     private fun resolveTestSourceRoot(): File {
-        // Test Source Root Resolution (Supports both module and repository working directories)
-        // Architecture tests scan test sources as well because stale imports often survive there after package moves.
         val candidates = listOf(
             File("src/test/java/com/viel/aplayer"),
             File("app/src/test/java/com/viel/aplayer")
@@ -108,16 +102,12 @@ class ApplicationUseCasePackageArchitectureTest {
     }
 
     private fun File.walkKotlinFiles(): List<File> {
-        // Kotlin File Discovery (Provides one small reusable scanner for source-boundary assertions)
-        // Returning a list gives each test stable diagnostics while avoiding repeated directory traversal details.
         return walkTopDown()
             .filter { file -> file.isFile && file.name.endsWith(".kt") }
             .toList()
     }
 
     private fun File.walkKotlinFilesIfPresent(): List<File> {
-        // Optional Kotlin File Discovery (Allows retired directories to be absent or empty)
-        // Missing old package directories are valid, while any Kotlin file inside them is treated as a regression.
         return if (isDirectory) walkKotlinFiles() else emptyList()
     }
 }

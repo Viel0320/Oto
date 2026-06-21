@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Widget Play Control Button Background (Light pink circular background for the central play button to establish a strong visual focal point) -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
     <corners android:radius="21dp" />
     <solid android:color="#F2C5F3" />

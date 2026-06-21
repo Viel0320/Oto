@@ -4,7 +4,7 @@ import android.os.SystemClock
 import android.util.Log
 
 /**
- * Playback Pipeline Timing Logger (Track time duration metrics across the playback pipeline)
+ * Track time duration metrics across the playback pipeline.
  *
  * Collects latency logs from PlaybackManager, PlayerViewModel, VfsPlaybackDataSource, and
  * BookLibraryRepository regarding plan construction, media item mapping, controller updates,
@@ -15,14 +15,10 @@ internal object PlaybackTimingLogger {
 
     private const val TAG = "PlaybackTiming"
 
-    // Calculate Elapsed Milliseconds (Determine time delta from a starting timestamp)
-    // Converts the start timestamp into elapsed milliseconds based on current system clock.
     fun elapsedMs(startMs: Long): Long = SystemClock.elapsedRealtime() - startMs
 
-    // ========== PlaybackManager ==========
-
     /**
-     * Log Plan Execution Entry (Record parameters and settings-read latency at plan entry)
+     * Record parameters and settings-read latency at plan entry.
      *
      * Captures the configuration status before constructing playback plans.
      */
@@ -43,7 +39,7 @@ internal object PlaybackTimingLogger {
     }
 
     /**
-     * Log Pre-Application Duration (Record setup time prior to applying the plan)
+     * Record setup time prior to applying the plan.
      *
      * Tracks the interval between plan setup start and application trigger.
      */
@@ -55,7 +51,7 @@ internal object PlaybackTimingLogger {
     }
 
     /**
-     * Log Plan Application Detail (Record latency of MediaItem creation and controller updates)
+     * Record latency of MediaItem creation and controller updates.
      *
      * Tracks time taken to compile items and notify the underlying media controller.
      */
@@ -77,7 +73,7 @@ internal object PlaybackTimingLogger {
     }
 
     /**
-     * Log Autoplay Consumption (Record successful trigger of the play command)
+     * Record successful trigger of the play command.
      *
      * Traces when the initial play request is fulfilled after setup.
      */
@@ -86,7 +82,7 @@ internal object PlaybackTimingLogger {
     }
 
     /**
-     * Log Application Skip (Record when plan application is bypassed because controller is unready)
+     * Record when plan application is bypassed because controller is unready.
      *
      * Tracks instances where setup fails to complete immediately due to controller state.
      */
@@ -97,10 +93,8 @@ internal object PlaybackTimingLogger {
         )
     }
 
-    // ========== PlayerViewModel ==========
-
     /**
-     * Log Playback Plan Construction Duration (Record construction latency during book load)
+     * Record construction latency during book load.
      *
      * Helps diagnose delays in fetching records to form the playback sequence.
      */
@@ -113,7 +107,7 @@ internal object PlaybackTimingLogger {
     }
 
     /**
-     * Log Book Load Completion (Record total load time before routing to delegate)
+     * Record total load time before routing to delegate.
      *
      * Captures total latency experienced from initiating load to final hand-off.
      */
@@ -126,7 +120,7 @@ internal object PlaybackTimingLogger {
     }
 
     /**
-     * Log Missing Playback Plan (Record duration when no plan is generated)
+     * Record duration when no plan is generated.
      *
      * Traces latency when a book fails to generate a playable structure.
      */
@@ -134,10 +128,8 @@ internal object PlaybackTimingLogger {
         Log.d(TAG, "loadBook($bookId) 未生成播放计划, 总耗时=${totalMs}ms")
     }
 
-    // ========== VfsPlaybackDataSource ==========
-
     /**
-     * Log DataSource Open Latency (Record durations for DB queries and VFS stream access)
+     * Record durations for DB queries and VFS stream access.
      *
      * Pinpoints performance bottlenecks during ExoPlayer's data source instantiation.
      */

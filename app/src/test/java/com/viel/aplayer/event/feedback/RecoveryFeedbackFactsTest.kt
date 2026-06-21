@@ -6,7 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Recovery Feedback Facts Test (Locks the recovery outcome contract and identity safety)
+ * Locks the recovery outcome contract and identity safety.
  *
  * Verifies content-availability outcomes keep the user-visible book context while source/security blocks
  * stay on the explicit missing-object context so display names never enter the aggregation identity.
@@ -110,7 +110,6 @@ class RecoveryFeedbackFactsTest {
         assertEquals(FeedbackTopic.DeletedBookRecovery, identity.topic)
         assertEquals(FeedbackContext.Book("book-4"), identity.context)
         assertEquals(FeedbackSeverity.COMPLETED, ready.outcome.severity)
-        // Ready and partial describe the same recovery task identity for one book.
         assertEquals(identity, partial.outcome.identity)
     }
 

@@ -20,9 +20,9 @@ import java.io.FilterInputStream
 import java.io.InputStream
 
 /**
- * SafSourceProvider (Storage Access Framework source provider implementation)
+ * Storage Access Framework source provider implementation.
  *
- * 
+ *
  * Consolidates to a single path reconstruction strategy:
  * `root.sourceUri + sourcePath -> buildDocumentUriUsingTree(...) -> ContentResolver.open*`
  *
@@ -76,8 +76,6 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
     }
 
     override suspend fun openInputStream(file: SourceNode): InputStream? {
-        // Records elapsed time for path reconstruction and input stream opening.
-        // Provides diagnostics to track SAF overhead in regular reading sequences.
         val openStart = SystemClock.elapsedRealtime()
         val stream = runCatchingCancellable {
             context.contentResolver.openInputStream(buildDocumentUriFromPath(file.root, file.metadata.sourcePath))
@@ -94,8 +92,6 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
 
     override suspend fun openInputStream(file: SourceNode, offset: Long): InputStream? {
         if (offset <= 0L) return openInputStream(file)
-        // Offsets trigger critical random-access queries during seeks, resume playbacks, and container parsing.
-        // Profiles aggregate openFileDescriptor and channel positioning costs.
         val openStart = SystemClock.elapsedRealtime()
         val pfd = runCatchingCancellable {
             context.contentResolver.openFileDescriptor(buildDocumentUriFromPath(file.root, file.metadata.sourcePath), "r")
@@ -158,7 +154,6 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
     }
 
     override suspend fun openFileDescriptor(file: SourceNode): ParcelFileDescriptor? {
-        // Profile openFileDescriptor overhead to isolate connection setup from random seeking costs.
         val openStart = SystemClock.elapsedRealtime()
         val descriptor = runCatchingCancellable {
             context.contentResolver.openFileDescriptor(buildDocumentUriFromPath(file.root, file.metadata.sourcePath), "r")
@@ -204,8 +199,6 @@ class SafSourceProvider(private val context: Context) : LibrarySourceProvider {
         return SourceNode(
             root = root,
             metadata = SourceFileMetadata(
-                // Keeps content:// URI references local to identity calculations;
-                // Excludes raw URIs from public metadata objects to enforce VFS encapsulation rules.
                 sourcePath = sourcePath,
                 identity = identity,
                 parentSourcePath = parentSourcePath,

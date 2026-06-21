@@ -16,8 +16,6 @@ class CoverCacheInvalidationPolicyTest {
             syncedAt = 2000L
         )
 
-        // New Cover Snapshot Rule (Validates first-write timestamp generation)
-        // A new book that receives either an original cover or thumbnail path must produce a non-zero UI cache version.
         assertEquals(2000L, resolved)
     }
 
@@ -30,8 +28,6 @@ class CoverCacheInvalidationPolicyTest {
             syncedAt = 2000L
         )
 
-        // Empty Cover Snapshot Rule (Prevents false cache-version updates)
-        // A new book without persisted cover files must not claim that a cover cache refresh occurred.
         assertEquals(0L, resolved)
     }
 
@@ -50,8 +46,6 @@ class CoverCacheInvalidationPolicyTest {
             syncedAt = 3000L
         )
 
-        // Original Path Change Rule (Refreshes UI cache keys for new persisted cover files)
-        // Changing the original cover path represents a different image snapshot even if the thumbnail path remains stable.
         assertEquals(3000L, resolved)
     }
 
@@ -70,8 +64,6 @@ class CoverCacheInvalidationPolicyTest {
             syncedAt = 3000L
         )
 
-        // Thumbnail Path Change Rule (Refreshes UI cache keys for derived image updates)
-        // A thumbnail replacement can alter list and compact player rendering even when the original cover path is unchanged.
         assertEquals(3000L, resolved)
     }
 
@@ -91,8 +83,6 @@ class CoverCacheInvalidationPolicyTest {
             remoteVersionChanged = true
         )
 
-        // Remote Version Change Rule (Refreshes stable-path snapshots after upstream catalog changes)
-        // Remote providers can update cover bytes without changing local cache paths, so the remote version flag must invalidate the UI key.
         assertEquals(4000L, resolved)
     }
 
@@ -112,8 +102,6 @@ class CoverCacheInvalidationPolicyTest {
             remoteVersionChanged = false
         )
 
-        // Stable Snapshot Rule (Preserves cache hit rates for unchanged cover state)
-        // Reusing BookEntity.lastScannedAt prevents routine sync cycles from forcing Coil to rebuild otherwise valid image requests.
         assertEquals(1000L, resolved)
     }
 

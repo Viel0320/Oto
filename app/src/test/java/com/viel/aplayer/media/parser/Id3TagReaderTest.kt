@@ -61,13 +61,9 @@ class Id3TagReaderTest {
 
     @Test
     fun testReadId3v2Valid() = runBlocking {
-        // Build ID3v2.3 tag
-        // Frame: TIT2 (Title)
-        // Header: "TIT2" (4 bytes), Size (4 bytes = 11), Flags (2 bytes = 0)
-        // Payload: Encoding (1 byte = 3 for UTF-8), "Hello ID3" (9 bytes), Null terminator (1 byte)
         val text = "Hello ID3"
         val payload = ByteArray(1 + text.length + 1)
-        payload[0] = 3 // UTF-8
+        payload[0] = 3
         System.arraycopy(text.toByteArray(StandardCharsets.UTF_8), 0, payload, 1, text.length)
         payload[payload.size - 1] = 0
 
@@ -82,11 +78,10 @@ class Id3TagReaderTest {
         val tagBodySize = frameHeader.size + payload.size
         val id3v2Bytes = ByteArray(10 + tagBodySize)
         System.arraycopy("ID3".toByteArray(StandardCharsets.ISO_8859_1), 0, id3v2Bytes, 0, 3)
-        id3v2Bytes[3] = 3 // Major version 3
-        id3v2Bytes[4] = 0 // Revision 0
-        id3v2Bytes[5] = 0 // Flags
+        id3v2Bytes[3] = 3
+        id3v2Bytes[4] = 0
+        id3v2Bytes[5] = 0
 
-        // Write tag body size as syncsafe int
         id3v2Bytes[6] = ((tagBodySize shr 21) and 0x7F).toByte()
         id3v2Bytes[7] = ((tagBodySize shr 14) and 0x7F).toByte()
         id3v2Bytes[8] = ((tagBodySize shr 7) and 0x7F).toByte()

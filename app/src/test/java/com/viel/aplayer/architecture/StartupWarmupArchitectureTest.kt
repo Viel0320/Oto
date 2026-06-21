@@ -5,7 +5,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Startup Warmup Architecture Rule (Protects cold-start di laziness)
+ * Protects cold-start di laziness.
  * Verifies startup wiring keeps freshness reads on narrow persistence adapters before stale ABS roots schedule deeper synchronization work.
  */
 class StartupWarmupArchitectureTest {
@@ -27,8 +27,6 @@ class StartupWarmupArchitectureTest {
             createStartupWarmupBody.contains(forbiddenReference)
         }
 
-        // Bound Reference Laziness Guard (Keeps receiver resolution out of warmup construction)
-        // Binding these di properties would allocate scanner, VFS, ABS catalog, or media recovery objects before the startup freshness gate runs.
         assertTrue(
             buildString {
                 appendLine("createStartupWarmup must not bind wide di callable references.")
@@ -58,8 +56,6 @@ class StartupWarmupArchitectureTest {
             adapterSource.contains(forbiddenType)
         }
 
-        // Persistence Adapter Boundary (Keeps startup freshness on Room-backed reads)
-        // The adapter may read root rows and ABS sync state, but it must not import the wider di services it is meant to avoid.
         assertTrue(
             buildString {
                 appendLine("DefaultStartupWarmupDependencies must stay free of wide di adapter types.")
@@ -72,8 +68,6 @@ class StartupWarmupArchitectureTest {
     }
 
     private fun resolveSourceRoot(): File {
-        // Source Root Resolution (Supports both module and repository working directories)
-        // Gradle can execute JVM tests from different directories, so the test checks both stable source-root candidates.
         val candidates = listOf(
             File("src/main/java/com/viel/aplayer"),
             File("app/src/main/java/com/viel/aplayer")

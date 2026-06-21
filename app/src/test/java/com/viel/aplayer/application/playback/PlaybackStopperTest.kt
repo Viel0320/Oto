@@ -7,7 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Playback Stopper Test (Locks conditional playback shutdown behavior)
+ * Locks conditional playback shutdown behavior.
  * Verifies destructive workflows can stop only the matching active audiobook without depending on media runtime classes.
  */
 class PlaybackStopperTest {
@@ -39,8 +39,6 @@ class PlaybackStopperTest {
         var stopCount = 0
 
         override suspend fun stopPlayback() {
-            // Stop Recording Adapter (Capture stop invocations without starting media runtime)
-            // The fake keeps this test focused on PlaybackStopper's conditional policy.
             stopCount += 1
         }
     }

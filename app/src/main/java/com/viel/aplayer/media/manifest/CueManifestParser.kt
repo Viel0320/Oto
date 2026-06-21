@@ -11,7 +11,7 @@ import java.io.InputStreamReader
 import java.nio.charset.Charset
 
 /**
- * Industry Standard CUE Parser (Implements standard CUE sheet tag decoding)
+ * Implements standard CUE sheet tag decoding.
  */
 object CueManifestParser {
 
@@ -19,8 +19,6 @@ object CueManifestParser {
         val metadata: MetadataSuggestion,
         val referencedFiles: List<String>,
         val chapters: List<ChapterCandidate>,
-        // manifest parser 现在直接产出同目录 sidecar 结果，
-        // 后续步骤不再自己去补 txt 描述或重新挑图片封面候选。
         val sidecarDescription: String? = null,
         val sidecarCoverFile: FileRef? = null
     )
@@ -33,7 +31,6 @@ object CueManifestParser {
         openTextFile: (suspend (FileRef) -> InputStream?)? = null
     ): CueResult? {
         try {
-            // CUE 解析器只接收 VFS 流工厂，不再知道来源原生文件对象或 ContentResolver。
             val charset = detectCharset(openStream)
             val inputStream = openStream() ?: return null
             val reader = BufferedReader(InputStreamReader(inputStream, charset))
@@ -43,10 +40,10 @@ object CueManifestParser {
             var globalNarrator: String? = null
             var globalYear: String? = null
             var globalDescription: String? = null
-            
+
             val files = mutableListOf<String>()
             val chapterCandidates = mutableListOf<ChapterCandidate>()
-            
+
             var currentFile: String? = null
             var currentTrackTitle: String? = null
             var isTrackSection = false
@@ -77,14 +74,12 @@ object CueManifestParser {
                             }
                         }
                         "COMPOSER", "NARRATOR" -> {
-                            // Book-level CUE narrator fields win before falling back to the first audio file.
                             val value = extractQuotedValue(remainder).limitManifestText()
                             if (!isTrackSection) {
                                 globalNarrator = value
                             }
                         }
                         "REM" -> {
-                            // REM carries common CUE metadata such as DATE/YEAR/COMMENT without affecting tracks.
                             applyRemMetadata(remainder)?.let { (key, value) ->
                                 when (key) {
                                     "AUTHOR", "ARTIST" -> if (!isTrackSection) globalArtist = value
@@ -95,13 +90,8 @@ object CueManifestParser {
                             }
                         }
                         "FILE" -> {
-                            // Manifest Text Budget (Bound CUE file references before they enter parser state)
-                            // FILE paths are user-controlled sidecar strings and can otherwise be retained by both file and chapter lists.
                             val parsedFile = extractQuotedValue(remainder).limitManifestText()
                             currentFile = parsedFile
-                            // FILE always yields a parsed path here.
-                            // Manifest Entry Budget (Stop referenced-file accumulation before parser state grows without bound)
-                            // Large CUE sheets keep the first deterministic file references and skip later entries.
                             if (!files.addWithinManifestBudget(parsedFile)) break
                         }
                         "TRACK" -> {
@@ -114,8 +104,6 @@ object CueManifestParser {
                                 val timeStr = indexParts[1]
                                 val offsetMs = parseCueTime(timeStr)
                                 if (currentFile != null) {
-                                    // Manifest Chapter Budget (Stop CUE chapter accumulation before processed chapters are built)
-                                    // Limiting the intermediate candidate list prevents memory growth before duration post-processing.
                                     val accepted = chapterCandidates.addWithinManifestBudget(
                                         ChapterCandidate(
                                             title = currentTrackTitle ?: "Track ${chapterCandidates.size + 1}",
@@ -141,8 +129,6 @@ object CueManifestParser {
             }
 
             val sidecarPayload = if (manifestFile != null && openTextFile != null) {
-                // manifest 相关的 txt 描述和 sidecover 候选选择，现在统一在 parser 内部完成，
-                // 避免后续步骤再对同一目录做第二套平行规则判断。
                 ManifestSidecarSupport.resolveForManifest(
                     manifestFile = manifestFile,
                     directoryContext = directoryContext,
@@ -153,7 +139,6 @@ object CueManifestParser {
             }
 
             return CueResult(
-                // CUE global metadata is persisted first; missing fields are filled later by ImportOrchestrator.
                 metadata = MetadataSuggestion(
                     title = globalTitle,
                     author = globalArtist,
@@ -167,8 +152,6 @@ object CueManifestParser {
                 sidecarCoverFile = sidecarPayload.coverFile
             )
         } catch (e: Exception) {
-            // Release Error Boundary (Sanitize CUE parse failures)
-            // CUE filenames and parser failures can include local paths, so release-retained errors use SecureLog.
             SecureLog.error("CueParser", "Error parsing CUE: $displayName", e)
             return null
         }
@@ -180,23 +163,18 @@ object CueManifestParser {
         return if (start != -1 && end != -1 && start < end) {
             text.substring(start + 1, end)
         } else {
-            // FILE commands need the first token when values are unquoted, e.g. FILE album.wav WAVE.
             text.split(Regex("\\s+")).firstOrNull().orEmpty().trim()
         }
     }
 
     private fun applyRemMetadata(text: String): Pair<String, String>? {
-        // REM is "KEY value"; for comments we keep the whole unquoted value instead of only one token.
         val parts = text.trim().split(Regex("\\s+"), limit = 2)
         val key = parts.getOrNull(0)?.uppercase()?.takeIf { it.isNotBlank() } ?: return null
-        // Manifest Metadata Budget (Bound REM metadata before MetadataSuggestion retains it)
-        // REM COMMENT and date fields are user-controlled text and should not expand import state without limit.
         val value = parts.getOrNull(1)?.let { extractMetadataValue(it).limitManifestText() }.orEmpty()
         return key to value
     }
 
     private fun extractMetadataValue(text: String): String {
-        // Metadata fields can contain spaces even when the CUE file does not quote them.
         val start = text.indexOf('"')
         val end = text.lastIndexOf('"')
         return if (start != -1 && end != -1 && start < end) {
@@ -212,8 +190,6 @@ object CueManifestParser {
         val mins = (parts[0].toLongOrNull() ?: 0L).coerceAtLeast(0L)
         val secs = (parts[1].toLongOrNull() ?: 0L).coerceAtLeast(0L)
         val rawFrames = parts[2].toLongOrNull() ?: 0L
-        // CUE Time Standard (CUE standard divides one second into 75 audio frames)
-        // Coerces frame offsets to [0, 74] bounds to prevent overflow timestamp errors.
         val frames = rawFrames.coerceIn(0L, 74L)
         return (mins * 60 + secs) * 1000 + (frames * 1000 / 75)
     }
@@ -225,14 +201,11 @@ object CueManifestParser {
                 val buffer = ByteArray(4096)
                 val read = bis.read(buffer)
                 if (read <= 0) return Charsets.UTF_8
-                
-                // UTF-8 BOM Check (Verify leading byte markers)
+
                 if (read >= 3 && buffer[0] == 0xEF.toByte() && buffer[1] == 0xBB.toByte() && buffer[2] == 0xBF.toByte()) {
                     return Charsets.UTF_8
                 }
-                
-                // Heuristic Encoding Fallback (Fall back to Shift-JIS if input is not valid UTF-8)
-                // Serves as default encoding strategy for audio logs of local Japanese audiobooks.
+
                 if (isValidUtf8(buffer, read)) Charsets.UTF_8 else Charset.forName("Shift-JIS")
             } ?: Charsets.UTF_8
         } catch (_: Exception) {

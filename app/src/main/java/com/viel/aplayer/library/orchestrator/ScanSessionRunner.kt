@@ -20,7 +20,7 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 
 /**
- * Rescan Trigger Type (Incremental Configuration)
+ * Incremental Configuration.
  *
  * Configures the source and depth characteristics of the current rescan request.
  */
@@ -31,7 +31,7 @@ enum class RescanType {
 }
 
 /**
- * Audiobook Scan Session Executor (Lifecycle Manager)
+ * Lifecycle Manager.
  *
  * Serves as the primary external lifecycle control entry for scanning tasks.
  * Key responsibilities:
@@ -45,14 +45,8 @@ enum class RescanType {
 @UnstableApi
 class ScanSessionRunner(
     private val context: Context,
-    // Inject VFS Facade Singleton (Dependency Decoupling)
-    // Ensures file operations refer to a single virtual file system to prevent raw resource creation.
     vfsFileInterface: VfsFileInterface,
-    // Directory Listing Cache Injection (Scanner-only listing reuse boundary)
-    // Supplies WebDAV child snapshots to SourceInventoryScanner without changing playback, availability, or metadata range readers.
     directoryListingCache: DirectoryListingCache = NoOpDirectoryListingCache,
-    // Cover Image Caching Hook (Decoupled Callback)
-    // Forwards cover reconstruction triggers to higher layers rather than managing extraction directly.
     private val triggerCoverRegeneration: (BookEntity) -> Unit = {}
 ) {
     private val database = AppDatabase.getInstance(context)
@@ -63,14 +57,12 @@ class ScanSessionRunner(
         context = context,
         directoryListingCache = directoryListingCache
     )
-    
+
     private val metadataResolver = MetadataResolver(vfsFileInterface)
     private val pipeline = ImportPipeline(context, metadataResolver)
     private val importer = BookImporter(context)
     private val missingRecoveryChecker = MissingBookFileRecoveryChecker(context)
 
-    // Initialize Scoped Directory Importer (Subcomponent Orchestration)
-    // Spawns a dedicated coordinator responsible for processing files and writing them in sub-batches.
     private val directoryAudioImporter = DirectoryAudioImporter(
         metadataResolver = metadataResolver,
         pipeline = pipeline,
@@ -78,8 +70,6 @@ class ScanSessionRunner(
         triggerCoverRegeneration = triggerCoverRegeneration
     )
 
-    // Initialize Scoped Orchestrator Engine (Subcomponent Orchestration)
-    // Allocates the coordination logic responsible for cache validation, file trees, and pipeline execution.
     private val scopeOrchestrator = ScopeOrchestrator(
         context = context,
         scanner = scanner,
@@ -90,7 +80,7 @@ class ScanSessionRunner(
     )
 
     /**
-     * Dispatch Rescan Operation (Session Entry Point)
+     * Session Entry Point.
      *
      * Registers a new scan session in the database, delegates import processing to ScopeOrchestrator,
      * updates system status, recalculates missing counts, and returns the final session model.
@@ -121,21 +111,15 @@ class ScanSessionRunner(
             }
                 .filter { root -> root.isDirectorySyncRoot() }
                 .filter { root -> allowedRootIds == null || root.id in allowedRootIds }
-            // Existing Claim Priority Snapshot (Ownership conflict policy)
-            // Loads books beside file claims so the pipeline can compare persisted owner source types during replacement decisions.
             val existingIndex = ExistingClaimIndex.from(
                 files = bookDao.getAllBookFilesOnce(),
                 books = bookDao.getAllBooksOnce()
             )
-            
-            // Delegate Import Pipeline (Pipeline Execution)
-            // Invokes ScopeOrchestrator to parse and import all files within folders.
+
             scopeOrchestrator.execute(scanId, roots, existingIndex, type)
         }
 
         result.onSuccess { importResult ->
-            // Run Cold-Start File Recovery (Asset Self-Healing)
-            // Triggers missing file checks during light cold starts to restore database references if file access returns.
             val recoveryResult = if (type == RescanType.COLD_START_LIGHT) {
                 missingRecoveryChecker.recoverMissingAudioFiles()
             } else {
@@ -163,8 +147,6 @@ class ScanSessionRunner(
         scanSessionDao.getSessionById(scanId) ?: session
     }
 
-    // Compile Session Summary Log (JSON Diagnostics Compilation)
-    // Serializes discovered names, updates, conflicts, and failures into a diagnostic JSON string.
     private fun ImportRunResult.toSummaryJson(recoveryResult: MissingBookFileRecoveryResult = MissingBookFileRecoveryResult()): String =
         buildString {
             append('{')
@@ -175,13 +157,9 @@ class ScanSessionRunner(
             append('}')
         }
 
-    // Encode Collection to JSON Array (JSON Formatting Utility)
-    // Safely encodes and joins a list of strings into a standard JSON array representation.
     private fun List<String>.toJsonArray(): String =
         joinToString(prefix = "[", postfix = "]") { value -> "\"${value.escapeJson()}\"" }
 
-    // Escape Special Characters for JSON (Formatting Security)
-    // Sanitizes strings to prevent JSON structural breakdowns when stored or parsed.
     private fun String.escapeJson(): String =
         buildString {
             this@escapeJson.forEach { char ->

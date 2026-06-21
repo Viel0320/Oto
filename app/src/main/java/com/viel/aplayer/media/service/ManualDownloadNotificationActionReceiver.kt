@@ -19,8 +19,6 @@ class ManualDownloadNotificationActionReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             try {
-                // Notification Command Dispatch (Route notification actions through the book-level download controller)
-                // This keeps pause, resume, retry, and cancel behavior identical to the settings download management screen.
                 val downloadController = APlayerApplication
                     .getManualDownloadNotificationActionDependencies(context.applicationContext)
                     .downloadController
@@ -31,8 +29,6 @@ class ManualDownloadNotificationActionReceiver : BroadcastReceiver() {
                     ACTION_CANCEL_DOWNLOAD -> downloadController.cancelDownload(bookId)
                 }
             } catch (error: Exception) {
-                // Notification Action Failure Log (Record sanitized command failures without surfacing raw task data)
-                // Broadcast receivers cannot present interactive errors, so failures are logged and the next Room sync keeps UI state authoritative.
                 SecureLog.error(TAG, "Manual download notification action failed: ${error.message}", error)
             } finally {
                 pendingResult.finish()
@@ -59,8 +55,6 @@ class ManualDownloadNotificationActionReceiver : BroadcastReceiver() {
             action: ManualDownloadNotificationAction,
             bookId: String
         ): PendingIntent {
-            // Stable Action PendingIntent (Create a unique immutable command intent per book and action)
-            // Reusing stable request codes lets notification updates replace actions without dispatching stale book IDs.
             val actionString = action.toIntentAction()
             val intent = Intent(context, ManualDownloadNotificationActionReceiver::class.java)
                 .setAction(actionString)

@@ -4,7 +4,7 @@ import android.util.Log
 import java.security.MessageDigest
 
 /**
- * Cache Diagnostics Logger (Aggregates cache events under one sanitized Logcat tag)
+ * Aggregates cache events under one sanitized Logcat tag.
  * Emits compact cache facts for directory listings, range reads, cover decodes, and ABS mirror reuse without replacing
  * domain-specific loggers or printing tokens, complete paths, or complete URLs.
  */
@@ -13,7 +13,7 @@ object CacheDiagnosticsLogger {
     private val allowedCacheTypes = setOf("directory", "range", "cover", "abs_mirror")
 
     /**
-     * Log Cache Event (Writes a normalized cache operation record)
+     * Writes a normalized cache operation record.
      * Accepts pre-hashed source identifiers and sanitized detail text so callers can correlate cache behavior without leaking
      * provider URLs, local filesystem paths, or authorization tokens.
      */
@@ -26,8 +26,6 @@ object CacheDiagnosticsLogger {
         sizeBytes: Long?,
         detail: String? = null
     ) {
-        // Safe Logcat Emission (Keeps JVM unit tests from failing on unmocked Android Log APIs)
-        // Cache diagnostics are observational only, so a Logcat runtime mismatch must not change ABS sync or directory cache behavior.
         runCatching {
             Log.d(
                 TAG,
@@ -45,7 +43,7 @@ object CacheDiagnosticsLogger {
     }
 
     /**
-     * Build Log Message (Formats cache diagnostics without touching Android Logcat)
+     * Formats cache diagnostics without touching Android Logcat.
      * Keeps cache-event normalization testable on the JVM so redaction and field layout stay protected without requiring
      * a device-side Logcat assertion.
      */
@@ -65,7 +63,7 @@ object CacheDiagnosticsLogger {
     }
 
     /**
-     * Hash Identifier (Converts roots, paths, and catalog identifiers into short non-reversible labels)
+     * Converts roots, paths, and catalog identifiers into short non-reversible labels.
      * Lets cache event callers correlate repeated operations while keeping raw provider coordinates out of logs.
      */
     fun hashIdentifier(value: String?): String? {
@@ -76,7 +74,6 @@ object CacheDiagnosticsLogger {
     }
 
     private fun sanitizeDetail(value: String?): String {
-        // Redact bearer tokens, passwords, and sensitive params using unified AbsLogSanitizer, then genericize remaining URLs.
         val redacted = AbsLogSanitizer.sanitizeText(value ?: "none")
             .replace(Regex("https?://\\S+", RegexOption.IGNORE_CASE), "<url>")
         return compact(redacted)

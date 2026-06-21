@@ -49,38 +49,24 @@ import dev.chrisbanes.haze.HazeState
 fun BookmarkListView(
     modifier: Modifier = Modifier,
     bookmarks: List<PlayerBookmarkItem>,
-    // Flattened state delegates (To decouple BookmarkDialogsState parameters and enforce stateless layouts design)
     bookmarkToDelete: PlayerBookmarkItem? = null,
     bookmarkToEdit: PlayerBookmarkItem? = null,
     bookmarkEditTitle: String = "",
     onBookmarkClick: (Long) -> Unit,
-    // Request deletion confirmation (To delegate deletion checks to ViewModel callbacks)
     onRequestDelete: (PlayerBookmarkItem) -> Unit = {},
-    // Request modification confirmation (To delegate edit overlays checks to ViewModel callbacks)
     onRequestEdit: (PlayerBookmarkItem) -> Unit = {},
-    // Update edit text (To forward edit inputs changes back to ViewModel scope)
     onEditTitleChange: (String) -> Unit = {},
-    // Confirm bookmark deletion (To invoke bookmark deletion transactions)
     onConfirmDelete: () -> Unit = {},
-    // Confirm title updates (To invoke bookmark renaming transactions)
     onConfirmUpdate: () -> Unit = {},
-    // Clear dialog states (To invoke dialogs dismissal callbacks)
     onDismissDialogs: () -> Unit = {},
-    // Bookmark List Dialog Backdrop Source (Use the active player content haze source)
-    // Layout variants pass their chapter/player HazeState so edit and delete dialogs sample the same visible player surface.
     hazeState: HazeState? = null,
-    // Bookmark List Dialog Glass Mode (Render edit/delete confirmations through the shared dialog shell)
-    // Defaults to Material for previews while production callers pass the current player glass setting.
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     currentPosition: Long = 0L
 ) {
-    // Bookmark Assistive Action Labels (Expose row commands through named semantics)
-    // Bookmark rows contain seek, edit, and delete commands, so the row advertises custom actions in addition to the visible delete button.
     val bookmarkOpenActionLabel = stringResource(R.string.bookmark_open_action)
     val bookmarkEditActionLabel = stringResource(R.string.bookmark_edit_action)
     val bookmarkDeleteActionLabel = stringResource(R.string.bookmark_delete_title)
 
-    // Deletion confirmation overlay (To show alert layout using primitive variables passed from container)
     if (bookmarkToDelete != null) {
         APlayerDialogTemplate(
             onDismissRequest = onDismissDialogs,
@@ -89,8 +75,6 @@ fun BookmarkListView(
             scrollable = false,
             title = { Text(stringResource(R.string.bookmark_delete_title)) },
             body = {
-                // Bookmark Delete Body (Confirm destructive bookmark removal)
-                // The selected bookmark entity remains owned by PlayerViewModel while this component only renders the confirmation step.
                 Text(stringResource(R.string.bookmark_delete_body))
             },
             actions = {
@@ -112,7 +96,6 @@ fun BookmarkListView(
         )
     }
 
-    // Modification dialog overlay (To preserve active drafts titles during configuration changes)
     if (bookmarkToEdit != null) {
         APlayerDialogTemplate(
             onDismissRequest = onDismissDialogs,
@@ -121,8 +104,6 @@ fun BookmarkListView(
             scrollable = false,
             title = { Text(stringResource(R.string.bookmark_edit_title)) },
             body = {
-                // Bookmark Edit Body (Expose ViewModel-owned draft title to the shared dialog shell)
-                // Title changes are forwarded immediately so rotation and layout changes preserve the active edit draft.
                 Column {
                     Text(stringResource(R.string.bookmark_update_label))
                     Spacer(Modifier.height(8.dp))
@@ -157,7 +138,6 @@ fun BookmarkListView(
     ) {
         items(
             items = bookmarks,
-            // Configure stable key (To assign unique identifier key to prevent index recycling glitches)
             key = { it.id }
         ) { bookmark ->
             val isActive = currentPosition >= bookmark.globalPositionMs
@@ -168,13 +148,10 @@ fun BookmarkListView(
                     .combinedClickable(
                         onClickLabel = bookmarkOpenActionLabel,
                         onClick = { onBookmarkClick(bookmark.globalPositionMs) },
-                        // Long click triggers modification (To route long-press edit commands directly to ViewModel)
                         onLongClickLabel = bookmarkEditActionLabel,
                         onLongClick = { onRequestEdit(bookmark) }
                     )
                     .semantics {
-                        // Bookmark Row Custom Actions (Mirror row-level and trailing commands for assistive tech)
-                        // Switch Access users can jump, edit, or delete the bookmark from the row action menu without locating hidden long-press gestures or the nested icon.
                         customActions = listOf(
                             CustomAccessibilityAction(bookmarkOpenActionLabel) {
                                 onBookmarkClick(bookmark.globalPositionMs)
@@ -225,7 +202,6 @@ fun BookmarkListView(
                     }
                 }
 
-                // Deletion click trigger (To delegate bookmark removals commands to ViewModel request queue)
                 IconButton(onClick = { onRequestDelete(bookmark) }) {
                     Icon(
                         Icons.Rounded.Delete,

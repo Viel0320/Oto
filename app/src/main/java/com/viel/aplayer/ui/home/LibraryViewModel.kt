@@ -28,36 +28,21 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
-    // Home Screen Dependency View (Resolve only home scene, settings, deletion use cases, and feedback needed by Home)
-    // This keeps LibraryViewModel from seeing playback runtime, ABS worker, or VFS dependencies.
     private val homeDependencies = APlayerApplication.getHomeScreenDependencies(application)
-    // Home Library Scene Surface (Consumes the home-scoped read model and commands instead of the full library bus)
-    // The read model only exposes raw projections; page-specific filtering, sorting, and grouping stay in this ViewModel.
     private val homeLibraryReadModel = homeDependencies.homeLibraryReadModel
     private val homeLibraryUseCases = homeDependencies.homeLibraryUseCases
-    // Title: Settings Abstractions Binding (Bind LibraryViewModel to read and command abstractions)
-    // Decouples Home UI calculations from the concrete AppSettingsRepository class.
     private val settingsReadModel = homeDependencies.settingsReadModel
     private val settingsCommands = homeDependencies.settingsCommands
-    // Application Event Sink (Routes home feedback through the process-wide UI event stream)
-    // The home ViewModel no longer owns a local toast flow, so app-shell rendering stays centralized.
     private val appEventSink = homeDependencies.appEventSink
 
     /**
-     * Book Management Use Case (Cross-domain coordinator for cleanup-first book removal)
+     * Cross-domain coordinator for cleanup-first book removal.
      * Home delegates destructive book actions here so cover cache, manual downloads, and soft deletion stay in one application workflow.
      */
     private val bookManagementUseCase = homeDependencies.bookManagementUseCase
 
-    // User Selection Filter (Initially null, indicating no explicit user action has occurred)
-    // When null, the combine stream resolves filter attributes via a strict priority chain.
-    // This blocks competing updates from asynchronous settings during cold starts, preventing filter chips animation flickering.
     private val _selectedFilter = MutableStateFlow<HomeFilter?>(null)
-    // User Book Status Filter (Initially null so DataStore can provide the restored dialog selection)
-    // Explicit selections are kept in memory immediately, then persisted through SettingsRepository for future launches.
     private val _selectedBookStatusFilter = MutableStateFlow<HomeBookStatusFilter?>(null)
-    // Home Dialog State Flow (Exposes dialog selection as a flow to combine with other UI states)
-    // Holds the currently active dialog state in the ViewModel to prevent losing state during configuration changes.
     private val _homeDialogState = MutableStateFlow<HomeDialogState>(HomeDialogState.None)
 
     val uiState: StateFlow<LibraryUiState> = kotlinx.coroutines.flow.combine(
@@ -78,18 +63,15 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         }.flowOn(Dispatchers.Default),
         _homeDialogState
     ) { baseState, dialogState ->
-        // Combine Home Dialog State (Add dialog state to the main library UI state flow)
-        // Aggregates the dialog state with the main page state so that the Composable receives a single unified state stream.
         baseState.copy(homeDialogState = dialogState)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        // Starts with an empty `LibraryUiState`, deferring filter evaluation until input flows compile.
         initialValue = LibraryUiState()
     )
 
     /**
-     * Home Catalog UI State Builder (ViewModel-owned page organization)
+     * ViewModel-owned page organization.
      *
      * Applies transient chip/dialog selections, persisted Home settings, script-clustered sorting, grouping, and recent-section slicing after the read model has delivered raw Room-free projections.
      */
@@ -152,7 +134,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
-     * Home Progress Filter Matching (ViewModel-local read-progress filtering)
+     * ViewModel-local read-progress filtering.
      * Keeps chip selection behavior beside the catalog UI state builder so the read model remains a projection adapter instead of a Home page organizer.
      */
     private fun HomeBookItem.matchesFilter(filter: HomeFilter): Boolean {
@@ -164,40 +146,28 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     init {
-        // Deferred Cold Start Scan (Let the first shelf frame render before scheduling WorkManager sync)
-        // Cold-start scanning no longer contends with first-screen catalog loading for cold-start I/O and the DB.
         viewModelScope.launch {
             delay(COLD_START_SCAN_DELAY_MS.milliseconds)
             homeLibraryUseCases.scheduleColdStartSync()
         }
-        // Deferred Cover Self-Heal Sweep (Replace per-emission inline cover probing with one background sweep)
-        // Runs after the shelf is visible; actual regeneration stays on CoverRecoveryHelper's own background scope.
         viewModelScope.launch {
             delay(COVER_RECOVERY_SWEEP_DELAY_MS.milliseconds)
             homeLibraryUseCases.recoverMissingCovers()
         }
-        // Home Filter Startup Policy (Preserve explicit and persisted category selection)
-        // Cold start no longer rewrites HOME_FILTER from library contents, so in-progress books cannot override the user's saved Home category.
     }
 
     fun deleteBook(bookId: String) {
         viewModelScope.launch {
-            // Book Deletion Coordination (Use the application use case to remove the book and stop playback safely)
             val fileExists = bookManagementUseCase.deleteBook(bookId)
 
-            // Deletion Feedback Dispatch (Send home deletion outcome through the application event sink)
-            // This keeps Toast rendering outside the ViewModel while keying the outcome to the deleted book.
             appEventSink.emitFeedback(
                 BookManagementFeedbackFacts.bookDeleted(bookId, sourceFileKept = fileExists)
             )
         }
     }
 
-    // Update Reading State: Updates user progress status in database and dispatches feedback.
-    // Update Book Read Status: Change readStatus parameter type to type-safe ReadStatus enum.
     fun updateBookReadStatus(bookId: String, readStatus: LibraryReadStatus) {
         viewModelScope.launch {
-            // Home Read Status Command (Routes manual status changes through the home scene use case)
             homeLibraryUseCases.updateReadStatus(bookId, readStatus)
             appEventSink.emitFeedback(
                 BookManagementFeedbackFacts.readStatusChanged(bookId, readStatus)
@@ -206,54 +176,42 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
-     * Add Local Root From Home (Submit the empty-state SAF picker result through the home command seam)
+     * Submit the empty-state SAF picker result through the home command seam.
      * This keeps the app shell from creating the full SettingsViewModel just to register a local library root.
      */
     fun addLocalRootAndScheduleSync(uri: Uri) {
         homeLibraryUseCases.addLocalRootAndScheduleSync(uri)
     }
 
-    // Reconstruct Metadata cache: Rebuilds localized graphics cover cache and maps raw values asynchronously.
     fun forceRegenerateCoverAndMetadata(bookId: String) {
         viewModelScope.launch {
             appEventSink.emitFeedback(BookManagementFeedbackFacts.coverMetadataRegenerationStarted())
-            // Home Metadata Refresh Command (Keeps regeneration behind the home scene command surface)
             homeLibraryUseCases.regenerateCoverAndMetadata(bookId)
             appEventSink.emitFeedback(BookManagementFeedbackFacts.coverMetadataRegenerationCompleted())
         }
     }
 
     fun setFilter(filter: HomeFilter) {
-        // Apply manual filter selection.
-        // Flushes choices to local states and updates preferences via SettingsRepository.
         _selectedFilter.value = filter
         viewModelScope.launch {
-            // Update Home Filter (Passes the type-safe HomeFilter enum directly to repository updates)
             settingsCommands.updateHomeFilter(filter)
         }
     }
 
     fun setHomeBookStatusFilter(filter: HomeBookStatusFilter) {
-        // Home Book Status Filter Update (Persist the dialog availability filter)
-        // The in-memory override updates Home immediately while DataStore keeps the selection stable after restart.
         _selectedBookStatusFilter.value = filter
         viewModelScope.launch {
-            // Update Home Book Status Filter (Passes the type-safe HomeBookStatusFilter enum directly to repository updates)
             settingsCommands.updateHomeBookStatusFilter(filter)
         }
     }
 
     fun setHomeViewStyle(style: HomeViewStyle) {
-        // Home View Style Update (Persist the user's selected catalog renderer)
-        // The settings flow drives recomposition, keeping listgroup/Cardgroup switching outside direct mutable UI state.
         viewModelScope.launch {
             settingsCommands.updateHomeViewStyle(style)
         }
     }
 
     fun setHomeSortRule(rule: HomeSortRule) {
-        // Home Sort Rule Update (Persist the user's selected catalog grouping and script-clustered order)
-        // The ViewModel rebuilds filtered and grouped catalog sections from settingsFlow after the preference write completes.
         viewModelScope.launch {
             settingsCommands.updateHomeSortRule(rule)
         }
@@ -261,28 +219,20 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     fun setHomeSortDirection(direction: HomeSortDirection) {
         viewModelScope.launch {
-            // Home Sort Direction Update (Persist ascending or descending order inside each script cluster)
-            // Script cluster order itself remains fixed in HomeCatalogSortPolicy so the setting only affects same-cluster comparisons.
             settingsCommands.updateHomeSortDirection(direction)
         }
     }
 
-    // Show Book Actions Dialog (Show actions menu for a specific audiobook)
-    // Sets the active dialog state to AudiobookActions with the selected book item.
     fun showBookActions(book: HomeBookItem) {
         _homeDialogState.value = HomeDialogState.AudiobookActions(book)
     }
 
-    // Dismiss Home Dialog (Hide the currently shown home dialog)
-    // Sets the active dialog state to None, closing any visible dialog.
     fun dismissDialog() {
         _homeDialogState.value = HomeDialogState.None
     }
 
     private companion object {
-        // Cold-start scan waits until the first catalog interaction window has passed before enqueuing WorkManager.
         private const val COLD_START_SCAN_DELAY_MS = 2_000L
-        // Cover sweep starts after first paint and uses its own bounded batch budget in the data layer.
         private const val COVER_RECOVERY_SWEEP_DELAY_MS = 1_000L
     }
 

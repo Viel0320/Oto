@@ -16,8 +16,6 @@ class AvailabilityPersistencePolicyTest {
             AudiobookSchema.AvailabilityStatus.PERMISSION_DENIED,
             AudiobookSchema.AvailabilityStatus.UNKNOWN
         ).forEach { status ->
-            // Transient Failure Persistence Guard (Prevents temporary remote faults from becoming durable missing files)
-            // The availability refresh layer must keep the existing Room file status unless the probe proves that the file is actually gone.
             assertEquals(
                 AudiobookSchema.FileStatus.READY,
                 AvailabilityPersistencePolicy.nextFileStatus(
@@ -30,8 +28,6 @@ class AvailabilityPersistencePolicyTest {
 
     @Test
     fun `available and not found probes should update durable file status`() {
-        // Durable Probe Mapping (Documents the only two probe outcomes that rewrite file availability)
-        // AVAILABLE restores playback eligibility, while NOT_FOUND is the confirmed absence state that may mark a file missing.
         assertEquals(
             AudiobookSchema.FileStatus.READY,
             AvailabilityPersistencePolicy.nextFileStatus(

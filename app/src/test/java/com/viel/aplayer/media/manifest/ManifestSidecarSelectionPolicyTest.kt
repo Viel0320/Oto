@@ -18,8 +18,6 @@ class ManifestSidecarSelectionPolicyTest {
             baseName = "Book One"
         )
 
-        // Same-Name Text Priority (Pins manifest-anchored description selection)
-        // A txt sibling matching the manifest base name should win over generic metadata filenames.
         assertEquals("Book One.txt", selected?.displayName)
     }
 
@@ -33,8 +31,6 @@ class ManifestSidecarSelectionPolicyTest {
             strictSameNameOnly = true
         )
 
-        // Strict Text Selection (Prevents unrelated generic sidecars when callers require a manifest anchor)
-        // This preserves the strict mode contract for parsers that need exact sidecar ownership.
         assertNull(selected)
     }
 
@@ -47,8 +43,6 @@ class ManifestSidecarSelectionPolicyTest {
 
         val selected = ManifestSidecarSelectionPolicy.selectTextDescription(textFiles = files)
 
-        // Common Text Name Priority (Keeps conventional metadata files ahead of arbitrary txt siblings)
-        // Directories with several text files should choose a known description name instead of the first unrelated note.
         assertEquals("readme.txt", selected?.displayName)
     }
 
@@ -58,8 +52,6 @@ class ManifestSidecarSelectionPolicyTest {
             textFiles = listOf(sampleRef("notes.txt"))
         )
 
-        // Single Text Fallback (Preserves heuristic import behavior for simple directories)
-        // When only one txt sibling exists, it remains the best available description candidate.
         assertEquals("notes.txt", selected?.displayName)
     }
 
@@ -72,8 +64,6 @@ class ManifestSidecarSelectionPolicyTest {
 
         val selected = ManifestSidecarSelectionPolicy.selectDirectoryCover(files)
 
-        // Directory Cover Priority (Keeps stable artwork names ahead of arbitrary image order)
-        // Parser and recovery flows should agree that folder/cover/artwork/front files are preferred covers.
         assertEquals("folder.png", selected?.displayName)
     }
 
@@ -83,8 +73,6 @@ class ManifestSidecarSelectionPolicyTest {
             listOf(sampleRef("page1.jpg"), sampleRef("page2.jpg"))
         )
 
-        // Cover Fallback Selection (Preserves existing behavior for directories without conventional cover names)
-        // The first image remains the fallback so scan ordering continues to determine generic artwork.
         assertEquals("page1.jpg", selected?.displayName)
     }
 

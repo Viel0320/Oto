@@ -9,13 +9,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
 /**
- * Book Cache State (UI-facing manual offline cache state machine)
+ * UI-facing manual offline cache state machine.
  * NONE is derived by the read model from missing metadata, while all other values mirror durable download aggregate states.
  */
 enum class BookCacheState {
     NONE,
-    // Native Local Source Status (Flags local SAF books that require no server synchronization)
-    // Presentation modules check this state to completely omit manual download action buttons.
     LOCAL,
     QUEUED,
     DOWNLOADING,
@@ -25,7 +23,7 @@ enum class BookCacheState {
 }
 
 /**
- * Book Cache Status (Immutable detail and management screen cache projection)
+ * Immutable detail and management screen cache projection.
  * Carries only display-safe aggregate values so presentation code never needs DownloadMetadataEntity or Media3 Download objects.
  */
 data class BookCacheStatus(
@@ -45,8 +43,6 @@ data class BookCacheStatus(
         }
 
     companion object {
-        // No Cache Status (Represent the UI-facing absence of a manual download row)
-        // NONE is derived outside Room so DownloadMetadataEntity can keep only durable Media3 aggregate states.
         fun none(): BookCacheStatus =
             BookCacheStatus(
                 state = BookCacheState.NONE,
@@ -57,7 +53,7 @@ data class BookCacheStatus(
             )
 
         /**
-         * Local Cache Status (Represents a book that resides permanently on the local filesystem)
+         * Represents a book that resides permanently on the local filesystem.
          * Omit manual cache metrics and return a static local status instance.
          */
         fun local(): BookCacheStatus =
@@ -72,19 +68,19 @@ data class BookCacheStatus(
 }
 
 /**
- * Download Status Read Model (Presentation boundary for manual cache status)
+ * Presentation boundary for manual cache status.
  * Keeps UI state derivation in the download application module instead of duplicating Room mapping in individual screens.
  */
 interface DownloadStatusReadModel {
     /**
-     * Observe Book Cache Status (Expose one book-level manual cache state to presentation)
+     * Expose one book-level manual cache state to presentation.
      * UI layers consume this derived status instead of reading DownloadMetadataEntity or Media3 DownloadIndex directly.
      */
     fun observeBookCacheStatus(bookId: String): Flow<BookCacheStatus>
 }
 
 /**
- * Room Download Status Read Model (Adapt durable download metadata into UI cache status)
+ * Adapt durable download metadata into UI cache status.
  * Converts missing rows into NONE and clamps progress fields before they reach Compose state.
  */
 class RoomDownloadStatusReadModel(
@@ -96,8 +92,6 @@ class RoomDownloadStatusReadModel(
             downloadMetadataDao.observeMetadata(bookId),
             bookDao.observeBookLibrarySourceType(bookId)
         ) { metadata, sourceType ->
-            // Local Source Interception (Detect local storage assets before processing remote queue details)
-            // Books under SAF roots reside permanently in local sandboxed storage and require no manual downloads.
             if (sourceType == AudiobookSchema.LibrarySourceType.SAF) {
                 BookCacheStatus.local()
             } else {
@@ -106,8 +100,6 @@ class RoomDownloadStatusReadModel(
         }
 }
 
-// Download Metadata Projection (Convert durable Room aggregates into UI cache status)
-// Missing metadata becomes BookCacheState.NONE, keeping every presentation surface on the same derived state machine.
 internal fun DownloadMetadataEntity?.toBookCacheStatus(): BookCacheStatus {
     if (this == null) return BookCacheStatus.none()
     return BookCacheStatus(

@@ -5,7 +5,7 @@ import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
- * WebDAV Protocol Constants (Centralizes shared request payloads and status codes)
+ * Centralizes shared request payloads and status codes.
  * Connection tests and source browsing both issue lightweight PROPFIND requests, so this module keeps protocol literals from drifting across callers.
  */
 internal object WebDavProtocol {

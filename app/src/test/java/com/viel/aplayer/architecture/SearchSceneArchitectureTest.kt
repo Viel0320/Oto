@@ -5,7 +5,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Search Scene Architecture Test (Pins the stage-one search dependency migration)
+ * Pins the stage-one search dependency migration.
  * Prevents SearchViewModel and SearchScreenDependencies from drifting back to the broad presentation facade.
  */
 class SearchSceneArchitectureTest {
@@ -35,8 +35,6 @@ class SearchSceneArchitectureTest {
 
     @Test
     fun searchDependencyViewDoesNotInheritLibraryPresentationDependencies() {
-        // Title: Update di path in test (Point to di/dependencies/PresentationDependencies.kt)
-        // Changes relative path to target the dependencies subdirectory under di.
         val dependenciesSource = resolveSourceRoot().resolve("di/dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
         val searchInterface = dependenciesSource.substringAfter("interface SearchScreenDependencies")
             .substringBefore("/**\n * Home Screen Dependencies")
@@ -119,8 +117,6 @@ class SearchSceneArchitectureTest {
     }
 
     private fun resolveSourceRoot(): File {
-        // Source Root Resolution (Supports both module and repository working directories)
-        // Gradle can execute JVM tests from different directories, so the test checks both stable source-root candidates.
         val candidates = listOf(
             File("src/main/java/com/viel/aplayer"),
             File("app/src/main/java/com/viel/aplayer")

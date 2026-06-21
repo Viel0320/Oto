@@ -2,7 +2,9 @@ package com.viel.aplayer.media.parser
 
 import com.viel.aplayer.media.AudiobookMetadata
 
-// Unified embedded cover representation extracted from MP4-specific type for reuse across all range-read parsers (e.g., MP3, FLAC, Ogg/Opus).
+/**
+ * Unified embedded cover payload shared by all range-read audio parsers.
+ */
 internal data class EmbeddedCoverBytes(
     val bytes: ByteArray,
     val mimeType: String?
@@ -26,26 +28,33 @@ internal data class EmbeddedCoverBytes(
     }
 }
 
-// Minimal parser inputs restricted to sourceId, fileSize, and the readRange suspension callback.
-// Empowers parsers to orchestrate their own offset/length reads while VfsFileInterface supplies low-level byte range capabilities.
+/**
+ * Minimal parser input that lets format parsers orchestrate their own byte-range reads.
+ */
 internal data class RangeAudioParserInput(
     val sourceId: String,
     val fileSize: Long,
     val readRange: suspend (offset: Long, length: Int) -> ByteArray?
 )
 
-// Callers explicitly control whether to extract embedded cover images, preventing redundant reads of large cover blocks during basic metadata queries.
+/**
+ * Parser options that let callers skip large embedded-cover reads during metadata-only queries.
+ */
 internal data class RangeAudioParseOptions(
     val includeEmbeddedCover: Boolean = false
 )
 
-// All format-specific parsers return this unified result structure; fallback assignment and encoding repair are handled by MetadataResolver.
+/**
+ * Unified parser result; MetadataResolver owns fallback assignment and encoding repair.
+ */
 internal data class RangeAudioParseResult(
     val metadata: AudiobookMetadata,
     val embeddedCover: EmbeddedCoverBytes? = null
 )
 
-// Each parser focuses solely on its supported extensions and container layouts, containing its own range reading tactics.
+/**
+ * Format parser contract for extension support and container-specific range reading.
+ */
 internal interface RangeAudioFormatParser {
     fun supports(displayName: String): Boolean
 
@@ -55,7 +64,9 @@ internal interface RangeAudioFormatParser {
     ): RangeAudioParseResult?
 }
 
-// The router dispatches to the correct parser based on file extension and does not participate in low-level format parsing details.
+/**
+ * Dispatches range metadata parsing to the first parser that supports the file name.
+ */
 internal object RangeAudioParserRouter {
     private val parsers: List<RangeAudioFormatParser> = listOf(
         Mp3MetadataRangeParser,

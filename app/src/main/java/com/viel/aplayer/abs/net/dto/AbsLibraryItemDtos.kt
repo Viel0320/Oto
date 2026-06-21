@@ -97,7 +97,5 @@ data class AbsMediaMetadataDto(
     val narratorName: String? = null,
     val publishedYear: String? = null,
     val description: String? = null,
-    // ABS Series Name Property (Tracks the series title returned from the server)
-    // Map the seriesName metadata directly from Audiobookshelf response payload.
     val seriesName: String? = null
 )

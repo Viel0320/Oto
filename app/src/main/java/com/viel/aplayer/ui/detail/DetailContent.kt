@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.detail
 
-// Setup Haze Integration (Import dev.chrisbanes.haze modifiers) Import HazeState and haze modifier for Compose-based blur.
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -80,9 +79,9 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
- * DetailContent Skeleton (Stateless L3 UI Skeleton)
+ * Stateless L3 UI Skeleton.
  *
- * Stateless detail page rendering skeleton (DetailContent) at the L3 level.
+ * DetailContent. at the L3 level.
  * The scaffold owns the transparent top bar while each adaptive detail layout
  * consumes side and bottom safe-drawing insets so system bars are not applied twice.
  */
@@ -118,20 +117,15 @@ fun DetailContent(
     var infoDialogTitle by remember { mutableStateOf<String?>(null) }
     var infoDialogText by remember { mutableStateOf<String?>(null) }
     var showActionDialog by remember { mutableStateOf(false) }
-    var showDownloadDialog by remember { mutableStateOf(false) } 
+    var showDownloadDialog by remember { mutableStateOf(false) }
     val okActionText = stringResource(R.string.action_ok)
 
     val backdropCoverPath = CoverImageSourceSelector.backdrop(
         thumbnailPath = book?.thumbnailPath,
         coverPath = book?.coverPath
     )
-    // Setup coverHazeState (Manage detail-specific blur state) Replaced coverBackdrop with coverHazeState.
     val coverHazeState = remember { HazeState() }
 
-    // IME-Independent Safe Area (Keep Detail layout stable while SearchOverlay's keyboard animates)
-    // safeDrawing already unions the IME, and exclude() subtracts edge-by-edge: once the keyboard is taller
-    // than the navigation bar the bottom inset collapses to 0, so the weight-based cover is re-measured on
-    // every IME frame. Build the safe area from systemBars + displayCutout, which never carries the IME inset.
     val safeDrawingPadding = WindowInsets.systemBars.union(WindowInsets.displayCutout).asPaddingValues()
 
     val scope = rememberCoroutineScope()
@@ -146,7 +140,6 @@ fun DetailContent(
     }
     val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
 
-    // Sense system-level interception and draw system predictive back transition animations in real time
     androidx.activity.compose.PredictiveBackHandler(enabled = isVisible) { progressFlow ->
         try {
             progressFlow.collect { backEvent ->
@@ -155,7 +148,6 @@ fun DetailContent(
             }
             onBackClick()
         } catch (_: kotlin.coroutines.cancellation.CancellationException) {
-            // Slide back halfway to abandon the back gesture
         } finally {
             isPredictiveBackActive = false
             predictiveBackProgress = 0f
@@ -170,20 +162,15 @@ fun DetailContent(
             .fillMaxSize()
             .offset { IntOffset(0, offsetY.value.roundToInt()) }
             .graphicsLayer {
-                // Gesture drag translates downwards without applying scale transformation, making the animation more immersive and stable
                 if (isPredictiveBackActive) {
                     translationY = predictiveBackProgress * maxPredictiveTranslationY
                     alpha = 1f - predictiveBackProgress * 0.3f
                 }
             }
             .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp)),
-        // Title: Consolidate Surface Background Rendering (Use native color parameter to avoid overdraw)
-        // Passes bgColor directly to Surface parameter instead of chaining Modifier.background.
-        // This avoids redundant draw calls and allows Compose's Surface layer to optimize color drawing.
         color = bgColor
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Setup CoverBackground Haze State (Link coverHazeState) Passed coverHazeState.
             CoverBackground(
                 coverPath = backdropCoverPath,
                 lastUpdated = book?.lastScannedAt ?: 0L,
@@ -207,12 +194,7 @@ fun DetailContent(
                             }
                         },
                         actions = {
-                            // Detail Action Dialog Entry (Open shared audiobook actions from the selected Detail projection)
-                            // The top-right control renders only when a DetailBookItem exists, preventing empty overlays from exposing commands without a target book.
                             if (book != null) {
-                                // Local Cache Entry Guard (Hide manual-download buttons for pre-cached/local books)
-                                // If the read model projects BookCacheState.LOCAL (SAF roots), the book is already local,
-                                // so the offline cache controls are bypassed to prevent user confusion.
                                 if (uiState.bookCacheStatus.state != BookCacheState.LOCAL) {
                                     DetailTopBarDownloadAction(
                                         cacheStatus = uiState.bookCacheStatus,
@@ -235,13 +217,9 @@ fun DetailContent(
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = Color.Transparent,
-                            // Detail Top Bar Icon Color Unification (Override Material3 navigation/action defaults)
-                            // Material3 uses different defaults for navigation and action icons; forcing onSurface keeps both sides visually consistent.
                             navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
                             actionIconContentColor = MaterialTheme.colorScheme.onSurface
                         ),
-                        // Exclude Keyboard Insets (Keep Top Bar Stable on IME change)
-                        // Also exclude WindowInsets.ime from TopAppBar layout calculations to guarantee absolute header stability.
                         windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars).exclude(WindowInsets.ime),
                         modifier = Modifier.pointerInput(Unit) {
                             detectVerticalDragGestures(
@@ -269,16 +247,12 @@ fun DetailContent(
                     )
                 },
                 containerColor = Color.Transparent,
-                // Detail Insets Ownership (Keep scaffold chrome and layout safe areas separate)
-                // The TopAppBar consumes status-bar insets, while the adaptive layouts consume
-                // physical side and bottom safe-drawing insets from safeDrawingPadding.
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
             ) { padding ->
                 val windowClass = LocalAppWindowSizeClass.current
                 val isLandscape = windowClass.isLandscape
                 val isTabletLandscape = windowClass.isLandscapeTablet
 
-                // Setup SubLayout Haze States (Forward coverHazeState to detail layouts) Replaced detailBackdrop with coverHazeState.
                 when {
                     isTabletLandscape -> {
                         DetailLandscapeTablet(
@@ -337,8 +311,6 @@ fun DetailContent(
     }
 
     if (showActionDialog) {
-        // Detail Action Dialog Payload (Project the selected Detail item into the shared audiobook action contract)
-        // The dialog receives only DetailBookItem-derived data; nullable readStatus is preserved so missing status data leaves every chip unselected.
         AudiobookActionDialog(
             book = book?.toAudiobookActionDialogBook(),
             hazeState = fullPageHazeState ?: coverHazeState,
@@ -465,8 +437,6 @@ fun DetailContent(
                             Text(stringResource(R.string.detail_download_start_action))
                         }
                     }
-                    // Local Cache Dialog Guard (Expose no action buttons for local books as a compile-safe fallback)
-                    // SAF-based books are natively local, so this dialog should never be triggerable in the UI.
                     BookCacheState.LOCAL -> Unit
                 }
             }
@@ -493,8 +463,6 @@ fun DetailContent(
                 }
             },
             body = {
-                // Detail Info Dialog Body (Keep selectable metadata text inside the shared dialog shell)
-                // The detail page owns the selected text payload while APlayerDialogTemplate owns the common chrome, blur source, and action row.
                 infoDialogText?.let { dialogText ->
                     SelectableTextView(
                         text = dialogText,
@@ -520,7 +488,7 @@ fun DetailContent(
 }
 
 /**
- * Detail Action Dialog Projection (Adapt DetailBookItem to the shared audiobook action payload)
+ * Adapt DetailBookItem to the shared audiobook action payload.
  *
  * Keeps the action dialog data source inside the Detail scene projection, including nullable readStatus so callers without status data do not receive a fake selected chip.
  */
@@ -536,16 +504,11 @@ private fun DetailBookItem.toAudiobookActionDialogBook(): AudiobookActionDialogB
         readStatus = readStatus
     )
 
-// Detail Action Dialog Cover Scene (Preserve cover-cache diagnostics for Detail-origin action dialogs)
-// The shared dialog builds the Coil request, while this scene name keeps Detail menu cover loads distinguishable from Home action dialogs.
 private const val DETAIL_ACTION_DIALOG_COVER_SCENE = "detail-action-dialog-cover"
 
-// Download Dialog Title Mapping (Keep cache-state copy selection close to the detail dialog)
-// This preserves one UI translation boundary while the ViewModel continues to expose language-neutral BookCacheStatus values.
 private fun com.viel.aplayer.application.download.BookCacheStatus.dialogTitleRes(): Int =
     when (state) {
         BookCacheState.NONE -> R.string.detail_download_dialog_title_none
-        // Local Cache Status Fallback (Map local state to completed title res for safety)
         BookCacheState.LOCAL -> R.string.detail_download_dialog_title_completed
         BookCacheState.QUEUED -> R.string.detail_download_dialog_title_queued
         BookCacheState.DOWNLOADING -> R.string.detail_download_dialog_title_downloading
@@ -554,8 +517,6 @@ private fun com.viel.aplayer.application.download.BookCacheStatus.dialogTitleRes
         BookCacheState.FAILED -> R.string.detail_download_dialog_title_failed
     }
 
-// Download Dialog Body Mapping (Format book-level cache progress without exposing raw metadata rows)
-// File counts and percent come from BookCacheStatus, keeping display text independent from Room entity fields.
 @Composable
 private fun com.viel.aplayer.application.download.BookCacheStatus.dialogBodyText(): String =
     if (state == BookCacheState.NONE || totalFiles == 0) {
@@ -582,7 +543,6 @@ fun DetailContentPortraitPreview() {
                         item = DetailBookItem(
                             id = "id",
                             rootId = "preview-root",
-                            // Detail preview uses the application-level source enum instead of data-layer schema constants.
                             sourceType = LibraryBookSourceType.SINGLE_AUDIO,
                             title = "In the Megachurch",
                             author = "Ryo Asai",
@@ -597,7 +557,6 @@ fun DetailContentPortraitPreview() {
                     isAvailable = true,
                     progressPercent = 45,
                     displayProgressPercent = 45,
-                    // Deprecated: backgroundColorArgb is removed
                     fullSourcePath = ""
                 ),
                 onBackClick = {},

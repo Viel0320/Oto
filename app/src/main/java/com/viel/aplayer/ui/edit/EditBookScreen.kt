@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.edit
 
-// Explicitly import IME window insets to exclude virtual soft-keyboard height from visual layouts, avoiding multiple offset adjustments.
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -100,19 +99,14 @@ import dev.chrisbanes.haze.materials.HazeMaterials
 fun EditBookScreen(
     book: EditBookDraft?,
     onNavigationBack: () -> Unit,
-    // EditBookScreen Save Signature (Passes series name and new cover URI to the overlay controller)
     onSave: (title: String, author: String, narrator: String, year: String, description: String, series: String, newCoverUri: String?) -> Unit,
     glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
-    // Edit Sheet Haze Source (Receive the stable overlay sampling state)
-    // The legacy parameter name is preserved for compatibility, but production callers now pass the app-level HazeState.
     detailHazeState: HazeState? = null
 ) {
 
-    // Selected Cover Image Reference (Tracks the URI string of user-selected photo preview)
     var selectedCoverUri by remember { mutableStateOf<android.net.Uri?>(null) }
 
-    // Image Picker Contract (Launches photo picker and updates the selected cover URI state)
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: android.net.Uri? ->
@@ -121,46 +115,35 @@ fun EditBookScreen(
         }
     }
 
-    // Exit handler (Cleans up reference and navigates back on cancel actions)
     val handleCancel = remember {
         {
             onNavigationBack()
         }
     }
 
-    // Predictive Back State (Observes system gestures to drive exit animations)
     var isPredictiveBackActive by remember { mutableStateOf(false) }
     var predictiveBackProgress by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
 
-    // Predictive Back Interceptor (Consumes progress values, handles file cleaning on pop)
     androidx.activity.compose.PredictiveBackHandler(enabled = book != null) { progressFlow ->
         try {
-            // Track gesture swipe progress
             progressFlow.collect { backEvent ->
                 isPredictiveBackActive = true
                 predictiveBackProgress = backEvent.progress
             }
             handleCancel()
         } catch (_: kotlin.coroutines.cancellation.CancellationException) {
-            // Gesture cancelled mid-swipe
         } finally {
             isPredictiveBackActive = false
             predictiveBackProgress = 0f
         }
     }
 
-    // Edit Cover Display Source (Use the selected URI if available, otherwise fallback to book cover or thumbnail paths)
-    // A freshly uploaded cover replaces the book cover immediately, so this key changes and forces the edit page color state to refresh.
     val editCoverPath = selectedCoverUri?.toString() ?: book?.coverPath ?: book?.thumbnailPath
     val editCoverLastUpdated = book?.coverLastUpdated ?: 0L
-    // Edit Cover Dynamic Color State (Seed the edit page theme from its own currently displayed cover)
-    // The cache gives an instant color when available, while CoverBackground updates this state from its software backdrop decode.
     var editCoverColor by remember(editCoverPath, editCoverLastUpdated) {
         mutableStateOf(ImageProcessor.getCachedColor(editCoverPath, editCoverLastUpdated)?.let { Color(it) })
     }
     val darkTheme = LocalDarkTheme.current
-    // Edit Cover Color Scheme (Derive Material colors from the edit page cover instead of inheriting the underlying page)
-    // This keeps text fields, outlines, buttons, and top-bar content aligned with the editable cover, including temporary covers chosen before save.
     val amoled = LocalAmoled.current
     val editColorScheme = remember(editCoverColor, darkTheme, amoled) {
         editCoverColor?.let { coverColor ->
@@ -174,19 +157,13 @@ fun EditBookScreen(
     }
 
     val contentBlock = @Composable {
-    // Blur Feature flag (Verify if Haze settings and state are present)
     val isBlur = glassEffectMode == GlassEffectMode.Haze && detailHazeState != null
 
-    // Edit Page Content Color (Read foreground color from the edit cover-derived Material scheme)
-    // Surface and Scaffold are transparent in Haze mode, so explicit contentColor prevents the old underlying page color from leaking into the edit UI.
     val editContentColor = MaterialTheme.colorScheme.onSurface
 
     val density = LocalDensity.current
     val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
 
-    // Window Rounded Corner Extraction (Ensure visual harmony with physical display edges)
-    // Queries screen corner radius from system window insets, mapping the container top corners
-    // directly to device outer edges for a clean aesthetic.
     val view = LocalView.current
     val systemCornerRadius = remember(view) {
         val insets = view.rootWindowInsets
@@ -198,7 +175,6 @@ fun EditBookScreen(
         modifier = modifier
             .fillMaxSize()
             .graphicsLayer {
-                // Predictive back transition (Shift container vertically and apply fade-out relative to progress)
                 if (isPredictiveBackActive) {
                     translationY = predictiveBackProgress * maxPredictiveTranslationY
                     alpha = 1f - predictiveBackProgress * 0.3f
@@ -207,7 +183,6 @@ fun EditBookScreen(
             .clip(RoundedCornerShape(topStart = cornerRadiusDp, topEnd = cornerRadiusDp))
             .then(
                 if (isBlur) {
-                    // Edit Sheet Haze Layer (Use the direct Haze material inside the clipped sheet shape)
                     Modifier.hazeEffect(
                         state = detailHazeState,
                         style = HazeMaterials.ultraThin()
@@ -218,8 +193,6 @@ fun EditBookScreen(
             )
             .background(if (isBlur) Color.Transparent else MaterialTheme.colorScheme.background),
         color = Color.Transparent,
-        // Edit Surface Content Color (Bind foreground defaults to the cover-derived scheme)
-        // Transparent Material surfaces cannot infer a useful content color, so the edit page supplies its own cover-based foreground.
         contentColor = editContentColor
     ) {
         Box(
@@ -236,18 +209,11 @@ fun EditBookScreen(
             )
 
             Scaffold(
-                // Scaffold Insets Configuration (Prevent double soft-keyboard padding compression)
-                // Excludes `WindowInsets.ime` from the Scaffold margins to block cumulative padding calculation.
-                // This allows the inner container column to request `.imePadding()` individually,
-                // solving double-margin squashing bugs where fields would be unreachable during typing.
                 modifier = Modifier.fillMaxSize(),
                 contentWindowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.ime),
                 topBar = {
                     TopAppBar(
                         modifier = Modifier,
-                        // Header Insets Override (Prevent titlebar offset displacement during input focus)
-                        // Bypasses IME insets for the TopAppBar, keeping the header from shifting upwards
-                        // and creating unwanted empty padding gaps when the keyboard populates.
                         windowInsets = WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars).exclude(WindowInsets.ime),
                         title = {
                             Text(
@@ -258,7 +224,7 @@ fun EditBookScreen(
                         },
                         navigationIcon = {
                             IconButton(
-                                onClick = handleCancel, // Call handleCancel to clean up temporary images and exit upon navigation back click.
+                                onClick = handleCancel,
                                 modifier = Modifier
                             ) {
                                 Icon(
@@ -269,8 +235,6 @@ fun EditBookScreen(
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = Color.Transparent,
-                            // Edit Top Bar Cover Content Color (Use the edit cover-derived foreground for chrome)
-                            // Title and icons share one explicit content color so uploaded cover changes update the whole header consistently.
                             titleContentColor = editContentColor,
                             navigationIconContentColor = editContentColor,
                             actionIconContentColor = editContentColor
@@ -278,8 +242,6 @@ fun EditBookScreen(
                     )
                 },
                 containerColor = Color.Transparent,
-                // Edit Scaffold Content Color (Propagate cover-derived foreground through the transparent Scaffold)
-                // Body text, progress indicators, and default icons inherit the edit cover content color instead of the host page color.
                 contentColor = editContentColor
             ) { paddingValues ->
                 if (book == null) {
@@ -292,17 +254,13 @@ fun EditBookScreen(
                         CircularProgressIndicator()
                     }
                 } else {
-                    // State isolation (Isolate high-frequency field inputs locally to avoid excessive recomposition costs)
                     var title by remember(book) { mutableStateOf(book.title) }
                     var author by remember(book) { mutableStateOf(book.author) }
                     var narrator by remember(book) { mutableStateOf(book.narrator) }
                     var year by remember(book) { mutableStateOf(book.year) }
-                    // EditBookScreen Series State (Local series text value holder)
-                    // Holds the editing series name state locally to prevent full screen recompositions.
                     var series by remember(book) { mutableStateOf(book.series) }
                     var description by remember(book) { mutableStateOf(book.description) }
 
-                    // Input styling (Apply translucent background elements under blur mode to enhance visual contrast)
                     val textFieldColors = if (isBlur) {
                         OutlinedTextFieldDefaults.colors(
                             unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.2f),
@@ -314,11 +272,9 @@ fun EditBookScreen(
                         OutlinedTextFieldDefaults.colors()
                     }
 
-                    // Responsive layout decision (Check window class parameters to dispatch dual-column grid details)
                     val windowClass = LocalAppWindowSizeClass.current
                     val useLandscapeLayout = windowClass.isWideScreen
 
-                    // Local input builders (Shared field compositions to avoid duplicating layouts across landscape/portrait)
                     val titleField = @Composable {
                         OutlinedTextField(
                             value = title,
@@ -371,8 +327,6 @@ fun EditBookScreen(
                         )
                     }
 
-                    // EditBookScreen Series Field Composable (OutlinedTextField input for series)
-                    // Input component for updating the book's series meta field.
                     val seriesField = @Composable { modifier: Modifier ->
                         OutlinedTextField(
                             value = series,
@@ -400,7 +354,6 @@ fun EditBookScreen(
                         )
                     }
 
-                    // Reusable cover button (Unified action element for photo retrieval)
                     val changeCoverButton = @Composable {
                         androidx.compose.material3.OutlinedButton(
                             onClick = { imagePickerLauncher.launch("image/*") },
@@ -435,16 +388,9 @@ fun EditBookScreen(
                     }
 
                     val saveButton = @Composable {
-                        // Save changes button.
                         if (isBlur) {
-                            // Glassmorphic save button (Match details page play button styling)
-                            // Utilizes the shared `detailBackdrop` parameter. Applies primary alpha tint (0.12f)
-                            // and maps a 1.dp border (0.25f) around the container.
                             Surface(
                                 onClick = {
-                                    // Edit Save Title Forwarding (Leave title validation to the edit command policy)
-                                    // The screen forwards raw input so localized display fallback cannot be persisted as metadata.
-                                    // Trigger save callback, passing all modified metadata properties up to the stateful Overlay container.
                                     onSave(
                                         title,
                                         author,
@@ -458,11 +404,9 @@ fun EditBookScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(56.dp)
-                                    // Apply blur backdrop to save container for design continuity
                                     .then(
                                         Modifier
                                             .clip(RoundedCornerShape(16.dp))
-                                            // Save Button Haze Layer (Use the direct Haze material inside the local rounded bounds)
                                             .hazeEffect(
                                                 state = detailHazeState,
                                                 style = HazeMaterials.ultraThin()
@@ -494,12 +438,8 @@ fun EditBookScreen(
                                 }
                             }
                         } else {
-                            // Fallback Material Button (Graceful degradation to standard opaque component)
                             Button(
                                 onClick = {
-                                    // Edit Save Title Forwarding (Leave title validation to the edit command policy)
-                                    // The screen forwards raw input so localized display fallback cannot be persisted as metadata.
-                                    // Trigger save callback, dispatching the complete modified metadata upwards.
                                     onSave(
                                         title,
                                         author,
@@ -547,19 +487,16 @@ fun EditBookScreen(
                             .consumeWindowInsets(paddingValues)
                             .imePadding()
                             .verticalScroll(rememberScrollState())
-                            // Spacing adjustment (Safely consume windows insets and apply a clean 24.dp layout margin)
                             .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
                         if (useLandscapeLayout) {
-                            // Wide screen mode (Renders dual-pane split structures)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(24.dp),
                                 verticalAlignment = Alignment.Top
                             ) {
-                                // Left pane column: Houses the cover graphic capped at 280dp
                                 Column(
                                     modifier = Modifier
                                         .weight(1.2f)
@@ -582,7 +519,6 @@ fun EditBookScreen(
                                     changeCoverButton()
                                 }
 
-                                // Right pane column: Stacks metadata input controls and submit button
                                 Column(
                                     modifier = Modifier.weight(1.8f),
                                     verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -591,7 +527,6 @@ fun EditBookScreen(
                                     authorField(Modifier.fillMaxWidth())
                                     narratorField(Modifier.fillMaxWidth())
                                     yearField(Modifier.fillMaxWidth())
-                                    // EditBookScreen Series Field Insertion (Render series input in wide layouts)
                                     seriesField(Modifier.fillMaxWidth())
                                     descriptionField()
                                     Spacer(modifier = Modifier.height(8.dp))
@@ -599,7 +534,6 @@ fun EditBookScreen(
                                 }
                             }
                         } else {
-                            // Portrait layout (Fails back to vertical stack structure)
                             PlayerCover(
                                 coverPath = editCoverPath,
                                 isPlaying = false,
@@ -622,7 +556,6 @@ fun EditBookScreen(
                             authorField(Modifier.fillMaxWidth())
                             narratorField(Modifier.fillMaxWidth())
                             yearField(Modifier.fillMaxWidth())
-                            // EditBookScreen Series Field Insertion (Render series input in portrait layouts)
                             seriesField(Modifier.fillMaxWidth())
                             descriptionField()
                             Spacer(modifier = Modifier.height(16.dp))
@@ -635,8 +568,6 @@ fun EditBookScreen(
     }
     }
 
-    // Edit Cover Theme Application (Apply the cover-derived color scheme around the full edit surface)
-    // The wrapper sits outside transparent Surface and Scaffold layers so contentColor, primary, outline, and button colors all come from the current edit cover.
     if (editColorScheme != null) {
         MaterialTheme(colorScheme = animateColorScheme(editColorScheme), content = contentBlock)
     } else {
@@ -658,13 +589,10 @@ fun EditBookScreen(
 @Composable
 fun EditBookScreenPortraitPreview() {
     APlayerTheme {
-        // Apply PortraitPhone profile configuration
         CompositionLocalProvider(
             LocalAppWindowSizeClass provides AppWindowSizeClass.PortraitPhone
         ) {
             EditBookScreen(
-                // Preview Edit Draft (Use the edit scene projection instead of a Room entity)
-                // This keeps preview data aligned with the runtime UI contract after the edit read model mapping.
                 book = EditBookDraft(
                     id = "preview-id",
                     title = "In the Megachurch",
@@ -672,7 +600,6 @@ fun EditBookScreenPortraitPreview() {
                     narrator = "Narrator A",
                     year = "2023",
                     description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata.",
-                    // Preview Series Field (Define dummy series for previews)
                     series = "preview-series",
                     coverPath = null,
                     thumbnailPath = null,
@@ -695,13 +622,10 @@ fun EditBookScreenPortraitPreview() {
 @Composable
 fun EditBookScreenLandscapePreview() {
     APlayerTheme {
-        // Apply LandscapePhone profile configuration
         CompositionLocalProvider(
             LocalAppWindowSizeClass provides AppWindowSizeClass.LandscapePhone
         ) {
             EditBookScreen(
-                // Preview Edit Draft (Use the edit scene projection instead of a Room entity)
-                // This keeps landscape previews from depending on persistence-only fields.
                 book = EditBookDraft(
                     id = "preview-id",
                     title = "In the Megachurch",
@@ -709,7 +633,6 @@ fun EditBookScreenLandscapePreview() {
                     narrator = "Narrator A",
                     year = "2023",
                     description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata.",
-                    // Preview Series Field (Define dummy series for previews)
                     series = "preview-series",
                     coverPath = null,
                     thumbnailPath = null,
@@ -732,13 +655,10 @@ fun EditBookScreenLandscapePreview() {
 @Composable
 fun EditBookScreenTabletLandscapePreview() {
     APlayerTheme {
-        // Apply LandscapeTablet profile configuration
         CompositionLocalProvider(
             LocalAppWindowSizeClass provides AppWindowSizeClass.LandscapeTablet
         ) {
             EditBookScreen(
-                // Preview Edit Draft (Use the edit scene projection instead of a Room entity)
-                // This keeps tablet previews on the same type consumed by production EditBookScreen.
                 book = EditBookDraft(
                     id = "preview-id",
                     title = "In the Megachurch",
@@ -746,7 +666,6 @@ fun EditBookScreenTabletLandscapePreview() {
                     narrator = "Narrator A",
                     year = "2023",
                     description = "A premium preview description of this beautifully designed audiobook widget, showcasing full detail and rich metadata.",
-                    // Preview Series Field (Define dummy series for previews)
                     series = "preview-series",
                     coverPath = null,
                     thumbnailPath = null,

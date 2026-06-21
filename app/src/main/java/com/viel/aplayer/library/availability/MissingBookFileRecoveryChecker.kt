@@ -7,12 +7,9 @@ import com.viel.aplayer.data.entity.BookFileEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-// Cold-start helper: recover missing BookFile rows without re-importing already claimed files.
 class MissingBookFileRecoveryChecker(private val context: Context) {
     private val database = AppDatabase.getInstance(context)
     private val bookDao = database.bookDao()
-    // Reuse Availability Check on Cold-Start (Infrastructure Decoupling)
-    // Cold-start recovery leverages the unified AvailabilityChecker instead of embedding protocol-specific logic.
     private val availabilityChecker = AvailabilityChecker(context.applicationContext)
 
     suspend fun recoverMissingAudioFiles(): MissingBookFileRecoveryResult = withContext(Dispatchers.IO) {
@@ -25,26 +22,20 @@ class MissingBookFileRecoveryChecker(private val context: Context) {
         val restoredFileIds = mutableListOf<String>()
         missingFiles.forEach { file ->
             if (availabilityByFileId[file.id]?.isAvailable == true) {
-                // Batch Availability Checks in Recovery (Performance Optimization)
-                // Minimizes overhead by checking availability for all missing files in the same parent directory at once.
                 restoredFileIds.add(file.id)
                 restoredBookIds.add(file.bookId)
             }
         }
         if (restoredFileIds.isNotEmpty()) {
-            // Restored File Visibility (Availability-only recovery)
-            // Marks files READY immediately without creating a new import command because the book already owns the file rows.
             bookDao.updateBookFileStatuses(restoredFileIds, AudiobookSchema.FileStatus.READY)
         }
         val restoredFileCount = restoredFileIds.size
 
         affectedBookIds.forEach { bookId ->
-            // Every book with a missing row is recalculated after the cold-start check, even if no file recovered.
             recalculateBookStatus(bookId)
         }
 
         val restoredBookTitles = restoredBookIds.mapNotNull { bookId ->
-            // Summary names are limited to books that actually restored at least one file.
             bookDao.getBookById(bookId)?.title?.takeIf { it.isNotBlank() }
         }
 
@@ -58,11 +49,9 @@ class MissingBookFileRecoveryChecker(private val context: Context) {
     private suspend fun recalculateBookStatus(bookId: String) {
         val files = bookDao.getFilesForBookList(bookId)
         val bookStatus = statusFromFiles(files)
-        // Missing recovery updates only availability status for the affected existing book.
         bookDao.updateBookStatus(bookId, bookStatus)
     }
 
-    // Recalculate Status Type: Change statusFromFiles return type to BookStatus enum for type safety.
     private fun statusFromFiles(files: List<BookFileEntity>): AudiobookSchema.BookStatus {
         val readyCount = files.count { it.status == AudiobookSchema.FileStatus.READY }
         val missingCount = files.count { it.status == AudiobookSchema.FileStatus.MISSING }

@@ -14,8 +14,6 @@ class VfsLoggerTest {
             errorClass = "SocketTimeoutException"
         )
 
-        // WebDAV Diagnostic URL Sanitization (Protects remote credentials in VFS error logs)
-        // Error logging must keep scheme, host, and path for diagnosis while removing authority userinfo plus query and fragment secrets.
         assertTrue(message.contains("url=https://example.com/dav/book.mp3"))
         assertTrue(message.contains("status=TIMEOUT"))
         assertTrue(message.contains("exception=SocketTimeoutException"))

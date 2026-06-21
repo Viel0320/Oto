@@ -257,7 +257,7 @@ internal object Id3TagReader {
     }
 
     /**
-     * Parses custom ID3 CHAP (chapter) frames into a local ChapterEntity structure.
+     * chapter. frames into a local ChapterEntity structure.
      */
     private fun parseId3ChapterFrame(payload: ByteArray): ChapterEntity? {
         var cursor = 0
@@ -285,7 +285,7 @@ internal object Id3TagReader {
     }
 
     /**
-     * Parses nested subframes (e.g. TIT2) inside chapter frames to retrieve titles.
+     * e.g. TIT2. inside chapter frames to retrieve titles.
      */
     private fun parseChapterTitleFromSubframes(bytes: ByteArray, startOffset: Int): String? {
         var cursor = startOffset

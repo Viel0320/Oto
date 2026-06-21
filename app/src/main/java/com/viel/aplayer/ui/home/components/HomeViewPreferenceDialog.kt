@@ -1,6 +1,5 @@
 package com.viel.aplayer.ui.home.components
 
-// Import HomeBookStatusFilter (Brings in the relocated type-safe availability filter from the data store layer)
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,7 +30,7 @@ import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import dev.chrisbanes.haze.HazeState
 
 /**
- * Home View Preference Dialog (Home catalog layout and grouping controls)
+ * Home catalog layout and grouping controls.
  *
  * Presents Home-specific display preferences without mixing them into general Settings screens.
  * The dialog writes selections through callbacks immediately so the catalog can switch renderers and ordering while the dialog remains open.
@@ -51,27 +50,19 @@ fun HomeViewPreferenceDialog(
     onBookStatusFilterSelected: (HomeBookStatusFilter) -> Unit,
     onDismissRequest: () -> Unit
 ) {
-    // Home View Style Options (Bind stable enum values to compact user-facing labels)
-    // Labels stay local to this Home-only dialog while persisted enum names remain language-independent.
     val viewStyleOptions = listOf(
         HomeViewStyle.List to stringResource(R.string.home_view_style_list),
         HomeViewStyle.Grid to stringResource(R.string.home_view_style_grid)
     )
-    // Home Sort Rule Options (Bind sorting pivots to concise labels)
-    // The ViewModel applies the same selected enum to grouping, script-clustered ordering, and section header generation.
     val sortRuleOptions = listOf(
         HomeSortRule.Author to stringResource(R.string.author_label),
         HomeSortRule.Narrator to stringResource(R.string.narrator_label),
         HomeSortRule.Series to stringResource(R.string.series_label)
     )
-    // Home Sort Direction Options (Bind in-cluster direction choices to compact labels)
-    // Direction only changes ordering inside C/J/K/E/Other clusters, preserving the global mixed-script cluster sequence.
     val sortDirectionOptions = listOf(
         HomeSortDirection.Ascending to stringResource(R.string.home_sort_direction_ascending),
         HomeSortDirection.Descending to stringResource(R.string.home_sort_direction_descending)
     )
-    // Home Book Status Segment Options (Bind the four active BookStatus filter values to localized labels)
-    // Conflict is intentionally omitted because the current catalog workflow no longer exposes that state, and deleted books are hidden at the DAO boundary.
     val bookStatusFilterOptions = listOf(
         HomeBookStatusFilter.All to stringResource(R.string.home_book_status_all),
         HomeBookStatusFilter.Ready to stringResource(R.string.home_book_status_ready),
@@ -85,8 +76,6 @@ fun HomeViewPreferenceDialog(
         hazeState = hazeState,
         glassEffectMode = glassEffectMode,
         dialogMaxWidth = if (useColumnarDialog) 680.dp else 460.dp,
-        // Home View Dialog Center Alignment (Keep all header slots visually centered)
-        // The view switcher is a compact preference chooser, so centered chrome better matches its modal selection purpose.
         headerAlignment = Alignment.CenterHorizontally,
         title = {
             Text(
@@ -123,7 +112,7 @@ fun HomeViewPreferenceDialog(
 }
 
 /**
- * Home View Dialog Body (Places independent catalog preference groups in one or two columns)
+ * Places independent catalog preference groups in one or two columns.
  *
  * Keeps phone layouts vertical while giving landscape and tablet dialogs enough horizontal structure for faster scanning.
  */
@@ -191,8 +180,6 @@ private fun HomeViewPreferenceDialogBody(
     } else {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            // Home View Dialog Body Alignment (Center section labels above their segmented controls)
-            // Keeps the dialog's visual axis consistent from title through controls.
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
@@ -226,7 +213,7 @@ private fun HomeViewPreferenceDialogBody(
 }
 
 /**
- * Home View Preference Segment Section (Renders one titled segmented selector)
+ * Renders one titled segmented selector.
  *
  * Shares title and segmented-button layout across the dialog so adaptive row and column branches cannot drift.
  */

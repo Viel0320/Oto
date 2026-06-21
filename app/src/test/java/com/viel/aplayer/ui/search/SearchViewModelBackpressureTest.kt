@@ -16,7 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Search ViewModel Backpressure Test (Locks query text throttling before search read-model work starts)
+ * Locks query text throttling before search read-model work starts.
  * Verifies rapid text-entry churn is collapsed with virtual time so Room-backed leading-wildcard scans are not started per keypress.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -29,8 +29,6 @@ class SearchViewModelBackpressureTest {
 
         val collectionJob = backgroundScope.launch {
             queryFlow.toBackpressuredSearchResults { query ->
-                // Search Request Recorder (Capture the read-model boundary call)
-                // The fake returns a lightweight result while the assertion focuses on how many query texts reach search().
                 requestedQueries += query
                 flowOf(listOf(searchResult(query)))
             }.collect()
@@ -63,8 +61,6 @@ class SearchViewModelBackpressureTest {
         runCurrent()
 
         assertEquals(
-            // Trimmed Distinct Query Guard (Selection and surrounding-space edits must not restart Room work)
-            // The same semantic query remains a single read-model request even when TextFieldValue metadata changes.
             listOf("Dune"),
             requestedQueries
         )
@@ -80,8 +76,6 @@ class SearchViewModelBackpressureTest {
     }
 
     private fun searchResult(query: String): SearchResultSnapshot {
-        // Minimal Search Snapshot Fixture (Satisfy the scene read-model return shape)
-        // Backpressure behavior only depends on Flow activation, so stable placeholder fields keep the test focused.
         return SearchResultSnapshot(
             id = query.ifBlank { "blank-query" },
             title = query,

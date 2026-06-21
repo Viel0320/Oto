@@ -3,7 +3,7 @@ package com.viel.aplayer.library.vfs.sourceProvider.webdav
 import java.io.IOException
 
 /**
- * WebDAV Endpoint Validation Reason (Stable code for malformed WebDAV endpoint inputs)
+ * Stable code for malformed WebDAV endpoint inputs.
  * Infrastructure callers throw this code instead of localized text so SettingsViewModel can map each case to Android string resources.
  */
 enum class WebDavEndpointValidationReason(val code: String) {
@@ -14,7 +14,7 @@ enum class WebDavEndpointValidationReason(val code: String) {
 }
 
 /**
- * WebDAV Endpoint Validation Exception (Carries endpoint validation reason without user-facing copy)
+ * Carries endpoint validation reason without user-facing copy.
  * The exception message is intentionally a stable code because localized detail rendering belongs to the settings UI boundary.
  */
 class WebDavEndpointValidationException(
@@ -22,7 +22,7 @@ class WebDavEndpointValidationException(
 ) : IllegalArgumentException(reason.code)
 
 /**
- * WebDAV Connection Test Failure Reason (Stable code for PROPFIND connection-test failures)
+ * Stable code for PROPFIND connection-test failures.
  * HTTP response details stay typed so settings feedback can be translated without parsing server status messages.
  */
 enum class WebDavConnectionTestFailureReason {
@@ -33,7 +33,7 @@ enum class WebDavConnectionTestFailureReason {
 }
 
 /**
- * WebDAV Connection Test Exception (Carries connection-test failure data without localized text)
+ * Carries connection-test failure data without localized text.
  * The optional HTTP status remains available for generic server failures while avoiding hard-coded Chinese error strings in the network adapter.
  */
 class WebDavConnectionTestException(

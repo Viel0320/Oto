@@ -43,7 +43,7 @@ import com.viel.aplayer.R
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 
 /**
- * DetailHeader Setup (Detail Page Header Component)
+ * Detail Page Header Component.
  *
  * Header component of the book details page, including title, author, and narrator information.
  * Keeps the title non-selectable so long-press can open the full-title dialog instead of the
@@ -71,23 +71,17 @@ fun DetailHeader(
     onNarratorClick: () -> Unit,
     onNarratorLongClick: () -> Unit,
     modifier: Modifier = Modifier,
-    // DetailHeader Reversion (Remove series parameter and layout display per user instruction)
-    // Reverts series visualization to align with design decision of not displaying series on the details page.
     isLandscape: Boolean = false
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Detail Metadata Assistive Action Labels (Name metadata shortcut commands)
-        // Title, author, and narrator shortcuts expose explicit accessibility labels for their long-press detail actions.
         val titleInfoActionLabel = stringResource(R.string.detail_title_info_action)
         val authorSearchActionLabel = stringResource(R.string.detail_author_search_action)
         val authorInfoActionLabel = stringResource(R.string.detail_author_info_action)
         val narratorSearchActionLabel = stringResource(R.string.detail_narrator_search_action)
         val narratorInfoActionLabel = stringResource(R.string.detail_narrator_info_action)
-        // Detail Metadata Fallback Copy (Keep blank metadata announcements localized)
-        // Imported book metadata remains untouched, while app-owned blank fallbacks use resources for TalkBack and locale review.
         val unknownText = stringResource(R.string.common_unknown)
 
         Text(
@@ -139,7 +133,7 @@ fun DetailHeader(
                 )
                 Text(
                     text = author.takeIf { it.isNotBlank() } ?: unknownText,
-                    style = if (isLandscape) MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold) 
+                    style = if (isLandscape) MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
                            else MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
@@ -187,7 +181,7 @@ fun DetailHeader(
 }
 
 /**
- * SelectableTextView Setup (Selectable Text Component)
+ * Selectable Text Component.
  *
  * Custom selectable text component used internally.
  */

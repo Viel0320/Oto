@@ -12,7 +12,7 @@ import com.viel.aplayer.library.vfs.cache.VfsRangeCacheKey
 import java.io.File
 
 /**
- * Cache Eviction Coordinator (Coordinates root-scoped cache cleanup before database root deletion)
+ * Coordinates root-scoped cache cleanup before database root deletion.
  * Deletes only cache artifacts owned by the data layer and intentionally avoids scan orchestration, ABS synchronization,
  * playback state, and provider availability checks.
  */
@@ -41,7 +41,7 @@ class CacheEvictionCoordinator internal constructor(
     )
 
     /**
-     * Evict Before Root Delete (Collects and clears root-scoped cache records before Room cascade deletion)
+     * Collects and clears root-scoped cache records before Room cascade deletion.
      * Reads cover paths while book rows still exist, then clears directory caches so subsequent root deletion does not leave
      * orphaned file artifacts or directory snapshot rows.
      */
@@ -50,7 +50,7 @@ class CacheEvictionCoordinator internal constructor(
     }
 
     /**
-     * Clear Book Cover Cache (Delete one book's artwork files before soft deletion)
+     * Delete one book's artwork files before soft deletion.
      * Book deletion keeps the database row as DELETED, so this gateway removes owned cover files while the active row still
      * exposes the cache paths needed to identify them.
      */
@@ -59,7 +59,7 @@ class CacheEvictionCoordinator internal constructor(
     }
 
     /**
-     * Clear Root Derived Caches (Bridge application cleanup requests to root cache eviction)
+     * Bridge application cleanup requests to root cache eviction.
      * Root-management use cases call this before cascade deletion so cover paths, directory snapshots, and range blocks are
      * still attributable to the root being removed or switched.
      */
@@ -68,15 +68,13 @@ class CacheEvictionCoordinator internal constructor(
     }
 
     /**
-     * Evict Root Caches (Clears root-scoped derived artifacts without deleting the root row)
+     * Clears root-scoped derived artifacts without deleting the root row.
      * Root edits reuse the same directory, artwork, and range-cache cleanup as root deletion so rescans cannot reuse stale provider coordinates.
      */
     suspend fun evictRootCaches(rootId: String): CacheEvictionSummary {
         val coverFilesDeleted = deleteRootCoverFiles(rootId)
         directoryCacheDao.deleteByRootId(rootId)
         directoryChildCacheDao.deleteByRootId(rootId)
-        // Range Cache Root Eviction (Clears metadata-sized byte blocks for the edited or deleted library root)
-        // Uses the same hashed root id as VfsRangeCacheKey so raw root identifiers never appear in cache file names.
         val rangeFilesDeleted = vfsRangeCache?.evictRoot(VfsRangeCacheKey.hashIdentifier(rootId)) ?: 0
         /**
          * Evict VfsFileInterface Root Cache: Clears the in-memory cached LibraryRootEntity for the rootId.
@@ -131,7 +129,7 @@ class CacheEvictionCoordinator internal constructor(
 }
 
 /**
- * Cache Eviction Summary (Reports root-scoped cleanup outcomes without exposing paths)
+ * Reports root-scoped cleanup outcomes without exposing paths.
  * Provides narrow counts and boolean table cleanup markers for diagnostics while avoiding full local file paths in callers.
  */
 data class CacheEvictionSummary(

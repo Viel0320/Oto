@@ -1,7 +1,5 @@
 package com.viel.aplayer.ui.common
 
-// Setup Haze Menu Integration (Replace old blur implementation with dev.chrisbanes.haze) Replaced backdrop APIs with HazeState, hazeChild, and HazeMaterials.
-// Import Clip Extension (Fix unresolved clip extension reference) Add explicit draw.clip import to allow using Modifier.clip.
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.rememberScrollState
@@ -22,7 +20,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
- * BlurDropdownMenu — A generic DropdownMenu wrapper supporting switching between Material native menu and Haze frosted glass menu.
+ * Generic DropdownMenu wrapper that switches between the Material menu and Haze frosted glass rendering.
  *
  * Usage:
  * - Callers maintain the same [HazeState] at the root of the host page.
@@ -35,10 +33,7 @@ fun BlurDropdownMenu(
     modifier: Modifier = Modifier,
     expanded: Boolean,
     onDismissRequest: () -> Unit,
-    // Support Nullable HazeState (Provide fallback when hazeState is not ready)
-    // Make hazeState optional and default to null so the menu can degrade gracefully in previews or when parent has no blur context.
     hazeState: HazeState? = null,
-    // Glass effect mode must be explicitly passed from the settings state by the caller to prevent the generic menu from declaring default values privately.
     glassEffectMode: GlassEffectMode,
     offset: DpOffset = DpOffset(0.dp, 0.dp),
     scrollState: ScrollState = rememberScrollState(),
@@ -49,17 +44,13 @@ fun BlurDropdownMenu(
     val currentTypography = MaterialTheme.typography
     val currentShapes = MaterialTheme.shapes
 
-    // Reuse the Material3 default menu shape to ensure the blur layer and the outer Surface of DropdownMenu share the same rounded corner boundaries.
     val menuShape = MenuDefaults.shape
-    // Set the outer Surface to transparent in Haze mode to avoid overlap rendering conflicts between the Surface background.
-    // Determine Container Color (Use transparent only if Haze blur is active, otherwise inherit currentColorScheme.surfaceContainer to prevent popup theme fallback)
     val menuContainerColor = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
         Color.Transparent
     } else {
         currentColorScheme.surfaceContainer
     }
 
-    // Setup Menu Glass Modifier: Apply direct Haze material inside the same rounded menu bounds.
     val menuModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
         Modifier
             .clip(menuShape)
@@ -77,13 +68,9 @@ fun BlurDropdownMenu(
         properties = properties,
         shape = menuShape,
         containerColor = menuContainerColor,
-        // Tonal and Shadow Elevation Tuning (Dampen shadow/tonal elevation to 0.dp only when Haze is active)
-        // Haze mode no longer lets the Material tonal overlay participate in color blending to avoid color tone discrepancies between the menu edge and content area.
         tonalElevation = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) 0.dp else MenuDefaults.TonalElevation,
-        // Adaptively zero out elevation to completely eliminate potential Android system-level hardware shadow ghosting under transparent viewports.
         shadowElevation = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) 0.dp else MenuDefaults.ShadowElevation
     ) {
-        // Apply Local Theme Inside Popup: Re-wrap the dropdown menu items in the parent dynamic theme to prevent colors from falling back to default styling inside popups.
         MaterialTheme(
             colorScheme = currentColorScheme,
             typography = currentTypography,

@@ -9,7 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Book Management Use Case (Coordinates book-scoped destructive workflows)
+ * Coordinates book-scoped destructive workflows.
  * Keeps single-book deletion cleanup in one application boundary so cover cache removal, manual download cleanup,
  * playback shutdown, and soft deletion cannot drift across separate UI or data-layer callers.
  */
@@ -21,7 +21,7 @@ class BookManagementUseCase(
     private val manualDownloadCleanupGateway: ManualDownloadCleanupGateway
 ) {
     /**
-     * Delete Book (Clear book-owned resources before marking the row as deleted)
+     * Clear book-owned resources before marking the row as deleted.
      * Stops active playback first, probes whether the source file still exists for user feedback, removes derived cover
      * and manual-download cache state, then performs the logical soft delete.
      */

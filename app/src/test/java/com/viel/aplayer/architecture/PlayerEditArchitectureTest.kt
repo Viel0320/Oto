@@ -5,7 +5,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Player Edit Architecture Test (Pins the stage-four player and edit dependency migration)
+ * Pins the stage-four player and edit dependency migration.
  * Prevents PlayerViewModel, BookmarkManager, MediaPlaybackDelegate, and EditBookViewModel from drifting back to the broad library facade.
  */
 class PlayerEditArchitectureTest {
@@ -13,8 +13,6 @@ class PlayerEditArchitectureTest {
     @Test
     fun playerAndEditUiCallersDoNotImportLibraryFacade() {
         val sourceRoot = resolveSourceRoot()
-        // Update Player ViewModel Architecture Tests (Validates independent ViewModels satisfy architecture constraints)
-        // Ensures PlaybackViewModel, BookmarkViewModel, and PlayerSettingsViewModel do not import the broad library facade.
         val guardedFiles = listOf(
             "ui/player/PlaybackViewModel.kt",
             "ui/player/BookmarkViewModel.kt",
@@ -36,8 +34,6 @@ class PlayerEditArchitectureTest {
     @Test
     fun playerViewModelsConsumePlayerSceneDependenciesOnly() {
         val sourceRoot = resolveSourceRoot()
-        // Update Player ViewModel Architecture Tests (Validates independent ViewModels satisfy architecture constraints)
-        // Ensures PlaybackViewModel, BookmarkViewModel, and PlayerSettingsViewModel use correct scoped dependency views.
         val vms = listOf("PlaybackViewModel.kt", "BookmarkViewModel.kt", "PlayerSettingsViewModel.kt")
         vms.forEach { name ->
             val source = sourceRoot.resolve("ui/player/$name").readText()
@@ -85,8 +81,6 @@ class PlayerEditArchitectureTest {
 
     @Test
     fun playerAndEditDependencyViewsDoNotInheritLibraryPresentationDependencies() {
-        // Title: Update di path in test (Point to di/dependencies/PresentationDependencies.kt)
-        // Changes relative path to target the dependencies subdirectory under di.
         val dependenciesSource = resolveSourceRoot().resolve("di/dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
         val playerInterface = dependenciesSource.substringAfter("interface PlayerScreenDependencies")
             .substringBefore("/**\n * Edit Screen Dependencies")
@@ -208,8 +202,6 @@ class PlayerEditArchitectureTest {
     }
 
     private fun resolveSourceRoot(): File {
-        // Source Root Resolution (Supports both module and repository working directories)
-        // Gradle can execute JVM tests from different directories, so the test checks both stable source-root candidates.
         val candidates = listOf(
             File("src/main/java/com/viel/aplayer"),
             File("app/src/main/java/com/viel/aplayer")

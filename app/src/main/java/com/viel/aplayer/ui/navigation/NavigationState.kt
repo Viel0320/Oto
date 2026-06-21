@@ -19,7 +19,7 @@ import androidx.navigation3.runtime.serialization.NavKeySerializer
 import androidx.savedstate.compose.serialization.serializers.MutableStateSerializer
 
 /**
- * Remember Navigation State (Manage state restoration across configurations)
+ * Manage state restoration across configurations.
  * Set up state-driven navigation stack that survives configuration changes and process death.
  */
 @Composable
@@ -46,7 +46,7 @@ fun rememberNavigationState(
 }
 
 /**
- * Navigation State Holder (Maintain current back stacks state)
+ * Maintain current back stacks state.
  * Holds top-level routes and maps them to their respective navigation back stack instances.
  */
 class NavigationState(
@@ -54,12 +54,8 @@ class NavigationState(
     topLevelRoute: MutableState<NavKey>,
     val backStacks: Map<NavKey, NavBackStack<NavKey>>
 ) {
-    // Current Top Level Route (Tracks the currently selected root screen)
-    // Exposes the currently active top-level screen key.
     var topLevelRoute: NavKey by topLevelRoute
-    
-    // Stacks In Use (Determines which stacks are visible or active)
-    // Collects navigation stacks currently active, starting with startRoute.
+
     val stacksInUse: List<NavKey>
         get() = if (topLevelRoute == startRoute) {
             listOf(startRoute)
@@ -69,7 +65,7 @@ class NavigationState(
 }
 
 /**
- * Convert State To NavEntries (Adapt back stack state for display component)
+ * Adapt back stack state for display component.
  * Converts the active navigation stacks into NavEntry list consumed by NavDisplay UI.
  */
 @Composable

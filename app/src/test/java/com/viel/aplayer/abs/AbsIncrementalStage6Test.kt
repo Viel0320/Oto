@@ -79,7 +79,6 @@ class AbsIncrementalStage6Test {
             AbsLibraryItemDto(id = "item-3", mediaType = "book", updatedAt = 50L)
         )
 
-        // Fingerprint comparison validation. When the overall minified fingerprint remains unchanged, items with existing mirrors should not enter the detail fetch queue.
         assertTrue(
             selectAbsDetailCandidateIds(
                 minifiedItems = unchangedItems,
@@ -90,7 +89,6 @@ class AbsIncrementalStage6Test {
             ).isEmpty()
         )
 
-        // Incremental queue populating. Once the fingerprint changes, the incremental synchronization logic must queue items with modified update timestamps or those lacking local mirrors.
         assertEquals(
             listOf("item-2", "item-3"),
             selectAbsDetailCandidateIds(
@@ -123,8 +121,6 @@ class AbsIncrementalStage6Test {
                 .copy(lastSeenAt = now - OnlineSourceCachePolicy.ABS_CATALOG_MIRROR_TTL_MS - 1L)
         )
 
-        // ABS Mirror TTL Fallback (Forces detail refresh after the catalog mirror freshness window)
-        // Fingerprint and updatedAt checks still allow fresh mirrors to be reused, while old mirrors must be revalidated.
         assertTrue(
             selectAbsDetailCandidateIds(
                 minifiedItems = listOf(item),
@@ -166,8 +162,6 @@ class AbsIncrementalStage6Test {
             )
         )
 
-        // Authorized Progress Startup TTL (Uses the persisted root sync stamp as the cold-start freshness marker)
-        // Fresh roots should skip WorkManager enqueueing, while missing or expired root sync state must be treated as due.
         assertTrue(!AbsCatalogSynchronizer(UnsupportedApi(), createCredentialStore("https://example.com/audiobookshelf", "token-1"), freshStore).isAuthorizedProgressRefreshDue("fresh-root", now))
         assertTrue(AbsCatalogSynchronizer(UnsupportedApi(), createCredentialStore("https://example.com/audiobookshelf", "token-1"), staleStore).isAuthorizedProgressRefreshDue("stale-root", now))
         assertTrue(AbsCatalogSynchronizer(UnsupportedApi(), createCredentialStore("https://example.com/audiobookshelf", "token-1"), FakeCatalogStore()).isAuthorizedProgressRefreshDue("missing-root", now))
@@ -187,7 +181,6 @@ class AbsIncrementalStage6Test {
 
         synchronizer.syncRoot(root)
 
-        // Retry bounds validation. Following a batch request failure, the synchronizer allows at most three retries per item before discarding them for the current round.
         assertEquals(4, api.detailRequestCount)
         assertTrue(store.books.isEmpty())
         assertNotNull(store.syncState)
@@ -228,7 +221,7 @@ class AbsIncrementalStage6Test {
                 serverKey = serverKey,
                 libraryId = root.basePath,
                 /**
-                 * Generate Hash Fingerprint (Aligns test metadata with SHA-256 fingerprint logic)
+                 * Aligns test metadata with SHA-256 fingerprint logic.
                  * Ensures the mock sync state fullListFingerprint uses the same hash computation as the synchronizer class.
                  */
                 fullListFingerprint = AbsCatalogSynchronizer.minifiedFingerprint(
@@ -245,8 +238,6 @@ class AbsIncrementalStage6Test {
 
         synchronizer.syncRoot(root)
 
-        // Unchanged mirror reactivation. When the minified fingerprint is unchanged and a local mirror exists, we reactivate the mirror directly,
-        // avoiding redundant detail requests simply to restore the active state status.
         assertEquals(0, api.detailRequestCount)
         assertEquals(AudiobookSchema.AbsMirrorState.ACTIVE, store.mirrors["item-1"]?.state)
         assertEquals(AudiobookSchema.BookStatus.READY, store.books[existingBookId]?.status)
@@ -265,8 +256,6 @@ class AbsIncrementalStage6Test {
 
         val summary = synchronizer.syncRootWithSummary(sampleRoot())
 
-        // Sync statistics isolation. The sync summary must separately track successfully imported books and failed items,
-        // ensuring the settings page's auto-sync toast accurately informs the user of successful and failed items.
         assertEquals(2, summary.totalItems)
         assertEquals(1, summary.addedBooks)
         assertEquals(1, summary.syncedBooks)
@@ -310,7 +299,7 @@ class AbsIncrementalStage6Test {
                 serverKey = serverKey,
                 libraryId = root.basePath,
                 /**
-                 * Generate Hash Fingerprint (Aligns test metadata with SHA-256 fingerprint logic)
+                 * Aligns test metadata with SHA-256 fingerprint logic.
                  * Ensures the mock sync state fullListFingerprint uses the same hash computation as the synchronizer class.
                  */
                 fullListFingerprint = AbsCatalogSynchronizer.minifiedFingerprint(
@@ -332,8 +321,6 @@ class AbsIncrementalStage6Test {
 
         synchronizer.syncRoot(root)
 
-        // ABS Cover Decoupled (Since cover synchronization is decoupled, catalog sync should not download covers)
-        // Cover download is moved to the self-healing flow, so catalog sync leaves cover cache untouched.
         assertTrue(coverStore.downloadedItemIds.isEmpty())
         assertEquals("/cache/old-cover.jpg", store.books[existingBookId]?.coverPath)
         assertEquals("/cache/old-thumb.jpg", store.books[existingBookId]?.thumbnailPath)
@@ -365,7 +352,6 @@ class AbsIncrementalStage6Test {
         val bookWithoutTracks = catalogMapper.toBook(root, serverKey, missingTracksItem, existing = null, syncedAt = 1234L)
         val filesWithoutTracks = catalogMapper.toFiles(root, serverKey, missingTracksItem)
 
-        // Empty tracks compatibility. A server response missing track fields (due to older versions or pruning) should gracefully fall back to an empty list without causing DTO or mapper crashes.
         assertEquals("No Tracks", bookWithoutTracks.title)
         assertTrue(filesWithoutTracks.isEmpty())
 
@@ -402,7 +388,6 @@ class AbsIncrementalStage6Test {
         val files = catalogMapper.toFiles(root, serverKey, missingSizeAndProgressTimeItem)
         val progress = progressMapper.toProgressOrNull(missingSizeAndProgressTimeItem, book, files, 1234L)
 
-        // Metadata safety bounds. A track missing a size attribute defaults to 0, and progress missing lastUpdate defaults to the sync time, preventing NullPointerExceptions.
         assertEquals(1, files.size)
         assertEquals(0L, files.first().fileSize)
         assertEquals(1234L, progress?.lastPlayedAt)
@@ -417,7 +402,6 @@ class AbsIncrementalStage6Test {
             )
         )
 
-        // Error message truncation. The root-level error summary retains only the total failure count and the first failing item, preventing the settings UI from being overwhelmed.
         assertEquals("DETAIL_ITEM_FAILED:2:first=item-2:HTTP_500", summary)
         assertNull(buildAbsIncrementalErrorSummary(emptyMap()))
     }
@@ -468,15 +452,11 @@ class AbsIncrementalStage6Test {
         )
 
         /**
-         * Verify Library Switch Fingerprint Reset (Asserts synchronizer forces fingerprint update on base path switches)
+         * Asserts synchronizer forces fingerprint update on base path switches.
          * Checks that target library transitions lead to a freshly calculated hash.
          */
         synchronizer.syncRoot(root)
 
-        // Verify fingerprint reset on library switch.
-        // Even if the minified list items (id + updatedAt) resolve to the same hash string,
-        // a mismatching libraryId must trigger full recalculation, forcing the final saved fingerprint
-        // to be computed against the new library context.
         assertEquals("lib-new", store.syncState?.libraryId)
         val expectedNewFingerprint = AbsCatalogSynchronizer.minifiedFingerprint(
             listOf(AbsLibraryItemDto(id = "item-1", libraryId = "lib-new", mediaType = "book", updatedAt = 100L))
@@ -672,8 +652,6 @@ class AbsIncrementalStage6Test {
         val downloadedItemIds = mutableListOf<String>()
 
         override suspend fun downloadCover(root: LibraryRootEntity, remoteItemId: String): CoverExtractor.CoverResult {
-            // Cover TTL Fixture (Records cover refresh calls without performing network or image processing)
-            // The synchronizer test only needs to verify whether the online cache policy decides to refresh artwork.
             downloadedItemIds += remoteItemId
             return result
         }
@@ -696,8 +674,6 @@ class AbsIncrementalStage6Test {
             mirror: AbsItemMirrorEntity,
             syncState: AbsSyncStateEntity
         ) {
-            // Incremental Catalog Fixture Scope (Represents only the rows owned by catalog synchronization)
-            // Progress assertions in this file continue to target AbsProgressMapper directly instead of the catalog store fake.
             books[book.id] = book
             mirrors[mirror.remoteItemId] = mirror
             this.syncState = syncState

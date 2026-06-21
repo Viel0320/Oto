@@ -46,7 +46,7 @@ import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Portrait adaptive player layout (Component rendering main player details in vertical orientation)
+ * Component rendering main player details in vertical orientation.
  * Layout features single column design routing events through stateless lambdas.
  * Decouples ViewModel bindings and enforces clean stateless UI architecture contracts.
  *
@@ -89,21 +89,16 @@ fun PlayerPortrait(
     onModeChange: (PlayerScreenMode) -> Unit,
     animatedBgColor: Color,
     glassEffectMode: GlassEffectMode,
-    // Player Floating Haze Source (Use the stable app-level sampler for player glass surfaces)
-    // PlayerScreen passes the resolved app-level source so chapter sheets, bookmark dialogs, controls, and header menus stay on one HazeState.
     chapterSheetHazeState: HazeState?,
     offsetY: Animatable<Float, *>,
     scope: kotlinx.coroutines.CoroutineScope,
     dismissThreshold: Float,
-    // Clean FocusManager import (To bypass platform package compilation symbols drift)
     focusManager: FocusManager,
     navigationActions: com.viel.aplayer.ui.navigation.PlayerNavigationActions,
     modifier: Modifier = Modifier,
     safeDrawingPadding: PaddingValues
 ) {
-    
-    // Sync Previous Mode: Tracks the previous playback tab mode to allow custom transition logic when returning to PLAYER mode.
-    // Updates synchronously inside LaunchedEffect when currentMode changes.
+
     var prevMode by remember { mutableStateOf(currentMode) }
     LaunchedEffect(currentMode) {
         prevMode = currentMode
@@ -114,7 +109,6 @@ fun PlayerPortrait(
             .fillMaxSize()
             .padding(safeDrawingPadding)
     ) {
-        // AppBar widget delegation (To wrap header information, gestures, and timer triggers)
         PlayerVerticalAppBar(
             metadata = metadata,
             settings = settings,
@@ -132,7 +126,6 @@ fun PlayerPortrait(
                 .fillMaxSize()
                 .padding(horizontal = windowClass.screenHorizontalPadding)
         ) {
-            // Map tab modes (To match selected screen tab to active animation container)
             val contentShell = remember(currentMode) {
                 when (currentMode) {
                     PlayerScreenMode.BOOKMARKS -> PlayerContentShell.Bookmarks
@@ -163,7 +156,6 @@ fun PlayerPortrait(
                                     lastPlaybackMode = currentMode
                                 }
 
-                                // Content fade transitions (Animate artwork and subtitles card displays)
                                 AnimatedContent(
                                     targetState = lastPlaybackMode,
                                     modifier = Modifier.weight(1f),
@@ -178,7 +170,6 @@ fun PlayerPortrait(
                                     when (topMode) {
                                         PlayerScreenMode.SUBTITLES -> {
                                             Box(modifier = Modifier.fillMaxSize()) {
-                                                // Subtitles list wrapper (To render stateless SubtitlesView)
                                                 PlaybackPositionSubtitlesView(
                                                     playbackProgressState = playbackProgressState,
                                                     subtitles = metadata.subtitles,
@@ -189,7 +180,6 @@ fun PlayerPortrait(
                                         }
 
                                         else -> {
-                                            // Main artwork cover (Transport gestures were moved to explicit controls to avoid hidden playback commands on artwork)
                                             PlayerCover(
                                                 bookId = metadata.id,
                                                 isWideScreen = false,
@@ -204,7 +194,6 @@ fun PlayerPortrait(
                                         }
                                     }
                                 }
-                                // Control panel layout (To render buttons, timelines, and speech multipliers)
                                 PlayerControlPanelStateful(
                                     playbackProgressState = playbackProgressState,
                                     currentChapter = currentChapter,
@@ -221,7 +210,6 @@ fun PlayerPortrait(
                             }
 
                             PlayerContentShell.Bookmarks -> {
-                                // Bookmark list container (To display saved bookmark elements)
                                 Box(modifier = Modifier.fillMaxSize()) {
                                     PlaybackPositionBookmarkListView(
                                         playbackProgressState = playbackProgressState,
@@ -241,8 +229,6 @@ fun PlayerPortrait(
                                         onConfirmDelete = onConfirmDeleteBookmark,
                                         onConfirmUpdate = onConfirmUpdateBookmark,
                                         onDismissDialogs = onDismissBookmarkDialogs,
-                                        // Bookmark Dialog Haze Routing (Reuse the stable player floating source)
-                                        // Edit/delete bookmark dialogs share chapterSheetHazeState with the chapter sheet and player chrome to avoid source rebinding.
                                         hazeState = chapterSheetHazeState,
                                         glassEffectMode = glassEffectMode,
                                         modifier = Modifier.fillMaxSize()
@@ -251,7 +237,6 @@ fun PlayerPortrait(
                             }
 
                             PlayerContentShell.Related -> {
-                                // Related books collection (To query related author and narrator libraries)
                                 Box(modifier = Modifier.weight(1f)) {
                                     RelatedBooksView(
                                         currentBookId = metadata.id,
@@ -259,10 +244,6 @@ fun PlayerPortrait(
                                         authorSections = fullUiState.relatedAuthorSections,
                                         narratorSections = fullUiState.relatedNarratorSections,
                                         recentBooks = fullUiState.recentlyAddedBooks,
-                                        /*
-                                         * Related Row Action Split (Keep navigation separate from playback)
-                                         * Row taps open Detail through the app shell, while the play button keeps the existing direct playback path.
-                                         */
                                         onBookClick = actions.content.onOpenRelatedBookDetail,
                                         onPlayClick = actions.content.onLoadRelatedBook
                                     )
@@ -273,7 +254,6 @@ fun PlayerPortrait(
                 }
             }
             Spacer(modifier = Modifier.height(24.dp))
-            // Bottom navigation layout (To toggle main tabs inside player screen)
             BottomNavTabs(
                 selectedTab = currentMode,
                 playbackSpeed = playbackSpeed,

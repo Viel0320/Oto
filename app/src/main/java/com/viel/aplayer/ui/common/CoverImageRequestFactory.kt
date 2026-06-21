@@ -13,8 +13,6 @@ import com.viel.aplayer.logger.CoverImageCacheLogger
 import java.io.File
 
 /**
- * Cover display specification (CoverImageVariant).
- *
  * Each variant has a distinct cache key segment and target decoding dimensions, preventing duplicate Bitmaps of the same cover in different pages caused by manual keys
  * or slight dimension discrepancies, and ensuring small-image scenes do not inadvertently hold onto full-size main cover Bitmaps.
  */
@@ -26,13 +24,11 @@ enum class CoverImageVariant(
     Original("original", null, null),
     ThumbnailSmall("small180", 180, 180),
     ThumbnailMedium("medium360", 360, 360),
-    // Backdrop Cache Coalescing (Reuse the exact small180 request key)
-    // Backdrop keeps the same 180px dimensions and cache key as ThumbnailSmall so blurred ambience, list thumbnails, mini-player covers, and transition preloads reuse one Coil cache entry; the request scene still identifies background usage in logs.
     Backdrop("small180", 180, 180),
     Main1200("main1200", 1200, 1200);
 
     /**
-     * Request Size Label (Formats bounded variants as pixels and the source-sized variant as original)
+     * Formats bounded variants as pixels and the source-sized variant as original.
      * Keeps diagnostics readable after adding an unbounded source-size decode path.
      */
     val requestSizeLabel: String
@@ -44,8 +40,6 @@ enum class CoverImageVariant(
 }
 
 /**
- * Unified generation of Coil cover requests (CoverImageRequestFactory).
- *
  * This object is solely responsible for request specifications, cache keys, and basic logging. It does not hold UI states or access the database, preventing this image loading
  * entry-point utility from bloating into a cross-hierarchy centralized manager.
  */
@@ -73,12 +67,6 @@ object CoverImageRequestFactory {
             cacheKey = cacheKey,
             targetSize = variant.requestSizeLabel
         )
-        // Bind metric logs directly to the request listener.
-        //
-        // Here we bind the "document-required metrics logs" directly to the request-level listener,
-        // avoiding metric occurrences depending on whether Compose hit a global singleton ImageLoader by default.
-        // As long as this ImageRequest is actually executed, the final metrics will always be outputted; the global EventListener shifts back to
-        // an auxiliary role providing fetcher clues to distinguish between disk cache hits and local file decoding as much as possible.
         val pipelineListener = object : ImageRequest.Listener {
             private var startedAtElapsedMs = SystemClock.elapsedRealtime()
 
@@ -109,8 +97,6 @@ object CoverImageRequestFactory {
                     bitmapByteCount = CoverImageCacheLogger.bitmapByteCount(result.drawable),
                     metricsSnapshot = metricsSnapshot
                 )
-                // Cover Decode Cache Diagnostics (Adds a normalized cache event beside existing cover pipeline logs)
-                // Uses the existing source hash and decode source classification so summary logs can detect cache hits without printing local cover paths.
                 CacheDiagnosticsLogger.logCacheEvent(
                     cacheType = "cover",
                     operation = "decode",
@@ -145,9 +131,6 @@ object CoverImageRequestFactory {
                 )
             }
         }
-        // Cover Source URI Resolution (Support content URIs and file URIs alongside raw file paths)
-        // If the path starts with content:// or file://, we parse it as an android.net.Uri so Coil can resolve ContentResolver or scheme providers.
-        // Otherwise, it is treated as a local absolute file path and mapped directly to java.io.File to preserve existing filesystem contracts.
         val dataObject = if (sourcePath.startsWith("content://") || sourcePath.startsWith("file://")) {
             sourcePath.toUri()
         } else {
@@ -168,19 +151,12 @@ object CoverImageRequestFactory {
                 }
             }
             .listener(pipelineListener)
-            // Apply bitmapConfig option (Pass customized bitmap config to Coil builder)
-            // Configures the decoding profile, e.g. RGB_565 to optimize RAM overhead and prevent hardware-copying overhead.
             .apply {
                 if (bitmapConfig != null) {
                     bitmapConfig(bitmapConfig)
                 }
             }
             .build()
-        // Register metrics context.
-        //
-        // Bind the metrics context (scene / variant / source / cacheKey) to the final generated request object.
-        // This allows the EventListener of the global ImageLoader to trace back to which UI scene a request belongs after it hits the loader layer,
-        // thereby outputting the required metrics: `scene + variant + sourceKeyHash + decodeCostMs + decodeSource + cacheHitRatio`.
         CoverImageCacheLogger.registerRequest(
             request = request,
             scene = scene,

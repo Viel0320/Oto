@@ -9,7 +9,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.media.PlaybackSourcePreflightBlockReason
 
 /**
- * Feedback Message (Shared source for app-shell feedback rendering)
+ * Shared source for app-shell feedback rendering.
  *
  * Callers emit one stable message source plus formatting or routing arguments. Android resource
  * resolution and render-mode-specific rendering stay in the app shell, so the same message can be
@@ -17,7 +17,7 @@ import com.viel.aplayer.media.PlaybackSourcePreflightBlockReason
  */
 sealed interface FeedbackMessage {
     /**
-     * Default Render Mode (Fallback rendering mode for message producers)
+     * Fallback rendering mode for message producers.
      *
      * Most feedback renders as Toast by default. Fact factories only override this when a specific
      * workflow requires strong in-app interaction.
@@ -27,7 +27,7 @@ sealed interface FeedbackMessage {
 
 
     /**
-     * Resource Message (Defers localized text lookup to the rendering layer)
+     * Defers localized text lookup to the rendering layer.
      *
      * The resource ID is the stable message key and the argument list contains only primitive display
      * values so tests can assert feedback facts without depending on localized strings.
@@ -38,7 +38,7 @@ sealed interface FeedbackMessage {
     ) : FeedbackMessage
 
     /**
-     * Quantity Resource Message (Defers counted localized text lookup to Android plural rules)
+     * Defers counted localized text lookup to Android plural rules.
      *
      * The quantity drives resource selection while args supply the formatted values, keeping producers on
      * language-neutral facts and allowing locales with complex plural forms to render correctly.
@@ -50,14 +50,14 @@ sealed interface FeedbackMessage {
     ) : FeedbackMessage
 
     /**
-     * Composite Message (Combines localized fragments into one feedback fact)
+     * Combines localized fragments into one feedback fact.
      *
      * Scan summaries can keep each phrase resource-backed while still emitting one message source.
      */
     data class Composite(val parts: List<FeedbackMessage>) : FeedbackMessage
 
     /**
-     * Playback Track Unavailable Message (Identifies a failed queue item for Toast or Dialog rendering)
+     * Identifies a failed queue item for Toast or Dialog rendering.
      *
      * Toast rendering resolves this to the short unavailable-track copy; Dialog rendering uses the same
      * payload to open the app-owned recovery confirmation.
@@ -70,7 +70,7 @@ sealed interface FeedbackMessage {
 }
 
 /**
- * Feedback Message Factory (Centralizes the resource keys used by feedback producers)
+ * Centralizes the resource keys used by feedback producers.
  *
  * This object keeps playback and settings feedback names stable while allowing the app shell to render
  * the final localized text or strong-interaction dialog elsewhere from the same message source.
@@ -85,7 +85,6 @@ object FeedbackMessages {
     fun libraryRootsUnavailableSync(rootCount: Int): FeedbackMessage =
         FeedbackMessage.Quantity(R.plurals.feedback_sync_roots_unavailable_multiple, rootCount)
 
-    // Feedback Status Type Safe: Use AudiobookSchema.AvailabilityStatus enum for type safety.
     fun libraryRootUnavailableSync(
         rootName: String,
         availabilityStatus: AudiobookSchema.AvailabilityStatus,
@@ -169,7 +168,7 @@ object FeedbackMessages {
         )
 
     /**
-     * Playback Track Unavailable (Creates the shared unavailable-track message source)
+     * Creates the shared unavailable-track message source.
      *
      * The message carries routing payload for Dialog rendering while still resolving to the existing
      * Toast copy when consumed with Toast render mode.
@@ -234,8 +233,6 @@ object FeedbackMessages {
             }
         )
 
-    // Download Command Feedback (Report user-triggered manual cache commands)
-    // These messages acknowledge command submission only; DownloadStatusReadModel remains the source for durable progress state.
     fun downloadCacheQueued(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_download_cache_queued)
 
@@ -251,13 +248,9 @@ object FeedbackMessages {
     fun downloadNotificationPermissionDenied(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_download_notification_permission_denied)
 
-    // Download Command Failure Feedback (Keep command failures resource-backed)
-    // The error detail is passed as sanitized UI feedback input instead of hard-coded ViewModel text.
     fun downloadCacheCommandFailed(errorMessage: String?): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_download_cache_command_failed, listOf(errorMessage ?: ""))
 
-    // Deleted Book Recovery Success Toasts (Expose resource-backed restore completion messages)
-    // Recovery ViewModel emits typed success facts while the app-shell renderer remains responsible for localization.
     fun deletedBookRecoveryRestoredReady(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_deleted_book_recovery_restored_ready)
 
@@ -273,7 +266,6 @@ object FeedbackMessages {
             }
         )
 
-    // Home Read Status Feedback: Change readStatus parameter type to type-safe ReadStatus enum.
     fun homeReadStatusUpdated(readStatus: LibraryReadStatus): FeedbackMessage =
         FeedbackMessage.Resource(
             when (readStatus) {
@@ -332,7 +324,7 @@ object FeedbackMessages {
         FeedbackMessage.Quantity(R.plurals.feedback_scan_suffix_partial, partialCount)
 
     /**
-     * Scan Blocked Without Available Libraries (Access-form-neutral no-work feedback)
+     * Access-form-neutral no-work feedback.
      *
      * The scan command may internally distinguish enumerable roots from catalog-backed roots, but the
      * listener only needs to know that no library is currently available for this sync attempt.
@@ -385,9 +377,6 @@ object FeedbackMessages {
     fun chapterPhysicalFileMissing(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_chapter_physical_file_missing)
 
-    // Data Transfer Feedback (Resource keys for portable app-data export and import)
-    // Wording and keys are unchanged from the previous inline SettingsViewModel messages; the data
-    // transfer fact factory now owns classification while these keep localization centralized.
     fun settingsExportSuccess(): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_settings_export_success)
 
@@ -410,7 +399,7 @@ object FeedbackMessages {
         FeedbackMessage.Resource(R.string.feedback_settings_import_failed, listOf(errorMessage ?: ""))
 
     /**
-     * Stopped Playback Scope (Appends the affected book title to blocking playback dialogs)
+     * Appends the affected book title to blocking playback dialogs.
      *
      * Dialog feedback often reports a source or policy failure, but the user also needs the playback
      * impact. Keeping the scope append inside the message factory preserves a single renderable message
@@ -428,7 +417,7 @@ object FeedbackMessages {
     }
 
     /**
-     * Render Stopped Playback Scope (Formats the affected book title for semantic playback messages)
+     * Formats the affected book title for semantic playback messages.
      *
      * Specialized messages such as track-unavailable must remain routeable by type, so they cannot be
      * wrapped in [FeedbackMessage.Composite]. Rendering uses the same scope resource as generic dialog
@@ -442,7 +431,7 @@ object FeedbackMessages {
 }
 
 /**
- * Feedback Message Rendering (Resolves resource-backed feedback at the app-shell edge)
+ * Resolves resource-backed feedback at the app-shell edge.
  *
  * Rendering is intentionally outside event producers so media, workers, and ViewModels emit facts rather
  * than localized render text.

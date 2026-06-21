@@ -22,21 +22,16 @@ object PlayerWidgetStateHelper {
 
     private const val TAG = "PlayerWidgetStateHelper"
 
-    // Glance preference keys. Definition of keys used for managing widget preferences within Glance.
     val KEY_IS_PLAYING = booleanPreferencesKey("is_playing")
     val KEY_TITLE = stringPreferencesKey("title")
     val KEY_AUTHOR = stringPreferencesKey("author")
     val KEY_COVER_PATH = stringPreferencesKey("cover_path")
-    // Widget Rewind Step Key (Stores the currently rendered backward short-seek step)
-    // The click action still routes through MediaController.seekBack, while this value keeps the widget icon truthful.
     val KEY_SEEK_BACKWARD_SECONDS = intPreferencesKey("seek_backward_seconds")
-    // Widget Forward Step Key (Stores the currently rendered forward short-seek step)
-    // The click action still routes through MediaController.seekForward, while this value keeps the widget icon truthful.
     val KEY_SEEK_FORWARD_SECONDS = intPreferencesKey("seek_forward_seconds")
 
     /**
-     * Update widget state. Asynchronously commits updated state data and triggers widget recomposition.
-     * 
+     * Commits widget playback state and triggers Glance recomposition.
+     *
      * @param context Application context.
      * @param isPlaying Indicates if an audiobook is currently active.
      * @param title Name of the audiobook.
@@ -53,17 +48,13 @@ object PlayerWidgetStateHelper {
         seekForwardSeconds: Int = 20
     ) {
         try {
-            // 1. Retrieve the Glance widget manager.
             val manager = GlanceAppWidgetManager(context)
-            // Resolve all registered widget IDs representing the PlayerWidget layout.
             val glanceIds = manager.getGlanceIds(PlayerWidget::class.java)
-            
+
             if (glanceIds.isEmpty()) {
-                // Skip state writes entirely if there are no active widgets on the screen to conserve I/O costs.
                 return
             }
 
-            // 2. Iterate through active widgets and persist the new state values in their respective Preferences DataStores.
             glanceIds.forEach { glanceId ->
                 updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { preferences ->
                     preferences.toMutablePreferences().apply {
@@ -77,11 +68,8 @@ object PlayerWidgetStateHelper {
                 }
             }
 
-            // 3. Request actual UI recomposition.
             PlayerWidget().updateAll(context)
         } catch (e: Exception) {
-            // Release Error Boundary (Sanitize widget DataStore update failures)
-            // Glance persistence exceptions may include file paths, so retained errors must flow through SecureLog.
             SecureLog.error(TAG, "Encountered physical exception when updating widget DataStore state: ${e.message}", e)
         }
     }

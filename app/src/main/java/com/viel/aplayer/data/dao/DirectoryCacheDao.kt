@@ -7,34 +7,34 @@ import androidx.room.Query
 import com.viel.aplayer.data.entity.DirectoryCacheEntity
 
 /**
- * Directory Modification Cache DAO (Data Access Object managing directory_cache records for incremental scanning)
+ * Data Access Object managing directory_cache records for incremental scanning.
  * Handles sub-second intercepts, single-directory state overlays, and flushing operations.
  */
 @Dao
 interface DirectoryCacheDao {
 
     /**
-     * Query Directory Cache (Resolves directory caches by matching rootId and relative VFS sourcePath)
+     * Resolves directory caches by matching rootId and relative VFS sourcePath.
      * Replaces direct SAF tree URI resolution checks.
      */
     @Query("SELECT * FROM directory_cache WHERE rootId = :rootId AND sourcePath = :sourcePath")
     suspend fun getBySourcePath(rootId: String, sourcePath: String): DirectoryCacheEntity?
 
     /**
-     * Save Directory State (Upserts directory modified timestamps into database caches)
+     * Upserts directory modified timestamps into database caches.
      * Invoked when folders are updated during scan phases.
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(cache: DirectoryCacheEntity)
 
     /**
-     * Evict Directory Cache (Deletes directory cache indices matching rootId and relative VFS paths)
+     * Deletes directory cache indices matching rootId and relative VFS paths.
      */
     @Query("DELETE FROM directory_cache WHERE rootId = :rootId AND sourcePath = :sourcePath")
     suspend fun deleteBySourcePath(rootId: String, sourcePath: String)
 
     /**
-     * Wipe Library Cache (Force deletes cached directory records belonging to a specific rootId)
+     * Force deletes cached directory records belonging to a specific rootId.
      * Note: While SQLite automatically triggers cascades under foreignKey constraints,
      * this serves as a fallback API for manual domain evictions.
      */

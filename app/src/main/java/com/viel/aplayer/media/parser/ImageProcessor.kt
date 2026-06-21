@@ -20,34 +20,28 @@ import java.io.FileOutputStream
 import java.io.InputStream
 
 /**
- * 图像处理中心。
+ * Central image-processing boundary for cover persistence, thumbnail generation, and color extraction.
  *
- * 当前把封面相关的真正实现集中收口到这里，
- * 包括：
- * 1. 自定义封面保存
- * 2. 内嵌封面字节落盘
- * 3. sidecar 图片流处理
- * 4. 缩略图生成
- * 5. 主色提取
- * 6. Bitmap 基础工具
- *
- * `CoverExtractor` 现在只保留兼容外壳与结果类型，不再承载实现主体。
+ * [CoverExtractor] remains as a compatibility shell, while this object owns the actual
+ * implementation for custom covers, embedded artwork, sidecar images, thumbnails, and bitmap helpers.
  */
 object ImageProcessor {
     private const val TAG = "ImageProcessor"
-    // Cardgroup Thumbnail Size Alignment (Keep medium cover cards and generated thumbnails on the same 360px contract)
-    // This lets Cardgroup surfaces prefer local thumbnails and matching Coil cache entries, reducing repeated full-size cover decoding.
+
+    /**
+     * Keeps medium cover cards and generated thumbnails on the same 360px cache contract.
+     */
     private const val DEFAULT_THUMBNAIL_MAX_SIZE = 360
 
-    // 主色提取代价较高，这里保留路径级 LRU 缓存，避免同一张封面重复跑 Palette。
+    /**
+     * Caches dominant colors per cover path so repeated palette extraction does not re-decode the same image.
+     */
     private val colorCache = LruCache<String, Int>(100)
 
-    // 默认背景色用于封面缺失、图片损坏或取色失败时的全局兜底。
+    /**
+     * Global fallback color used when covers are missing, corrupt, or unavailable for palette extraction.
+     */
     const val DEFAULT_BACKGROUND_ARGB: Int = 0xFF1C1B1F.toInt()
-
-    // -------------------------------------------------------------------------
-    // 一、封面文件工作流
-    // -------------------------------------------------------------------------
 
     /**
      * Crop, resize and save custom cover from URI (Perform crop and downscaling on cover stream in background)
@@ -64,14 +58,12 @@ object ImageProcessor {
         try {
             val inputUri = coverUriString.toUri()
             val externalInputReader = com.viel.aplayer.library.vfs.VfsExternalInputReader(context)
-            
-            // Decode boundaries (Read dimensions first to configure subsampling scale and guard against heap OOM)
+
             inputStream = externalInputReader.openInputStream(inputUri) ?: return@withContext CoverExtractor.CoverResult(null, null)
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeStream(inputStream, null, options)
             inputStream.close()
 
-            // Decode image pixel data (Allocate actual bitmap heap buffer using configured Config.RGB_565 configuration)
             inputStream = externalInputReader.openInputStream(inputUri) ?: return@withContext CoverExtractor.CoverResult(null, null)
             val maxDim = maxOf(options.outWidth, options.outHeight)
             val decodeOptions = BitmapFactory.Options().apply {
@@ -83,7 +75,6 @@ object ImageProcessor {
             val bitmap = BitmapFactory.decodeStream(inputStream, null, decodeOptions) ?: return@withContext CoverExtractor.CoverResult(null, null)
             inputStream.close()
 
-            // Perform square crop centered relative to the shortest side
             val width = bitmap.width
             val height = bitmap.height
             val size = minOf(width, height)
@@ -91,7 +82,6 @@ object ImageProcessor {
             val y = (height - size) / 2
             val croppedBitmap = Bitmap.createBitmap(bitmap, x, y, size, size)
 
-            // Downscale resolution (Resize the cropped square to 1600x1600 pixels to optimize disk layout and memory profiles)
             val targetResolution = 1600
             val finalBitmap = if (size > targetResolution) {
                 croppedBitmap.scale(targetResolution, targetResolution)
@@ -99,7 +89,6 @@ object ImageProcessor {
                 croppedBitmap
             }
 
-            // Output file commit (Compress and write image block to target file using 90% JPEG quality)
             val timestamp = System.currentTimeMillis()
             val originalFile = File(coverCacheDir(context), "${bookId.hashCode()}_custom_${timestamp}_orig.jpg")
             originalFile.parentFile?.mkdirs()
@@ -107,7 +96,6 @@ object ImageProcessor {
                 finalBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
             }
 
-            // Explicit recycling (Call recycle on temporary bitmaps to free graphics memory immediately)
             if (finalBitmap != croppedBitmap) {
                 finalBitmap.recycle()
             }
@@ -116,7 +104,6 @@ object ImageProcessor {
             }
             bitmap.recycle()
 
-            // Generate thumbnail from the finalized custom cover image
             val thumbPath = createThumbnailFromFile(originalFile, "${bookId}_custom_${timestamp}")
             CoverExtractor.CoverResult(originalFile.absolutePath, thumbPath, null)
         } catch (e: Exception) {
@@ -127,11 +114,10 @@ object ImageProcessor {
     }
 
     /**
-     * 保存内嵌封面字节。
+     * Persists embedded artwork bytes returned by format parsers.
      *
-     * 
-     * 这里接住各格式 parser 统一返回的 `embeddedCover.bytes`，
-     * 负责原图落地、缩略图生成和主色提取。
+     * The parser boundary already normalizes the image payload, so this function only commits the
+     * original bytes and derives the thumbnail path used by cover surfaces.
      */
     suspend fun saveEmbeddedImage(
         context: Context,
@@ -147,19 +133,16 @@ object ImageProcessor {
             val thumbnailPath = createThumbnailFromFile(originalFile, sourceId)
             CoverExtractor.CoverResult(originalPath, thumbnailPath, null)
         } catch (e: Exception) {
-            // Release Error Boundary (Sanitize embedded cover persistence failures)
-            // Embedded artwork exceptions may include decoder or output path details, so release-retained errors use SecureLog.
             SecureLog.error(TAG, "保存内嵌封面字节失败", e)
             CoverExtractor.CoverResult(null, null)
         }
     }
 
     /**
-     * 处理外部 sidecar 图片流。
+     * Processes an external sidecar image stream through the same file-backed thumbnail path.
      *
-     * 
-     * 这里故意采用“先复制到私有缓存，再从缓存文件生成缩略图”的顺序，
-     * 避免对大图直接 `readBytes()` 带来的瞬时内存峰值。
+     * The stream is copied to private cache before thumbnailing to avoid loading large sidecar
+     * images into one transient byte array.
      */
     suspend fun processExternalImage(
         context: Context,
@@ -176,30 +159,22 @@ object ImageProcessor {
             val thumbPath = createThumbnailFromFile(originalFile, sourceId)
             CoverExtractor.CoverResult(originalFile.absolutePath, thumbPath, null)
         } catch (e: Exception) {
-            // Release Error Boundary (Sanitize sidecar image processing failures)
-            // Sidecar file processing crosses user storage, so retained error diagnostics must scrub paths and exception text.
             SecureLog.error(TAG, "处理外部 sidecar 图片失败", e)
             CoverExtractor.CoverResult(null, null)
         }
     }
 
-    // -------------------------------------------------------------------------
-    // 二、颜色分析
-    // -------------------------------------------------------------------------
-
     /**
-     * 从 Drawable 提取主色。
+     * Extracts a dominant color from a drawable.
      *
      * Handles common drawable wrappers and hardware bitmaps before Palette sampling.
      */
     fun getDominantColor(drawable: Drawable?): Int {
-        // Safe Drawable Extraction: Unpack wrappers and restrict bounds to 100x100 ARGB_8888 to guarantee Palette performance and prevent OOM or Hardware Bitmap crashes.
         if (drawable == null) return DEFAULT_BACKGROUND_ARGB
         return try {
             val unwrapped = unwrapDrawable(drawable) ?: drawable
             Log.d(TAG, "getDominantColor: unwrappedClass=${unwrapped.javaClass.name}")
 
-            // Target Dimensions Calculation: Scale the target width and height to a max of 100x100 to optimize execution times and guard against 0 or negative dimensions.
             var targetWidth = unwrapped.intrinsicWidth
             var targetHeight = unwrapped.intrinsicHeight
             if (targetWidth <= 0 || targetHeight <= 0) {
@@ -219,13 +194,10 @@ object ImageProcessor {
                 }
             }
 
-            // RGB_565 Drawing Execution: Safely unpack BitmapDrawable and copy hardware bitmap if needed to avoid Software Canvas Hardware Bitmap rendering exceptions.
             val bitmap = try {
                 if (unwrapped is BitmapDrawable) {
                     val origBitmap = unwrapped.bitmap
                     if (origBitmap != null) {
-                        // Hardware Copy Fallback Warning (Safeguard against unexpected hardware bitmaps while expecting software RGB_565 configurations from upstream loaders)
-                        // This serves only as a safety fallback since upstream Coil requests are pre-configured with allowHardware = false and RGB_565 config when dominant color extraction is needed.
                         val isHardware = origBitmap.config == Bitmap.Config.HARDWARE
                         val softwareBitmap = if (isHardware) {
                             origBitmap.copy(Bitmap.Config.RGB_565, false)
@@ -250,7 +222,6 @@ object ImageProcessor {
                         null
                     }
                 } else {
-                    // Force RGB_565 for Drawables: Convert the drawable to RGB_565 configuration to optimize memory footprint during dominant color extraction.
                     unwrapped.toBitmap(
                         width = targetWidth,
                         height = targetHeight,
@@ -258,8 +229,6 @@ object ImageProcessor {
                     )
                 }
             } catch (e: Exception) {
-                // Release Error Boundary (Sanitize drawable conversion failures)
-                // Drawable wrappers can originate from file or network loaders, so retained errors must use SecureLog.
                 SecureLog.error(TAG, "Drawable 转换 Bitmap 异常", e)
                 null
             } ?: return DEFAULT_BACKGROUND_ARGB
@@ -267,7 +236,6 @@ object ImageProcessor {
             val color = Palette.from(bitmap).generate().getDominantColor(DEFAULT_BACKGROUND_ARGB)
             Log.d(TAG, "getDominantColor: extractedColor=${Integer.toHexString(color)}")
 
-            // Safe Bitmap Recycling: Only recycle the bitmap if it is a newly allocated instance and not the backing instance of the underlying BitmapDrawable.
             val originalBitmap = (unwrapped as? BitmapDrawable)?.bitmap
             if (bitmap != originalBitmap) {
                 bitmap.recycle()
@@ -275,8 +243,6 @@ object ImageProcessor {
 
             color
         } catch (e: Exception) {
-            // Release Error Boundary (Sanitize drawable color extraction failures)
-            // The final color fallback keeps UI stable while SecureLog prevents retained exception text from leaking source data.
             SecureLog.error(TAG, "从 Drawable 提取主色失败", e)
             DEFAULT_BACKGROUND_ARGB
         }
@@ -286,7 +252,6 @@ object ImageProcessor {
      * Recursively unwraps common Drawable containers before color extraction.
      */
     private fun unwrapDrawable(drawable: Drawable?): Drawable? {
-        // Recursive Wrapper Unwrapping: Drill down into LayerDrawable, SDK DrawableWrapper, or support-library wrappers using a local immutable reference to guarantee smart casts.
         if (drawable == null) return null
         var current = drawable
         while (true) {
@@ -348,12 +313,8 @@ object ImageProcessor {
     private fun colorCacheKey(path: String?, lastUpdated: Long): String? =
         path?.let { "$it:$lastUpdated" }
 
-    // -------------------------------------------------------------------------
-    // 三、Bitmap 通用工具
-    // -------------------------------------------------------------------------
-
     /**
-     * 按最大边缩放 Bitmap，保持宽高比。
+     * Scales a bitmap so its longest side matches [maxSize] while preserving aspect ratio.
      */
     fun scaleBitmap(source: Bitmap, maxSize: Int): Bitmap {
         val width = source.width
@@ -372,7 +333,7 @@ object ImageProcessor {
     }
 
     /**
-     * 计算 BitmapFactory 采样倍率。
+     * Calculates the power-of-two sampling factor used by [BitmapFactory].
      */
     fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
         val (height: Int, width: Int) = options.outHeight to options.outWidth
@@ -388,7 +349,7 @@ object ImageProcessor {
     }
 
     /**
-     * 把 Bitmap 保存为 JPEG 文件。
+     * Saves a bitmap as a JPEG file using the provided quality.
      */
     fun saveBitmapToFile(bitmap: Bitmap, outputFile: File, quality: Int = 85): Boolean {
         return try {
@@ -397,26 +358,16 @@ object ImageProcessor {
             }
             true
         } catch (e: Exception) {
-            // Release Error Boundary (Sanitize bitmap output file failures)
-            // The absolute output path is user/device-specific, so SecureLog strips it from release-retained diagnostics.
             SecureLog.error(TAG, "保存位图失败: ${outputFile.absolutePath}", e)
             false
         }
     }
 
-    // -------------------------------------------------------------------------
-    // 四、缩略图内部实现
-    // -------------------------------------------------------------------------
-
-    // 详尽的中文注释：废弃并移除已不再被调用的私有内存字节缩略图提取函数 createThumbnailFromBytes，
-    // 所有内嵌封面与自定义、Sidecar 图片的处理现在均统一收归至 createThumbnailFromFile 物理文件下采样链路，
-    // 贯彻了高解耦、高聚合的整洁架构原则，并进一步防范死代码或冗余逻辑带来的维护负担。
-
     /**
-     * 从已有文件生成缩略图。
+     * Generates a thumbnail from an existing file-backed cover image.
      *
-     * 
-     * 适用于用户自定义封面和 sidecar 图片，不必先把文件整体再读进内存。
+     * This shared path keeps custom, embedded, and sidecar artwork on one physical downsampling flow
+     * without reading the whole source image into memory.
      */
     private fun createThumbnailFromFile(imageFile: File, sourceId: String): String? {
         return try {
@@ -429,7 +380,6 @@ object ImageProcessor {
                 reqHeight = DEFAULT_THUMBNAIL_MAX_SIZE
             )
             options.inJustDecodeBounds = false
-            // Force RGB_565 Config: Force decode to RGB_565 configuration to minimize memory usage when generating thumbnail bitmaps from file.
             options.inPreferredConfig = Bitmap.Config.RGB_565
 
             val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath, options) ?: return null
@@ -449,19 +399,13 @@ object ImageProcessor {
 
             thumbFile.absolutePath
         } catch (e: Exception) {
-            // Release Error Boundary (Sanitize thumbnail generation failures)
-            // Thumbnail creation touches cache files, so retained errors must scrub any filesystem detail in Throwable text.
             SecureLog.error(TAG, "从文件生成缩略图失败", e)
             null
         }
     }
 
-    // -------------------------------------------------------------------------
-    // 五、目录辅助
-    // -------------------------------------------------------------------------
-
     /**
-     * 定位封面缓存目录。
+     * Resolves the private cover cache directory and creates it on demand.
      */
     private fun coverCacheDir(context: Context): File =
         File(context.cacheDir, "covers").also { it.mkdirs() }

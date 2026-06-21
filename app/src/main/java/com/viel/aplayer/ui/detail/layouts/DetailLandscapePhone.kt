@@ -36,7 +36,7 @@ import com.viel.aplayer.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
 
 /**
- * Phone Landscape Layout Specification (Optimized horizontal splitting for compact screens)
+ * Optimized horizontal splitting for compact screens.
  *
  * Caters to viewports with restricted vertical heights by dividing content left and right.
  * Places the playback controls at the top of the right-hand column.
@@ -63,12 +63,6 @@ fun DetailLandscapePhone(
     val windowClass = LocalAppWindowSizeClass.current
     val home2DetailTargetScope = LocalHomeRecent2DetailTargetScope.current
 
-    /*
-     * Landscape Detail Motion Channel (Entry-source based target binding)
-     *
-     * Selects the matching shared-element key only for the opening source, keeping Recent,
-     * main-list, and Search thumbnails on separate transition channels.
-     */
     val detailSharedElementKey = book?.id?.let { bookId ->
         when (uiState.entrySource) {
             DetailEntrySource.HomeRecent -> SharedElementKeys.home2DetailCover(bookId)
@@ -77,12 +71,6 @@ fun DetailLandscapePhone(
             DetailEntrySource.None -> null
         }
     }
-    /*
-     * Landscape Detail Source Corner (Entry-source shape alignment)
-     *
-     * Uses 16.dp for Recent card entries and 8.dp for main-list/Search thumbnail entries so
-     * the first Detail frame matches the real source instead of a reused player shape.
-     */
     val detailSharedElementStartCornerRadius = when (uiState.entrySource) {
         DetailEntrySource.HomeRecent -> 16.dp
         DetailEntrySource.HomeList -> 8.dp
@@ -105,7 +93,6 @@ fun DetailLandscapePhone(
                 end = safeDrawingPadding.calculateEndPadding(LocalLayoutDirection.current)
             )
     ) {
-        // Left Column: Displays the primary cover and metadata text
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -130,20 +117,8 @@ fun DetailLandscapePhone(
                     coverLastUpdated = book?.lastScannedAt ?: 0L,
                     coverScene = "detail-main-cover",
                     sizeRatio = 1f,
-                    /*
-                     * Landscape Detail Cover Shared Element Key (Destination artwork endpoint)
-                     *
-                     * Keeps the landscape phone cover on the same Home recent-card motion key,
-                     * preserving the cover morph when the layout switches to the split detail view.
-                    */
                     sharedElementKey = detailSharedElementKey,
                     sharedElementVisibilityScope = detailSharedElementVisibilityScope,
-                    /*
-                     * Landscape Detail Source Corner (Home recent card shape alignment)
-                     *
-                     * Matches the selected recent-card cover radius so the target cover does not
-                     * begin from the mini-player's 8.dp playback radius during overlay entry.
-                    */
                     sharedElementStartCornerRadius = detailSharedElementStartCornerRadius,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -178,14 +153,11 @@ fun DetailLandscapePhone(
                         onShowInfo(narratorInfoDialogLabel, book.narrator)
                     }
                 },
-                // DetailLandscapePhone Reversion (Remove series parameter pass per user instruction)
-                // Reverts series visualization to align with design decision of not displaying series on the details page.
                 isLandscape = true
             )
             Spacer(modifier = Modifier.height(safeDrawingPadding.calculateBottomPadding()))
         }
 
-        // Right Column: Houses the playback action panel and scrollable synopsis text
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -195,7 +167,6 @@ fun DetailLandscapePhone(
         ) {
             Spacer(modifier = Modifier.height(topSpacerHeight))
 
-            // Setup DetailControlPanel Haze State (Link hazeState) Passed detailHazeState parameter to control panel.
             DetailControlPanel(
                 book = book,
                 uiState = uiState,
@@ -205,7 +176,7 @@ fun DetailLandscapePhone(
                 onPlayClick = onPlayClick,
                 isLandscape = true,
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
 
             DetailSummary(description = book?.description ?: "")

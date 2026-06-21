@@ -6,28 +6,23 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
- * VFS File I/O Performance Logger (Track latency and outcomes of VFS operations)
+ * Track latency and outcomes of VFS operations.
  *
- * Provides coverage for both SAF (SafSourceProvider) and WebDav (WebDavSourceProvider) layers,
+ * SafSourceProvider. and WebDav (WebDavSourceProvider) layers,
  * logging file opens, seek operations, range queries, PROPFIND folder walking, and network errors.
  * Uses a unified tag "VfsIO" to streamline VFS diagnosing in Logcat.
  */
 internal object VfsLogger {
 
     private const val TAG = "VfsIO"
-    // Path Length Constraint (Maximum characters displayed to prevent Logcat flooding)
     private const val MAX_PATH_LENGTH = 120
 
-    // Timing Inception Marker (Log elapsed durations safely independent of system clock drifts)
     fun mark(): Long = SystemClock.elapsedRealtime()
 
-    // Calculate Elapsed Milliseconds (Determine time delta from a starting timestamp)
     fun elapsedMs(startMs: Long): Long = SystemClock.elapsedRealtime() - startMs
 
-    // ========== SAF ==========
-
     /**
-     * Log SAF Input Stream Open (Record execution duration and status for opening SAF streams)
+     * Record execution duration and status for opening SAF streams.
      *
      * Tracks raw input stream opening events under SAF.
      *
@@ -47,7 +42,7 @@ internal object VfsLogger {
     }
 
     /**
-     * Log SAF File Descriptor Access (Record execution duration and status for opening FD)
+     * Record execution duration and status for opening FD.
      *
      * Tracks the file descriptor open latency for random-access playback optimization.
      *
@@ -62,10 +57,8 @@ internal object VfsLogger {
         )
     }
 
-    // ========== WebDAV ==========
-
     /**
-     * Log WebDAV PROPFIND Request (Record latency and size of remote folder enum queries)
+     * Record latency and size of remote folder enum queries.
      *
      * Monitors PROPFIND network and XML parsing latency.
      *
@@ -83,7 +76,7 @@ internal object VfsLogger {
     }
 
     /**
-     * Log WebDAV Stream Request (Record latency and HTTP code for stream requests)
+     * Record latency and HTTP code for stream requests.
      *
      * Monitors remote network stream opening events.
      *
@@ -102,7 +95,7 @@ internal object VfsLogger {
     }
 
     /**
-     * Log WebDAV Range Read (Record performance of small segment block reads)
+     * Record performance of small segment block reads.
      *
      * Useful for diagnostics on metadata parsing requests.
      *
@@ -121,7 +114,7 @@ internal object VfsLogger {
     }
 
     /**
-     * Log WebDAV Network Failures (Record remote network request exceptions)
+     * Record remote network request exceptions.
      *
      * Traces timeouts, socket errors, and maps them to a unified availability status.
      *
@@ -137,7 +130,7 @@ internal object VfsLogger {
     }
 
     /**
-     * Build WebDAV Error Message (Format network failures without leaking endpoint credentials)
+     * Format network failures without leaking endpoint credentials.
      *
      * The pure builder keeps URL redaction testable on the JVM before the final Logcat write happens.
      */
@@ -145,7 +138,7 @@ internal object VfsLogger {
         "WebDAV error url=${compactWebDavUrl(url)}, status=$status, exception=$errorClass"
 
     /**
-     * WebDAV Log URL Sanitizer (Remove username, password, query, and fragment from diagnostic URLs)
+     * Remove username, password, query, and fragment from diagnostic URLs.
      *
      * WebDAV request URLs may originate from user input or OkHttp request objects, so diagnostics retain only scheme, host, port, and path.
      */
@@ -153,7 +146,7 @@ internal object VfsLogger {
         compact(value.toHttpUrlOrNull()?.redactedForLog() ?: stripUrlTail(value))
 
     /**
-     * WebDAV Fallback URL Tail Strip (Drop query and fragment from non-OkHttp-parsable text)
+     * Drop query and fragment from non-OkHttp-parsable text.
      *
      * Invalid URL strings should still lose common secret-bearing suffixes before length compaction is applied.
      */
@@ -161,7 +154,7 @@ internal object VfsLogger {
         value.substringBefore('#').substringBefore('?')
 
     /**
-     * WebDAV Log Sanitizer (Remove username, password, query, and fragment from diagnostic URLs)
+     * Remove username, password, query, and fragment from diagnostic URLs.
      *
      * Clearing OkHttp's username and password fields prevents authority userinfo from surviving in exception and timeout diagnostics.
      */
@@ -169,7 +162,7 @@ internal object VfsLogger {
         newBuilder().username("").password("").query(null).fragment(null).build().toString()
 
     /**
-     * Shorten Log Identifiers (Truncate overly long path and URL logs for readability)
+     * Truncate overly long path and URL logs for readability.
      *
      * Limits text length to ensure clean Logcat formats.
      */

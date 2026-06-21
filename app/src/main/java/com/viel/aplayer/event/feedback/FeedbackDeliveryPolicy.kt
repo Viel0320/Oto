@@ -1,7 +1,7 @@
 package com.viel.aplayer.event.feedback
 
 /**
- * Feedback Delivery Policy (Owns identity aggregation, severity replacement, provisional hold, and burst limits)
+ * Owns identity aggregation, severity replacement, provisional hold, and burst limits.
  *
  * The policy is deliberately independent from Android, Flow, and render mode so feedback delivery can be
  * unit-tested through one small interface. It is synchronous: [evaluate] classifies a fact immediately,
@@ -32,7 +32,7 @@ class FeedbackDeliveryPolicy(
     private var generationCounter = 0L
 
     /**
-     * Evaluate Feedback Fact (Classifies a fact before any stream emission)
+     * Classifies a fact before any stream emission.
      *
      * Final facts that survive identity and severity rules deliver immediately; provisional facts park a
      * pending entry and return [FeedbackDeliveryDecision.Hold] so the sink can schedule the delayed release.
@@ -48,7 +48,7 @@ class FeedbackDeliveryPolicy(
     }
 
     /**
-     * Release Pending Provisional (Resolves a held provisional after its hold expired)
+     * Resolves a held provisional after its hold expired.
      *
      * The sink calls this with the generation handed back by the matching [FeedbackDeliveryDecision.Hold].
      * A provisional that was superseded by a newer provisional or cancelled by a final reports
@@ -70,34 +70,27 @@ class FeedbackDeliveryPolicy(
         }
 
     private fun evaluateProvisional(key: SlotKey, now: Long): FeedbackDeliveryDecision {
-        // Rule: a visible final for the same task instance within the merge window concludes the task,
-        // so a later provisional for that same moment is redundant and is merged away.
         val visible = visibleFinalBySlot[key]
         if (visible != null && now - visible.emittedAtMs <= finalMergeWindowMs) {
             return FeedbackDeliveryDecision.Merged
         }
-        // Rule: a new provisional replaces any pending provisional for the slot and restarts the hold,
-        // so rapid repeats (speed/sleep-timer taps) collapse to the last value before anything renders.
         val generation = ++generationCounter
         pendingBySlot[key] = PendingProvisional(generation)
         return FeedbackDeliveryDecision.Hold(provisionalHoldMs, generation)
     }
 
     private fun evaluateFinal(key: SlotKey, severity: FeedbackSeverity, now: Long): FeedbackDeliveryDecision {
-        // Rule: an arriving final cancels any pending provisional for the slot; the later release no-ops.
         pendingBySlot.remove(key)
         val visible = visibleFinalBySlot[key]
         if (visible != null && now - visible.emittedAtMs <= finalMergeWindowMs &&
             severity.ordinal <= visible.severity.ordinal
         ) {
-            // Rule: within the merge window a lower or equal severity final does not replace the visible one.
             return FeedbackDeliveryDecision.Merged
         }
         if (recentDeliveryTimes.size >= burstLimit) {
             return FeedbackDeliveryDecision.Dropped(DropReason.BURST_LIMIT)
         }
         recentDeliveryTimes.addLast(now)
-        // A higher-severity final inside the window replaces the visible record; otherwise this is a fresh final.
         visibleFinalBySlot[key] = VisibleFinal(severity, now)
         return FeedbackDeliveryDecision.Deliver
     }
@@ -122,7 +115,7 @@ class FeedbackDeliveryPolicy(
 }
 
 /**
- * Feedback Delivery Decision (Internal policy result before the hot stream is touched)
+ * Internal policy result before the hot stream is touched.
  *
  * Separating the policy decision from the final [FeedbackDeliveryResult] keeps stream failures and the
  * collector-presence check in the sink while the policy stays Android-free.
@@ -133,7 +126,7 @@ sealed interface FeedbackDeliveryDecision {
     data class Dropped(val reason: DropReason) : FeedbackDeliveryDecision
 
     /**
-     * Hold Decision (A provisional fact is parked pending its hold window)
+     * A provisional fact is parked pending its hold window.
      *
      * The sink schedules [FeedbackDeliveryPolicy.releasePending] after [holdMs], passing
      * [generation] so a superseded provisional resolves to merged instead of rendering.

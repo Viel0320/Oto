@@ -1,7 +1,7 @@
 package com.viel.aplayer.application.library.edit
 
 /**
- * Edit Book Draft (Editable metadata projection)
+ * Editable metadata projection.
  *
  * Holds the selected book fields needed by the edit scene while keeping the Room entity shape
  * inside the application adapter that loads and maps persisted data.

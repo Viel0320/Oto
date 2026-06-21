@@ -36,25 +36,18 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
-// Create PlaybackViewModel (Handles media playback and state updates to separate concerns)
-// This ViewModel isolates all play, pause, seek, and conflict resolution states away from other UI concerns.
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlaybackViewModel(
     application: Application,
     rawExternalScope: CoroutineScope? = null
 ) : AndroidViewModel(application) {
 
-    // Shift scope to viewModelScope to prevent lifecycle leaks and screen rotation freezes
-    // Fall back to viewModelScope if rawExternalScope is null to ensure coroutines are correctly managed.
     private val externalScope = rawExternalScope ?: viewModelScope
 
     companion object {
         private val PLAYBACK_SPEEDS = listOf(0.8f, 0.9f, 1.0f, 1.1f, 1.2f, 1.3f)
     }
 
-    // Resolve dependencies (Fetches screen dependencies and managers from application presentation di)
-    // Instantiates controllers, coordinators, and read models locally to control playback.
-    // Title: Non-nullable dependency optimization (Remove safe calls as screen dependencies are guaranteed to be initialized and non-nullable)
     private val playerDependencies = APlayerApplication.getPlayerScreenDependencies(application)
     private val playbackController = playerDependencies.playerPlaybackController
     private val playerLibraryReadModel = playerDependencies.playerLibraryReadModel
@@ -68,7 +61,6 @@ class PlaybackViewModel(
     private val _currentSubtitles = MutableStateFlow<List<com.viel.aplayer.media.subtitle.SubtitleLine>>(emptyList())
     private var subtitleLoadJob: kotlinx.coroutines.Job? = null
 
-    // Track unavailable dialog state (Manages confirmation alert overlays for broken audio tracks)
     data class TrackUnavailableDialogState(
         val show: Boolean = false,
         val bookId: String = "",
@@ -79,7 +71,6 @@ class PlaybackViewModel(
     private val _trackUnavailableDialog = MutableStateFlow(TrackUnavailableDialogState())
     val trackUnavailableDialogState: StateFlow<TrackUnavailableDialogState> = _trackUnavailableDialog.asStateFlow()
 
-    // ABS progress conflict dialog state (Tracks local-vs-server resume choice states)
     data class AbsProgressConflictDialogState(
         val show: Boolean = false,
         val bookTitle: String = "",
@@ -98,7 +89,7 @@ class PlaybackViewModel(
     )
 
     /**
-     * Restored Playback Preview (Cold-start mini-player state before media preparation)
+     * Cold-start mini-player state before media preparation.
      *
      * Keeps the startup preview separate from _currentBookId so restoring the mini-player does not
      * imply that a playback plan, Media3 source, subtitles, chapters, or related rows are ready.
@@ -126,7 +117,7 @@ class PlaybackViewModel(
     private var onCoverUpdateCallback: ((String?) -> Unit)? = null
 
     /**
-     * Metadata State (Prepared media metadata or cold-start preview metadata)
+     * Prepared media metadata or cold-start preview metadata.
      *
      * Emits preview metadata while no prepared media source is selected, then switches to the live
      * metadata stream after loadBook selects a real playback target.
@@ -145,7 +136,7 @@ class PlaybackViewModel(
         .stateIn(externalScope, SharingStarted.WhileSubscribed(5000), BookMetadataState())
 
     /**
-     * Related Data State (Prepared-media recommendation rows)
+     * Prepared-media recommendation rows.
      *
      * Keeps recommendation queries disabled for cold-start previews because the compact player does
      * not render those rows and startup should avoid expanding beyond the saved book projection.
@@ -170,7 +161,6 @@ class PlaybackViewModel(
 
             val author = meta.author
             val narrator = meta.narrator
-            // Title: Remove redundant null-safety check (Invokes read model directly since it is non-nullable)
             playerLibraryReadModel.relatedData(id, author, narrator)
         }
         .stateIn(externalScope, SharingStarted.WhileSubscribed(5000),
@@ -178,7 +168,7 @@ class PlaybackViewModel(
         )
 
     /**
-     * Controller Playback State (Live Media3 playback projection)
+     * Live Media3 playback projection.
      *
      * Represents only the actual playback engine state so preview restoration can compose over it
      * without pretending the controller has a prepared source.
@@ -201,7 +191,7 @@ class PlaybackViewModel(
     }
 
     /**
-     * Playback State (Preview progress until real media is prepared)
+     * Preview progress until real media is prepared.
      *
      * Uses restored progress while the mini-player is preview-only, then falls back to controller
      * state as soon as a real current book is selected.
@@ -233,8 +223,6 @@ class PlaybackViewModel(
         playbackState.map { it.duration }.distinctUntilChanged(),
         _isChapterProgressMode
     ) { pos, bufferedPos, dur, mode ->
-        // Buffered Progress View State (Clamp buffered progress against the visible playback range)
-        // UI components receive a stable whole-book coordinate even when Media3 briefly reports stale buffered values after seeks.
         PlaybackProgressViewState(pos, bufferedPos.coerceIn(pos, dur.coerceAtLeast(pos)), dur, mode)
     }.stateIn(externalScope, SharingStarted.WhileSubscribed(5000), PlaybackProgressViewState())
 
@@ -297,7 +285,7 @@ class PlaybackViewModel(
                 playbackSpeed = control.playbackSpeed,
                 playWhenReady = control.isPlaying
             ),
-            settings = PlayerSettingsState(), // Keeps a default layout settings state in uiState
+            settings = PlayerSettingsState(),
             relatedAuthorSections = related.authorSections,
             relatedNarratorSections = related.narratorSections,
             recentlyAddedBooks = related.recentlyAdded,
@@ -315,14 +303,10 @@ class PlaybackViewModel(
         _playbackSeekStepConfig = config
     }
 
-    // Callback to notify parent views or settings controllers when the undo seek banner visibility changes.
-    // This allows the playback VM to toggle the showUndoSeek configuration in the settings manager.
     var onUndoSeekVisibilityChanged: ((Boolean) -> Unit)? = null
     private var onFullPlayerMinimized: (() -> Unit)? = null
     private var onMiniPlayerHiddenChanged: ((Boolean) -> Unit)? = null
 
-    // Initialize (Observe playback updates, last played context and settings changes)
-    // Runs on external scope to coordinate background observations.
     init {
         observePlaybackController()
         restoreLastPlayedBookToCompactPlayer()
@@ -332,7 +316,6 @@ class PlaybackViewModel(
     private fun observeSettings() {
         val readModel = playerDependencies.settingsReadModel
         externalScope.launch {
-            // Title: Observe settings via read model (Observes the settings read model flow)
             readModel.settingsFlow.collect { settings ->
                 if (settings.isChapterProgressMode != _isChapterProgressMode.value) {
                     setChapterProgressMode(settings.isChapterProgressMode)
@@ -343,7 +326,7 @@ class PlaybackViewModel(
     }
 
     /**
-     * Restore Last Played Book To Compact Player (Preview-only cold-start recovery)
+     * Preview-only cold-start recovery.
      *
      * Rehydrates the mini-player from the persisted progress row and lightweight book row only.
      * Real playback preparation remains deferred until the user explicitly plays or opens a book.
@@ -363,7 +346,7 @@ class PlaybackViewModel(
     }
 
     /**
-     * Restore Playback Preview (Mini-player metadata and progress projection)
+     * Mini-player metadata and progress projection.
      *
      * Stores only display metadata and saved progress so startup can show continuity without
      * building a playback plan or opening source files.
@@ -398,7 +381,7 @@ class PlaybackViewModel(
     }
 
     /**
-     * Clear Restored Playback Preview (Preview-to-real state transition)
+     * Preview-to-real state transition.
      *
      * Removes stale mini-player preview state once a real media source is selected or the preview is closed.
      */
@@ -410,7 +393,6 @@ class PlaybackViewModel(
     }
 
     private fun observePlaybackController() {
-        // Title: Initialize controller observer (Sets up listeners directly since controller is guaranteed to be non-nullable)
         val controller = playbackController
 
         externalScope.launch {
@@ -429,7 +411,6 @@ class PlaybackViewModel(
 
                         subtitleLoadJob = externalScope.launch {
                             val externalSubs = kotlinx.coroutines.withContext(Dispatchers.IO) {
-                                // Title: Load subtitles directly (Accesses non-nullable library read model)
                                 playerLibraryReadModel.loadSubtitlesForBookFile(bookFileId)
                             }
                             _currentSubtitles.value = SubtitleParser.limitForPlayerState(externalSubs)
@@ -450,7 +431,7 @@ class PlaybackViewModel(
                 if (state == androidx.media3.common.Player.STATE_ENDED) {
                     delay(5000.milliseconds)
                     val currentState = controller.playbackState.value
-                    if (currentState == androidx.media3.common.Player.STATE_ENDED || 
+                    if (currentState == androidx.media3.common.Player.STATE_ENDED ||
                         currentState == androidx.media3.common.Player.STATE_IDLE) {
                         closeCurrentPlayback()
                     }
@@ -481,7 +462,6 @@ class PlaybackViewModel(
         playWhenReady: Boolean,
         loadBookRequestStart: Long
     ): Boolean {
-        // Title: Resolve ABS conflicts on prepare (Invokes non-nullable conflict resolution usecase)
         val useCase = resolveProgressConflictUseCase
         return when (val decision = useCase.preparePlayback(id)) {
             ResolveProgressConflictUseCase.PlaybackDecisionResult.ContinueLocal -> true
@@ -510,7 +490,6 @@ class PlaybackViewModel(
         onUndoSeekVisibilityChanged?.invoke(false)
 
         val playbackPlanStart = SystemClock.elapsedRealtime()
-        // Title: Build playback plan directly (Invokes non-nullable use case)
         val plan = buildPlaybackPlanUseCase.invoke(id)
         val playbackPlanCost = SystemClock.elapsedRealtime() - playbackPlanStart
         com.viel.aplayer.logger.PlaybackTimingLogger.logPlaybackPlanBuild(
@@ -540,7 +519,6 @@ class PlaybackViewModel(
     fun acceptLocalAbsProgressConflict() {
         val conflict = pendingAbsProgressConflict ?: return
         val request = pendingAbsProgressLoadRequest ?: return
-        // Title: Accept local progress conflict option (Invokes non-nullable conflict resolution usecase)
         resolveProgressConflictUseCase.acceptLocalProgress(conflict.bookId)
         clearPendingAbsProgressConflict()
         externalScope.launch {
@@ -551,7 +529,6 @@ class PlaybackViewModel(
     fun acceptRemoteAbsProgressConflict() {
         val conflict = pendingAbsProgressConflict ?: return
         val request = pendingAbsProgressLoadRequest ?: return
-        // Title: Accept remote progress conflict option (Invokes non-nullable conflict resolution usecase)
         val useCase = resolveProgressConflictUseCase
         externalScope.launch {
             runCatching {
@@ -625,7 +602,6 @@ class PlaybackViewModel(
     fun pause() = playbackDelegate.pause()
 
     private fun isMediaSourceLoadedFor(bookId: String): Boolean {
-        // Title: Retrieve current media ID (Accesses non-nullable playback controller directly)
         val mediaId = playbackController.currentMediaItemId ?: return false
         return PlaybackMediaId.parse(mediaId)?.bookId == bookId
     }
@@ -674,8 +650,6 @@ class PlaybackViewModel(
 
     fun setPlaybackSpeed(speed: Float) {
         playbackDelegate.setPlaybackSpeed(speed)
-        // Speed feedback is produced by the command owner after the change; the leaf control only raises
-        // intent. Rapid taps collapse to the final value through the delivery policy's provisional hold.
         appEventSink.emitFeedback(PlaybackControlFeedbackFacts.playbackSpeedChanged(speed))
     }
 
@@ -688,7 +662,7 @@ class PlaybackViewModel(
     fun resetPlaybackSpeed() = setPlaybackSpeed(1.0f)
 
     /**
-     * Report Missing Chapter File (Publishes the recovery feedback fact for a tapped missing chapter)
+     * Publishes the recovery feedback fact for a tapped missing chapter.
      *
      * The chapter row raises the intent with the book id; this command owner classifies it as a
      * playback-content recovery outcome before the app shell renders it.
@@ -719,7 +693,6 @@ class PlaybackViewModel(
             emit(true)
             return@flow
         }
-        // Title: Check current book availability (Invokes non-nullable library read model directly)
         emit(playerLibraryReadModel.refreshCurrentPlaybackAvailability(bookId))
     }
 
@@ -727,7 +700,6 @@ class PlaybackViewModel(
     fun skipToPreviousChapter() = playbackDelegate.skipToPreviousChapter(metadataState.value.chapters, playbackState.value.currentPosition)
 
     fun skipToNextAvailableTrack(bookId: String, queueIndex: Int) {
-        // Title: Skip to next available track (Invokes non-nullable playback controller directly)
         playbackController.skipToNextAvailableTrack(bookId, queueIndex)
     }
 

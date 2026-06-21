@@ -24,9 +24,6 @@ import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-// Portrait top app bar component (To render the top app bar for portrait player screens)
-// Integrates the vertical drag gesture detection logic for pull-down minimization.
-// Decouples gesture logic from main views declarations to clarify the layout.
 @Composable
 fun PlayerVerticalAppBar(
     modifier: Modifier = Modifier,
@@ -36,7 +33,6 @@ fun PlayerVerticalAppBar(
     navigationActions: PlayerNavigationActions,
     focusManager: FocusManager,
     glassEffectMode: GlassEffectMode,
-    // Setup Haze State (Transition backdrop reference to HazeState)
     hazeState: HazeState? = null,
     offsetY: Animatable<Float, *>,
     scope: CoroutineScope,
@@ -52,8 +48,6 @@ fun PlayerVerticalAppBar(
             navigationActions.onMinimize()
         },
         onToggleProgressMode = actions.content.onToggleProgressMode,
-        // Player Menu Scope (Keep the portrait dropdown non-destructive)
-        // PlayerAppBar no longer accepts the library-delete action because deletion is intentionally removed from the playback page dropdown.
         isChapterProgressMode = settings.isChapterProgressMode,
         glassEffectMode = glassEffectMode,
         hazeState = hazeState,
@@ -90,7 +84,7 @@ fun PlayerVerticalAppBarPreview() {
     APlayerTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             PlayerVerticalAppBar(
-                metadata = BookMetadataState(title = "三体：黑暗森林", author = "刘慈欣", narrator = "王明"),
+                metadata = BookMetadataState(title = "The Dark Forest", author = "Cixin Liu", narrator = "Narrator"),
                 settings = PlayerSettingsState(),
                 actions = PlayerActions(),
                 navigationActions = PlayerNavigationActions(),

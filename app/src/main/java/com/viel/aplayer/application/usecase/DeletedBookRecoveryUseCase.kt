@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
 /**
- * Deleted Book Recovery Store (Persistence seam used by the recovery use case)
+ * Persistence seam used by the recovery use case.
  * Provides only soft-delete recovery reads and status writes so the use case stays independent of broader catalog gateways.
  */
 interface DeletedBookRecoveryStore {
@@ -27,7 +27,7 @@ interface DeletedBookRecoveryStore {
 }
 
 /**
- * Deleted Book Recovery Use Case (Coordinates soft-delete restore preflight and writes)
+ * Coordinates soft-delete restore preflight and writes.
  * Checks book state, root availability, ABS mirror state, and audio file reachability before changing local visibility.
  */
 class DeletedBookRecoveryUseCase(
@@ -39,7 +39,7 @@ class DeletedBookRecoveryUseCase(
         store.observeRecoverableBooks()
 
     /**
-     * Restore Book (Runs recoverability checks before any Room writes)
+     * Runs recoverability checks before any Room writes.
      * Returns a partial confirmation result when only some audio rows are reachable, leaving persistence unchanged until confirmation.
      */
     suspend fun restoreBook(bookId: String): DeletedBookRecoveryResult = withContext(Dispatchers.IO) {
@@ -91,7 +91,7 @@ class DeletedBookRecoveryUseCase(
     }
 
     /**
-     * Confirm Partial Restore (Commits the user-approved split file status)
+     * Commits the user-approved split file status.
      * Rechecks that at least one audio row is still marked available by the pending decision before writing PARTIAL state.
      */
     suspend fun confirmPartialRestore(
@@ -100,7 +100,6 @@ class DeletedBookRecoveryUseCase(
         missingFileIds: List<String>
     ): DeletedBookRecoveryResult = withContext(Dispatchers.IO) {
         if (availableFileIds.isEmpty()) {
-            // Availability Type Safe: Use the name of AvailabilityStatus enum to match String reason argument.
             return@withContext DeletedBookRecoveryResult.AllFilesUnavailable(AudiobookSchema.AvailabilityStatus.NOT_FOUND.name)
         }
         if (store.restorePartial(bookId, availableFileIds, missingFileIds)) {
@@ -112,11 +111,10 @@ class DeletedBookRecoveryUseCase(
 }
 
 /**
- * Recovery Reason Projection (Converts low-level availability facts into stable dialog detail text)
+ * Converts low-level availability facts into stable dialog detail text.
  * Prefers provider messages, then error codes, then status codes so UI callers never inspect infrastructure exceptions.
  */
 private fun AvailabilityResult?.recoveryReason(): String =
-    // Recovery Reason Mapping: Convert enum properties and fallbacks to String names for the UI dialog.
     this?.message?.takeIf { it.isNotBlank() }
         ?: this?.errorCode?.takeIf { it.isNotBlank() }
         ?: this?.status?.name?.takeIf { it.isNotBlank() }

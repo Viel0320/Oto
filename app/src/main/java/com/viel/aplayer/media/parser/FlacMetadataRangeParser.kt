@@ -4,8 +4,9 @@ import com.viel.aplayer.media.AudiobookMetadata
 import java.nio.charset.StandardCharsets
 import kotlin.math.min
 
-// flac 相关的 metadata block、Vorbis comment、PICTURE 解析都留在本文件内，
-// 不再通过共享的格式 helper 间接完成。
+/**
+ * Parses FLAC metadata blocks, Vorbis comments, and PICTURE blocks in one format-local boundary.
+ */
 internal object FlacMetadataRangeParser : RangeAudioFormatParser {
     override fun supports(displayName: String): Boolean =
         displayName.endsWith(".flac", ignoreCase = true)
@@ -44,7 +45,6 @@ internal object FlacMetadataRangeParser : RangeAudioFormatParser {
                         val sampleRate = ((block[10].toInt() and 0xff) shl 12) or
                             ((block[11].toInt() and 0xff) shl 4) or
                             ((block[12].toInt() and 0xf0) shr 4)
-                        // Read totalSamples (36 bits) by prepending the 4 bits of offset 13 to the 32-bit big-endian value at offset 14.
                         val totalSamples = ((block[13].toLong() and 0x0f) shl 32) or
                             RangeAudioParserSupport.run { block.readUInt32BE(14) }
                         if (sampleRate > 0 && totalSamples > 0) {
@@ -58,7 +58,6 @@ internal object FlacMetadataRangeParser : RangeAudioFormatParser {
                     author = author ?: RangeAudioParserSupport.mergeFirstNonBlank(comments["ARTIST"], comments["AUTHOR"])
                     narrator = narrator ?: RangeAudioParserSupport.mergeFirstNonBlank(comments["NARRATOR"], comments["READER"], comments["PERFORMER"], comments["COMPOSER"])
                     album = album ?: comments["ALBUM"]
-                    // Vorbis comment 是开放字段集合，简介字段优先于泛用 COMMENT 备注。
                     description = description ?: MetadataDescriptionRules.firstDescriptionFromFields(comments)
                     year = year ?: RangeAudioParserSupport.mergeFirstNonBlank(comments["DATE"], comments["YEAR"])
                     trackIndex = trackIndex ?: RangeAudioParserSupport.normalizeTrackIndex(
@@ -95,10 +94,8 @@ internal object FlacMetadataRangeParser : RangeAudioFormatParser {
         var cursor = startOffset
         if (cursor + 8 > bytes.size) return emptyMap()
 
-        // 详尽的中文注释：对 vendorLength 长度字段进行无符号和防整数溢出的物理范围拦截，
-        // 确保读取的长度值绝对不超过当前 bytes 字节数组所能容纳的最大剩余边界
         val vendorLengthLong = RangeAudioParserSupport.run { bytes.readUInt32LE(cursor) }
-        val maxRemainingVendor = bytes.size - cursor - 8 // 后续还有 commentCount 需要 4 字节
+        val maxRemainingVendor = bytes.size - cursor - 8
         if (vendorLengthLong !in 0L..maxRemainingVendor) {
             return emptyMap()
         }
@@ -118,8 +115,6 @@ internal object FlacMetadataRangeParser : RangeAudioFormatParser {
             if (cursor + 4 > bytes.size) return comments
             val lengthLong = RangeAudioParserSupport.run { bytes.readUInt32LE(cursor) }
             cursor += 4
-            // 详尽的中文注释：对每一个 comment entry 的长度进行无符号安全边界验证，
-            // length 必须完全位于 [0, bytes.size - cursor] 物理区间内，完美规避正数相加可能引起的溢出漏洞
             if (lengthLong !in 0L..(bytes.size - cursor).toLong()) {
                 return comments
             }

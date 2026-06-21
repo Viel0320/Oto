@@ -41,8 +41,6 @@ class ManualDownloadOrphanCleanerTest {
 
         val result = cleaner.cleanOrphans()
 
-        // Manual Cache Ownership Cleanup (Only keys not selected by durable download metadata are removed)
-        // The kept file remains because its parent book still owns a manual cache row, while stale keys are deleted by resource key.
         assertEquals(setOf("keep-file"), manualCache.keys)
         assertEquals(2, result.scannedKeys)
         assertEquals(1, result.removedKeys)

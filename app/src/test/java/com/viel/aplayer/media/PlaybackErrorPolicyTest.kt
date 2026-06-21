@@ -20,15 +20,11 @@ class PlaybackErrorPolicyTest {
             position = 0L
         )
 
-        // Provider Cancellation Policy (Keeps close-triggered or socket-interrupted opens out of Media3 unavailable-media paths)
-        // Wrapped InterruptedIOException values remain cancellation signals so playback recovery does not mark tracks missing.
         assertTrue(error is InterruptedIOException)
     }
 
     @Test
     fun `availability status maps to media3 open error codes`() {
-        // Playback Availability Mapping (Pins provider health states to stable Media3 I/O categories)
-        // This policy is shared by ABS and WebDAV errors before they reach ExoPlayer.
         assertEquals(
             PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
             PlaybackErrorPolicy.availabilityStatusToOpenErrorCode(AudiobookSchema.AvailabilityStatus.TIMEOUT, position = 0L)
@@ -45,8 +41,6 @@ class PlaybackErrorPolicyTest {
 
     @Test
     fun `not found distinguishes initial missing file from ranged seek overflow`() {
-        // Ranged Missing Mapping (Keeps offset failures separate from absent first-byte opens)
-        // A remote 404 at position zero is file-not-found, while a 404 after seeking indicates the requested byte range is unavailable.
         assertEquals(
             PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND,
             PlaybackErrorPolicy.availabilityStatusToOpenErrorCode(AudiobookSchema.AvailabilityStatus.NOT_FOUND, position = 0L)
@@ -68,8 +62,6 @@ class PlaybackErrorPolicyTest {
             position = 0L
         ) as DataSourceException
 
-        // ABS Playback Error Bridge (Uses the provider availability status instead of raw exception text)
-        // The resulting Media3 reason remains stable even if ABS error messages change.
         assertEquals(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT, error.reason)
     }
 }

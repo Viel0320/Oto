@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 /**
- * Book Catalog Service (Implements BookCatalogGateway)
+ * Implements BookCatalogGateway.
  *
  * Owns read/search/file-inventory projections only. Search and filter flows still run through [checkCovers] so
  * cover self-healing stays attached to those on-demand reads, while the first-frame [audiobooks] stream is kept
@@ -26,7 +26,7 @@ class BookCatalogGatewayImpl(
 ) : BookCatalogGateway {
 
     /**
-     * Reactive Cover Self-Healing Interceptor (Flow thread redirection guard)
+     * Flow thread redirection guard.
      * Maps each row to a full BookWithProgress and triggers cover regeneration on Dispatchers.IO to keep
      * filesystem probes off the UI collector thread.
      */
@@ -36,8 +36,6 @@ class BookCatalogGatewayImpl(
 
     override val audiobooks: Flow<List<BookWithProgress>>
         get() = bookDao.getAllBooksWithProgress().map { list ->
-            // First-frame catalog stream skips inline cover probing on purpose; missing covers are healed by
-            // CoverRecoveryGateway's deferred background sweep so the home shelf is not blocked by per-book File.exists checks.
             list.map { it.toBookWithProgress() }
         }.flowOn(Dispatchers.IO)
 

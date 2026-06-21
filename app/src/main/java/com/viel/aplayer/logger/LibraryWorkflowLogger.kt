@@ -3,7 +3,7 @@ package com.viel.aplayer.logger
 import android.util.Log
 
 /**
- * Shared Library Workflow Logger (Record domain-agnostic library operations)
+ * Record domain-agnostic library operations.
  *
  * Responsibility boundary:
  * 1. Logs actions that span multiple domain components and are not specific to a single protocol.
@@ -22,14 +22,10 @@ internal object LibraryWorkflowLogger {
     }
 
     fun warn(message: String, error: Throwable? = null) {
-        // Release Warning Boundary (Route retained library diagnostics through SecureLog)
-        // Cross-root workflows can include source identifiers, so the shared emitter hashes or removes sensitive coordinates.
         SecureLog.warn(TAG, message, error)
     }
 
     fun error(message: String, error: Throwable? = null) {
-        // Release Error Boundary (Route retained library failures through SecureLog)
-        // This keeps operational failure types visible without preserving user file names or provider paths.
         SecureLog.error(TAG, message, error)
     }
 }

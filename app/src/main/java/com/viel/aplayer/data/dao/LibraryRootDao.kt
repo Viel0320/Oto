@@ -14,19 +14,15 @@ interface LibraryRootDao {
     @Query("SELECT * FROM library_roots")
     fun getAllRoots(): Flow<List<LibraryRootEntity>>
 
-    // Rescan only traverses active roots.
     @Query("SELECT * FROM library_roots WHERE status = 'ACTIVE'")
     suspend fun getActiveRootsOnce(): List<LibraryRootEntity>
 
-    // Startup Warmup Root Query (Limits cold-start remote freshness checks to active Audiobookshelf roots)
-    // Reading this directly from Room avoids constructing LibraryRootGatewayImpl, scan scheduling, VFS, or cover recovery dependencies before a stale ABS root is found.
     @Query("SELECT * FROM library_roots WHERE status = 'ACTIVE' AND sourceType = 'ABS'")
     suspend fun getActiveAbsRootsOnce(): List<LibraryRootEntity>
 
     @Query("SELECT * FROM library_roots WHERE id = :id")
     suspend fun getRootById(id: String): LibraryRootEntity?
 
-    // Fix redundant annotations: Removed the duplicate Room Query annotation that caused compiler errors.
     @Query("SELECT * FROM library_roots")
     suspend fun getAllRootsOnce(): List<LibraryRootEntity>
 
@@ -41,7 +37,6 @@ interface LibraryRootDao {
         status: AudiobookSchema.LibraryRootStatus = AudiobookSchema.LibraryRootStatus.ACTIVE
     )
 
-    // Rescan completion updates the root boundary timestamp.
     @Query("UPDATE library_roots SET lastScannedAt = :lastScannedAt, status = :status WHERE id = :id")
     suspend fun updateRootScanState(
         id: String,
@@ -52,7 +47,6 @@ interface LibraryRootDao {
     @Query("UPDATE library_roots SET status = :status WHERE id = :id")
     suspend fun updateRootStatus(id: String, status: AudiobookSchema.LibraryRootStatus)
 
-    // Root Availability Updates (Updates structural availability flags without affecting active scanning schedules)
     @Query("UPDATE library_roots SET availabilityStatus = :availabilityStatus, lastAvailabilityCheckedAt = :checkedAt, lastAvailabilityErrorCode = :errorCode WHERE id = :id")
     suspend fun updateRootAvailability(
         id: String,

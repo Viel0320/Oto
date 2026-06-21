@@ -32,8 +32,6 @@ class CacheStatisticsProviderTest {
 
         val snapshot = statisticsProvider.snapshot()
 
-        // Manual Cache Statistics Boundary (Reads durable manual cache bytes, key count, and completed task count together)
-        // Playback buffering is memory-only, so this projection intentionally excludes any playback disk-cache total.
         assertEquals(250L, snapshot.manualCacheBytes)
         assertEquals(3, snapshot.completedManualBooks)
         assertEquals(2, snapshot.manualCacheFileCount)

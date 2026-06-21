@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 
 /**
- * Search Query Planner (Maps search text into narrow catalog query flows)
+ * Maps search text into narrow catalog query flows.
  * Moves directive parsing and multi-token intersection out of SearchViewModel so UI state stays presentation-only.
  */
 class SearchQueryPlanner(
@@ -24,8 +24,6 @@ class SearchQueryPlanner(
 
         return combine(tokenFlows) { lists ->
             lists.reduce { acc, list ->
-                // Book Id Intersection (Preserve the existing multi-token AND semantics)
-                // Search tokens are evaluated separately, then each later list is filtered by the previous token id set.
                 val accIds = acc.map { it.book.id }.toSet()
                 list.filter { it.book.id in accIds }
             }
@@ -62,7 +60,7 @@ class SearchQueryPlanner(
         private val DIRECTIVES = setOf(DIRECTIVE_YEAR, DIRECTIVE_AUTHOR, DIRECTIVE_WRITER, DIRECTIVE_NARRATOR)
 
         /**
-         * Gateway-backed Planner Factory (Adapts the catalog gateway to search-only query functions)
+         * Adapts the catalog gateway to search-only query functions.
          *
          * Keeps LibraryGraph wiring concise while SearchViewModel receives only the finished search read model.
          */

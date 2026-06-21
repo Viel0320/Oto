@@ -11,27 +11,30 @@ import kotlinx.coroutines.withContext
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 
-// Import flow needs to pass both "metadata + embedded cover" down the pipeline.
-// Abstracted the cover representation to generic EmbeddedCoverBytes to decouple from MP4-specific implementations.
+/**
+ * Metadata payload returned by parser backends before the import pipeline decides how to persist covers.
+ */
 internal data class ExtractedAudiobookMetadata(
     val metadata: AudiobookMetadata,
     val embeddedCover: EmbeddedCoverBytes?
 )
 
 /**
- * Metadata Resolver (Responsible for extracting title, author, narrator, synopsis, year, duration, and chapters from audio files)
+ * Responsible for extracting title, author, narrator, synopsis, year, duration, and chapters from audio files.
  *
  * Beginning with this refactor, non-MP4 formats no longer traverse MediaMetadataRetriever.
  * Instead, they are delegated to format-specific range parsers, while MetadataResolver manages routing, title fallbacks, and mojibake correction.
  */
 @UnstableApi
 class MetadataResolver(
-    // Inject the active VFS singleton or scan-snapshot VFS from the caller.
-    // Eliminates implicit dependencies by avoiding internal construction of AppDatabase -> libraryRootDao -> VfsFileInterface.
+    /**
+     * The caller-owned VFS reader keeps parser execution bound to the active source snapshot instead of constructing database-backed file access internally.
+     */
     private val fileReader: VfsFileInterface
 ) {
-    // Global metadata extraction concurrency remains capped at 4.
-    // Prevents memory and I/O thrashing caused by multiple parsers reading headers/trailers of large files during batch imports.
+    /**
+     * Limits concurrent metadata extraction so range parsers do not thrash memory or source I/O during batch imports.
+     */
     private val semaphore = kotlinx.coroutines.sync.Semaphore(4)
 
     suspend fun extract(file: FileRef): AudiobookMetadata =
@@ -140,7 +143,6 @@ class MetadataResolver(
             ),
             options = RangeAudioParseOptions(includeEmbeddedCover = includeEmbeddedCover)
         )?.let { parsed ->
-            // The parser only yields raw container semantics; fallback title assignment and mojibake repair remain localized in MetadataResolver.
             ExtractedAudiobookMetadata(
                 metadata = parsed.metadata.normalizeMetadata(displayName),
                 embeddedCover = parsed.embeddedCover
@@ -161,7 +163,6 @@ class MetadataResolver(
         )
 
     private fun fallbackMetadata(displayName: String): AudiobookMetadata =
-        // Fall back strictly to the filename if the parser fails completely, avoiding any secondary full-file probes.
         AudiobookMetadata(
             title = displayName.substringBeforeLast('.'),
             author = "",
@@ -191,14 +192,32 @@ class MetadataResolver(
         }.getOrNull()?.takeIf { repaired -> repaired.isNotBlank() }
 
     private fun String.hasMojibakeMarker(): Boolean =
-        any { char -> char == '\uFFFD' || char == '脗' || char == '脙' || char == '芒' || char.code in 0x0080..0x009F }
+        any { char -> char == '\uFFFD' || char in MOJIBAKE_MARKERS || char.code in 0x0080..0x009F }
 
     private fun String.metadataTextScore(): Int =
         count { char -> char == '\uFFFD' } * 100 +
-            count { char -> char == '脗' || char == '脙' || char == '芒' } * 20 +
+            count { char -> char in MOJIBAKE_MARKERS } * 20 +
             count { char -> char.code in 0x0080..0x009F } * 10
 
     companion object {
+        /**
+         * Keeps both legacy mojibake glyphs and escaped marker variants so metadata repair stays
+         * compatible with titles observed before the comment cleanup normalized source literals.
+         */
+        private val MOJIBAKE_MARKERS: Set<Char> = setOf(
+            '\u00C3',
+            '\u00C2',
+            '\u00E4',
+            '\u00E5',
+            '\u00E6',
+            '\u8117',
+            '\u8119',
+            '\u8292',
+            '\u9474',
+            '\u8133',
+            '\u9225'
+        )
+
         private val METADATA_FALLBACK_ENCODINGS: List<Charset> = listOf(
             Charset.forName("windows-1252"),
             StandardCharsets.ISO_8859_1,

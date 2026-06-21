@@ -11,8 +11,6 @@ import com.viel.aplayer.shared.settings.SeekStepSeconds
 import com.viel.aplayer.shared.settings.SleepMode
 import com.viel.aplayer.shared.settings.ThemeMode
 
-// Title: AppSettingsCommands Definition (Provides mutation signatures for updating app settings preferences)
-// Decouples UI controllers from concrete DataStore writes by exposing only required command interfaces.
 interface AppSettingsCommands {
     suspend fun updateHomeFilter(filter: HomeFilter)
     suspend fun updateHomeBookStatusFilter(filter: HomeBookStatusFilter)

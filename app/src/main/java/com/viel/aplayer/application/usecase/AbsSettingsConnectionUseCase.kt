@@ -12,7 +12,7 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 
 /**
- * ABS connection reuse data snapshot (Caches successful testing credentials)
+ * Caches successful testing credentials.
  * The snapshot lives in the settings application layer so ViewModel can retain it as ephemeral UI-adjacent state without owning ABS authentication logic.
  */
 data class AbsConnectionReuseSnapshot(
@@ -33,7 +33,7 @@ data class AbsServerSaveOutcome(
 )
 
 /**
- * ABS Settings Connection Use Case (Owns login, token reuse, credential persistence, and root registration)
+ * Owns login, token reuse, credential persistence, and root registration.
  * SettingsViewModel logs attempts and renders state, while this use case hides ABS client, credential store, and edit-mode root lookup details.
  */
 class AbsSettingsConnectionUseCase(
@@ -94,8 +94,6 @@ class AbsSettingsConnectionUseCase(
             credentialId = credentialId
         )
         val root = if (editingRootId != null) {
-            // ABS Root Management Use (Route library switches through cleanup-first root management)
-            // ABS login and credential reuse stay here, while old mirrored covers and manual downloads are cleared before cascade deletion.
             libraryRootManagementUseCase.updateAbsLibraryRoot(
                 id = editingRootId,
                 credentialId = credential.id,
@@ -105,8 +103,6 @@ class AbsSettingsConnectionUseCase(
                 maintenanceUseCase.clearRootCacheAndRecover(rootId = editingRootId)
             }
         } else {
-            // ABS Root Creation Gateway Use (Register new remote roots through the narrow root seam)
-            // This avoids taking the broad UI-facing facade into ABS settings orchestration.
             libraryRootGateway.addAbsLibraryRoot(
                 credentialId = credential.id,
                 libraryId = libraryId,
@@ -114,8 +110,6 @@ class AbsSettingsConnectionUseCase(
             )
         }
         AbsServerSaveOutcome(
-            // ABS Save Result Projection (Return only the stable command anchor to presentation)
-            // SettingsViewModel needs the saved root id for logging and auto-sync scheduling, not the Room entity that was persisted by the gateway.
             rootId = root.id,
             snapshot = AbsConnectionReuseSnapshot(
                 baseUrl = normalizeAbsBaseUrlForReuse(baseUrl),
@@ -142,14 +136,14 @@ class AbsSettingsConnectionUseCase(
 }
 
 /**
- * Normalize baseUrl value (Aligns user input URLs during reuse validation)
+ * Aligns user input URLs during reuse validation.
  * Aligns user input URLs by validating and normalizing them using the unified AbsUrlResolver.
  */
 fun normalizeAbsBaseUrlForReuse(baseUrl: String): String =
     AbsUrlResolver.resolveBaseUrl(baseUrl).toString().trimEnd('/')
 
 /**
- * Validate ABS reuse criteria (Determines whether a cached connection snapshot can be safely reused)
+ * Determines whether a cached connection snapshot can be safely reused.
  * The cache is rejected whenever server, username, or selected library differs from the last successful connection test.
  */
 fun shouldReuseAbsConnectionSnapshot(

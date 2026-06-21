@@ -24,7 +24,7 @@ import com.viel.aplayer.ui.player.PlaybackViewModel
 import dev.chrisbanes.haze.HazeState
 
 /**
- * APlayer App Dialog Host (Derives app-level feedback and playback dialogs from shell state)
+ * Derives app-level feedback and playback dialogs from shell state.
  *
  * Keeps global feedback dialogs and playback confirmations out of APlayerApp while preserving the
  * app-level HazeState sampling source used by top-level overlays.
@@ -77,8 +77,6 @@ fun APlayerAppDialogHost(
                 )
             },
             body = {
-                // ABS Progress Conflict Body (Render the local-vs-remote checkpoint comparison)
-                // The host owns the visual comparison while PlayerViewModel owns the conflict decision commands and pending playback request.
                 Column(modifier = Modifier.fillMaxWidth()) {
                     val noneText = stringResource(R.string.abs_progress_none)
                     val localProgressLabel = stringResource(R.string.abs_progress_local_label)
@@ -141,8 +139,6 @@ fun APlayerAppDialogHost(
                 )
             },
             body = {
-                // Track Unavailable Body (Explain the forced skip consequence before mutating playback)
-                // The dialog stays app-level because unavailable-track events originate from playback service feedback rather than a specific page surface.
                 val stoppedScope = trackUnavailableState.bookTitle.trim().takeIf { it.isNotBlank() }?.let { title ->
                     stringResource(R.string.feedback_playback_stopped_scope, title)
                 }.orEmpty()
@@ -175,7 +171,7 @@ fun APlayerAppDialogHost(
 }
 
 /**
- * ABS Finished Label (Adds a compact semantic marker beside progress positions)
+ * Adds a compact semantic marker beside progress positions.
  *
  * Keeps the dialog text construction readable while making completed-vs-incomplete conflicts visible to users.
  */

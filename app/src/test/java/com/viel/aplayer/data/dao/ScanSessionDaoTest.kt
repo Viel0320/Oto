@@ -13,8 +13,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-// Room Scan Session Lifecycle Harness (Runs the real DAO SQL against an in-memory database)
-// The abandoned-state bug lives in the persistence update statement, so this test verifies the concrete Room query instead of a fake.
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class ScanSessionDaoTest {
@@ -41,8 +39,6 @@ class ScanSessionDaoTest {
 
             val session = database.scanSessionDao().getSessionById(SCAN_ID)
 
-            // Abandoned Status Persistence (Prevents failed scans from remaining indistinguishable from running rows)
-            // The returned session must carry ABANDONED so outcome mapping cannot treat the failed lifecycle as a completed empty scan.
             assertEquals(AudiobookSchema.ScanStatus.ABANDONED, session?.status)
             assertEquals(2_000L, session?.abandonedAt)
             assertNull(session?.completedAt)

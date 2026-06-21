@@ -28,8 +28,6 @@ class DownloadRecoveryServiceTest {
 
         val recovered = recovery.recoverIfNeeded()
 
-        // Smart Startup Gate (Skips DownloadManager-backed sync when Room has no recoverable tasks)
-        // This locks the design requirement that completed or absent downloads do not start download runtime on app launch.
         assertFalse(recovered)
         assertEquals(0, providerCalls)
         assertEquals(0, progressPollerStarts)
@@ -54,8 +52,6 @@ class DownloadRecoveryServiceTest {
 
         val recovered = recovery.recoverIfNeeded()
 
-        // Recoverable Task Reconciliation (Every durable non-terminal row is passed through sync and polling resumes)
-        // Startup recovery can resume active tasks without a user click, so it must also wake the byte-progress sampler after reconciliation.
         assertTrue(recovered)
         assertEquals(listOf("book-1", "book-2"), reconciled)
         assertEquals(1, progressPollerStarts)

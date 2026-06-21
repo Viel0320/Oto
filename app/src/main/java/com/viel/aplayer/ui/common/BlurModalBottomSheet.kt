@@ -1,8 +1,4 @@
 package com.viel.aplayer.ui.common
-
-// Setup Liquid Glass BottomSheet Integration (Route sheet blur through the shared liquid renderer)
-// The sheet still consumes HazeState for backdrop sampling, but its Haze mode now draws the same liquid glass refraction and highlight treatment as dialogs and top bars.
-// Import Clip Extension (Fix unresolved clip extension reference) Add explicit draw.clip import to allow using Modifier.clip.
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -29,7 +25,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
- * BlurModalBottomSheet — Frosted glass BottomSheet refactored using Haze.
+ * Frosted glass BottomSheet wrapper using Haze when available.
  *
  * Implementation Principles:
  * Material3's [ModalBottomSheet] uses an independent Dialog Window internally to host content. We need
@@ -54,10 +50,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
 fun BlurModalBottomSheet(
     modifier: Modifier = Modifier,
     onDismissRequest: () -> Unit,
-    // Support Nullable HazeState (Provide fallback when hazeState is not ready)
-    // Make hazeState optional and default to null so the sheet can degrade gracefully in previews or when parent has no blur context.
     hazeState: HazeState? = null,
-    // Glass effect mode must be explicitly passed from the settings state by the caller to prevent BottomSheet from declaring default values privately.
     glassEffectMode: GlassEffectMode,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
     shape: Shape = BottomSheetDefaults.ExpandedShape,
@@ -70,8 +63,6 @@ fun BlurModalBottomSheet(
     content: @Composable ColumnScope.() -> Unit
 ) {
 
-    // Set the outer containerColor to transparent in Haze mode, letting the internal frosted glass Box render the background to avoid double backgrounds.
-    // Determine Container Color (Use transparent only if Haze blur is active)
     val sheetContainerColor = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
         Color.Transparent
     } else {
@@ -85,15 +76,11 @@ fun BlurModalBottomSheet(
         shape = shape,
         containerColor = sheetContainerColor,
         contentColor = contentColor,
-        // Tonal Elevation Tuning (Dampen elevation to 0.dp only when Haze is active)
-        // Set elevation to 0.dp adaptively in Haze mode to completely prevent overlapping gray shadows produced by the system RenderNode on transparent rounded corners.
         tonalElevation = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) 0.dp else tonalElevation,
         scrimColor = scrimColor,
-        // Move dragHandle (previously drawn by ModalBottomSheet alone) into the blurred content layer to ensure the handle area shares the same frosted glass background.
         dragHandle = null,
         contentWindowInsets = contentWindowInsets,
     ) {
-        // Setup Haze Material Modifier (Clip the sheet shape before sampling the shared backdrop)
         val glassModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
             Modifier
                 .clip(shape)
@@ -107,16 +94,13 @@ fun BlurModalBottomSheet(
                 .then(glassModifier)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // The original dragHandle slot of Material3 centers by default; it requires restoring fillMaxWidth + Center alignment manually after being moved into the blurred content layer.
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Draw the drag handle inside the same blurred panel to avoid texture fragmentation between the top handle area and the body text.
                     dragHandle?.invoke()
                 }
 
-                // Pass through body content provided by the caller; the business layer does not need to perceive the internal blur wrapper.
                 content()
             }
         }

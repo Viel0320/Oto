@@ -4,20 +4,20 @@ import com.viel.aplayer.data.entity.DirectoryChildCacheEntity
 import com.viel.aplayer.library.vfs.sourceProvider.SourceFileMetadata
 
 /**
- * Directory Cache Mapper (Converts between VFS metadata and Room directory child rows)
+ * Converts between VFS metadata and Room directory child rows.
  * Keeps directory listing snapshots free of provider-native handles, remote URLs, and credentials while preserving the
  * cross-provider metadata fields needed to reconstruct VFS nodes during scanner traversal.
  */
 object DirectoryCacheMapper {
     /**
-     * Build Cache Key (Creates a stable direct-child identity inside a parent directory snapshot)
+     * Creates a stable direct-child identity inside a parent directory snapshot.
      * Uses the documented rootId, parentSourcePath, and sourcePath format so replacement writes target the same cached child row.
      */
     fun cacheKey(rootId: String, parentSourcePath: String, sourcePath: String): String =
         "$rootId|$parentSourcePath|$sourcePath"
 
     /**
-     * Map Metadata To Entity (Persists one direct child metadata snapshot)
+     * Persists one direct child metadata snapshot.
      * Copies normalized VFS fields only and records cachedAt from the caller-provided write timestamp for deterministic testing.
      */
     fun toEntity(
@@ -43,7 +43,7 @@ object DirectoryCacheMapper {
         )
 
     /**
-     * Map Entity To Metadata (Reconstructs a VFS metadata snapshot from Room)
+     * Reconstructs a VFS metadata snapshot from Room.
      * Restores only SourceFileMetadata fields so the VFS can wrap cached entries without exposing database entities upstream.
      */
     fun toMetadata(entity: DirectoryChildCacheEntity): SourceFileMetadata =

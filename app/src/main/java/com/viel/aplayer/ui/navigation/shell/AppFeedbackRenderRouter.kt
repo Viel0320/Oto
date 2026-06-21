@@ -12,7 +12,7 @@ import com.viel.aplayer.event.feedback.FeedbackRenderMode
 import com.viel.aplayer.event.feedback.render
 
 /**
- * App Feedback Render Router (Centralizes app-shell feedback render-mode mapping)
+ * Centralizes app-shell feedback render-mode mapping.
  *
  * Converts process-wide shell events into concrete render requests so APlayerApp only collects the
  * event stream and delegates the consumer selection rule.
@@ -22,21 +22,21 @@ interface AppFeedbackRenderRouter {
 }
 
 /**
- * App Feedback Render Request (Represents the concrete consumer requested by a shell event)
+ * Represents the concrete consumer requested by a shell event.
  *
  * Keeps the mapping testable without requiring Android Toast or PlayerViewModel instances in unit
  * tests.
  */
 sealed interface AppFeedbackRenderRequest {
     /**
-     * Toast Request (Carries resource-backed feedback to the Android Toast renderer)
+     * Carries resource-backed feedback to the Android Toast renderer.
      *
      * The message remains unresolved until the command is dispatched with a Context.
      */
     data class Toast(val message: FeedbackMessage) : AppFeedbackRenderRequest
 
     /**
-     * Dialog Request (Carries a strong-interaction feedback message to the shell dispatcher)
+     * Carries a strong-interaction feedback message to the shell dispatcher.
      *
      * Dialog requests keep routing data render-mode-independent until dispatch can call the feature owner
      * that already manages the corresponding dialog state.
@@ -45,7 +45,7 @@ sealed interface AppFeedbackRenderRequest {
 }
 
 /**
- * Default App Feedback Render Router (Defines the production shell event mapping)
+ * Defines the production shell event mapping.
  *
  * This small object fixes the event-to-render-request rules in one place before any Android rendering
  * side-effect occurs.
@@ -61,7 +61,7 @@ object DefaultAppFeedbackRenderRouter : AppFeedbackRenderRouter {
 }
 
 /**
- * Dispatch App Feedback Render Request (Runs Android or ViewModel side effects from resolved requests)
+ * Runs Android or ViewModel side effects from resolved requests.
  *
  * APlayerApp supplies the Context and dialog callback, while this helper owns Toast construction and
  * text alignment.
@@ -82,7 +82,7 @@ fun AppFeedbackRenderRequest.dispatch(
 }
 
 /**
- * Dispatch Dialog Feedback Message (Routes strong-interaction messages to their feature owner)
+ * Routes strong-interaction messages to their feature owner.
  *
  * The app shell keeps dialog rendering state in ViewModels and dialog hosts, while the message factory
  * supplies the typed payload that selects the correct app-owned interaction.
@@ -100,7 +100,7 @@ private fun dispatchDialog(
 }
 
 /**
- * Centered Toast Rendering (Keeps Toast-mode feedback formatting consistent)
+ * Keeps Toast-mode feedback formatting consistent.
  *
  * Resource-backed messages are localized at the app-shell edge and then centered before Android
  * Toast display.

@@ -26,80 +26,68 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Settings Preferences Handler (Manages local configuration modification tasks)
+ * Manages local configuration modification tasks.
  * Coordinates properties mutations through AppSettingsRepository inside a dedicated view coroutine scope.
  */
-// Title: SettingsPreferencesHandler Decoupling (Shift SettingsPreferencesHandler dependencies to AppSettingsCommands)
-// Replacing AppSettingsRepository with AppSettingsCommands interface to enforce clean architecture constraints.
 class SettingsPreferencesHandler(
     private val settingsCommands: AppSettingsCommands,
     private val scope: CoroutineScope,
     private val app: Application
 ) {
-    // Title: Toggle Chapter Progress Mode (Updates persistence regarding chapter-level elapsed tracking)
     fun toggleChapterProgressMode(enabled: Boolean) {
         scope.launch {
             settingsCommands.updateChapterProgressMode(enabled)
         }
     }
 
-    // Title: Toggle Allow Insecure TLS (Updates persistence configuration for accepting untrusted HTTPS certificates)
     fun toggleAllowInsecureTls(enabled: Boolean) {
         scope.launch {
             settingsCommands.updateAllowInsecureTls(enabled)
         }
     }
 
-    // Title: Toggle Cleartext Traffic Allowed (Updates persistence configurations for plain HTTP networking)
     fun toggleCleartextTrafficAllowed(enabled: Boolean) {
         scope.launch {
             settingsCommands.updateCleartextTrafficAllowed(enabled)
         }
     }
 
-    // Title: Toggle Skip Silence (Updates persistent configuration for automatic silence skipping in playback)
     fun toggleSkipSilenceEnabled(enabled: Boolean) {
         scope.launch {
             settingsCommands.updateSkipSilenceEnabled(enabled)
         }
     }
 
-    // Title: Toggle Sleep Fade Out (Updates sleep timer fade configuration state)
     fun toggleSleepFadeOutEnabled(enabled: Boolean) {
         scope.launch {
             settingsCommands.updateSleepFadeOutEnabled(enabled)
         }
     }
 
-    // Title: Toggle Shake To Reset (Updates accelerometer shaking-reset behavior preferences)
     fun toggleShakeToResetEnabled(enabled: Boolean) {
         scope.launch {
             settingsCommands.updateShakeToResetEnabled(enabled)
         }
     }
 
-    // Title: Update Sleep Mode (Updates persistent sleep timer options)
     fun updateSleepMode(mode: SleepMode) {
         scope.launch {
             settingsCommands.updateSleepMode(mode)
         }
     }
 
-    // Title: Update Glass Effect Mode (Updates graphic container glassmorphism blur settings)
     fun updateGlassEffectMode(mode: GlassEffectMode) {
         scope.launch {
             settingsCommands.updateGlassEffectMode(mode)
         }
     }
 
-    // Title: Update Theme Mode (Updates persistent theme preference configurations)
     fun updateThemeMode(mode: ThemeMode) {
         scope.launch {
             settingsCommands.updateThemeMode(mode)
         }
     }
 
-    // Title: Update App Language (Persist the language config and trigger local activity locale switches)
     fun updateAppLanguage(language: AppLanguage) {
         scope.launch {
             settingsCommands.updateAppLanguage(language)
@@ -107,58 +95,48 @@ class SettingsPreferencesHandler(
         }
     }
 
-    // Title: Update Auto Rewind Seconds (Updates pause rewind displacement specifications)
     fun updateAutoRewindSeconds(seconds: Int) {
         scope.launch {
             settingsCommands.updateAutoRewindSeconds(seconds)
         }
     }
 
-    // Title: Update Seek Backward Seconds (Updates transport seek step configuration backward)
     fun updateSeekBackwardSeconds(step: SeekStepSeconds) {
         scope.launch {
             settingsCommands.updateSeekBackwardSeconds(step)
         }
     }
 
-    // Title: Update Seek Forward Seconds (Updates transport seek step configuration forward)
     fun updateSeekForwardSeconds(step: SeekStepSeconds) {
         scope.launch {
             settingsCommands.updateSeekForwardSeconds(step)
         }
     }
 
-    // Title: Toggle Notification Avoidance (Updates persistent avoidance preference for audio notifications)
     fun toggleNotificationAvoidanceEnabled(enabled: Boolean) {
         scope.launch {
             settingsCommands.updateNotificationAvoidanceEnabled(enabled)
         }
     }
 
-    // Title: Toggle Dynamic Color (Updates dynamic wallpaper-based color options)
     fun toggleDynamicColorEnabled(enabled: Boolean) {
         scope.launch {
             settingsCommands.updateDynamicColorEnabled(enabled)
         }
     }
 
-    // Title: Toggle AMOLED Dark Theme (Updates pure-black dark mode preference)
     fun toggleAmoledEnabled(enabled: Boolean) {
         scope.launch {
             settingsCommands.updateAmoledEnabled(enabled)
         }
     }
 
-    // Title: Update Playback Buffer Size (Persist the memory buffer size preference)
-    // The legacy cache-size command now feeds ExoPlayer LoadControl instead of any playback disk-cache runtime.
     fun updatePlaybackBufferMaxBytes(bytes: Long) {
         scope.launch {
             settingsCommands.updatePlaybackBufferMaxBytes(bytes)
         }
     }
 
-    // Title: Toggle Download WiFi Policy (Persist manual download network requirements)
-    // DownloadAwareAppSettingsCommands mirrors this setting to Media3 only when the download runtime already exists.
     fun toggleDownloadWifiOnly(enabled: Boolean) {
         scope.launch {
             settingsCommands.updateDownloadWifiOnly(enabled)
@@ -167,23 +145,19 @@ class SettingsPreferencesHandler(
 }
 
 /**
- * Settings Connection Handler (Encapsulates remote ABS and WebDAV connection verification tasks)
+ * Encapsulates remote ABS and WebDAV connection verification tasks.
  * Maintains UI state flows for verification loading and dispatches command calls safely.
  */
-// Title: Settings Connection Handler Decoupling (Shift connection handler dependencies to TestWebDavConnectionUseCase)
-// Replacing WebDavConnectionTester and query methods with TestWebDavConnectionUseCase for testing.
 class SettingsConnectionHandler(
     private val absSettingsConnectionUseCase: AbsSettingsConnectionUseCase,
     private val testWebDavConnectionUseCase: TestWebDavConnectionUseCase,
     private val settingsQueryUseCase: SettingsQueryUseCase,
     private val settingsRootCommands: SettingsRootCommands,
-    // Title: Add FormatSettingsRootUseCase (Provide the format helper usecase to parse remote connection failure messages)
     private val formatSettingsRootUseCase: com.viel.aplayer.application.usecase.FormatSettingsRootUseCase,
     private val appEventSink: AppEventSink,
     private val scope: CoroutineScope,
     private val app: Application
 ) {
-    // UI state flows
     private val _absConnectionState = MutableStateFlow(AbsConnectionUiState())
     val absConnectionState: StateFlow<AbsConnectionUiState> = _absConnectionState.asStateFlow()
 
@@ -192,10 +166,8 @@ class SettingsConnectionHandler(
 
     private val _absSyncConfirmationState = MutableStateFlow<AbsSyncConfirmationState?>(null)
 
-    // Title: Cache Connection Snapshot (Retain login token metadata temporarily to avoid redundant handshakes)
     private var lastSuccessfulAbsConnection: AbsConnectionReuseSnapshot? = null
 
-    // Title: Test WebDAV Connection (Submit verification requests via UseCase and map results to states)
     fun testWebDavConnection(
         url: String,
         username: String,
@@ -219,7 +191,6 @@ class SettingsConnectionHandler(
                     LibraryAccessFeedbackFacts.webDavConnectionSucceeded(draftId = editingRootId ?: NEW_DRAFT_ID)
                 )
             }.onFailure { error ->
-                // Title: Map WebDAV Connection Failure (Delegate parsing logic to FormatSettingsRootUseCase)
                 val friendlyMessage = formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
                 _webDavConnectionState.value = WebDavConnectionUiState(isTesting = false, testSucceeded = false, lastError = friendlyMessage)
                 appEventSink.emitFeedback(
@@ -232,12 +203,10 @@ class SettingsConnectionHandler(
         }
     }
 
-    // Title: Reset WebDAV Connection State (Restores default idle state for WebDAV form dialogs)
     fun resetWebDavConnectionState() {
         _webDavConnectionState.value = WebDavConnectionUiState()
     }
 
-    // Title: Submit WebDAV Root (Register WebDAV endpoint and schedule background import tasks)
     fun onWebDavRootSubmitted(
         url: String,
         username: String,
@@ -254,21 +223,16 @@ class SettingsConnectionHandler(
         )
     }
 
-    // Title: Retrieve WebDAV Credentials (Delegate credential searches and map to SettingsCredential)
-    // Avoids exposing WebDavCredential to UI or ViewModel layers directly.
     fun getWebDavCredentials(credentialId: String?): SettingsCredential? {
         val cred = settingsQueryUseCase.getWebDavCredential(credentialId) ?: return null
         return SettingsCredential(username = cred.username, password = cred.password)
     }
 
-    // Title: Retrieve ABS Credentials (Delegate credential searches and map to SettingsCredential)
-    // Avoids exposing AbsCredential to UI or ViewModel layers directly.
     suspend fun getAbsCredential(credentialId: String?): SettingsCredential? {
         val cred = settingsQueryUseCase.getAbsCredential(credentialId) ?: return null
         return SettingsCredential(username = cred.username ?: "", password = "")
     }
 
-    // Title: Add ABS Server With Password (Verify, save, and launch synchronization for new remote servers)
     fun addAbsServerWithPassword(
         baseUrl: String,
         username: String,
@@ -301,7 +265,6 @@ class SettingsConnectionHandler(
                 _absConnectionState.value = AbsConnectionUiState()
                 launchAutoAbsSync(outcome.rootId)
             }.onFailure { error ->
-                // Title: Redact ABS Save Server Failure Message (Delegate token masking to FormatSettingsRootUseCase)
                 val redactedMessage = formatSettingsRootUseCase.redactAbsError(
                     error.message ?: app.getString(R.string.feedback_settings_abs_server_save_failed_fallback)
                 )
@@ -317,7 +280,6 @@ class SettingsConnectionHandler(
         }
     }
 
-    // Title: Test ABS Connection (Preflight verify ABS endpoint and fetch available library options)
     fun testAbsConnection(baseUrl: String, username: String, password: String, editingRootId: String? = null) {
         scope.launch {
             val start = AbsSettingsLogger.mark()
@@ -364,7 +326,6 @@ class SettingsConnectionHandler(
                 )
             }.onFailure { error ->
                 lastSuccessfulAbsConnection = null
-                // Title: Format ABS Test Connection Failure (Combine formatting and redacting via FormatSettingsRootUseCase)
                 val friendlyMessage = formatSettingsRootUseCase.redactAbsError(
                     formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
                 )
@@ -392,12 +353,10 @@ class SettingsConnectionHandler(
         }
     }
 
-    // Title: Reset ABS Connection State (Restores default verification state for ABS connection forms)
     fun resetAbsConnectionState() {
         _absConnectionState.value = AbsConnectionUiState()
     }
 
-    // Title: Sync ABS Root (Inspect root sync preflights and schedule background worker synchronization)
     fun syncAbsRoot(rootId: String) {
         scope.launch {
             when (val inspection = settingsRootCommands.inspectManualAbsSync(rootId)) {
@@ -427,12 +386,10 @@ class SettingsConnectionHandler(
         }
     }
 
-    // Title: Trigger Rescan (Requests a full library Root rescan process from scheduling manager)
     fun triggerRescan() {
         settingsRootCommands.scheduleUserSync()
     }
 
-    // Title: Launch Auto ABS Sync (Helper to launch synchronization directly after connection setup completes)
     private fun launchAutoAbsSync(rootId: String) {
         val scheduled = settingsRootCommands.startAutoAbsSync(rootId)
         if (!scheduled) {
@@ -441,9 +398,6 @@ class SettingsConnectionHandler(
     }
 
     private companion object {
-        // Draft Library Access Id (Stable identity for an unsaved connection being tested)
-        // Editing an existing root reuses its id; a brand-new configuration shares one draft slot so its
-        // own retries aggregate without colliding with a saved root's identity.
         private const val NEW_DRAFT_ID = "new"
     }
 }

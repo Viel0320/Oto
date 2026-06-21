@@ -53,8 +53,6 @@ class CacheEvictionCoordinatorTest {
 
         val summary = coordinator.evictBeforeRootDelete(sampleRoot("root-1"))
 
-        // Root Cache Eviction Contract (Deletes only cache artifacts owned by the deleted root)
-        // Cover files must stay inside cacheDir/covers, directory tables must be explicitly cleared, and range blocks must be scoped by hashed root id.
         assertEquals("root-1", summary.rootId)
         assertEquals(2, summary.coverFilesDeleted)
         assertEquals(true, summary.directoryRowsDeleted)
@@ -81,8 +79,6 @@ class CacheEvictionCoordinatorTest {
 
         val summary = coordinator.evictBeforeRootDelete(sampleRoot("root-1"))
 
-        // Optional Range Cache Guard (Keeps P3 cleanup valid before P5 cache injection)
-        // A missing VfsRangeCache must not block cover or directory cleanup and should report zero range deletions.
         assertEquals(0, summary.coverFilesDeleted)
         assertEquals(0, summary.rangeFilesDeleted)
     }
@@ -106,8 +102,6 @@ class CacheEvictionCoordinatorTest {
 
         coordinator.clearBookCoverCache("book-1")
 
-        // Book Cover Cleanup Contract (Deletes only sandbox-owned artwork for the target book)
-        // Soft deletion keeps the book row for recovery, so cleanup must remove the cached files without touching unrelated paths.
         assertFalse(cover.exists())
         assertFalse(thumbnail.exists())
         assertTrue(outside.exists())
@@ -131,8 +125,6 @@ class CacheEvictionCoordinatorTest {
 
         val summary = coordinator.evictRootCaches("root-1")
 
-        // Root Edit Cache Contract (Uses the same root-scoped eviction path as deletion without requiring a LibraryRootEntity)
-        // Editing a provider URL or SAF URI must clear child listings and range-cache blocks so the next scan reads the new coordinates.
         assertEquals("root-1", summary.rootId)
         assertEquals("root-1", directoryCacheDao.deletedRootId)
         assertEquals("root-1", directoryChildCacheDao.deletedRootId)

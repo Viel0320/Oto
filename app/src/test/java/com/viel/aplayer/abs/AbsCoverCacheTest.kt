@@ -21,8 +21,6 @@ import org.robolectric.annotation.Config
 import java.io.File
 import kotlin.io.path.createTempDirectory
 
-// Local Android Runtime Alignment (Runs cover cache tests against an Android-like context)
-// AbsCoverCache uses Context-backed cache directories and DataStore-backed credentials, so Robolectric keeps the test on the same code path as production without device instrumentation.
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class AbsCoverCacheTest {
@@ -30,7 +28,6 @@ class AbsCoverCacheTest {
     @Test
     fun `http cover download should be blocked before bearer token request is sent`() = runBlocking {
         MockWebServer().use { server ->
-            // Use remote domain (Prevent MockWebServer localhost loopback from bypassing the cleartext guard)
             val credentialStore = createCredentialStore("http://example.com/audiobookshelf/", "token-1")
             val cache = createCoverCache(
                 credentialStore = credentialStore,
@@ -41,8 +38,6 @@ class AbsCoverCacheTest {
                 cache.downloadCover(rootFor(server), "item-1")
                 fail("Expected cleartext ABS cover download to be blocked")
             } catch (error: UnsafeNetworkPolicyViolation) {
-                // Cleartext Credential Egress Guard (Verifies policy failure happens before OkHttp dispatch)
-                // The operation label and zero server requests prove the bearer token never leaves the process when HTTP is disabled.
                 assertEquals("ABS cover download", error.operation)
                 assertEquals(0, server.requestCount)
             }
@@ -67,8 +62,6 @@ class AbsCoverCacheTest {
             val result = cache.downloadCover(rootFor(server), "item/with space")
             val request = server.takeRequest()
 
-            // Structural Cover URL Contract (Locks path segment construction after replacing raw string interpolation)
-            // The base sub-path is preserved, the remote item ID is encoded as one path segment, and the bearer header is added only after the cleartext guard passes.
             assertEquals("GET", request.method)
             assertEquals("/audiobookshelf/api/items/item%2Fwith%20space/cover", request.path)
             assertEquals("Bearer token-1", request.getHeader("Authorization"))

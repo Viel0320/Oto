@@ -21,7 +21,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * Settings Root Module Test (Locks settings-scene root delegation)
+ * Locks settings-scene root delegation.
  * Verifies root snapshots, root registration triggers, status refreshes, and scan scheduling without touching SettingsViewModel.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -108,8 +108,6 @@ class SettingsRootModuleTest {
         val module = moduleFor(
             rootGateway = gateway,
             inspectAbsSyncPlan = { root ->
-                // ABS Plan Fake (Record the rehydrated root passed to the application adapter)
-                // The test verifies SettingsRootModule keeps entity access internal while returning a Room-free inspection result.
                 inspectedRootIds += root.id
                 AbsSyncPlan(totalItems = 42, batchSize = 20, requiresConfirmation = true)
             }
@@ -135,8 +133,6 @@ class SettingsRootModuleTest {
         val startedTasks = mutableListOf<StartedAbsTask>()
         val module = moduleFor(
             startAbsSyncTask = { rootId, origin ->
-                // ABS Task Fake (Capture rootId and origin without starting background work)
-                // This locks the settings command interface to rootId-only scheduling while preserving manual and auto-add origin semantics.
                 startedTasks += StartedAbsTask(rootId = rootId, origin = origin)
                 true
             }
@@ -171,8 +167,6 @@ class SettingsRootModuleTest {
         inspectAbsSyncPlan: suspend (LibraryRootEntity) -> AbsSyncPlan = { unexpected("inspectAbsSyncPlan") },
         startAbsSyncTask: (String, AbsSyncTaskOrigin) -> Boolean = { _, _ -> unexpected("startAbsSyncTask") }
     ): DefaultSettingsRootModule {
-        // Settings Root Module Fixture (Supplies fake source streams and gateway adapters)
-        // The fakes record only settings-root calls so the test fails fast if the module reaches outside this scene surface.
         return DefaultSettingsRootModule(
             observeRootSnapshotsSource = { flowOf(rootSnapshots) },
             libraryRootGateway = rootGateway,
@@ -271,7 +265,6 @@ class SettingsRootModuleTest {
     private companion object {
         private const val ROOT_ID = "root-id"
 
-        // UpdateTestHelperSourceType: Adapt root helper to accept type-safe LibrarySourceType instead of legacy String.
         private fun root(
             sourceType: AudiobookSchema.LibrarySourceType = AudiobookSchema.LibrarySourceType.SAF,
             displayName: String = "Library"

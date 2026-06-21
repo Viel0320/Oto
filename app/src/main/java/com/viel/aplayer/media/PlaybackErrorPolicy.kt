@@ -15,15 +15,13 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 
 /**
- * Playback Error Policy (Maps VFS and remote-source failures into Media3 playback error categories)
+ * Maps VFS and remote-source failures into Media3 playback error categories.
  * Keeps DataSource I/O mechanics separate from provider availability, cancellation, and seek-range classification rules.
  */
-// Media3 Error API Boundary (Document the narrow unstable API boundary for playback exception mapping)
-// DataSourceException is the Media3-facing error type that preserves playback error codes, so this mapper accepts the unstable contract in one focused place.
 @UnstableApi
 object PlaybackErrorPolicy {
     /**
-     * Playback Open Error Classification (Keeps cancellation, network failure, and range overflow on separate Media3 paths)
+     * Keeps cancellation, network failure, and range overflow on separate Media3 paths.
      * Active cancellation remains InterruptedIOException, while provider availability failures map to the closest playback I/O code.
      */
     fun toOpenException(error: IOException, position: Long): IOException {
@@ -36,7 +34,7 @@ object PlaybackErrorPolicy {
     }
 
     /**
-     * Playback Read Error Classification (Preserves caller cancellation during stream consumption)
+     * Preserves caller cancellation during stream consumption.
      * Close-triggered interrupts should not be reported as ordinary unavailable media or corrupt playback streams.
      */
     fun toReadException(error: IOException): IOException =
@@ -49,10 +47,9 @@ object PlaybackErrorPolicy {
         }
 
     /**
-     * Availability Status Mapping (Translates provider health states into Media3 I/O categories)
+     * Translates provider health states into Media3 I/O categories.
      * A missing ranged stream is treated as seek overflow, while missing position zero remains a file-not-found condition.
      */
-    // Playback Status Type Safe: Use AudiobookSchema.AvailabilityStatus enum.
     fun availabilityStatusToOpenErrorCode(availabilityStatus: AudiobookSchema.AvailabilityStatus, position: Long): Int =
         when (availabilityStatus) {
             AudiobookSchema.AvailabilityStatus.TIMEOUT -> PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
@@ -75,16 +72,12 @@ object PlaybackErrorPolicy {
         }
 
     private fun IOException.isPlaybackCancellation(): Boolean =
-        // Cancellation Cause Detection (Recognizes direct interrupts and provider-wrapped cancellation causes)
-        // Remote providers may wrap socket cancellation inside their own IOException type, so the whole cause chain is inspected.
         this is InterruptedIOException ||
             hasCause<InterruptedIOException>() ||
             hasCause<CancellationException>() ||
             Thread.currentThread().isInterrupted
 
     private inline fun <reified T : Throwable> Throwable.hasCause(): Boolean {
-        // Cause Chain Search (Finds wrapped provider errors without depending on a single exception wrapper)
-        // ABS, WebDAV, OkHttp, and DataSource layers can each add one wrapper around the original cancellation or network exception.
         var current: Throwable? = this
         while (current != null) {
             if (current is T) return true

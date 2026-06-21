@@ -6,9 +6,9 @@ import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Decoupled Domain Gateway Interface (LibraryRootGateway)
+ * LibraryRootGateway.
  * Focuses on maintenance and management of library source roots (including local SAF roots and WebDAV remote hosts).
- * 
+ *
  * Core Design Goals:
  * 1. Eradicate God-Class Dependencies: Exposes dedicated read/write library root logic for upstream settings pages and scanners.
  * 2. Promote Dependency Inversion: Isolates directory authorization or network DAV credential states from core business domains.
@@ -16,36 +16,36 @@ import kotlinx.coroutines.flow.Flow
 interface LibraryRootGateway {
 
     /**
-     * Observe Registered Roots (Reactive roots flow)
+     * Reactive roots flow.
      * Reactively tracks the list of all registered library source roots.
      */
     fun observeLibraryRoots(): Flow<List<LibraryRootEntity>>
 
     /**
-     * Get Cached Roots Snapshot (Synchronous cache fetch)
+     * Synchronous cache fetch.
      * Returns a synchronous snapshot of the library roots list currently cached in memory.
      */
     fun getCachedLibraryRoots(): List<LibraryRootEntity>
 
     /**
-     * Get Persistent Roots Snapshot (Reads the current root list directly from storage)
+     * Reads the current root list directly from storage.
      * Startup synchronization uses this suspend query instead of the asynchronous cache so cold-start workers see registered roots deterministically.
      */
     suspend fun getAllRootsOnce(): List<LibraryRootEntity>
 
     /**
-     * Register Local Storage Root (SAF directory mapping)
+     * SAF directory mapping.
      * Persists a local SAF authorized tree directory as a library root.
-     * 
+     *
      * @param uri Persistable SAF directory tree URI
      * @return Newly created LibraryRootEntity record
      */
     suspend fun setLibraryRoot(uri: Uri): LibraryRootEntity
 
     /**
-     * Register WebDAV Storage Root (Remote server connection persistence)
+     * Remote server connection persistence.
      * Persists a WebDAV remote directory mapping, saving server credentials in a secure store.
-     * 
+     *
      * @param url Physical endpoint URL of the WebDAV server
      * @param username Account login username
      * @param password Account login password
@@ -62,9 +62,9 @@ interface LibraryRootGateway {
     ): LibraryRootEntity
 
     /**
-     * Register ABS Remote Root (Audiobookshelf library link)
+     * Audiobookshelf library link.
      * Persists an ABS remote library reference mapping.
-     * 
+     *
      * @param credentialId Stable identifier referencing credentials in ABS secure store
      * @param libraryId Remote Audiobookshelf library ID
      * @param displayName Label visible in settings UI
@@ -77,15 +77,15 @@ interface LibraryRootGateway {
     ): LibraryRootEntity
 
     /**
-     * Add SAF Root and Sync (Immediate ingestion sequence)
+     * Immediate ingestion sequence.
      * Registers a local SAF root and immediately schedules an incremental sync scan.
      */
     fun addLibraryRootAndScheduleSync(uri: Uri, trigger: String = "USER")
 
     /**
-     * Add WebDAV Root and Sync (Immediate ingestion sequence)
+     * Immediate ingestion sequence.
      * Registers a remote WebDAV source and immediately schedules an incremental sync scan.
-     * 
+     *
      * @param url Endpoint URL of the WebDAV server
      * @param username Login username
      * @param password Login password
@@ -103,27 +103,26 @@ interface LibraryRootGateway {
     )
 
     /**
-     * Refresh Root Statuses (Reachability sanity checks)
+     * Reachability sanity checks.
      * Asynchronously checks active access permissions for SAF or credentials validation for remote roots.
      */
     suspend fun refreshLibraryRootStatuses()
 
     /**
-     * Refresh Single Root Status (Targeted synchronization preflight)
+     * Targeted synchronization preflight.
      * Updates one registered root before a root-scoped sync and returns the persisted availability snapshot used for skip decisions.
      */
     suspend fun refreshLibraryRootStatus(rootId: String): LibraryRootAvailabilityUpdate?
 
     /**
-     * Pure Data Deletion Cleanups (Cascaded cleanup transaction)
+     * Cascaded cleanup transaction.
      * Purges all cache structures associated with the library root (covers, SAF permission releases, WebDAV credential deletion, Room cascades).
      * Dedicated to pure data layers, keeping playback operations decoupled.
      */
     suspend fun deleteLibraryRootDataOnly(root: LibraryRootEntity)
 
     /**
-     * Update SAF Library Root (Update local storage directory path)
-     * Replaces old persistable URI authority with new folder permission settings.
+     * Replaces a local SAF root with a newly granted tree URI.
      *
      * @param id The target root identifier to update
      * @param newUri The new tree Uri selected by user via SAF
@@ -132,7 +131,7 @@ interface LibraryRootGateway {
     suspend fun updateSafLibraryRoot(id: String, newUri: Uri): LibraryRootEntity
 
     /**
-     * Update WebDAV Library Root (Modify endpoint or login configurations)
+     * Modify endpoint or login configurations.
      * Updates URL endpoints, user parameters, and re-serializes target server credential mappings.
      *
      * @param id The target root identifier to update
@@ -153,7 +152,7 @@ interface LibraryRootGateway {
     ): LibraryRootEntity
 
     /**
-     * Update ABS Library Root (Modify mirrored server references)
+     * Modify mirrored server references.
      * Points the existing target root record to new libraries or servers.
      *
      * @param id The target root identifier to update

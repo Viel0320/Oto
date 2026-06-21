@@ -18,8 +18,6 @@ class CacheDiagnosticsLoggerTest {
             detail = "url=https://example.com/books/cover.jpg auth=Bearer token-123"
         )
 
-        // Cache Diagnostics Field Contract (Protects the unified P4 cache log layout)
-        // The formatted message must retain the shared cache fields while replacing complete URLs and Bearer credentials before output.
         assertTrue(message.contains("cacheType=cover"))
         assertTrue(message.contains("operation=decode"))
         assertTrue(message.contains("hit=true"))
@@ -44,8 +42,6 @@ class CacheDiagnosticsLoggerTest {
             detail = null
         )
 
-        // Unknown Cache Type Fallback (Prevents accidental new cache dimensions from bypassing the documented enum)
-        // Unsupported cache types must be reported as unknown while nullable metrics use stable placeholder values for parsing.
         assertTrue(message.contains("cacheType=unknown"))
         assertTrue(message.contains("hit=n/a"))
         assertTrue(message.contains("costMs=-1"))
@@ -68,8 +64,6 @@ class CacheDiagnosticsLoggerTest {
             detail = sensitiveDetail
         )
 
-        // Redaction Before Truncation (Avoids leaking partial secrets when long details exceed the compact log budget)
-        // Sensitive values are removed before the final detail string is shortened, keeping long URLs and tokens out of cache diagnostics.
         assertTrue(message.length <= 220)
         assertTrue(message.contains("detail=prefix <url> Bearer <redacted>"))
         assertFalse(message.contains("example.com"))

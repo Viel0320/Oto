@@ -23,24 +23,16 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
-// Search Input Debounce Window (Balance typing responsiveness against Room scan fan-out)
-// A short pause keeps the overlay feeling live while collapsing fast keystrokes before leading-wildcard queries begin.
 internal const val SEARCH_INPUT_DEBOUNCE_MILLIS = 250L
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
-    // Search Scene Dependency View (Resolve only search-specific read and command interfaces)
-    // This keeps SearchViewModel on the new scene boundary while preserving the existing AndroidViewModel construction path.
     private val searchDependencies = APlayerApplication.getSearchScreenDependencies(application)
     private val searchLibraryReadModel = searchDependencies.searchLibraryReadModel
     private val searchLibraryCommands = searchDependencies.searchLibraryCommands
 
-    // Visibility Flow (Search Overlay Animation Signal)
-    // Reactive state flow controlling whether the SearchOverlay is visible.
-    // Triggers slide-in and fade-in animations when true, and slide-out to hide when false.
     private val _isVisible = MutableStateFlow(false)
     val isVisible: StateFlow<Boolean> = _isVisible.asStateFlow()
 
-    // Public interface to modify SearchOverlay visibility state.
     fun setVisible(visible: Boolean) {
         _isVisible.value = visible
     }
@@ -48,8 +40,6 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private val _query = MutableStateFlow(TextFieldValue(""))
     val query: StateFlow<TextFieldValue> = _query.asStateFlow()
 
-    // Search History Stream (Expose module-owned history records to the overlay)
-    // The read model owns the storage gateway, so the ViewModel only converts it to lifecycle-aware StateFlow.
     val searchHistory: StateFlow<List<SearchHistoryItem>> = searchLibraryReadModel.searchHistory
         .stateIn(
             scope = viewModelScope,
@@ -77,8 +67,6 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     fun saveSearchHistory(queryToSave: String) {
         if (queryToSave.isNotBlank()) {
             viewModelScope.launch {
-                // Search History Save Command (Delegate persistence to the search scene module)
-                // The module normalizes input and owns the history gateway, leaving the ViewModel as a UI intent adapter.
                 searchLibraryCommands.saveSearchHistory(queryToSave)
             }
         }
@@ -91,16 +79,12 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 
     fun deleteHistory(history: SearchHistoryItem) {
         viewModelScope.launch {
-            // Search History Delete Command (Delegate single-item removal to the search scene module)
-            // The command interface receives scene-owned items and hides the DataStore entry shape from UI state.
             searchLibraryCommands.deleteSearchHistory(history)
         }
     }
 
     fun clearHistory() {
         viewModelScope.launch {
-            // Search History Clear Command (Delegate bulk removal to the search scene module)
-            // SearchViewModel no longer needs access to the broader library command surface for this action.
             searchLibraryCommands.clearSearchHistory()
         }
     }
@@ -110,8 +94,6 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 internal fun Flow<TextFieldValue>.toBackpressuredSearchResults(
     search: (String) -> Flow<List<SearchResultSnapshot>>
 ): Flow<List<SearchResultSnapshot>> {
-    // Search Input Backpressure (Prevent text-entry churn from becoming Room query churn)
-    // Trims TextFieldValue down to semantic query text, waits for a short typing pause, and suppresses repeated queries before DAO-backed search flows start.
     return map { fieldValue -> fieldValue.text.trim() }
         .debounce(SEARCH_INPUT_DEBOUNCE_MILLIS.milliseconds)
         .distinctUntilChanged()

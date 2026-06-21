@@ -1,7 +1,7 @@
 package com.viel.aplayer.event.feedback
 
 /**
- * Feedback Render Mode (Mutually exclusive app-shell consumption mode)
+ * Mutually exclusive app-shell consumption mode.
  *
  * A feedback message is consumed exactly once by the app shell: either as a transient Toast or as a
  * blocking in-app Dialog. The render mode changes the consumer only; it does not create a second
@@ -13,7 +13,7 @@ enum class FeedbackRenderMode {
 }
 
 /**
- * Feedback Fact (Shared request for app-shell feedback rendering)
+ * Shared request for app-shell feedback rendering.
  *
  * The fact pairs one renderable [message] with a typed [outcome] and one mutually exclusive
  * [renderMode]. Delivery policy is render-independent: it decides aggregation, severity replacement, and

@@ -13,7 +13,7 @@ data class AbsAuthorizeResponseDto(
 )
 
 /**
- * Authorized User Snapshot (Carries account identity and authorize-scoped progress state)
+ * Carries account identity and authorize-scoped progress state.
  * Audiobookshelf exposes user.mediaProgress from authorize even when item payloads omit progress, so catalog sync keeps this list available for per-item progress overlays.
  */
 @JsonClass(generateAdapter = true)

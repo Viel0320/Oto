@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- App Locale Configuration (Advertise supported per-app languages to Android)
-     Android 13+ reads this list for the system-level app language picker, while the in-app setting uses the same locale tags. -->
 <locale-config xmlns:android="http://schemas.android.com/apk/res/android">
     <locale android:name="en" />
     <locale android:name="zh-Hans-CN" />

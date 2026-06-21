@@ -29,7 +29,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Player Library Module Test (Locks player-scene read delegation)
+ * Locks player-scene read delegation.
  * Verifies metadata fan-in, cold-start progress previews, active-track availability, and cover polling without touching PlayerViewModel.
  */
 class PlayerLibraryModuleTest {
@@ -142,11 +142,7 @@ class PlayerLibraryModuleTest {
         progressGateway: FakeProgressGateway = FakeProgressGateway(),
         subtitleGateway: FakeSubtitleGateway = FakeSubtitleGateway()
     ): DefaultPlayerLibraryModule {
-        // Player Module Fixture (Supplies fake granular gateways exactly like LibraryGraph wiring)
-        // Each fake records only player-scene calls so the test fails fast if the module reaches outside this boundary.
         return DefaultPlayerLibraryModule(
-            // Player Gateway Split Fixture (Reuse one recording fake across read, chapter, and bookmark seams)
-            // The module under test now receives the same capabilities through separate constructor slots.
             bookCatalogGateway = queryGateway,
             chapterGateway = queryGateway,
             bookmarkGateway = queryGateway,
@@ -187,7 +183,6 @@ class PlayerLibraryModuleTest {
                 startPositionMs = 0L,
                 durationMs = 1_000L,
                 fileOffsetMs = 0L,
-                // Update PlayerLibraryModuleTest: Change source type to type-safe AudiobookSchema.ChapterSource.MANUAL enum.
                 source = AudiobookSchema.ChapterSource.MANUAL
             ),
             bookFile = bookFile()
@@ -195,8 +190,6 @@ class PlayerLibraryModuleTest {
     }
 
     private fun playerChapterItem(title: String): PlayerChapterItem {
-        // Player Chapter Projection Expectation (Verifies metadata mapping without exposing Room relations)
-        // The expected value mirrors the scene-facing chapter row emitted by DefaultPlayerLibraryModule.
         return PlayerChapterItem(
             id = "chapter-id",
             bookId = BOOK_ID,
@@ -206,7 +199,6 @@ class PlayerLibraryModuleTest {
             startPositionMs = 0L,
             durationMs = 1_000L,
             fileOffsetMs = 0L,
-            // PlayerLibraryModuleTest expects the application-level chapter source enum at the scene projection boundary.
             source = LibraryChapterSource.MANUAL,
             isFileMissing = false
         )
@@ -238,8 +230,6 @@ class PlayerLibraryModuleTest {
     }
 
     private fun playerBookmarkItem(bookmark: BookmarkEntity): PlayerBookmarkItem {
-        // Player Bookmark Projection Expectation (Verifies bookmark entity mapping at the adapter boundary)
-        // The expected value keeps all stable anchor fields so command and read projections remain lossless.
         return PlayerBookmarkItem(
             id = bookmark.id,
             bookId = bookmark.bookId,

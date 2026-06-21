@@ -91,8 +91,6 @@ fun PlayerAppBar(
                 Icon(
                     painter = rememberVectorPainter(navIcon),
                     contentDescription = stringResource(R.string.back_content_description),
-                    // Player Top Bar Navigation Icon Color (Use app-wide top-bar icon color)
-                    // Keeps the navigation icon aligned with other top bars instead of inheriting the player title content color.
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -103,22 +101,16 @@ fun PlayerAppBar(
                     Icon(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                         contentDescription = stringResource(R.string.more_content_description),
-                        // Player Top Bar Action Icon Color (Use app-wide top-bar icon color)
-                        // Keeps the action icon aligned with navigation icons and other app chrome.
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                
+
                 BlurDropdownMenu(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false },
-                    // Setup dropdown menu blur (Pass HazeState to the drop-down menu to render glassmorphism)
                     hazeState = hazeState,
-                    // The player's "more" menu switches between Material and Haze depending on the selection in the settings page.
                     glassEffectMode = glassEffectMode
                 ) {
-                    // Player Progress Mode Entry (Keep dropdown focused on display-mode switching)
-                    // Removing the former delete entry leaves the player menu as a non-destructive control surface while preserving the existing progress toggle behavior.
                     DropdownMenuItem(
                         text = {
                             Text(showProgressText)
@@ -152,7 +144,6 @@ fun PlayerAppBarPreview() {
                 author = "Preview Author",
                 narrator = "Preview Narrator",
                 onNavigationClick = {},
-                // The Preview explicitly references the default glass effect in the settings model, preventing PlayerAppBar parameters from having local default values again.
                 glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
                 contentColor = Color.White
             )

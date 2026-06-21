@@ -10,7 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
 /**
- * Edit Book Overlay (Stateless animated overlay shell)
+ * Stateless animated overlay shell.
  *
  * Owns only enter/exit transition policy while route-level code supplies stateful content.
  */
@@ -20,8 +20,6 @@ fun EditBookOverlay(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
-    // Edit Overlay Animation (Keep transition policy detached from ViewModel state)
-    // The 300ms slide/fade timing preserves the existing edit sheet behavior after route extraction.
     AnimatedVisibility(
         visible = visible,
         enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(animationSpec = tween(300)),

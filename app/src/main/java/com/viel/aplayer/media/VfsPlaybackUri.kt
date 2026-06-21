@@ -3,7 +3,6 @@ package com.viel.aplayer.media
 import android.net.Uri
 import com.viel.aplayer.data.entity.BookFileEntity
 
-// VFS Playback URI Protocol (Defines the player-internal VFS URI scheme to prevent exposing raw persistent SAF or remote URLs)
 object VfsPlaybackUri {
     const val SCHEME: String = "aplayer-vfs"
     private const val BOOK_FILE_AUTHORITY = "book-file"

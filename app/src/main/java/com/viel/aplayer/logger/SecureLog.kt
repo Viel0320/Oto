@@ -4,7 +4,7 @@ import android.util.Log
 import java.security.MessageDigest
 
 /**
- * Secure Release Log Boundary (Sanitize warning and error diagnostics retained by release builds)
+ * Sanitize warning and error diagnostics retained by release builds.
  *
  * Release R8 rules intentionally keep Log.w and Log.e for field triage, so this boundary removes filesystem paths,
  * VFS coordinates, URL userinfo, bearer tokens, and password-like fields before the message or throwable reaches Logcat.
@@ -46,7 +46,7 @@ internal object SecureLog {
     }
 
     /**
-     * Diagnostic Text Sanitization (Final scrub before release-retained Logcat writes)
+     * Final scrub before release-retained Logcat writes.
      *
      * This method first reuses the ABS sanitizer, then removes non-ABS path forms and hashes keyed coordinates so callers
      * retain correlation without exposing user-owned filenames, directories, content URIs, or provider source identifiers.
@@ -65,7 +65,7 @@ internal object SecureLog {
     }
 
     /**
-     * Throwable Sanitization (Preserve failure type and stack shape without preserving sensitive exception text)
+     * Preserve failure type and stack shape without preserving sensitive exception text.
      *
      * Android Log prints Throwable.toString and nested causes, so this wrapper copies the stack trace while replacing every
      * throwable message and suppressed exception with sanitized equivalents before the retained log call is emitted.

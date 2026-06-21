@@ -11,8 +11,6 @@ class UserVisibleStringResourceTest {
     fun chineseStringResourcesDoNotContainMojibakeMarkers() {
         val strings = repoFile("app/src/main/res/values/strings.xml").readText()
 
-        // Chinese Resource Encoding Snapshot (Detects broken UTF-8 resources before UI rendering)
-        // Common mojibake markers are checked at the resource module where localized user copy is centralized.
         val forbiddenMarkers = commonMojibakeMarkers
         forbiddenMarkers.forEach { marker ->
             assertTrue("strings.xml must not contain mojibake marker '$marker'.", !strings.contains(marker))
@@ -23,8 +21,6 @@ class UserVisibleStringResourceTest {
     fun requiredFeedbackAndSettingsResourceKeysStayPresent() {
         val strings = repoFile("app/src/main/res/values/strings.xml").readText()
 
-        // Resource Key Snapshot (Pins migrated user-visible copy to stable resource keys)
-        // These keys cover feedback, settings, widget, media-session, and chapter-list copy moved out of Kotlin.
         listOf(
             "feedback_scan_completed_with_discovered_books",
             "feedback_playback_remote_progress_save_failed",
@@ -48,8 +44,6 @@ class UserVisibleStringResourceTest {
             "bookmark_add_title",
             "chapter_file_unavailable_description",
             "bookmark_default_title",
-            // Related Books Header Resource Snapshot (Pins player related-section titles after recommendation localization)
-            // These keys keep static and creator-name headings available to Compose and locale compatibility tests.
             "player_related_recommended",
             "player_related_more_by_author",
             "player_related_more_by_narrator",
@@ -69,8 +63,6 @@ class UserVisibleStringResourceTest {
                 }
             }
 
-        // User Visible Copy Guard (Keeps migrated feedback and presentation callers on string resources)
-        // The guard is intentionally scoped to recently migrated surfaces so logs and domain parsing rules are not misclassified as UI copy.
         assertTrue(
             buildString {
                 appendLine("Migrated user-visible callers must use FeedbackMessages or stringResource/getString.")
@@ -109,8 +101,6 @@ class UserVisibleStringResourceTest {
             }
         }
 
-        // Locale Resource Shape Guard (Keeps every translated strings.xml aligned with the English base contract)
-        // Non-translatable base resources such as the brand name stay in values/ only, while strings and plurals must preserve type and printf placeholders per key.
         assertTrue(
             buildString {
                 appendLine("Locale resources must mirror translatable base keys and preserve placeholders.")
@@ -130,8 +120,6 @@ class UserVisibleStringResourceTest {
                 }
             }
 
-        // Settings Component Copy Guard (Covers the extracted settings component package where user-facing labels live)
-        // Parser rules, preview sample data, and logs stay outside this guard so only reusable Settings UI components are constrained.
         assertTrue(
             buildString {
                 appendLine("Settings components must resolve visible copy through stringResource/getString.")
@@ -151,8 +139,6 @@ class UserVisibleStringResourceTest {
             .map { match -> match.value.trim() }
             .toList()
 
-        // Edit Save Fallback Guard (Keeps localized display placeholders out of persisted metadata)
-        // The edit screen may render resource-backed placeholders, but save callbacks must forward the user's title for application policy validation.
         assertTrue(
             buildString {
                 appendLine("EditBookScreen save paths must not convert blank titles to the English Unknown fallback.")
@@ -172,8 +158,6 @@ class UserVisibleStringResourceTest {
                 }
             }
 
-        // Detail Component Copy Guard (Locks detail-shell labels to Android resources)
-        // The guard targets app-owned fallbacks and action labels while leaving imported book metadata and preview sample data outside the scan.
         assertTrue(
             buildString {
                 appendLine("Detail components must resolve app-owned visible copy through stringResource/getString.")
@@ -193,8 +177,6 @@ class UserVisibleStringResourceTest {
                 }
             }
 
-        // Related Books Copy Guard (Locks recommendation section headings to Android resources)
-        // The related-books component owns player-provided headers, while book metadata and preview fixtures stay outside this scan.
         assertTrue(
             buildString {
                 appendLine("Related books components must resolve app-owned visible copy through stringResource/getString.")
@@ -207,16 +189,12 @@ class UserVisibleStringResourceTest {
     private fun guardedSourceFiles(): List<File> =
         listOf(
             "app/src/main/java/com/viel/aplayer/ui/settings/SleepTimerManager.kt",
-            // Settings Component Guard Path (Follow the extracted settings component package after UI decomposition)
-            // The old settings root path no longer owns the reusable section rows, so the guard tracks the current component boundary.
             "app/src/main/java/com/viel/aplayer/ui/settings/components/SettingsSections.kt",
             "app/src/main/java/com/viel/aplayer/ui/settings/SettingsViewModel.kt",
             "app/src/main/java/com/viel/aplayer/ui/player/PlaybackViewModel.kt",
             "app/src/main/java/com/viel/aplayer/ui/player/BookmarkViewModel.kt",
             "app/src/main/java/com/viel/aplayer/ui/player/PlayerSettingsViewModel.kt",
             "app/src/main/java/com/viel/aplayer/ui/player/components/PlaybackControls.kt",
-            // Related Books Guard Path (Track player recommendation section titles after localization)
-            // This component owns app-provided related-book headings, so it must stay under migrated copy guard coverage.
             "app/src/main/java/com/viel/aplayer/ui/player/components/RelatedBooksView.kt",
             "app/src/main/java/com/viel/aplayer/ui/home/LibraryViewModel.kt",
             "app/src/main/java/com/viel/aplayer/ui/player/components/ChapterList.kt",
@@ -230,16 +208,12 @@ class UserVisibleStringResourceTest {
 
     private fun detailComponentSourceFiles(): List<File> =
         listOf(
-            // Detail Presentation Shell Guard Path (Track the detail header and action panel where fallback labels are rendered)
-            // These files own blank metadata labels and playback actions, so hard-coded English here would bypass localization and TalkBack review.
             "app/src/main/java/com/viel/aplayer/ui/detail/components/DetailHeader.kt",
             "app/src/main/java/com/viel/aplayer/ui/detail/components/DetailControlPanel.kt"
         ).map(::repoFile)
 
     private fun relatedBooksComponentSourceFiles(): List<File> =
         listOf(
-            // Related Books Presentation Guard Path (Limit hard-coded copy scanning to app-owned recommendation headers)
-            // RelatedAudiobookItem renders imported metadata through shared list rows, so this guard focuses on the player tab shell.
             "app/src/main/java/com/viel/aplayer/ui/player/components/RelatedBooksView.kt"
         ).map(::repoFile)
 
@@ -265,8 +239,6 @@ class UserVisibleStringResourceTest {
     )
 
     private fun UserVisibleResource.placeholderContract(): Set<List<String>> =
-        // Resource Placeholder Contract Reader (Keep placeholder comparison on the test instance)
-        // UserVisibleResource is a static nested data holder, so placeholder parsing stays in an outer helper that can access the shared regex.
         texts.map(::printfPlaceholders).toSet()
 
     private fun readUserVisibleResources(file: File): Map<String, UserVisibleResource> {
@@ -274,8 +246,6 @@ class UserVisibleStringResourceTest {
             .newDocumentBuilder()
             .parse(file)
 
-        // User Visible Resource Reader (Parses XML instead of scanning text so comments and ordering do not affect guard results)
-        // Strings and plurals both participate because quantity-sensitive user copy must keep locale resources type-compatible.
         val stringNodes = document.getElementsByTagName("string")
         val strings = (0 until stringNodes.length).map { index ->
             val element = stringNodes.item(index) as Element

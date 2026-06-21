@@ -3,7 +3,7 @@ package com.viel.aplayer.data
 import kotlinx.coroutines.CancellationException
 
 /**
- * Cancellable runCatching implementation (Provides a safe wrapper that intercepts all Throwables except CancellationException to preserve coroutines structure)
+ * Provides a safe wrapper that intercepts all Throwables except CancellationException to preserve coroutines structure.
  * Allows CancellationException to propagate naturally for structured concurrency.
  */
 inline fun <R> runCatchingCancellable(block: () -> R): Result<R> {

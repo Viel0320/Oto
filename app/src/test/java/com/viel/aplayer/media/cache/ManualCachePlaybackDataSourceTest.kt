@@ -36,8 +36,6 @@ class ManualCachePlaybackDataSourceTest {
 
             val bytes = source.readAll(fixture.dataSpec(length = 3L))
 
-            // Manual Cache Priority (Manual downloads must satisfy playback before remote sources)
-            // This preserves user-requested offline storage after disk playback buffering has been removed.
             assertEquals(listOf(1, 2, 3), bytes.toList().map { it.toInt() })
             assertEquals(0, fixture.upstreamOpenCount.get())
         } finally {
@@ -53,8 +51,6 @@ class ManualCachePlaybackDataSourceTest {
 
             val bytes = source.readAll(fixture.dataSpec(length = 2L))
 
-            // Upstream Fallback Policy (Uncached remote playback streams through VFS and leaves manual cache untouched)
-            // ExoPlayer LoadControl now owns playback buffering in memory, so playback reads must not create new disk cache spans.
             assertEquals(listOf(7, 8), bytes.toList().map { it.toInt() })
             assertEquals(1, fixture.upstreamOpenCount.get())
             assertFalse(fixture.manualCache.isCached(FILE_ID, 0L, 2L))
@@ -71,8 +67,6 @@ class ManualCachePlaybackDataSourceTest {
 
             val bytes = source.readAll(fixture.dataSpec(length = C.LENGTH_UNSET.toLong()))
 
-            // Unknown-Length Streaming Policy (Match progressive reads that open streams without a bounded length)
-            // Manual cache remains exclusively owned by DownloadManager even when Media3 reads unknown-length remote streams.
             assertEquals(listOf(12, 13, 14), bytes.toList().map { it.toInt() })
             assertEquals(1, fixture.upstreamOpenCount.get())
             assertFalse(fixture.manualCache.isCached(FILE_ID, 0L, 3L))
@@ -90,8 +84,6 @@ class ManualCachePlaybackDataSourceTest {
 
             val bytes = source.readAll(fixture.dataSpec(length = 2L))
 
-            // Local SAF Bypass (Local files are not replayed from manual cache even when a matching key exists)
-            // This avoids substituting stale remote cache bytes for user-owned local media paths.
             assertEquals(listOf(10, 11), bytes.toList().map { it.toInt() })
             assertEquals(1, fixture.upstreamOpenCount.get())
         } finally {
@@ -101,8 +93,6 @@ class ManualCachePlaybackDataSourceTest {
 
     private class CacheFixture {
         private val context = RuntimeEnvironment.getApplication()
-        // Test Cache Storage (Use SimpleCache's file index instead of Media3's SQLite provider)
-        // The data source routing under test does not depend on DownloadIndex persistence, so avoiding Android SQLite keeps Robolectric isolated and deterministic.
         @Suppress("DEPRECATION")
         val manualCache: Cache = SimpleCache(
             context.cacheDir.resolve("manual-playback-${System.nanoTime()}"),

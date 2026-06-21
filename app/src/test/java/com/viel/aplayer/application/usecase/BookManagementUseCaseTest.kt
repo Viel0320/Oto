@@ -13,7 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Book Management Use Case Test (Locks cleanup-before-soft-delete sequencing)
+ * Locks cleanup-before-soft-delete sequencing.
  * Verifies single-book deletion stops active playback, gathers feedback state, clears cover and manual-download resources,
  * and only then marks the book as deleted.
  */
@@ -81,7 +81,7 @@ class BookManagementUseCaseTest {
     }
 
     /**
-     * Book Management Fixture (Wire only seams needed by the destructive book workflow)
+     * Wire only seams needed by the destructive book workflow.
      * The fake collaborators record call order so tests protect resource cleanup from sliding behind the soft-delete command.
      * Note: libraryResourceCleanupGateway has been removed because cover cache cleanup was refactored out to self-healing.
      */

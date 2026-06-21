@@ -10,8 +10,6 @@ class VisualEffectPolicyTest {
         val lowRam = VisualEffectEnvironment(isLowRamDevice = true, isPowerSaveMode = false)
         val powerSaver = VisualEffectEnvironment(isLowRamDevice = false, isPowerSaveMode = true)
 
-        // Expensive Effect Downgrade Policy (Protects playback UI on constrained devices)
-        // Haze remains a user preference, but the executable mode degrades when runtime capability signals are constrained.
         assertEquals(
             GlassEffectMode.Material,
             VisualEffectPolicy.resolveGlassEffectMode(GlassEffectMode.Haze, lowRam)
@@ -26,8 +24,6 @@ class VisualEffectPolicyTest {
     fun `haze remains enabled when the runtime environment is unconstrained`() {
         val unconstrained = VisualEffectEnvironment(isLowRamDevice = false, isPowerSaveMode = false)
 
-        // Unconstrained Effect Policy (Preserves explicit visual preference on capable devices)
-        // Devices without low-RAM or power-save constraints should keep the requested Haze mode.
         assertEquals(
             GlassEffectMode.Haze,
             VisualEffectPolicy.resolveGlassEffectMode(GlassEffectMode.Haze, unconstrained)

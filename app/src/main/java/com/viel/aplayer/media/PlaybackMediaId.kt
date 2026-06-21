@@ -1,7 +1,7 @@
 package com.viel.aplayer.media
 
 /**
- * Session Media ID Encoder/Decoder (Unified media identifier compiler)
+ * Unified media identifier compiler.
  *
  * Design constraints:
  * 1. Both `bookId` and `fileId` may contain colons (`:`), so simple delimiter splits are prohibited.
@@ -17,7 +17,7 @@ object PlaybackMediaId {
     )
 
     /**
-     * V1 Format Definition (Structure layout for colon-resilient identifiers)
+     * Structure layout for colon-resilient identifiers.
      * Format: `aplayer-mid:v1:<bookIdLength>:<bookId><fileId>`
      *
      * Guarantees safe parsing by recording length parameters beforehand.

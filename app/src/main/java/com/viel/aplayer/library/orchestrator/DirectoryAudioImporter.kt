@@ -19,11 +19,11 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
 /**
- * Directory Audio Importer Station (DirectoryAudioImporter)
- * 
+ * DirectoryAudioImporter.
+ *
  * Extracted from the original RescanCoordinator to process ImportScopeKind.DIRECTORY_AUDIO scan imports.
  * Handles directory-level audio stream distribution, batch import of chaptered audio files, and heuristic grouping of chapterless tracks.
- * 
+ *
  * By isolating this complex concurrent stream routing, the main orchestrator's complexity is reduced,
  * decoupling session lifecycle management from directory-specific import logic.
  */
@@ -35,16 +35,12 @@ internal class DirectoryAudioImporter(
     private val triggerCoverRegeneration: (BookEntity) -> Unit
 ) {
 
-    // Chaptered Audio Batching (Performance stream optimization)
-    // Processes chaptered tracks in bounded batches to stream metadata parsing and database writes, avoiding OOM from too many large files.
     private val chapterdAudioImportBatchSize: Int = DEFAULT_SCOPE_IO_CONCURRENCY
 
-    // Metadata Consuming Window (Pipelined parsing performance)
-    // Fetches metadata in small batches so early results can import immediately, eliminating the need to block on parsing the whole directory.
     private val directoryAudioMetadataBatchSize: Int = DEFAULT_SCOPE_IO_CONCURRENCY
 
     /**
-     * Execute Directory Audio Scope Import (Concurrent routing entry)
+     * Concurrent routing entry.
      * Reads metadata concurrently for all unclaimed audio files in the directory, then distributes them:
      * 1. Chaptered audio files are prioritized and imported immediately in small batches.
      * 2. Chapterless tracks are accumulated and imported together as a single heuristically aggregated audiobook.
@@ -64,20 +60,14 @@ internal class DirectoryAudioImporter(
 
         coroutineScope {
             val metadataSemaphore = Semaphore(DEFAULT_SCOPE_IO_CONCURRENCY)
-            // Bounded Metadata Jobs Execution (Saturated thread pooling)
-            // Fires all metadata jobs utilizing a semaphore to limit memory footprint while pipelining imports to maintain throughput.
             val metadataJobs = candidateAudios.map { audio ->
                 async {
                     metadataSemaphore.withPermit {
-                        // VFS Metadata Extraction (Abstract path decoding)
-                        // Resolves metadata via the VFS FileRef, eliminating provider-specific URIs and reuse cached covers to avoid redundant MP4 Range reads.
                         val extracted = metadataResolver.extractWithEmbeddedCover(audio)
                         AudioMetadataRef(audio, extracted.metadata, extracted.embeddedCover)
                     }
                 }
             }
-            // Metadata Profiling Coroutine (Wall-time measurement)
-            // Runs a standalone coroutine to track when all metadata resolves, ensuring metrics isolate parsing wall-time from database writes.
             val metadataSummaryJob = async {
                 val allRefs = metadataJobs.awaitAll()
                 val chapteredCount = allRefs.count { it.metadata.chapters.isNotEmpty() }
@@ -97,12 +87,8 @@ internal class DirectoryAudioImporter(
                 batchRefs.forEach { audioRef ->
                     if (existingClaimIndex.has(audioRef.file.identity)) return@forEach
                     if (audioRef.metadata.chapters.isNotEmpty()) {
-                        // Pipelined Chaptered Imports (Low-latency ingestion)
-                        // Forwards chaptered tracks to the import queue immediately without waiting for the rest of the directory to finish parsing.
                         chapteredRefs.add(audioRef)
                     } else {
-                        // Chapterless Tracks Buffering (Heuristic scoping)
-                        // Accumulates chapterless tracks to retain complete directory context for heuristic audiobook grouping.
                         heuristicRefs.add(audioRef)
                     }
                 }
@@ -113,8 +99,6 @@ internal class DirectoryAudioImporter(
                     detail = "batch=${index + 1}/${metadataBatches.size} input=${batchJobs.size} resolved=${batchRefs.size} chaptered=${chapteredRefs.size} heuristic=${batchRefs.size - chapteredRefs.size}"
                 )
 
-                // In-Order Ingestion (Sequence and UI responsiveness)
-                // Generates one chaptered sub-batch per metadata batch to maintain sequence stability and update the UI incrementally.
                 chapteredRefs.chunked(chapterdAudioImportBatchSize).forEachIndexed { chunkIndex, batchRefs ->
                     val result = importSubBatch(
                         scope = scope,
@@ -131,8 +115,6 @@ internal class DirectoryAudioImporter(
             metadataSummaryJob.await()
         }
 
-        // Heuristic Grouping Processing (Intact aggregation)
-        // Aggregates all chapterless audio files in a single pass to prevent multi-file audiobooks from being fragmented.
         val heuristicResult = importSubBatch(
             scope = scope,
             refs = heuristicRefs,
@@ -148,7 +130,7 @@ internal class DirectoryAudioImporter(
     }
 
     /**
-     * Import Sub-Batch Ingestion (Isolated transactional pipeline)
+     * Isolated transactional pipeline.
      * Forks a temporary claim ledger for the sub-batch, executes the import orchestrator, and writes to database.
      * Merges changes into the parent scan ledger and invokes cover restoration upon a successful transaction.
      */
@@ -176,7 +158,7 @@ internal class DirectoryAudioImporter(
         val batchStartedAt = ImportTimingLogger.mark()
         val scopedInventory = scope.inventory.withAudioFiles(refs.map { it.file })
         val scopeLedger = claimLedger.fork()
-        
+
         val scopeResult = runCatching {
             pipeline.runWithPreResolvedAudio(
                 scanId = scanId,
@@ -188,8 +170,6 @@ internal class DirectoryAudioImporter(
             )
         }.getOrElse { throwable ->
             if (throwable is CancellationException) throw throwable
-            // Fault-Tolerant Batch Import (Non-blocking sub-batch errors)
-            // Records sub-batch failures to the final report without halting other sub-batch processing within the directory.
             ImportTimingLogger.logDuration(
                 scopeId = timingScopeId,
                 stage = "scope.failed",
@@ -211,8 +191,6 @@ internal class DirectoryAudioImporter(
             scopeResult
         }.getOrElse { throwable ->
             if (throwable is CancellationException) throw throwable
-            // Database Transactional Integrity (ACID rollback guarantee)
-            // Ensures sub-batch database write is atomic, avoiding partial book inserts upon insertion errors.
             val dbFailResult = scope.toScopeFailure(
                 scanId = scanId,
                 message = "目录音频子批次入库失败",
@@ -222,11 +200,7 @@ internal class DirectoryAudioImporter(
             return SubBatchResult(result = dbFailResult, success = false)
         }
 
-        // Ledger Transaction Commit (Ownership locks promotion)
-        // Only promotes claims from the sub-ledger if database transaction succeeds, preventing failed audio files from locking resources.
         claimLedger.commitFrom(scopeLedger)
-        // Immediate Cover Regeneration (Async visual rendering update)
-        // Schedules cover recovery immediately for successfully imported books so that the shelf reflects updates without delay.
         appliedResult.triggerCoverRegenerationForReadyBooks()
 
         ImportTimingLogger.logDuration(
@@ -240,7 +214,7 @@ internal class DirectoryAudioImporter(
     }
 
     /**
-     * Build Sub-Batch File Inventory (Directory asset preservation)
+     * Directory asset preservation.
      * Filters the inventory to include target audio files while preserving image sidecars to ensure cover recovery resolves correctly.
      */
     private fun FileInventory.withAudioFiles(audioFiles: List<FileRef>): FileInventory {
@@ -254,8 +228,6 @@ internal class DirectoryAudioImporter(
             imageFilesByParent = imageFilesByParent
                 .filterKeys { it in parentKeys }
                 .mapValues { (_, images) -> images.sortedByStableFileKey() },
-            // Text Sidecars Retention (Context preservation)
-            // Retains text description sidecars alongside image sidecars to support description fallback computations.
             textFilesByParent = textFilesByParent
                 .filterKeys { it in parentKeys }
                 .mapValues { (_, texts) -> texts.sortedByStableFileKey() }
@@ -298,8 +270,6 @@ internal class DirectoryAudioImporter(
         readyImports.forEach { command ->
             triggerCoverRegeneration(command.draft.book)
         }
-        // Replacement Cover Regeneration (Ownership upgrade visuals)
-        // Treats replacement drafts as newly active books because their old cover-bearing rows are removed after migration.
         replacementImports.forEach { command ->
             triggerCoverRegeneration(command.draft.book)
         }
@@ -307,10 +277,10 @@ internal class DirectoryAudioImporter(
 }
 
 /**
- * Sub-Batch Result Wrapper (Data transfer object)
+ * Data transfer object.
  * Encapsulates execution results and success status of a sub-batch database insertion.
  */
 internal data class SubBatchResult(
     val result: ImportRunResult,
-    val success: Boolean  // Success indicator (Determines whether to commit this sub-batch to the parent claim ledger)
+    val success: Boolean
 )

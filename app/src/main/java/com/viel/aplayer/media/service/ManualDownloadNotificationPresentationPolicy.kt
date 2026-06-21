@@ -11,15 +11,13 @@ internal enum class ManualDownloadNotificationAction {
 }
 
 /**
- * Manual Download Notification Presentation Policy (Keep title and action mapping deterministic)
+ * Keep title and action mapping deterministic.
  *
  * Android notification rendering stays in AndroidManualDownloadNotificationGateway, while this policy
  * keeps the user-visible title format and state-specific action list easy to test without platform APIs.
  */
 internal object ManualDownloadNotificationPresentationPolicy {
     fun title(author: String, bookTitle: String, progressPercent: Int): String =
-        // Notification Progress Label Delegation (Reuse the shared manual-download label formatter)
-        // Notifications and the download management list must truncate long authors the same way.
         ManualDownloadDisplayTextPolicy.progressBookLabel(
             progressPercent = progressPercent,
             author = author,
@@ -27,8 +25,6 @@ internal object ManualDownloadNotificationPresentationPolicy {
         )
 
     fun actionsFor(status: DownloadStatus): List<ManualDownloadNotificationAction> =
-        // Task Action Mapping (Expose only actions that make sense for the current durable aggregate state)
-        // Active tasks can pause, paused tasks can resume, failed tasks can retry, and all non-completed tasks can be cancelled.
         when (status) {
             DownloadStatus.QUEUED,
             DownloadStatus.DOWNLOADING -> listOf(

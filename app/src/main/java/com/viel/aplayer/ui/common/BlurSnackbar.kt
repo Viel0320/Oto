@@ -27,7 +27,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
- * BlurSnackbar (Material-compatible snackbar with app-owned Haze glass rendering)
+ * Material-compatible snackbar with app-owned Haze glass rendering.
  *
  * Haze mode keeps the Material snackbar layout but routes the background through the shared
  * liquid-glass renderer used by dialogs, sheets, menus, and top bars. This avoids old raw
@@ -37,8 +37,6 @@ import dev.chrisbanes.haze.materials.HazeMaterials
 @Composable
 fun BlurSnackbar(
     modifier: Modifier = Modifier,
-    // Snackbar Backdrop Input (Accept the caller-owned sampling source)
-    // The caller decides which page or overlay layer registers hazeSource; this component only consumes the already-resolved source.
     hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode,
     action: @Composable (() -> Unit)? = null,
@@ -51,18 +49,13 @@ fun BlurSnackbar(
     dismissActionContentColor: Color = SnackbarDefaults.dismissActionContentColor,
     content: @Composable () -> Unit
 ) {
-    // Snackbar Width Bound (Match Material readability on wide and landscape screens)
-    // The component still fills available compact width while preventing long desktop/tablet lines from becoming hard to scan.
     val constrainedModifier = modifier.widthIn(max = 480.dp)
 
     if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
-        // Haze Snackbar Glass Layer (Use the direct Haze material and keep clipping local to the snackbar shape)
         val glassModifier = Modifier
             .clip(shape)
             .hazeEffect(state = hazeState, style = HazeMaterials.ultraThin())
 
-        // Haze Snackbar Surface (Let the effect provide the visible glass body)
-        // A transparent Surface avoids stacking Material's opaque snackbar container on top of the sampled backdrop.
         Surface(
             modifier = constrainedModifier.then(glassModifier),
             shape = shape,
@@ -79,8 +72,6 @@ fun BlurSnackbar(
             )
         }
     } else {
-        // Material Snackbar Fallback (Use the official component when glass is disabled or unavailable)
-        // This preserves platform snackbar layout, colors, and action handling outside Haze mode.
         Snackbar(
             modifier = constrainedModifier,
             action = action,
@@ -104,8 +95,6 @@ private fun BlurSnackbarContent(
     content: @Composable () -> Unit
 ) {
     if (actionOnNewLine) {
-        // Two-Line Action Layout (Mirror Material snackbar behavior for long messages or multiple actions)
-        // The action row moves below the message while preserving the same spacing contract as the previous custom snackbar body.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -126,8 +115,6 @@ private fun BlurSnackbarContent(
             }
         }
     } else {
-        // Single-Line Action Layout (Mirror Material snackbar density for compact feedback)
-        // Message and actions stay in one row while vertical padding adapts to whether trailing actions are present.
         Row(
             modifier = Modifier
                 .fillMaxWidth()

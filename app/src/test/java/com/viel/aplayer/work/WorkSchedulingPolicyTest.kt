@@ -20,8 +20,6 @@ class WorkSchedulingPolicyTest {
             requiresNetwork = false
         )
 
-        // Library Queue Replacement Policy (Separates boot debounce from user intent)
-        // Cold-start work keeps the first queued scan, while user-triggered work replaces stale inputs.
         assertEquals("LibrarySyncWork", coldStart.uniqueWorkName)
         assertEquals(ExistingWorkPolicy.KEEP, coldStart.existingWorkPolicy)
         assertEquals(ExistingWorkPolicy.REPLACE, user.existingWorkPolicy)
@@ -37,8 +35,6 @@ class WorkSchedulingPolicyTest {
             requiresNetwork = true
         )
 
-        // Remote Library Constraint Policy (Pins WebDAV-root edit rescans to connected execution)
-        // The scheduler should not launch network-required root scans until WorkManager observes connectivity.
         assertEquals(NetworkType.CONNECTED, policy.constraints.requiredNetworkType)
         assertEquals(BackoffPolicy.EXPONENTIAL, policy.backoffPolicy)
         assertEquals(10L, policy.backoffDelay)
@@ -49,8 +45,6 @@ class WorkSchedulingPolicyTest {
     fun `abs sync is root scoped replaceable and always network constrained`() {
         val policy = WorkSchedulingPolicy.absRootSync("root-1")
 
-        // ABS Work Queue Policy (Protects manual remote refreshes from stale queued catalog jobs)
-        // ABS synchronization is always remote, so it must be root-scoped, replaceable, connected, and retryable.
         assertEquals("abs-sync:root-1", policy.uniqueWorkName)
         assertEquals(ExistingWorkPolicy.REPLACE, policy.existingWorkPolicy)
         assertEquals(NetworkType.CONNECTED, policy.constraints.requiredNetworkType)

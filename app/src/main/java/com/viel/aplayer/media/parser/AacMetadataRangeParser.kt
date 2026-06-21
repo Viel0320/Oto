@@ -3,8 +3,6 @@ package com.viel.aplayer.media.parser
 import com.viel.aplayer.media.AudiobookMetadata
 import kotlin.math.roundToLong
 
-// ADTS Frame Parsing Rules (Centralize all AAC/ADTS file layout logic inside this file)
-// Restricts file IO to front ID3v2, trailing ID3v1, and leading ADTS frame segments.
 internal object AacMetadataRangeParser : RangeAudioFormatParser {
     override fun supports(displayName: String): Boolean =
         displayName.endsWith(".aac", ignoreCase = true)
@@ -13,7 +11,6 @@ internal object AacMetadataRangeParser : RangeAudioFormatParser {
         input: RangeAudioParserInput,
         options: RangeAudioParseOptions
     ): RangeAudioParseResult {
-        // Delegate ID3 v1/v2 parsing to the shared Id3TagReader helper to deduplicate tag processing logic.
         val id3v2 = Id3TagReader.readId3v2(input, options)
         val id3v1 = Id3TagReader.readId3v1(input)
         val audioStartOffset = id3v2?.bytesConsumed ?: 0L

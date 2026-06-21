@@ -75,7 +75,7 @@ import kotlinx.coroutines.SupervisorJob
 import java.io.Closeable
 
 /**
- * Library Graph (Owns local library queries, scan scheduling, metadata, cover, and deletion use cases)
+ * Owns local library queries, scan scheduling, metadata, cover, and deletion use cases.
  * Gives UI and playback callers stable library-facing adapters while keeping implementation construction local.
  */
 @UnstableApi
@@ -88,23 +88,18 @@ internal class LibraryGraph(
     private val absCoverStoreProvider: () -> AbsCoverStore?
 ) : Closeable {
     val coverExtractor: CoverExtractor by lazy {
-        // Cover Extractor: Parses image headers to extract embedded cover artwork files.
         CoverExtractor(context.applicationContext)
     }
 
     val metadataResolver: MetadataResolver by lazy {
-        // Metadata Resolver: Extracts tag structures and timeline configurations from media files.
         MetadataResolver(media.vfsFileInterface)
     }
 
     val availabilityChecker: AvailabilityChecker by lazy {
-        // Availability Checker: Evaluates if file handles are reachable before launching players.
         AvailabilityChecker(context.applicationContext)
     }
 
     val bookAvailabilityGatewayImpl: BookAvailabilityGatewayImpl by lazy {
-        // Book Availability Application Service (Centralized reachability and status-refresh orchestration)
-        // Provides the single application-layer module that can refresh persisted book/file availability state.
         BookAvailabilityGatewayImpl(
             bookDao = data.database.bookDao(),
             libraryRootDao = data.database.libraryRootDao(),
@@ -113,7 +108,6 @@ internal class LibraryGraph(
     }
 
     val subtitleFileResolver: SubtitleFileResolver by lazy {
-        // Subtitle Resolver: Searches local directories to resolve matching lyrics and captions.
         SubtitleFileResolver(
             context = context.applicationContext,
             bookDao = data.database.bookDao(),
@@ -122,7 +116,6 @@ internal class LibraryGraph(
     }
 
     val coverUriResolver: CoverUriResolver by lazy {
-        // Cover Uri Resolver: Bridges raw filesystem paths to application provider URIs.
         AndroidCoverUriResolver(context.applicationContext)
     }
 
@@ -130,7 +123,6 @@ internal class LibraryGraph(
         private set
 
     val coverRecoveryHelper: CoverRecoveryHelper by lazy {
-        // Recovery Scope Allocation: Instantiates supervisor job for background cover recovery.
         val s = CoroutineScope(Dispatchers.IO + SupervisorJob())
         coverRecoveryScope = s
         CoverRecoveryHelper(
@@ -139,15 +131,13 @@ internal class LibraryGraph(
             coverExtractor = coverExtractor,
             scope = s,
             fileReader = media.vfsFileInterface,
-            // ABS Integration dependencies (Pass the mirror DAO and remote cover downloader provider for self-healing)
-            // Passes the required dependencies to enable CoverRecoveryHelper to query and download ABS remote covers.
             absItemMirrorDao = data.database.absItemMirrorDao(),
             absCoverStoreProvider = absCoverStoreProvider
         )
     }
 
     /**
-     * Split Book Service Wiring (One implementation per capability seam)
+     * One implementation per capability seam.
      * BookQueryService was decomposed into capability-scoped services so each gateway accessor returns its
      * own implementation. Only the metadata and chapter services own background scopes and need teardown.
      */
@@ -163,7 +153,7 @@ internal class LibraryGraph(
     }
 
     /**
-     * Cover Recovery Wiring (Batch self-heal seam for the home cold-start sweep)
+     * Batch self-heal seam for the home cold-start sweep.
      * Reuses the shared CoverRecoveryHelper background scope so the deferred sweep only adds a catalog snapshot read.
      */
     private val coverRecoveryGatewayLazy: Lazy<CoverRecoveryGateway> = lazy {
@@ -214,8 +204,6 @@ internal class LibraryGraph(
         get() = bookRootInventoryGatewayLazy.value
 
     val remotePlaybackCleanupGateway by lazy {
-        // Remote Playback Cleanup Wiring (Keep ABS playback table pruning behind a narrow persistence seam)
-        // BookManagementUseCase only needs book-scoped cleanup, so the di wires the two Room DAOs without exposing ABS syncers.
         RemotePlaybackCleanupGatewayImpl(
             absPlaybackSessionDao = data.database.absPlaybackSessionDao(),
             absPendingProgressSyncDao = data.database.absPendingProgressSyncDao()
@@ -223,8 +211,6 @@ internal class LibraryGraph(
     }
 
     val playbackPlanGateway: PlaybackPlanGateway by lazy {
-        // Playback Plan Service Adapter (Dedicated playback-start materialization implementation)
-        // Separating this service from BookQueryService keeps the query gateway shallow and gives playback startup its own locality.
         PlaybackPlanGatewayImpl(
             coverUriResolver = coverUriResolver,
             bookDao = data.database.bookDao(),
@@ -233,27 +219,23 @@ internal class LibraryGraph(
     }
 
     val buildPlaybackPlanUseCase: BuildPlaybackPlanUseCase by lazy {
-        // Playback Plan Use Case Wiring (Presentation entry point for plan materialization)
-        // PlayerViewModel consumes this application operation instead of importing a media-core gateway directly.
         BuildPlaybackPlanUseCase(playbackPlanGateway)
     }
 
     private val progressGatewayLazy = lazy {
-        // Progress Sync Service: Stores listening checkpoints into the local sqlite instance.
         ProgressGatewayImpl(
             bookDao = data.database.bookDao()
         )
     }
 
     /**
-     * Progress Gateway Accessor (Keeps public di API unchanged while retaining lazy lifecycle metadata)
+     * Keeps public di API unchanged while retaining lazy lifecycle metadata.
      * Teardown can now close the service only after a runtime caller has resolved this gateway.
      */
     val progressGateway: ProgressGateway
         get() = progressGatewayLazy.value
 
     private val scanSchedulerLazy = lazy {
-        // Media Scanner Service: Runs directory crawl passes to locate added/deleted books.
         ScanSchedulerImpl(
             context = context,
             coverRecoveryGateway = coverRecoveryGatewayLazy.value,
@@ -264,14 +246,13 @@ internal class LibraryGraph(
     }
 
     /**
-     * Scan Scheduler Accessor (Keeps scanner dependency resolution lazy and observable by teardown)
+     * Keeps scanner dependency resolution lazy and observable by teardown.
      * This prevents shutdown from creating WorkManager and scanner dependencies solely to close them.
      */
     val scanScheduler: ScanScheduler
         get() = scanSchedulerLazy.value
 
     val cacheEvictionCoordinator by lazy {
-        // Cache Evictor: Deletes redundant cached artwork and folders during library resets.
         CacheEvictionCoordinator(
             context = context.applicationContext,
             bookDao = data.database.bookDao(),
@@ -286,36 +267,31 @@ internal class LibraryGraph(
     }
 
     /**
-     * Library Resource Cleanup Gateway Accessor (Expose derived-cache cleanup through a narrow seam)
+     * Expose derived-cache cleanup through a narrow seam.
      * Management use cases coordinate cleanup timing while CacheEvictionCoordinator keeps ownership of file-path deletion logic.
      */
     val libraryResourceCleanupGateway: LibraryResourceCleanupGateway
         get() = cacheEvictionCoordinator
 
     private val libraryRootGatewayLazy = lazy {
-        // Library Root Gateway: Manages directory registrations and coordinates folder purging.
         LibraryRootGatewayImpl(
             context = context,
             libraryRootDao = data.database.libraryRootDao(),
             bookDao = data.database.bookDao(),
             scanScheduler = scanScheduler,
             cacheEvictionCoordinator = cacheEvictionCoordinator,
-            // Root Delete Transaction Database (Bind LibraryRootGatewayImpl to the same Room owner as its DAOs)
-            // Passing the di database explicitly keeps ABS cleanup transactions aligned with the DAO instances injected above.
             databaseOverride = data.database
         )
     }
 
     /**
-     * Library Root Gateway Accessor (Preserves lazy root-service construction with explicit lifecycle ownership)
+     * Preserves lazy root-service construction with explicit lifecycle ownership.
      * The backing Lazy lets close() skip root-store collectors when root management was never initialized.
      */
     val libraryRootGateway: LibraryRootGateway
         get() = libraryRootGatewayLazy.value
 
     val coverAssetGateway: CoverAssetGateway by lazy {
-        // Cover Asset Gateway Service (Dedicated custom artwork persistence adapter)
-        // This service owns only user-supplied cover replacement, keeping metadata rescans out of the cover asset seam.
         CoverAssetGatewayImpl(
             bookDao = data.database.bookDao(),
             coverExtractor = coverExtractor
@@ -323,8 +299,6 @@ internal class LibraryGraph(
     }
 
     val metadataRefreshGateway: MetadataRefreshGateway by lazy {
-        // Metadata Refresh Gateway Service (Dedicated tag and chapter recovery adapter)
-        // User-triggered rescans mutate book metadata and chapters, so they live apart from custom cover file writes.
         MetadataRefreshGatewayImpl(
             bookDao = data.database.bookDao(),
             chapterDao = data.database.chapterDao(),
@@ -335,30 +309,25 @@ internal class LibraryGraph(
     }
 
     val subtitleGateway: SubtitleGateway by lazy {
-        // Subtitle Gateway Service (Dedicated sidecar caption loading adapter)
-        // Keeping this adapter separate prevents playback subtitle parsing from depending on cover asset or metadata refresh modules.
         SubtitleGatewayImpl(
             subtitleResolver = subtitleFileResolver
         )
     }
 
     private val searchHistoryGatewayLazy = lazy {
-        // Search Service Gateway: Persists history terms to data store profiles.
         SearchHistoryGatewayImpl(
             searchHistoryStore = data.searchHistoryStore
         )
     }
 
     /**
-     * Search History Gateway Accessor (Keeps search history storage behind lazy di construction)
+     * Keeps search history storage behind lazy di construction.
      * The explicit Lazy backing keeps future closeable behavior visible to di lifecycle tests.
      */
     val searchHistoryGateway: SearchHistoryGateway
         get() = searchHistoryGatewayLazy.value
 
     private val searchLibraryModule: DefaultSearchLibraryModule by lazy {
-        // Search Module Wiring (Compose the search scene from granular query and history gateways)
-        // This keeps SearchViewModel on search-specific reads and commands after the broad facade retirement.
         DefaultSearchLibraryModule(
             searchHistoryGateway = searchHistoryGateway,
             queryPlanner = SearchQueryPlanner.from(bookCatalogGateway)
@@ -372,8 +341,6 @@ internal class LibraryGraph(
         get() = searchLibraryModule
 
     private val detailBookModule: DefaultDetailBookModule by lazy {
-        // Detail Module Wiring (Compose the detail scene from granular query, availability, and root gateways)
-        // This keeps DetailViewModel from querying roots, files, or availability through a broad library surface.
         DefaultDetailBookModule(
             bookCatalogGateway = bookCatalogGateway,
             bookAvailabilityGateway = bookAvailabilityGatewayImpl,
@@ -388,8 +355,6 @@ internal class LibraryGraph(
         get() = detailBookModule
 
     private val playerLibraryModule: DefaultPlayerLibraryModule by lazy {
-        // Player Module Wiring (Compose player reads and bookmark commands from granular gateway adapters)
-        // This keeps PlayerViewModel, BookmarkManager, and MediaPlaybackDelegate on the player scene seam.
         DefaultPlayerLibraryModule(
             bookCatalogGateway = bookCatalogGateway,
             chapterGateway = chapterGateway,
@@ -407,8 +372,6 @@ internal class LibraryGraph(
         get() = playerLibraryModule
 
     private val editBookModule: DefaultEditBookModule by lazy {
-        // Edit Module Wiring (Compose editable metadata reads and writes from granular gateways)
-        // This isolates EditBookViewModel from the broad library facade while keeping cover writes in their dedicated adapter.
         DefaultEditBookModule(
             bookCatalogGateway = bookCatalogGateway,
             bookMetadataGateway = bookMetadataGateway,
@@ -423,19 +386,13 @@ internal class LibraryGraph(
         get() = editBookModule
 
     val homeLibraryReadModel: HomeLibraryReadModel by lazy {
-        // Home Read Model Wiring (Provides the home screen with its catalog stream through a narrow read model)
-        // The read model is intentionally backed by the narrow book query gateway so future home projections can deepen here.
         DefaultHomeLibraryReadModel(
             bookCatalogGateway = bookCatalogGateway,
-            // Home Root Presence Wiring (Supply the narrow root gateway only to project registered-source presence)
-            // Home still reads catalog rows through BookCatalogGateway, while this extra dependency avoids using book emptiness as a proxy for whether a media library exists.
             libraryRootGateway = libraryRootGateway
         )
     }
 
     val homeLibraryUseCases: HomeLibraryUseCases by lazy {
-        // Home Use Case Wiring (Collects only home-scoped commands from granular gateways)
-        // This adapter keeps scan triggers, root registration, metadata refresh, and history cleanup out of LibraryViewModel.
         DefaultHomeLibraryUseCases(
             bookMetadataGateway = bookMetadataGateway,
             scanScheduler = scanScheduler,
@@ -447,8 +404,6 @@ internal class LibraryGraph(
     }
 
     private val deletedBookRecoveryModule: DefaultDeletedBookRecoveryModule by lazy {
-        // Deleted Book Recovery Wiring (Compose the restore scene from Room projections and provider availability checks)
-        // The module stays separate from SettingsRootModule so restoring books cannot inherit root registration or sync commands.
         DefaultDeletedBookRecoveryModule(
             bookDao = data.database.bookDao(),
             libraryRootDao = data.database.libraryRootDao(),
@@ -464,8 +419,6 @@ internal class LibraryGraph(
         get() = deletedBookRecoveryModule
 
     val libraryRootManagementUseCase: LibraryRootManagementUseCase by lazy {
-        // Library Root Management Wiring (Centralize root deletion and ABS switch cleanup ordering)
-        // The use case receives root-owned book ids, cache cleanup, and manual-download cleanup without seeing full download or DAO surfaces.
         LibraryRootManagementUseCase(
             playbackStopper = media.playbackStopper,
             bookCatalogGateway = bookCatalogGateway,
@@ -477,22 +430,16 @@ internal class LibraryGraph(
     }
 
     val bookManagementUseCase: BookManagementUseCase by lazy {
-        // Book Management Wiring (Centralize book-level cleanup and soft-delete ordering)
-        // The use case coordinates cover cleanup and manual-download deletion before invoking the soft-delete command.
         BookManagementUseCase(
             playbackStopper = media.playbackStopper,
             bookAvailabilityGateway = bookAvailabilityGatewayImpl,
             bookDeletionGateway = bookDeletionGateway,
             remotePlaybackCleanupGateway = remotePlaybackCleanupGateway,
-            // Manual Download Cleanup Wiring (Route book deletion through the narrow L1 cache cleanup seam)
-            // LibraryGraph receives only ManualDownloadCleanupGateway, so deletion can clear offline tasks without depending on the full download controller surface.
             manualDownloadCleanupGateway = manualDownloadCleanupGatewayProvider()
         )
     }
 
     override fun close() {
-        // Initialized Gateway Disposal (Close only resources that were allocated by runtime callers)
-        // This prevents application teardown from constructing unused Room-backed services just to close them.
         closeInitializedLibraryGraphResources(
             closeableResources = listOf(
                 bookMetadataGatewayLazy,

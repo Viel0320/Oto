@@ -1,9 +1,5 @@
 package com.viel.aplayer.ui.home.components
 
-// Setup ListItem Imports (Coil & click delegate)
-// Added combinedClickable import to respond to list item long press.
-// Added ExperimentalFoundationApi import to shield compilation defects of experimental APIs.
-// Added getValue import extension to support Composable property delegation.
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -87,39 +83,18 @@ fun ListItem(
     duration: Long,
     onClick: () -> Unit,
     coverPath: String? = null,
-    coverLastUpdated: Long = 0L, // Used to pass cover file self-healing milliseconds timestamp to trigger responsive cache breaking
+    coverLastUpdated: Long = 0L,
     progressPercent: Int? = null,
-    /*
-     * Detail Target Activity Flag (Home-list source visibility control)
-     *
-     * Hides only the list thumbnail that opened the current detail overlay, preventing the
-     * Home recent card for the same book from joining this list-specific transition channel.
-     */
     isDetailTargetActive: Boolean = false,
-    /*
-     * Shared Element Key (Home list cover transition identity)
-     *
-     * Supplies the list-specific shared-element key so main-list artwork can animate into
-     * Detail without sharing the Recent section's Home-to-detail key.
-     */
     sharedElementKey: String? = null,
-    // New onLongClick parameter to receive long-press events callback
     onLongClick: () -> Unit = {},
     onPlayClick: () -> Unit = {},
-    // Book Row Assistive Action Labels (Allow callers to specialize row command names)
-    // Defaults keep existing call sites accessible while specialized scenes can override the action text if a command means something narrower.
     openActionLabel: String? = null,
     playActionLabel: String? = null,
     moreActionsLabel: String? = null,
-    // Replaceable Trailing Action (Allows non-home scenes to reuse the book row body with their own command)
-    // Home keeps the default play button, while recovery can render a restore button without duplicating cover and metadata layout.
     trailingContent: (@Composable () -> Unit)? = null,
-    // Custom Content Padding (Allows callers to override the default responsive row gutter)
-    // If null, the row uses standard Home list responsive padding based on AppWindowSizeClass.
     contentPadding: PaddingValues? = null
 ) {
-    // Localized List Row Copy (Resolve badge, metadata fallback, metadata separator, and play-button accessibility text)
-    // Book titles and people names are library data, while NEW, row separators, and Play are app-authored UI labels.
     val newBadgeText = stringResource(R.string.common_new_badge)
     val unknownText = stringResource(R.string.common_unknown)
     val metadataSeparator = stringResource(R.string.common_metadata_separator)
@@ -137,7 +112,6 @@ fun ListItem(
     val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
 
     Row(
-        // Replace original clickable with combinedClickable to listen to onClick and onLongClick gestures
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = HomeListRowMinHeight)
@@ -147,12 +121,7 @@ fun ListItem(
                 onLongClickLabel = resolvedMoreActionsLabel,
                 onLongClick = onLongClick
             )
-            // Merge the row into a single semantics node: collapses the cover, three text lines,
-            // and trailing button into one accessibility item (one swipe per book for TalkBack) and,
-            // critically, shrinks the merged semantics tree the a11y geometry sort walks every frame.
             .semantics(mergeDescendants = true) {
-                // Book Row Custom Actions (Aggregate hidden and nested commands on the row)
-                // Assistive technologies can open, play, or reveal the book action menu from the row without hunting for a nested icon or hidden long-press gesture.
                 customActions = listOf(
                     CustomAccessibilityAction(resolvedOpenActionLabel) {
                         onClick()
@@ -299,35 +268,17 @@ private fun ListCoverSharedSource(
     modifier: Modifier = Modifier
 ) {
     val sharedTransitionScope = LocalSharedTransitionScope.current
-    /*
-     * List Cover Key Resolution (List-only fallback motion identity)
-     *
-     * Keeps list thumbnails on the homeList2DetailCover channel, which is separate from the
-     * Recent section's home2DetailCover channel even when both sections show the same book.
-     */
     val resolvedSharedElementKey = sharedElementKey
         ?: bookId.takeIf { it.isNotBlank() }?.let { SharedElementKeys.homeList2DetailCover(it) }
 
     Box(modifier = modifier) {
         AnimatedVisibility(
             visible = !isDetailTargetActive,
-            /*
-             * List Source Visibility Fade Policy (Restore standalone source opacity easing)
-             *
-             * Keeps Home-list and Search-result thumbnails fading in and out around the shared
-             * motion; rapid retarget protection now belongs to the app-level Detail gate.
-             */
             enter = fadeIn(animationSpec = tween(300)),
             exit = fadeOut(animationSpec = tween(300)),
             modifier = Modifier.fillMaxSize()
         ) {
             val list2DetailSourceScope = this
-            /*
-             * List Cover Corner Radius Transition (Source shape interpolation)
-             *
-             * Animates the compact list thumbnail from its 8.dp source shape to Detail's 24.dp
-             * cover shape, without reusing the Recent section's 16.dp card radius.
-             */
             val animatedCoverCornerRadius by list2DetailSourceScope.transition.animateDp(
                 label = "home_list_cover_corner_radius",
                 transitionSpec = { tween(300) }
@@ -335,15 +286,6 @@ private fun ListCoverSharedSource(
                 if (enterExitState == EnterExitState.Visible) 8.dp else 24.dp
             }
             val animatedCoverShape = RoundedCornerShape(animatedCoverCornerRadius)
-            /*
-             * List Cover Shared Element Binding (Source cover motion endpoint)
-             *
-             * Applies the shared-element modifier only to the selected list thumbnail channel,
-             * leaving Recent cards and player artwork on their own independent keys.
-             */
-            // Transition Key Consistency Validation (Prevent mismatching shared transition keys)
-            // Validates that the resolved transition key is non-null, the bookId is valid, and the key
-            // is indeed associated with this bookId. If validation fails, falls back to a normal transition.
             val isKeyConsistent = resolvedSharedElementKey != null &&
                 bookId.isNotBlank() &&
                 resolvedSharedElementKey.contains(bookId)
@@ -370,14 +312,6 @@ private fun ListCoverSharedSource(
                     .clip(animatedCoverShape)
                     .background(placeholderColor)
             ) {
-                /*
-                 * Lazy List Cover Loading (Viewport-gated thumbnail request)
-                 *
-                 * The list row keeps its stable placeholder bounds immediately, while Coil request
-                 * construction waits until this cover slot has actually been placed by the lazy host.
-                 * Requests stay visually unanimated because dense Home flings can bring many cached
-                 * covers into the viewport at once.
-                 */
                 LazyCoverImage(
                     sourcePath = coverPath,
                     lastUpdated = coverLastUpdated,
@@ -412,7 +346,6 @@ fun ListItemNewPreview() {
                 narrator = "Jane Smith",
                 duration = 3600000L,
                 progressPercent = 0,
-//                addedAt = System.currentTimeMillis(),
                 onClick = {}
             )
         }
@@ -430,7 +363,6 @@ fun ListItemProgressPreview() {
                 narrator = "Stephen Fry",
                 duration = 7200000L,
                 progressPercent = 45,
-//                addedAt = System.currentTimeMillis() - 86400000,
                 onClick = {}
             )
         }

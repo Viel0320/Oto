@@ -5,9 +5,9 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
- * ABS URL Resolver (Unified helper to resolve and normalize Audiobookshelf URLs)
+ * Unified helper to resolve and normalize Audiobookshelf URLs.
  *
- * Ensures all components (REST client, Cover Cache, and VFS provider) share the same URL sanitization,
+ * REST client, Cover Cache, and VFS provider. share the same URL sanitization,
  * trailing-slash trimming, and structural endpoint construction logic.
  */
 internal object AbsUrlResolver {

@@ -4,13 +4,13 @@ import com.viel.aplayer.data.entity.DownloadMetadataEntity
 
 interface ManualDownloadNotificationGateway {
     /**
-     * Publish Book Download Notification (Project a durable book aggregate into a user-visible notification)
+     * Project a durable book aggregate into a user-visible notification.
      * Download sync owns aggregate freshness, while concrete Android notification rendering stays behind this gateway.
      */
     suspend fun publish(metadata: DownloadMetadataEntity)
 
     /**
-     * Cancel Book Download Notification (Remove one book-level notification when the manual task leaves Room)
+     * Remove one book-level notification when the manual task leaves Room.
      * Deletion and Media3 removal callbacks both route through this boundary so stale task notifications do not survive.
      */
     suspend fun cancel(bookId: String)

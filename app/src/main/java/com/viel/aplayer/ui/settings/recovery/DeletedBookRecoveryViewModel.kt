@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * Deleted Book Recovery ViewModel (Presentation coordinator for soft-deleted book restoration)
+ * Presentation coordinator for soft-deleted book restoration.
  * Owns row-level loading, confirmation dialogs, and toast routing while delegating business rules to the recovery commands.
  */
 class DeletedBookRecoveryViewModel(application: Application) : AndroidViewModel(application) {
@@ -47,8 +47,6 @@ class DeletedBookRecoveryViewModel(application: Application) : AndroidViewModel(
         )
 
     fun requestRestoreBook(bookId: String, bookTitle: String) {
-        // Title: Request Restore Confirmation (Initiate the recovery flow by displaying a confirmation dialog)
-        // Store the book ID and title in the dialog state so the UI can prompt the user for confirmation before performing any recovery actions.
         dialogState.value = DeletedBookRecoveryDialogState.RestoreConfirmation(bookId, bookTitle)
     }
 
@@ -59,8 +57,6 @@ class DeletedBookRecoveryViewModel(application: Application) : AndroidViewModel(
             try {
                 handleRecoveryResult(bookId, commands.restoreBook(bookId))
             } catch (error: Throwable) {
-                // Recovery Failure Boundary (Convert unexpected application errors into a dialog state)
-                // Keeping the failure in-page avoids leaking implementation exceptions into Toast copy or crashing the settings overlay.
                 dialogState.value = DeletedBookRecoveryDialogState.Failure(
                     messageRes = R.string.deleted_book_recovery_failure_unexpected,
                     messageArg = error.message.orEmpty()
@@ -102,7 +98,7 @@ class DeletedBookRecoveryViewModel(application: Application) : AndroidViewModel(
     }
 
     /**
-     * Recovery Result Handling (Routes typed use-case outcomes to toast, failure dialog, or partial confirmation)
+     * Routes typed use-case outcomes to toast, failure dialog, or partial confirmation.
      * Keeps result-to-copy mapping in presentation while the use case remains language-neutral.
      */
     private fun handleRecoveryResult(bookId: String, result: DeletedBookRecoveryResult) {
@@ -136,7 +132,7 @@ class DeletedBookRecoveryViewModel(application: Application) : AndroidViewModel(
 }
 
 /**
- * Deleted Book Recovery UI State (Aggregates list, loading, and dialog state for Compose)
+ * Aggregates list, loading, and dialog state for Compose.
  * Keeps the screen stateless and makes row loading independent from Flow list refreshes.
  */
 data class DeletedBookRecoveryUiState(
@@ -146,7 +142,7 @@ data class DeletedBookRecoveryUiState(
 )
 
 /**
- * Deleted Book Recovery Dialog State (Typed modal states for restore feedback)
+ * Typed modal states for restore feedback.
  * Separates failure acknowledgement from partial restore confirmation so cancellation never writes file statuses.
  */
 sealed interface DeletedBookRecoveryDialogState {
@@ -162,15 +158,13 @@ sealed interface DeletedBookRecoveryDialogState {
     ) : DeletedBookRecoveryDialogState
 
     data class RestoreConfirmation(
-        // Title: Restore Confirmation Dialog State (Represent user intent to restore book)
-        // Contain metadata required to prompt the user with a confirmation dialog before database write.
         val bookId: String,
         val bookTitle: String
     ) : DeletedBookRecoveryDialogState
 }
 
 /**
- * Recovery Failure Copy Mapping (Maps use-case failures to resource-backed user-facing explanations)
+ * Maps use-case failures to resource-backed user-facing explanations.
  * Keeps failure reasons exhaustive at the presentation boundary while retaining provider detail arguments where useful.
  */
 private fun DeletedBookRecoveryResult.toFailureDialogState(): DeletedBookRecoveryDialogState.Failure =

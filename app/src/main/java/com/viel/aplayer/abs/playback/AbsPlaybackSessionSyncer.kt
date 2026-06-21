@@ -22,8 +22,6 @@ class AbsPlaybackSessionSyncer(
     private val progressConflictCoordinator: AbsProgressConflictCoordinator? = null,
     private val currentTimeMillis: () -> Long = { System.currentTimeMillis() }
 ) {
-    // ABS Session Operation Mutex (Serializes open, sync, and close calls for one playback syncer)
-    // Playback controls can issue pause, stop, switch-book, and progress sync requests concurrently; this lock preserves server session ordering without blocking local player commands.
     private val sessionOperationMutex = Mutex()
 
     suspend fun openSession(book: BookEntity, remoteItemId: String) = sessionOperationMutex.withLock {
@@ -37,14 +35,10 @@ class AbsPlaybackSessionSyncer(
         }
         val existingSession = absPlaybackSessionDao.getByBookId(book.id)
         if (existingSession != null && existingSession.isFreshSession()) {
-            // Idempotent Session Open (Avoids creating duplicate server sessions during resume or repeated play commands)
-            // PlaybackManager may ask to ensure an ABS session after local play resumes; an existing local session row means the remote session is already active.
             AbsPlaybackLogger.logOpenSessionSkipped(bookId = book.id, reason = "SESSION_ALREADY_OPEN")
             return
         }
         if (existingSession != null) {
-            // Stale Session Cleanup (Drops expired local session rows before asking ABS for a new server session)
-            // ABS playback sessions are remote runtime state, so a row older than the policy window must not suppress session creation.
             absPlaybackSessionDao.deleteByBookId(book.id)
         }
         val credential = credentialProvider(book)
@@ -70,7 +64,6 @@ class AbsPlaybackSessionSyncer(
                 currentTimeSec = 0.0,
                 timeListenedSec = 0.0,
                 openedAt = currentTimeMillis(),
-                // AbsPlaybackSessionState OPEN Assignment: Assign type-safe OPEN enum to session state instead of raw string.
                 state = AudiobookSchema.AbsPlaybackSessionState.OPEN
             )
         )
@@ -142,7 +135,6 @@ class AbsPlaybackSessionSyncer(
                 session.copy(
                     currentTimeSec = currentTimeSec,
                     timeListenedSec = currentTimeSec,
-                    // AbsPlaybackSessionState SYNCED Assignment: Assign type-safe SYNCED enum to session state instead of raw string.
                     state = AudiobookSchema.AbsPlaybackSessionState.SYNCED
                 )
             )
@@ -159,9 +151,6 @@ class AbsPlaybackSessionSyncer(
                 timeListenedSec = currentTimeSec,
                 durationSec = durationMs / 1000.0
             )
-            // Local Progress Truth (Log sync state as pending on network failure)
-            // When remote synchronization fails, the local playback progress remains the single source of truth.
-            // Therefore, the event is logged as "pending" rather than a hard failure to reflect that progress will be retried later.
             AbsPlaybackLogger.logSyncPending(
                 bookId = book.id,
                 sessionId = session.sessionId,
@@ -277,8 +266,6 @@ class AbsPlaybackSessionSyncer(
         ) ?: AbsProgressConflictCoordinator.UploadDecision.Allow) {
             AbsProgressConflictCoordinator.UploadDecision.Allow -> Unit
             AbsProgressConflictCoordinator.UploadDecision.Conflict -> {
-                // Pending Conflict Disposal (Drops stale retry data after confirming the server has diverged)
-                // A pending upload represents an old automatic retry, so once a conflict is known it must not overwrite newer server progress.
                 absPendingProgressSyncDao.deleteByBookId(bookId)
                 AbsPlaybackLogger.logFlushPendingSkipped(bookId = bookId, reason = "REMOTE_PROGRESS_CONFLICT")
                 return
@@ -317,7 +304,7 @@ class AbsPlaybackSessionSyncer(
     }
 
     /**
-     * Pending Progress Insert (Persists local upload attempts that could not be safely sent)
+     * Persists local upload attempts that could not be safely sent.
      * This helper keeps sync, close, and probe-failure paths writing identical retry payloads.
      */
     private suspend fun insertPendingProgress(
@@ -349,15 +336,11 @@ class AbsPlaybackSessionSyncer(
     private suspend fun getFreshSessionOrDelete(bookId: String): AbsPlaybackSessionEntity? {
         val session = absPlaybackSessionDao.getByBookId(bookId) ?: return null
         if (session.isFreshSession()) return session
-        // Stale Session Read Guard (Prevents sync and close requests from using expired ABS runtime sessions)
-        // Open-session already recreates stale rows, while direct sync or close callers should simply drop the unusable local session id.
         absPlaybackSessionDao.deleteByBookId(bookId)
         return null
     }
 
     private suspend fun AbsPendingProgressSyncEntity.takeIfFreshPending(bookId: String): AbsPendingProgressSyncEntity? {
-        // Pending Progress TTL Fallback (Drops retry payloads that are too old to upload automatically)
-        // Pending progress is a local recovery fact, not a normal cache, so it keeps the longer seven-day window before being discarded.
         return if (OnlineSourceCachePolicy.isFresh(
                 cachedAtMillis = updatedAt,
                 nowMillis = currentTimeMillis(),
@@ -372,7 +355,7 @@ class AbsPlaybackSessionSyncer(
     }
 
     /**
-     * Pending Progress Projection (Reconstructs a local checkpoint for retry arbitration)
+     * Reconstructs a local checkpoint for retry arbitration.
      * Pending rows only store ABS seconds, so the conflict coordinator receives a minimal progress entity in local millisecond units.
      */
     private fun AbsPendingProgressSyncEntity.toProgressEntity(): BookProgressEntity =

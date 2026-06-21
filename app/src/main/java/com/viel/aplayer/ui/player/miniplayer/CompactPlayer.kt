@@ -70,7 +70,6 @@ fun CompactMediaPlayer(
     progress: () -> Float = { 0f },
     showProgressBar: Boolean = true,
     actions: MiniPlayerActions = MiniPlayerActions(),
-    // Setup HazeState Parameter (Map backdrop parameter to HazeState) Changed LayerBackdrop to HazeState.
     hazeState: HazeState? = null,
     onClick: () -> Unit = {},
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
@@ -79,12 +78,6 @@ fun CompactMediaPlayer(
     val sharedTransitionScope = LocalSharedTransitionScope.current
     val mini2PlayerSourceScope = LocalMini2PlayerSourceScope.current
     val screenHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
-    /*
-     * Outer Card Corner Radius Transition (Dynamic bounds shape interpolation)
-     * Transition the outer card corner radius from the compact bar's 0.dp to the full screen's 28.dp.
-     * Use target state checking to apply rounded corners when fully morphed, preventing straight corner overflow.
-     */
-    // Align transition durations: Set compact outer bounds corner radius transition to 300ms.
     val animatedCornerRadius by mini2PlayerSourceScope?.transition?.animateDp(
         label = "compact_bounds_corner_radius",
         transitionSpec = { tween(300) }
@@ -93,12 +86,6 @@ fun CompactMediaPlayer(
     }
         ?: remember { mutableStateOf(0.dp) }
 
-    /*
-     * Thumbnail Cover Corner Radius Transition (Smooth inner artwork morphing)
-     * Interpolate the artwork cover corner radius between the compact card's 8.dp and
-     * the full screen player's 24.dp, ensuring no visual pixel steps occur.
-     */
-    // Align transition durations: Set compact artwork cover corner radius transition to 300ms.
     val animatedCoverCornerRadius by mini2PlayerSourceScope?.transition?.animateDp(
         label = "compact_cover_corner_radius",
         transitionSpec = { tween(300) }
@@ -107,13 +94,6 @@ fun CompactMediaPlayer(
     }
         ?: remember { mutableStateOf(8.dp) }
 
-    /*
-     * Compact Player Bounds Source (Register bottom-bar geometry for Mini -> Player motion)
-     *
-     * The standard phone mini-player now participates in the same playback surface bounds channel
-     * as the wide pill player. Keeping the key container-scoped rather than book-scoped lets the
-     * full player morph from the visible bottom bar while the artwork keeps using its own cover key.
-     */
     val boundsModifier = if (sharedTransitionScope != null && mini2PlayerSourceScope != null) {
         with(sharedTransitionScope) {
             Modifier.sharedBounds(
@@ -126,18 +106,13 @@ fun CompactMediaPlayer(
         Modifier
     }
 
-    // Setup Haze Mode Switch (Check if Haze mode is configured) Aligned to renamed Haze option.
     val isBlurMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
-    // Localized Player Copy (Resolve labels beside the composable that renders them)
-    // These values feed visible fallback metadata and accessibility text, so they follow the active app locale instead of hard-coded English.
     val unknownText = stringResource(R.string.common_unknown)
     val unknownTitle = stringResource(R.string.common_unknown_title)
     val coverContentDescription = stringResource(R.string.media_cover_content_description)
     val playPauseContentDescription = stringResource(
         if (isPlaying) R.string.playback_pause_content_description else R.string.playback_play_content_description
     )
-    // Mini Player Cover Assistive Actions (Expose cover gestures as named actions)
-    // The artwork owns the hide shortcut, so labeling both click and long-click semantics makes the cover usable beyond touch-only gestures.
     val openMiniPlayerActionLabel = stringResource(R.string.mini_player_open_action)
     val hideMiniPlayerActionLabel = stringResource(R.string.mini_player_hide_action)
 
@@ -164,7 +139,6 @@ fun CompactMediaPlayer(
     ) {
         Column(modifier = Modifier.navigationBarsPadding()) {
             if (showProgressBar) {
-                // Apply Glass Mode (Propagate glassEffectMode to AudioProgressBar to render crystal glow progress on compact player)
                 AudioProgressBar(
                     progress = progress,
                     onProgressChange = {},
@@ -172,8 +146,6 @@ fun CompactMediaPlayer(
                         .fillMaxWidth()
                         .height(4.dp),
                     showKnob = false,
-                    // Decorative, non-seekable bar: skip the a11y progress node so it stays out of the
-                    // per-frame semantics geometry sort and does not announce an unusable progress value.
                     enableProgressSemantics = false,
                     glassEffectMode = glassEffectMode
                 )
@@ -185,20 +157,11 @@ fun CompactMediaPlayer(
                     .padding(start = screenHorizontalPadding, end = screenHorizontalPadding - 8.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Transition Key Consistency Validation (Prevent invalid or empty shared transition keys)
-                // Ensures that the bookId is non-blank before attempting to apply the shared element transition.
-                // If the bookId is empty, falls back to a normal transition.
                 val isKeyConsistent = bookId.isNotBlank()
 
                 val coverModifier = if (isKeyConsistent && sharedTransitionScope != null && mini2PlayerSourceScope != null) {
                     with(sharedTransitionScope) {
                         Modifier.sharedElement(
-                            /*
-                             * Compact Player Cover Key (Centralized artwork identity)
-                             *
-                             * Resolves the mini-player artwork key through SharedElementKeys so it
-                             * stays aligned with the full-player MainCoverView key generation.
-                            */
                             rememberSharedContentState(key = SharedElementKeys.mini2playerCover()),
                             animatedVisibilityScope = mini2PlayerSourceScope
                         )
@@ -219,12 +182,6 @@ fun CompactMediaPlayer(
                             onLongClick = actions.onHide
                         )
                 ) {
-                    /*
-                     * Mini Source Artwork Rendering (Direct shared-element source content)
-                     *
-                     * The sharedElement modifier stays on the stable cover bounds, while the source
-                     * thumbnail renders as a single current image layer.
-                     */
                     CoverImage(
                         sourcePath = coverPath,
                         lastUpdated = coverLastUpdated,
@@ -275,8 +232,6 @@ fun CompactMediaPlayer(
                         onClick = actions.onPlayPauseClick,
                         modifier = Modifier.size(24.dp)
                     ) {
-                        // Animated play <-> pause glyph driven by isPlaying, morphing
-                        // via the shared avd_play_pause asset and tinted with onSurface.
                         val playPauseImage = AnimatedImageVector.animatedVectorResource(R.drawable.avd_play_pause)
                         val playPausePainter = rememberAnimatedVectorPainter(
                             animatedImageVector = playPauseImage,

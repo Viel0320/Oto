@@ -30,8 +30,6 @@ class DownloadAwareAppSettingsCommandsTest {
 
         commands.updateDownloadWifiOnly(false)
 
-        // Cold Runtime Policy Update (Persist settings without starting Media3 download runtime)
-        // This protects settings-only interactions from constructing DownloadManager or foreground service state.
         assertEquals(listOf(false), delegate.persistedWifiOnlyValues)
         assertEquals(emptyList<Boolean>(), gateway.requirementUpdates)
     }
@@ -48,8 +46,6 @@ class DownloadAwareAppSettingsCommandsTest {
 
         commands.updateDownloadWifiOnly(true)
 
-        // Hot Runtime Policy Update (Mirror persisted WiFi policy into active Media3 requirements)
-        // Running downloads observe the new network rule without rebuilding DownloadGraph or losing queue state.
         assertEquals(listOf(true), delegate.persistedWifiOnlyValues)
         assertEquals(listOf(true), gateway.requirementUpdates)
     }

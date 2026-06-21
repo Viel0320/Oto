@@ -16,8 +16,6 @@ class ManualDownloadOrphanCleanupWorker(
 ) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         return try {
-            // Worker Dependency Resolution (Fetch only the process-owned manual cache maintenance command)
-            // The worker avoids UI dependency views and does not construct DownloadManager because orphan cleanup only needs cache keys and Room metadata.
             APlayerApplication.getProcessContainer(applicationContext)
                 .manualDownloadOrphanCleaner
                 .cleanOrphans()
@@ -35,8 +33,6 @@ class ManualDownloadOrphanCleanupScheduler(context: Context) {
     private val workManager = WorkManager.getInstance(context.applicationContext)
 
     fun enqueue() {
-        // Unique Orphan Cleanup Work (Coalesce repeated maintenance requests)
-        // Existing queued cleanup is allowed to finish because it uses a fresh Room/cache snapshot when executed.
         workManager.enqueueUniqueWork(
             UNIQUE_WORK_NAME,
             ExistingWorkPolicy.KEEP,

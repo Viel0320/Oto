@@ -22,7 +22,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Library Root Management Use Case Test (Locks root cleanup-before-cascade sequencing)
+ * Locks root cleanup-before-cascade sequencing.
  * Verifies root deletion and ABS library switching clear root caches and book-level manual downloads before data-layer
  * cascade deletion can remove the rows needed to identify those resources.
  */
@@ -160,7 +160,7 @@ class LibraryRootManagementUseCaseTest {
     }
 
     /**
-     * Root Management Fixture (Wire only root deletion and ABS switch collaborators)
+     * Wire only root deletion and ABS switch collaborators.
      * Fakes record call order so tests protect cleanup from moving behind cascade deletion or ABS root replacement.
      */
     private fun useCaseFor(
@@ -181,7 +181,7 @@ class LibraryRootManagementUseCaseTest {
     }
 
     /**
-     * SAF Root Fixture (Create the minimum persisted root shape needed by deletion policy)
+     * Create the minimum persisted root shape needed by deletion policy.
      * Source fields use stable schema constants so tests stay aligned with production entities.
      */
     private fun root(id: String): LibraryRootEntity {
@@ -194,7 +194,7 @@ class LibraryRootManagementUseCaseTest {
     }
 
     /**
-     * ABS Root Fixture (Represent Audiobookshelf roots using basePath as the persisted library id)
+     * Represent Audiobookshelf roots using basePath as the persisted library id.
      * The production root store stores the selected ABS library id in basePath, so switch tests compare that field.
      */
     private fun absRoot(id: String, libraryId: String): LibraryRootEntity {
@@ -209,7 +209,7 @@ class LibraryRootManagementUseCaseTest {
     }
 
     /**
-     * Book Fixture (Create only the active book ownership fields relevant to root deletion)
+     * Create only the active book ownership fields relevant to root deletion.
      * LibraryRootManagementUseCase checks rootId only, so title and sourceType are deterministic filler values.
      */
     private fun book(rootId: String): BookEntity {

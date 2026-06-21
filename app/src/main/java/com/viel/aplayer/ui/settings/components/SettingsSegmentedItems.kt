@@ -36,13 +36,13 @@ import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import dev.chrisbanes.haze.HazeState
 
 /**
- * Settings Segmented Items (Own multi-choice Settings controls)
+ * Own multi-choice Settings controls.
  * Segmented controls are split from simple rows because they carry option ordering, selected-state rendering, and explanatory copy together.
  */
 
 
 /**
- * Settings Segmented Sleep Mode Item (Renders sleep countdown strategy choices through the shared dropdown)
+ * Renders sleep countdown strategy choices through the shared dropdown.
  * Keeps the historical function boundary for Settings call sites while replacing the former segmented row with APlayerDropdown.
  * Haze parameters are passed through explicitly so the trailing dropdown samples the same settings-page backdrop as the rest of the page chrome.
  */
@@ -110,7 +110,7 @@ fun SettingsSegmentedSleepModeItem(
 }
 
 /**
- * Settings Segmented Theme Mode Item (Renders light/dark/system theme choices through the shared dropdown)
+ * Renders light/dark/system theme choices through the shared dropdown.
  *
  * The control keeps the existing Settings API and delegates option rendering to APlayerDropdown so
  * appearance mode selection shares the same dropdown treatment and explicit Haze backdrop as the other Settings selectors.
@@ -169,7 +169,7 @@ fun SettingsSegmentedThemeModeItem(
 }
 
 /**
- * Settings Segmented Seek Step Item (Renders constrained short-seek increments through the shared dropdown)
+ * Renders constrained short-seek increments through the shared dropdown.
  * Keeps the 10/20/30-second option set in one reusable component so playback behavior settings cannot drift between backward and forward rows.
  * Haze parameters remain explicit because seek-step dropdowns are page controls, not standalone popups with their own sampled source.
  */

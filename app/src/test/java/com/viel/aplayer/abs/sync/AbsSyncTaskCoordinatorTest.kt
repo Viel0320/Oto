@@ -70,8 +70,6 @@ class AbsSyncTaskCoordinatorTest {
                 eventually { events.isNotEmpty() || appEventSink.feedbackFacts.isNotEmpty() }
             )
         } finally {
-            // Test Scope Cleanup (Stops coordinator and collector resources after the cancellation assertion)
-            // The coordinator owns an injected background scope, while the collector belongs to runBlocking.
             coordinator.close()
             collector.stop()
         }
@@ -95,8 +93,6 @@ class AbsSyncTaskCoordinatorTest {
                 eventually(timeoutMs = 200) { events.isNotEmpty() || appEventSink.feedbackFacts.isNotEmpty() }
             )
         } finally {
-            // Collector Cleanup (Ensures the hot event flow observer never leaks beyond this test)
-            // close() may already have cancelled the coordinator scope, so only the local collector remains.
             collector.stop()
         }
     }
@@ -130,8 +126,6 @@ class AbsSyncTaskCoordinatorTest {
                 listOf("Remote failed with Bearer <redacted>"),
                 (toast as FeedbackMessage.Resource).args
             )
-            // Background ABS sync failure must classify as a library-access sync outcome keyed to the
-            // specific root so it never absorbs another root's sync feedback.
             val identity = fact.outcome.identity
             assertEquals(FeedbackCategory.LIBRARY_ACCESS, identity.category)
             assertEquals(FeedbackTopic.LibrarySync, identity.topic)
@@ -141,8 +135,6 @@ class AbsSyncTaskCoordinatorTest {
             )
             assertEquals(FeedbackSeverity.FAILED, fact.outcome.severity)
         } finally {
-            // Failure Test Cleanup (Cancels both producer and consumer scopes after assertions complete)
-            // This keeps later tests isolated from the coordinator's application-style background scope.
             coordinator.close()
             collector.stop()
         }
@@ -174,8 +166,6 @@ class AbsSyncTaskCoordinatorTest {
             )
         )
         runBlocking {
-            // Credential Fixture (Keeps coordinator tests on the production ABS credential lookup path)
-            // Only the remote API behavior varies between tests, so credentials stay valid and deterministic.
             store.save(
                 baseUrl = "https://example.com/audiobookshelf",
                 token = "token-1",
@@ -208,8 +198,6 @@ class AbsSyncTaskCoordinatorTest {
         private val job: Job
     ) {
         suspend fun stop() {
-            // Event Collector Teardown (Cancels the dedicated collector scope after each assertion)
-            // Coordinator emissions run on a background scope, so the observer must stop independently from runBlocking.
             job.cancelAndJoin()
             scope.cancel()
         }
@@ -221,8 +209,6 @@ class AbsSyncTaskCoordinatorTest {
             ): CoordinatorEventCollector {
                 val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
                 val job = scope.launch(start = CoroutineStart.UNDISPATCHED) {
-                    // Background Event Collection (Keeps SharedFlow consumption off the blocking test thread)
-                    // This prevents the coordinator's emit call from depending on runBlocking while assertions poll.
                     coordinator.events.collect { event ->
                         events += event
                     }
@@ -275,8 +261,6 @@ class AbsSyncTaskCoordinatorTest {
         val authorizeEntered = CountDownLatch(1)
 
         override suspend fun authorize(baseUrl: String, token: String): AbsAuthorizeResponseDto {
-            // Catalog Cancellation Fixture (Throws cancellation while the coordinator scope is still active)
-            // This reproduces cancellation propagation being mistaken for a user-facing ABS sync failure.
             authorizeEntered.countDown()
             throw cancellation
         }
@@ -287,8 +271,6 @@ class AbsSyncTaskCoordinatorTest {
         val cancellationObserved = CountDownLatch(1)
 
         override suspend fun authorize(baseUrl: String, token: String): AbsAuthorizeResponseDto {
-            // Suspended Sync Fixture (Models an in-flight remote request during di teardown)
-            // close() should stop this pending operation without publishing failure feedback to users.
             authorizeEntered.countDown()
             try {
                 awaitCancellation()
@@ -304,8 +286,6 @@ class AbsSyncTaskCoordinatorTest {
         val authorizeEntered = CountDownLatch(1)
 
         override suspend fun authorize(baseUrl: String, token: String): AbsAuthorizeResponseDto {
-            // Ordinary Failure Fixture (Keeps non-cancellation exceptions on the visible failure path)
-            // The token-like text verifies coordinator redaction still protects feedback payloads.
             authorizeEntered.countDown()
             throw failure
         }
@@ -321,18 +301,14 @@ class AbsSyncTaskCoordinatorTest {
         override suspend fun getRootById(id: String): LibraryRootEntity? = root.takeIf { it.id == id }
         override suspend fun getAllRootsOnce(): List<LibraryRootEntity> = listOf(root)
         override suspend fun insertRoot(root: LibraryRootEntity) = Unit
-        // Update AbsSyncTaskCoordinatorTest: Match FakeLibraryRootDao updateRootGrantState to use type-safe AudiobookSchema.LibraryRootStatus.
         override suspend fun updateRootGrantState(
             id: String,
             displayName: String,
             grantedAt: Long,
             status: AudiobookSchema.LibraryRootStatus
         ) = Unit
-        // Update AbsSyncTaskCoordinatorTest: Match FakeLibraryRootDao updateRootScanState to use type-safe AudiobookSchema.LibraryRootStatus.
         override suspend fun updateRootScanState(id: String, lastScannedAt: Long, status: AudiobookSchema.LibraryRootStatus) = Unit
-        // Update AbsSyncTaskCoordinatorTest: Match FakeLibraryRootDao updateRootStatus to use type-safe AudiobookSchema.LibraryRootStatus.
         override suspend fun updateRootStatus(id: String, status: AudiobookSchema.LibraryRootStatus) = Unit
-        // Update AbsSyncTaskCoordinatorTest: Match FakeLibraryRootDao updateRootAvailability to use type-safe AudiobookSchema.AvailabilityStatus.
         override suspend fun updateRootAvailability(
             id: String,
             availabilityStatus: AudiobookSchema.AvailabilityStatus,
@@ -342,8 +318,6 @@ class AbsSyncTaskCoordinatorTest {
         override suspend fun deleteRoot(root: LibraryRootEntity) = Unit
 
         private fun isActiveAbsRoot(root: LibraryRootEntity): Boolean {
-            // Active ABS Root Fixture Filter (Mirror the DAO predicate introduced for startup warmup)
-            // Keeps this fake compatible with LibraryRootDao while returning only roots that production would include in the active ABS query.
             return root.status == AudiobookSchema.LibraryRootStatus.ACTIVE &&
                 root.sourceType == AudiobookSchema.LibrarySourceType.ABS
         }
@@ -355,8 +329,6 @@ class AbsSyncTaskCoordinatorTest {
         val feedbackFacts = CopyOnWriteArrayList<FeedbackFact>()
 
         override fun emitFeedback(fact: FeedbackFact): FeedbackDeliveryResult {
-            // Feedback Recording Fixture (Captures coordinator toast requests without Android rendering)
-            // The test asserts message facts directly so localization and shell collectors stay out of scope.
             feedbackFacts += fact
             return FeedbackDeliveryResult.Delivered(fact)
         }
@@ -374,8 +346,6 @@ class AbsSyncTaskCoordinatorTest {
             mirror: AbsItemMirrorEntity,
             syncState: AbsSyncStateEntity
         ) {
-            // Catalog Store Fixture (Persists only sync-state observations needed by the real synchronizer)
-            // Coordinator tests fail before catalog materialization, but this keeps the fake safe for future paths.
             this.syncState = syncState
         }
         override suspend fun replaceMirrors(mirrors: List<AbsItemMirrorEntity>) = Unit

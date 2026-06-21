@@ -23,10 +23,6 @@ class AbsSyncWorkScheduler(context: Context) {
             .setConstraints(policy.constraints)
             .setBackoffCriteria(policy.backoffPolicy, policy.backoffDelay, policy.backoffTimeUnit)
             .build()
-        // Task Queue Logging (Trace work scheduling attempt)
-        // Log the scheduling event with the unique work name when enqueuing the sync task.
-        // The scheduler only tracks whether the task is successfully submitted to WorkManager, not the final execution.
-        // Recording this helps diagnose queue collisions, concurrency constraints, and replacement policies.
         AbsSyncLogger.logSchedulerEnqueue(rootId = rootId, uniqueWorkName = policy.uniqueWorkName)
         workManager.enqueueUniqueWork(
             policy.uniqueWorkName,

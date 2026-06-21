@@ -17,7 +17,7 @@ import com.viel.aplayer.shared.settings.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
 
 /**
- * APlayer Dialog Template (Shared derivation shell for page-owned dialogs)
+ * Shared derivation shell for page-owned dialogs.
  *
  * Provides the common dialog container, padding rhythm, optional header slots, optional body slot, and trailing action row.
  * Page-level DialogHost components should derive concrete dialogs from this template while keeping business state and click handling outside the shared shell.
@@ -32,8 +32,6 @@ fun APlayerDialogTemplate(
     dismissOnBackPress: Boolean = true,
     dismissOnClickOutside: Boolean = true,
     contentPadding: PaddingValues = PaddingValues(horizontal = 24.dp, vertical = 24.dp),
-    // Dialog Width Override (Allow specialized dialogs to use adaptive horizontal room)
-    // Keeps the legacy 460.dp Material-style cap for existing callers while letting landscape-specific surfaces request a wider shell without forking BlurDialog behavior.
     dialogMaxWidth: Dp = 460.dp,
     headerAlignment: Alignment.Horizontal = Alignment.Start,
     sectionSpacing: Dp = 16.dp,
@@ -52,8 +50,6 @@ fun APlayerDialogTemplate(
         dialogMaxWidth = dialogMaxWidth,
         scrollable = scrollable
     ) {
-        // Dialog Template Layout (Centralize spacing without owning business content)
-        // The template supplies a predictable column rhythm while concrete dialogs provide all visible text, icons, and commands through slots.
         Column(
             modifier = modifier
                 .fillMaxWidth()
@@ -66,8 +62,6 @@ fun APlayerDialogTemplate(
             body?.invoke(this)
 
             if (actions != null) {
-                // Dialog Template Action Row (Standardize command placement)
-                // Actions are right-aligned and evenly spaced so derived dialogs do not repeat row wiring for confirm, cancel, and destructive commands.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(actionsSpacing, Alignment.End),

@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
- * Automatic Rewind Coordinator (Manage playback progress rewinds and state corrections)
+ * Manage playback progress rewinds and state corrections.
  *
  * Coordinates state variables, parses configuration limits, applies rewinds upon pause,
  * and executes progress restoration at cold start. Designed for high cohesion to uncouple
@@ -20,14 +20,12 @@ import kotlinx.coroutines.launch
 @OptIn(UnstableApi::class)
 class AutoRewindManager private constructor(context: Context) {
 
-    // Application Environment Context (Prevent memory leaks by capturing applicationContext)
     private val appContext = context.applicationContext
 
-    // Configuration Storage Reference (Access settings flow and toggle interruption state flags)
     private val settingsRepository = AppSettingsRepository.getInstance(appContext)
 
     /**
-     * Bypassing Flag Control (Temporarily suppress next rewind action)
+     * Temporarily suppress next rewind action.
      *
      * When set to true, the subsequent pause trigger is bypassed. Helps avoid redundant rewinds
      * caused by transient audio focus loss, active user pause, or track switches.
@@ -35,7 +33,7 @@ class AutoRewindManager private constructor(context: Context) {
     var ignoreNextAutoRewind: Boolean = false
 
     /**
-     * Pause Lifecycle Ingestion (Handle progress rewinds upon state transition to pause)
+     * Handle progress rewinds upon state transition to pause.
      *
      * Invoked immediately when the player transitions from playing to paused state.
      *
@@ -52,19 +50,16 @@ class AutoRewindManager private constructor(context: Context) {
         onProgressUpdated: (MediaController) -> Unit,
         onSaveProgress: () -> Unit
     ) {
-        // Suppression Verification (Check if the rewind should be bypassed)
-        // If ignoreNextAutoRewind is active, this pause was triggered transiently. Reset the flag and abort.
         if (ignoreNextAutoRewind) {
             ignoreNextAutoRewind = false
             return
         }
 
-        // Trigger Core Action (Execute seek and database synchronization)
         applyAutoRewind(controller, currentPlan, scope, onProgressUpdated, onSaveProgress)
     }
 
     /**
-     * Execute Auto-Rewind Offset (Perform calculations to adjust playback head backwards)
+     * Perform calculations to adjust playback head backwards.
      *
      * Asynchronously retrieves the current rewind duration constraints, computes global timeline
      * offsets for multi-file configurations, and updates the media controller position.
@@ -79,12 +74,11 @@ class AutoRewindManager private constructor(context: Context) {
         if (controller == null) return
         scope.launch {
             try {
-                // Settings Synchronization (Ensure configuration values are fresh)
                 val settings = settingsRepository.settingsFlow.first()
                 val rewindSeconds = settings.autoRewindSeconds
                 if (rewindSeconds > 0) {
                     val rewindMs = rewindSeconds * 1000L
-                    
+
                     val seekTarget = AutoRewindPositionPolicy.playbackSeekTarget(
                         currentMediaItemIndex = controller.currentMediaItemIndex,
                         currentPositionMs = controller.currentPosition,
@@ -92,18 +86,12 @@ class AutoRewindManager private constructor(context: Context) {
                         files = plan?.files.orEmpty()
                     )
                     if (seekTarget.mediaItemIndex != null) {
-                        // Multi-Track Seek Dispatch (Applies the policy-mapped file coordinate to Media3)
-                        // Position math lives in AutoRewindPositionPolicy, leaving the manager responsible only for controller side effects.
                         controller.seekTo(seekTarget.mediaItemIndex, seekTarget.positionMs)
                     } else {
-                        // Single-Track Seek Dispatch (Uses current-item seek when no multi-file plan exists)
-                        // This preserves the legacy fallback for ad-hoc playback states that do not have a BookPlaybackPlan.
                         controller.seekTo(seekTarget.positionMs)
                     }
-                    
-                    // Pipeline State Notification (Force client components to re-collect position state)
+
                     onProgressUpdated(controller)
-                    // Persistence Dispatch (Commit positions to database immediately to avoid data loss)
                     onSaveProgress()
                 }
             } catch (e: Exception) {
@@ -113,21 +101,16 @@ class AutoRewindManager private constructor(context: Context) {
     }
 
     /**
-     * Cold Start Restoration (Perform progress self-healing for abnormally interrupted tracks)
+     * Perform progress self-healing for abnormally interrupted tracks.
      *
      * Triggered during application launch to offset positions if the previous session closed unexpectedly.
      * Computes target offsets and commits the corrected position to DB.
      */
      suspend fun performColdStartSelfHealing() {
         try {
-            // Read Interrupted State (Acquire settings configuration)
             val settings = settingsRepository.settingsFlow.first()
             if (settings.isLastPlaybackInterrupted && settings.autoRewindSeconds > 0) {
-                // Playback Recovery Dependency Ingestion (Resolve only timeline lookup and progress persistence)
-                // Cold-start self-healing does not need playback session, scanner, or screen-facing dependencies.
                 val recoveryDependencies = com.viel.aplayer.APlayerApplication.getPlaybackRecoveryDependencies(appContext)
-                // Recovery Catalog Gateway Resolution (Use the recovery dependency's catalog-only seam)
-                // Cold-start self-healing only needs file inventory for coordinate repair, not chapter or bookmark gateways.
                 val bookCatalogGateway = recoveryDependencies.bookCatalogGateway
                 val progressGateway = recoveryDependencies.progressGateway
 
@@ -141,7 +124,7 @@ class AutoRewindManager private constructor(context: Context) {
                         files = files,
                         now = System.currentTimeMillis()
                     )
-                    
+
                     progressGateway.saveProgress(healedProgress)
                     com.viel.aplayer.logger.AutoRewindLogger.logColdStartSelfHeal(
                         bookId = lastProgress.bookId,
@@ -149,11 +132,9 @@ class AutoRewindManager private constructor(context: Context) {
                         targetPositionMs = healedProgress.globalPositionMs
                     )
                 }
-                
-                // State Rejection Toggle (Clear interrupted flag upon successful correction)
+
                 settingsRepository.updateLastPlaybackInterrupted(false)
             } else {
-                // Clear Stale States (Reset flag to prevent legacy contamination)
                 settingsRepository.updateLastPlaybackInterrupted(false)
             }
         } catch (e: Exception) {
@@ -166,7 +147,7 @@ class AutoRewindManager private constructor(context: Context) {
         private var INSTANCE: AutoRewindManager? = null
 
         /**
-         * Singleton Provider (Ensure thread-safe double-checked instantiation)
+         * Ensure thread-safe double-checked instantiation.
          */
         fun getInstance(context: Context): AutoRewindManager {
             return INSTANCE ?: synchronized(this) {

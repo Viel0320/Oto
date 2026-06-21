@@ -21,47 +21,45 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 
 /**
- * Standardised Window Size Class: Defines device size categories for responsive UI layouts.
+ * Defines device size categories for responsive UI layouts.
  *
- * Encapsulates core layout calculation logic derived from the official Android WindowSizeClass API.
- * Tracks screen boundaries across varying device form factors (e.g., phones, foldables, tablets) and orientations
- * to dynamically determine columns, padding, and layout structures.
+ * Wraps Android WindowSizeClass tiers with app-specific orientation and dimension facts used by
+ * catalog columns, screen padding, and split-layout decisions.
  */
 @Immutable
 data class AppWindowSizeClass(
     /**
-     * Width Bracket: Standardized width tier (Compact, Medium, or Expanded).
+     * Standard width tier reported by the Android WindowSizeClass API.
      */
     val widthSizeClass: WindowWidthSizeClass,
     /**
-     * Height Bracket: Standardized height tier (Compact, Medium, or Expanded).
+     * Standard height tier reported by the Android WindowSizeClass API.
      */
     val heightSizeClass: WindowHeightSizeClass,
     /**
-     * Orientation Flag: True if device is in landscape mode.
+     * True when the current configuration is landscape.
      */
     val isLandscape: Boolean,
     /**
-     * Logical Width: Screen width mapped to density-independent pixels.
+     * Current screen width in density-independent pixels.
      */
     val screenWidthDp: Dp,
     /**
-     * Logical Height: Screen height mapped to density-independent pixels.
+     * Current screen height in density-independent pixels.
      */
     val screenHeightDp: Dp
 ) {
     /**
-     * Large Screen Check: Verify if device has a tablet-class display.
+     * Treats a device as tablet-class only when both width and height leave room for expanded layouts.
      *
-     * Refactored to exclude devices with Compact height size class (height < 480dp).
-     * This ensures standard landscape phones with high width resolution do not wrongly fall into tablet layouts
-     * where stacked columns or side pane layouts cause severe layout overlapping.
+     * Landscape phones can have a Medium or Expanded width while still having Compact height, so height
+     * is part of the check to avoid overlapping tablet panes on short displays.
      */
     val isTablet: Boolean
         get() = widthSizeClass != WindowWidthSizeClass.Compact && heightSizeClass != WindowHeightSizeClass.Compact
 
     /**
-     * Wide Layout Check: Determine if wide configuration should be used.
+     * Determines whether wide layouts such as split panes or multi-column grids can be used.
      *
      * True if the screen is either tablet-sized or in landscape orientation.
      * Used to trigger side-by-side split layouts or grid card structures.
@@ -70,7 +68,7 @@ data class AppWindowSizeClass(
         get() = isTablet || isLandscape
 
     /**
-     * Grid Column Calculator: Adjust grid columns dynamically for book catalog lists.
+     * Calculates catalog grid columns from tablet and landscape breakpoints.
      *
      * Calculations base:
      * 1. Renders 3 columns if the device is an expanded landscape tablet (width >= 840dp).
@@ -85,14 +83,13 @@ data class AppWindowSizeClass(
         }
 
     /**
-     * Responsive Side Padding: Differentiate margins for spacing layout.
+     * Shared horizontal screen padding used by app-level layouts.
      */
     val screenHorizontalPadding: Dp
         get() = 24.dp
-    //if (isWideScreen or isLandscape) 24.dp else 16.dp
 
     /**
-     * Tablet Landscape Flag: Verify if dual-pane layouts are active.
+     * True when dual-pane tablet layouts have enough horizontal and vertical room.
      *
      * Evaluates to true only on tablet devices in landscape orientation with sufficient vertical height,
      * allowing side-by-side control views without vertical overlap.
@@ -102,7 +99,7 @@ data class AppWindowSizeClass(
 
     companion object {
         /**
-         * Standard Preset: Portrait Phone view.
+         * Preview preset for a portrait phone viewport.
          *
          * Configured with Compact width (360dp), Medium height (800dp), and vertical orientation.
          */
@@ -115,7 +112,7 @@ data class AppWindowSizeClass(
         )
 
         /**
-         * Standard Preset: Landscape Phone view.
+         * Preview preset for a landscape phone viewport.
          *
          * Configured with Medium width (720dp), Compact height (360dp), and horizontal orientation.
          */
@@ -128,7 +125,7 @@ data class AppWindowSizeClass(
         )
 
         /**
-         * Standard Preset: Landscape Tablet view.
+         * Preview preset for a landscape tablet viewport.
          *
          * Configured with Expanded width (1280dp), Medium height (800dp), and horizontal orientation.
          */
@@ -143,7 +140,7 @@ data class AppWindowSizeClass(
 }
 
 /**
- * Composition Local Key: Exposes the adaptive layout helper contextually.
+ * Exposes the active adaptive layout helper through composition.
  *
  * Allows Compose widgets to easily retrieve the active `AppWindowSizeClass` parameters with minimal coupling.
  */
@@ -152,7 +149,7 @@ val LocalAppWindowSizeClass: ProvidableCompositionLocal<AppWindowSizeClass> = st
 }
 
 /**
- * Find Activity Host: Recursively traverses the Context wrapper chain to retrieve the host Activity.
+ * Finds the host Activity by walking through Context wrappers.
  *
  * Prevents crashes inside Compose Previews or unconfigured environments where context is not a direct Activity.
  */
@@ -166,7 +163,7 @@ private tailrec fun Context.findActivity(): Activity? {
 }
 
 /**
- * App Window Size Class Remembers: Computes window classes inside the Compose composition.
+ * Computes the app window class inside the Compose composition.
  *
  * Integrates with Jetpack Compose calculateWindowSizeClass API to natively support multi-window / split-screen bounds.
  * Falls back to LocalConfiguration and calculateFromSize during compose previews.

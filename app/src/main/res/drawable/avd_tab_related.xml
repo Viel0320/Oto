@@ -1,13 +1,4 @@
-<!--
-  Animated related-books tab icon (theme-tinted, bottom-up fill reveal, mirrored).
 
-  Endpoints match svgs/related exactly:
-   - start = outline (back book edge + front book, both strokes, no fill)
-   - end   = filled  (back book stays an outline, front book filled solid)
-  The background book edge stroke is constant. The foreground book fill rises
-  from the bottom via a growing clip-path while its own outline stroke fades out.
-  autoMirrored flips for RTL. White throughout so Compose tints with onSurface.
--->
 <animated-vector
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"

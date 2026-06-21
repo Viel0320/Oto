@@ -11,7 +11,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * VFS Range Cache (Stores small bounded range-read blocks on local disk)
+ * Stores small bounded range-read blocks on local disk.
  * Owns only metadata-sized byte blocks under the app cache directory and never opens playback streams or provider-native
  * handles.
  */
@@ -40,15 +40,13 @@ class VfsRangeCache(
     )
 
     /**
-     * Read Block (Loads a cached range block when its hashed key file exists)
+     * Loads a cached range block when its hashed key file exists.
      * Updates the file timestamp on successful reads so trimToSize can keep recently reused metadata blocks longer.
      */
     suspend fun read(key: VfsRangeCacheKey): ByteArray? = withContext(Dispatchers.IO) {
         val file = key.toCacheFile()
         if (!file.exists() || !file.isFile) return@withContext null
         if (!key.isFresh(file.lastModified())) {
-            // Range Cache TTL Expiry (Deletes stale online byte blocks before replay)
-            // Versioned blocks rely primarily on hashed provider versions, while versionless blocks use the shorter fallback window from OnlineSourceCachePolicy.
             runCatching { file.delete() }
             return@withContext null
         }
@@ -59,7 +57,7 @@ class VfsRangeCache(
     }
 
     /**
-     * Write Block (Persists one small range block using a temporary file and atomic replacement)
+     * Persists one small range block using a temporary file and atomic replacement.
      * Ignores oversized blocks and empty writes so playback-sized payloads cannot accidentally populate the metadata cache.
      */
     suspend fun write(key: VfsRangeCacheKey, bytes: ByteArray): Unit = withContext(Dispatchers.IO) {
@@ -75,7 +73,6 @@ class VfsRangeCache(
             }
             target.setLastModified(currentTimeMillis())
 
-            // Non-blocking Eviction: Delegates trim task to background scope with rate-limiting counter to avoid blocking critical write paths.
             if (writeCounter.incrementAndGet() % TRIM_THRESHOLD == 0) {
                 if (isEvicting.compareAndSet(false, true)) {
                     evictionScope.launch {
@@ -91,7 +88,7 @@ class VfsRangeCache(
     }
 
     /**
-     * Evict Root (Deletes range blocks associated with one hashed root id)
+     * Deletes range blocks associated with one hashed root id.
      * Matches only the root hash prefix produced by VfsRangeCacheKey, preventing unrelated roots from sharing cleanup scope.
      */
     suspend fun evictRoot(rootIdHash: String): Int = withContext(Dispatchers.IO) {
@@ -103,7 +100,7 @@ class VfsRangeCache(
     }
 
     /**
-     * Trim To Size (Applies the global cache budget by removing oldest blocks first)
+     * Applies the global cache budget by removing oldest blocks first.
      * Keeps the cache bounded to the documented 64MB default without requiring a database index or background worker.
      */
     suspend fun trimToSize(): Unit = withContext(Dispatchers.IO) {

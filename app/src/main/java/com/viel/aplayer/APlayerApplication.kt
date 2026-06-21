@@ -44,14 +44,12 @@ import kotlinx.coroutines.supervisorScope
  */
 class APlayerApplication : Application(), ImageLoaderFactory {
 
-    // Application Coroutine Scope (Provides a centralized coroutine lifecycle scope managed by the application process)
-    // App Scope Visibility: Expose appScope internally to allow background tasks (like widget cleanups during service destruction) to launch on a persistent scope.
     internal val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    
-    /** 
-     * Dependency Container Interface (Provide backward compatibility and safe container retrieval)
+
+    /**
+     * Provide backward compatibility and safe container retrieval.
      * Keeps the container property interface to support seamless compatibility with legacy code.
-     * By using a read-only property backed by DCL (Double-Check Locking) lazy initialization in the companion object,
+     * Double-Check Locking. lazy initialization in the companion object,
      * this ensures safe multi-threaded retrieval even if invoked before Application.onCreate(),
      * preventing UninitializedPropertyAccessException.
      */
@@ -60,11 +58,8 @@ class APlayerApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
-        // Runtime Locale Config Sync (Keep Android Settings aware of APlayer's supported app languages)
-        // This complements manifest localeConfig and covers Android 16/OEM package-state caches that may not refresh after incremental installs.
         AppLocaleController.ensurePlatformLocaleConfig(this)
 
-        // StrictMode Setup: Enable VM Policy checking to detect closeable leaks on debug builds without depending on BuildConfig class.
         val isDebuggable = (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
         if (isDebuggable) {
             StrictMode.setVmPolicy(
@@ -75,23 +70,14 @@ class APlayerApplication : Application(), ImageLoaderFactory {
             )
         }
 
-        // Early Process Container Initialization (Trigger composition-root instantiation on the main thread during onCreate)
-        // The process-only view preserves startup access to di-owned wiring while keeping the public AppContainer surface narrow.
         val processContainer = getProcessContainer(this)
-        
-        // Async Warmup (Warm up database/settings components on background thread during application startup)
-        // Dispatches the pre-caching of preferences and progress recovery self-healing to a dedicated background thread.
+
         appScope.launch {
             supervisorScope {
-                // Parallel Startup Maintenance (Run independent persistence-only warmups without serializing cold-start I/O)
-                // Each child keeps its own failure handling so a download repair issue cannot block settings pre-cache or ABS freshness scheduling.
                 val settingsWarmup = async {
-                    // Title: Settings Read Model Pre-cache (Triggers settings load during early application warmup)
                     processContainer.settingsReadModel
                 }
                 val downloadRecovery = async {
-                    // Download Recovery Gate (Reconcile manual downloads only when Room reports recoverable work)
-                    // This keeps normal startup from constructing DownloadManager, while interrupted downloads can restore their durable book-level state.
                     runCatching {
                         processContainer.downloadRecoveryService.recoverIfNeeded()
                     }.onFailure { error ->
@@ -99,8 +85,6 @@ class APlayerApplication : Application(), ImageLoaderFactory {
                     }
                 }
                 val orphanCleanup = async {
-                    // Manual Cache Orphan Cleanup Scheduling (Queue background L1 cleanup without resolving DownloadManager)
-                    // WorkManager coalesces repeated startup requests, while the worker compares cache keys against durable download metadata.
                     runCatching {
                         ManualDownloadOrphanCleanupScheduler(this@APlayerApplication).enqueue()
                     }.onFailure { error ->
@@ -108,8 +92,6 @@ class APlayerApplication : Application(), ImageLoaderFactory {
                     }
                 }
                 val startupWarmup = async {
-                    // Startup Warmup Coordinator (Gate remote ABS work before local progress recovery)
-                    // Cold start now enqueues stale ABS roots through root-scoped WorkManager instead of performing authorize progress refreshes inline on every process creation.
                     createStartupWarmup(processContainer).run()
                 }
                 settingsWarmup.await()
@@ -121,12 +103,10 @@ class APlayerApplication : Application(), ImageLoaderFactory {
     }
 
     /**
-     * Startup Warmup Wiring (Build the application-level startup coordinator from the process container)
+     * Build the application-level startup coordinator from the process container.
      * Keeping construction here leaves the coordinator testable with small function seams while the Application owns Android-specific scheduler creation.
      */
     internal fun createStartupWarmup(processContainer: ProcessContainer): APlayerStartupWarmup {
-        // Startup Warmup Database Provider (Resolve only Room when the freshness gate actually reads persisted root state)
-        // This keeps warmup construction away from LibraryGraph and AbsGraph properties that would otherwise allocate scanner, VFS, cover, and remote sync adapters.
         val startupDatabase = lazy { AppDatabase.getInstance(this) }
         val startupWarmupDependencies = DefaultStartupWarmupDependencies(
             libraryRootDaoProvider = { startupDatabase.value.libraryRootDao() },
@@ -136,8 +116,6 @@ class APlayerApplication : Application(), ImageLoaderFactory {
             }
         )
 
-        // Lazy ABS Work Scheduler (Avoid initializing WorkManager when every ABS root is still fresh)
-        // The startup coordinator resolves this scheduler only after the freshness gate selects at least one stale remote root.
         val absSyncWorkScheduler = lazy { AbsSyncWorkScheduler(this) }
         return APlayerStartupWarmup(
             dependencies = startupWarmupDependencies,
@@ -149,8 +127,6 @@ class APlayerApplication : Application(), ImageLoaderFactory {
     }
 
     override fun newImageLoader(): ImageLoader {
-        // Shared ImageLoader Strategy (Provide a single ImageLoader instance to unify Coil cache keys)
-        // Consolidating memory and disk caches under one loader avoids redundant fetching and key mismatches across screens.
         return ImageLoader.Builder(this)
             .memoryCache {
                 MemoryCache.Builder(this)
@@ -164,8 +140,6 @@ class APlayerApplication : Application(), ImageLoaderFactory {
                     .build()
             }
             .eventListenerFactory(
-                // Unified Cache Logging Event Bridge (Attach CoverImageCoilEventListener to the global ImageLoader)
-                // Unifies analytics and tracking for image loadings (success, failure, cache hits) regardless of request sources.
                 CoverImageCoilEventListener.Factory()
             )
             .build()
@@ -176,23 +150,21 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         private var instance: ProcessContainer? = null
 
         /**
-         * Thread-Safe Container Factory (Thread-safely resolve or instantiate the global AppContainer singleton)
+         * Thread-safely resolve or instantiate the global AppContainer singleton.
          * Uses Double-Check Locking (DCL) to protect multi-threaded concurrent access.
          * If the application context cannot be cast to APlayerApplication (e.g. under test runners or background processes),
          * it falls back to instantiating DefaultAppContainer using the raw context, preventing ClassCastException.
-         * 
+         *
          * @param context Component Context
          * @return The global singleton AppContainer
          */
         @OptIn(UnstableApi::class)
         fun getContainer(context: Context): AppContainer {
-            // Public Container Provider (Return only the dependency-view union)
-            // Hiding the process-only subtype prevents public callers from resolving di-owned implementation properties.
             return getProcessContainer(context)
         }
 
         /**
-         * Process Container Provider (Return the internal composition-root view)
+         * Return the internal composition-root view.
          * Gives Application startup wiring access to di-owned implementations without expanding AppContainer's public contract.
          *
          * @param context Component Context
@@ -206,7 +178,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * Playback Runtime Dependencies Provider (Return the narrow media-core dependency view)
+         * Return the narrow media-core dependency view.
          * Prevents playback services from learning the wider application container surface.
          *
          * @param context Component Context
@@ -217,7 +189,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * Playback Recovery Dependencies Provider (Return the narrow cold-start recovery dependency view)
+         * Return the narrow cold-start recovery dependency view.
          * Lets AutoRewindManager repair progress records without receiving playback session or UI-facing dependencies.
          *
          * @param context Component Context
@@ -228,7 +200,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * VFS Playback Dependencies Provider (Return the narrow data-source dependency view)
+         * Return the narrow data-source dependency view.
          * Keeps playback data-source factories limited to VFS reads and media-file lookup.
          *
          * @param context Component Context
@@ -239,7 +211,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * Download Runtime Dependencies Provider (Return the narrow download-cache and queue dependency view)
+         * Return the narrow download-cache and queue dependency view.
          * Playback code can resolve cache access through this view without widening to the full application container.
          *
          * @param context Component Context
@@ -250,7 +222,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * Manual Download Notification Action Dependencies Provider (Return the narrow notification command view)
+         * Return the narrow notification command view.
          * Notification receivers need only the book-level download controller, not the full application container or settings surface.
          *
          * @param context Component Context
@@ -261,7 +233,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * Library Sync Worker Dependencies Provider (Return the narrow local-library worker dependency view)
+         * Return the narrow local-library worker dependency view.
          * Lets WorkManager refresh jobs schedule scans without receiving screen, playback, or ABS surfaces.
          *
          * @param context Component Context
@@ -272,7 +244,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * ABS Sync Worker Dependencies Provider (Return the narrow Audiobookshelf worker dependency view)
+         * Return the narrow Audiobookshelf worker dependency view.
          * Lets ABS background jobs mirror one root and publish feedback without receiving unrelated container entries.
          *
          * @param context Component Context
@@ -283,7 +255,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * Search Screen Dependencies Provider (Return the search-scene dependency view)
+         * Return the search-scene dependency view.
          * Gives SearchViewModel only search-specific read and command interfaces during the scene-module migration.
          *
          * @param context Component Context
@@ -294,7 +266,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * Detail Screen Dependencies Provider (Return the detail-scene dependency view)
+         * Return the detail-scene dependency view.
          * Gives DetailViewModel only detail-specific read and command interfaces during the scene-module migration.
          *
          * @param context Component Context
@@ -305,7 +277,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * Home Screen Dependencies Provider (Return the home-screen dependency view)
+         * Return the home-screen dependency view.
          * Gives LibraryViewModel only home scene interfaces, settings, deletion use cases, and feedback sink it consumes.
          *
          * @param context Component Context
@@ -316,7 +288,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * Settings Screen Dependencies Provider (Return the settings-screen dependency view)
+         * Return the settings-screen dependency view.
          * Gives SettingsViewModel settings-specific operations without exposing playback runtime or VFS entries.
          *
          * @param context Component Context
@@ -327,7 +299,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * Player Screen Dependencies Provider (Return the player-screen dependency view)
+         * Return the player-screen dependency view.
          * Gives PlayerViewModel UI-facing playback startup and feedback dependencies while media core keeps its own runtime view.
          *
          * @param context Component Context
@@ -338,7 +310,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * Edit Screen Dependencies Provider (Return the edit-scene dependency view)
+         * Return the edit-scene dependency view.
          * Gives EditBookViewModel only editable metadata reads and save commands during the scene-module migration.
          *
          * @param context Component Context
@@ -349,7 +321,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * App Shell Dependencies Provider (Return the top-level Compose shell dependency view)
+         * Return the top-level Compose shell dependency view.
          * Lets APlayerApp collect settings and app-shell events without touching screen or playback entries.
          *
          * @param context Component Context

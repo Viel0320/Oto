@@ -12,7 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Library Root Management Use Case (Coordinates root-scoped destructive workflows)
+ * Coordinates root-scoped destructive workflows.
  * Owns the shared ordering for root deletion and ABS library switching: stop affected playback, clear derived root
  * resources, clear book-level manual downloads, and only then allow the data layer to cascade old rows.
  */
@@ -25,7 +25,7 @@ class LibraryRootManagementUseCase(
     private val libraryResourceCleanupGateway: LibraryResourceCleanupGateway
 ) {
     /**
-     * Delete Library Root (Clear root resources before cascade deletion)
+     * Clear root resources before cascade deletion.
      * Rehydrates the persisted root from its id so presentation callers never pass Room entities across the UI boundary.
      */
     suspend fun deleteLibraryRoot(rootId: String): Boolean = withContext(Dispatchers.IO) {
@@ -37,7 +37,7 @@ class LibraryRootManagementUseCase(
     }
 
     /**
-     * Update ABS Library Root (Clean old mirrored resources before replacing the remote library)
+     * Clean old mirrored resources before replacing the remote library.
      * When the selected ABS library changes, old mirrored books must lose cover files and manual-download records before
      * the data layer deletes their BookEntity and BookFileEntity rows.
      */

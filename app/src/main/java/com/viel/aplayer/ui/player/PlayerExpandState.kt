@@ -36,7 +36,7 @@ class PlayerExpandState(
     val isSettled: Boolean
         get() = !fraction.isRunning
 
-    /** Whether the heavy expanded content should be composed at all (false only when fully collapsed). */
+    /** false only when fully collapsed. */
     val isExpanding: Boolean
         get() = fraction.value > COMPOSE_THRESHOLD
 

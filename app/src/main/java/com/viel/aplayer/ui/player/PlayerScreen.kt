@@ -100,11 +100,6 @@ fun PlayerScreen(
 
     val seekUndoActionText = stringResource(R.string.player_seek_undo_action)
     val seekUndoMessageText = stringResource(R.string.player_seek_undo_message)
-
-    // =====================================================================
-    // Player Container State Gathering (To ensure layout classes remain stateless)
-    // Facilitates UI channel adaptation, decoupling, and automated views testing.
-    // =====================================================================
     val playbackProgressState = playbackViewModel.playbackProgressState
 
 
@@ -114,10 +109,8 @@ fun PlayerScreen(
     val bookmarkDialogs = bookmarkViewModel.bookmarkDialogs.collectAsStateWithLifecycle().value
 
 
-    // IDE preview data check (To supply mock parameters under layout previews)
     val metadata = playbackViewModel.metadataState.collectAsStateWithLifecycle().value
 
-    // Lower resolution backdrop image (To decouple backdrop drawing parameters from high-res main artwork)
     val playerBackdropCoverPath = CoverImageSourceSelector.backdrop(
         thumbnailPath = metadata.thumbnailPath,
         coverPath = metadata.coverPath
@@ -128,7 +121,7 @@ fun PlayerScreen(
 
     val controls = playbackViewModel.playbackControlState.collectAsStateWithLifecycle().value
 
-    
+
     val fullUiState = playbackViewModel.uiState.collectAsStateWithLifecycle().value
 
 
@@ -143,7 +136,6 @@ fun PlayerScreen(
 
     var currentMode by remember { mutableStateOf(targetMode) }
 
-    // Predict back gesture tracking (To store gesture activation status and percentage values)
     var isPlayerBackActive by remember { mutableStateOf(false) }
     var playerBackProgress by remember { mutableFloatStateOf(0f) }
 
@@ -160,7 +152,6 @@ fun PlayerScreen(
     }
     val cornerRadiusDp = with(density) { systemCornerRadius.toDp().coerceAtLeast(24.dp) }
 
-    // Determine screen orientations (To layout adaptive panels using window class attributes)
     val windowClass = LocalAppWindowSizeClass.current
     val isLandscape = windowClass.isLandscape
     val screenHorizontalPadding = windowClass.screenHorizontalPadding
@@ -169,43 +160,30 @@ fun PlayerScreen(
         currentMode = targetMode
     }
 
-    // System theme synchronization (To align player styling options with active dark/light parameters)
-    // Pass LocalDarkTheme value into theme container wrapper to bypass default system dark mode detection.
-        // Keep local dark theme (Use current theme value to prevent APlayerTheme from overriding the book-cover dynamic color scheme)
         CompositionLocalProvider(
             com.viel.aplayer.ui.common.theme.LocalDarkTheme provides com.viel.aplayer.ui.common.theme.LocalDarkTheme.current
         ) {
         val focusManager = LocalFocusManager.current
-        // Setup Haze State (Initialize local state for player backdrop blur)
-        // Splits blurred cover backgrounds into a separate visual sibling layer.
         val coverHazeState = remember { HazeState() }
-        // Player Floating Haze Source (Prefer the stable app-level sampler for player floating surfaces)
-        // CoverHazeState still owns the decorative cover blur, while chapter sheets, dialogs, dropdowns, and controls sample the player backdrop through the external HazeState when available.
         val externalFloatingHazeState = hazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
         val floatingHazeState = externalFloatingHazeState ?: coverHazeState
-        
-        // Sync Player Haze State: Initialize a separate HazeState to sample the entire player (including foreground controls).
-        // This avoids recursive rendering loops and lets the snackbar blur everything behind it.
+
         val playerHazeState = remember { HazeState() }
 
 
 
-        // Panel sheet back handler (To slide back to player main view using system back gesture)
         PredictiveBackHandler(enabled = currentMode != PlayerScreenMode.PLAYER) { progressFlow ->
             try {
                 progressFlow.collect { }
                 currentMode = PlayerScreenMode.PLAYER
             } catch (_: CancellationException) {
-                // Handle swipe cancel actions (To retain active tab modes when back gestures are aborted)
             }
         }
 
-        // Player minimalization back handler (To minimize full-screen layouts using system swipe gesture)
         PredictiveBackHandler(
             enabled = currentMode == PlayerScreenMode.PLAYER && settings.isFullPlayerVisible
         ) { progressFlow ->
             try {
-                // Accumulate drag events (To slide full-screen card down matching predictive gesture progress)
                 progressFlow.collect { backEvent ->
                     isPlayerBackActive = true
                     playerBackProgress = backEvent.progress
@@ -213,9 +191,7 @@ fun PlayerScreen(
                 actions.content.onSelectedTabChange(PlayerScreenMode.PLAYER.index)
                 navigationActions.onMinimize()
             } catch (_: CancellationException) {
-                // Drag abort handle (To restore original position when swipe gesture is cancelled)
             } finally {
-                // Reset gesture tracking (To wipe gesture progress state variables)
                 isPlayerBackActive = false
                 playerBackProgress = 0f
             }
@@ -223,7 +199,6 @@ fun PlayerScreen(
 
         val fallbackColor = MaterialTheme.colorScheme.primaryContainer
         val finalCoverColor = coverColor ?: fallbackColor
-        // Animated color transitions (To blend cover dominant color gradients smoothly)
         val animatedBgColor by animateColorAsState(
             targetValue = finalCoverColor,
             animationSpec = tween(300),
@@ -234,16 +209,9 @@ fun PlayerScreen(
         val sharedTransitionScope = LocalSharedTransitionScope.current
         val mini2PlayerTargetScope = LocalMini2PlayerTargetScope.current
 
-        // Determine starting corner radius depending on widescreen pill style versus standard bottom bar style
         val startCornerRadius = if (windowClass.isWideScreen) 100.dp else 0.dp
         val endCornerRadius = if (isLandscape) 0.dp else cornerRadiusDp
 
-        /*
-         * Outer Card Corner Radius Transition (Dynamic bounds shape interpolation)
-         * Transition the outer card corner radius from the compact layout (Pill: 100.dp / Bar: 0.dp)
-         * up to the target full screen's corner radius, preventing straight corner overflow.
-         */
-        // Align transition durations: Set full bounds corner radius transition spec to 300ms to align with other page transitions.
         val animatedCornerRadius by mini2PlayerTargetScope?.transition?.animateDp(
             label = "full_bounds_corner_radius",
             transitionSpec = { tween(300) }
@@ -252,22 +220,9 @@ fun PlayerScreen(
         }
             ?: remember(endCornerRadius) { mutableStateOf(endCornerRadius) }
 
-        /*
-         * Full Player Bounds Target (Accept mini-player geometry on every window class)
-         *
-         * The target side only needs a mini-origin visibility scope. Window size still controls the
-         * starting corner radius, but both the bottom bar and the wide pill now bind to the same
-         * playback surface bounds key when the full player is opened from the mini player.
-         */
         val boundsModifier = if (sharedTransitionScope != null && mini2PlayerTargetScope != null) {
             with(sharedTransitionScope) {
                 Modifier.sharedBounds(
-                    /*
-                     * Full Player Bounds Key (Centralized shared bounds identity)
-                     *
-                     * Resolves the full-player surface key through SharedElementKeys so it stays
-                     * aligned with compact bottom-bar player bounds without duplicating key strings.
-                     */
                     sharedContentState = rememberSharedContentState(key = SharedElementKeys.playerBounds()),
                     animatedVisibilityScope = mini2PlayerTargetScope,
                     clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(animatedCornerRadius))
@@ -277,17 +232,13 @@ fun PlayerScreen(
             Modifier
         }
 
-        // Exit translation range (To map drag offset parameters into downward exit bounds)
         val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
 
-        // Define player surface shape (To prevent clipping contents inside rotated display bounds)
         val playerSurfaceShape = if (isLandscape) {
             RectangleShape
         } else {
             RoundedCornerShape(topStart = animatedCornerRadius, topEnd = animatedCornerRadius)
         }
-        // Player Screen Trace State (Describe active player layout without logging track identity)
-        // Mode, visibility, playback, orientation, and chapter count identify redraw causes while keeping media details private.
         val playerScreenTraceState = "mode=$currentMode,full=${settings.isFullPlayerVisible}," +
             "playing=${controls.isPlaying},landscape=$isLandscape,chapters=${metadata.chapters.size}"
 
@@ -302,19 +253,15 @@ fun PlayerScreen(
                 )
                 .offset { IntOffset(0, offsetY.value.roundToInt()) }
                 .graphicsLayer {
-                    // Translate cards vertically (To animate card position downwards matching predictive gestures)
                     if (isPlayerBackActive) {
                         translationY = playerBackProgress * maxPredictiveTranslationY
                         alpha = 1f - playerBackProgress * 0.3f
                     }
                 }
                 .clip(playerSurfaceShape),
-            // Ground background bounds (To avoid transparent layout leakage during transition)
             color = bgColor
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Main Content Container: Wraps all background and foreground elements to sample them as a single sibling node.
-                // This prevents recursive rendering loops (feedback loops) when the snackbar applies hazeEffect.
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -326,17 +273,12 @@ fun PlayerScreen(
                             }
                         )
                 ) {
-                // Mitigate render-thread crash (To resolve background sampling loop errors on specific OPLUS devices)
-                // Separates blurred backdrop sampling layers and forefront components as siblings.
 
-                // 1. Pure backdrop layer (Sibling background node)
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .then(
                             if (externalFloatingHazeState != null) {
-                                // Player Backdrop App-Level Source (Register only the non-interactive backdrop for floating glass)
-                                // Controls and modal surfaces consume this HazeState as siblings, preventing the app-level sampler from capturing its own glass effects.
                                 Modifier.hazeSource(externalFloatingHazeState)
                             } else {
                                 Modifier
@@ -353,19 +295,15 @@ fun PlayerScreen(
                     )
                 }
 
-                // 2. Forefront controls layer (Sibling forefront node)
                 Box(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    // Layout resolution dispatch (To load different screen layout templates matching display shapes)
                     val isTabletLandscape = windowClass.isLandscapeTablet
                     when {
                         isTabletLandscape -> {
                             PlayerLandscapeTablet(
                                 playbackProgressState = playbackProgressState,
                                 currentChapter = currentChapter,
-                                // Parameter Alignment (Aligns parameter name with isPlaying of layout templates)
-                                // Renamed playing to isPlaying to match defined function arguments.
                                 isPlaying = controls.isPlaying,
                                 playbackSpeed = controls.playbackSpeed,
                                 isSpeedManualMode = controls.isSpeedManualMode,
@@ -405,8 +343,6 @@ fun PlayerScreen(
                             PlayerLandscapePhone(
                                 playbackProgressState = playbackProgressState,
                                 currentChapter = currentChapter,
-                                // Parameter Alignment (Aligns parameter name with isPlaying of layout templates)
-                                // Renamed playing to isPlaying to match defined function arguments.
                                 isPlaying = controls.isPlaying,
                                 playbackSpeed = controls.playbackSpeed,
                                 isSpeedManualMode = controls.isSpeedManualMode,
@@ -446,8 +382,6 @@ fun PlayerScreen(
                             PlayerPortrait(
                                 playbackProgressState = playbackProgressState,
                                 currentChapter = currentChapter,
-                                // Parameter Alignment (Aligns parameter name with isPlaying of layout templates)
-                                // Renamed playing to isPlaying to match defined function arguments.
                                 isPlaying = controls.isPlaying,
                                 playbackSpeed = controls.playbackSpeed,
                                 isSpeedManualMode = controls.isSpeedManualMode,
@@ -492,7 +426,6 @@ fun PlayerScreen(
                 }
             }
 
-                // Blur-supported seek undo banner (To alert users about coordinate rewind options)
                 AnimatedVisibility(
                     visible = settings.showUndoSeek,
                     enter = slideInVertically(
@@ -505,11 +438,8 @@ fun PlayerScreen(
                     ) + fadeOut(animationSpec = tween(150)),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        // Snackbar Screen Margin (Follow the shared responsive horizontal gutter instead of a local fixed inset)
-                        // Vertical spacing remains tied to player controls, while side spacing tracks AppWindowSizeClass.
                         .padding(horizontal = screenHorizontalPadding, vertical = 96.dp)
                 ) {
-                    // Render blur snackbar (To support blur sampling overlays under Haze styles)
                     BlurSnackbar(
                         hazeState = playerHazeState,
                         glassEffectMode = glassEffectMode,
@@ -536,8 +466,6 @@ fun PlayerScreen(
         }
 
         if (renderFloatingSurfaces) {
-            // Inline Player Floating Surface Host (Preserve standalone PlayerScreen behavior for previews and isolated tests)
-            // App shell callers can disable this branch and render the same host outside the page hazeSource to prevent nested modal sampling.
             PlayerFloatingSurfaceHost(
                 playbackProgressState = playbackProgressState,
                 metadata = metadata,
@@ -560,12 +488,8 @@ fun PlayerFloatingSurfaceHost(
     hazeState: HazeState?,
     glassEffectMode: GlassEffectMode
 ) {
-    // Chapter Sheet State Ownership (Keep modal sheet mechanics with the floating surface host)
-    // Moving the sheet state here lets PlayerOverlay render the chapter sheet as a sibling of sampled player content without duplicating sheet wiring.
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
-    // Compact Chapter List Surface (Present track index selections through the shared floating surface host)
-    // The hazeState is supplied by the caller so app-level overlays can sample a stable source while standalone screens fall back to their local sampler.
     PlaybackPositionChapterListSheetStateful(
         playbackProgressState = playbackProgressState,
         metadata = metadata,
@@ -576,8 +500,6 @@ fun PlayerFloatingSurfaceHost(
         glassEffectMode = glassEffectMode
     )
 
-    // Bookmark Creation Surface (Display bookmark naming controls through the shared floating surface host)
-    // Keeping this dialog beside the chapter sheet centralizes player modal ownership and avoids nesting dialogs inside sampled page content.
     BookmarkDialog(
         isVisible = settings.isBookmarkDialogVisible,
         defaultTitle = settings.bookmarkTitle,

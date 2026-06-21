@@ -7,7 +7,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 /**
- * Book Management Feedback Facts Test (Locks per-book identity separation and cover-metadata aggregation)
+ * Locks per-book identity separation and cover-metadata aggregation.
  *
  * Verifies deletion, read-status, and bookmark outcomes stay keyed to the book so different books never
  * absorb each other, while cover/metadata regeneration shares one global identity that lets the completed
@@ -24,7 +24,6 @@ class BookManagementFeedbackFactsTest {
             R.string.feedback_home_book_deleted_source_kept,
             (keptFact.message as FeedbackMessage.Resource).resId
         )
-        // Copy differs, but the kept/removed variants describe the same book deletion identity.
         assertEquals(keptFact.outcome.identity, removedFact.outcome.identity)
         val identity = keptFact.outcome.identity
         assertEquals(FeedbackCategory.BOOK_MANAGEMENT, identity.category)
@@ -53,7 +52,6 @@ class BookManagementFeedbackFactsTest {
         val readStatus = BookManagementFeedbackFacts
             .readStatusChanged("book-1", LibraryReadStatus.IN_PROGRESS).outcome.identity
 
-        // Same book, different topics must stay independent.
         assertEquals(deletion.context, readStatus.context)
         assertNotEquals(deletion, readStatus)
     }

@@ -1,9 +1,5 @@
 package com.viel.aplayer.ui.player.components
 
-// Migrated to BlurModalBottomSheet, enabling native Window background blur (API 31+).
-
-// Import Resolution (Brings snapshotFlow into scope to observe Compose state changes in flows)
-// Added snapshotFlow import to fix unresolved reference snapshotFlow error.
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -70,26 +66,25 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-// 5. Stateful local compartment for chapter list sheet (ChapterListSheetStateful).
-//
-// This compartment is only rendered and calculates the current chapter when the sheet is actually visible (isVisible == true).
-// It completely eliminates the dependency on PlayerViewModel, relying instead on flattened high-frequency state values passed from outside to align with the 3-layer architecture specifications.
+/**
+ * Owns the stateful shell for the chapter list sheet.
+ *
+ * This compartment is rendered only while the sheet is visible, and it derives the current
+ * chapter from flattened playback state passed by the caller instead of reaching into PlayerViewModel.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChapterListSheetStateful(
-    currentPosition: Long, // The current physical playback progress (in milliseconds), passed from upper-level stateless container to decouple ViewModel.
-    totalDuration: Long, // Total media duration (in milliseconds).
+    currentPosition: Long,
+    totalDuration: Long,
     metadata: BookMetadataState,
     settings: PlayerSettingsState,
     actions: PlayerActions,
     sheetState: SheetState,
-    // Haze State Config (Coordinate Sheet Blur Backdrop) Sourced from player backdrop sampling.
     hazeState: HazeState? = null,
-    // Receive the global glass effect mode and pass it to the actual ChapterListSheet.
     glassEffectMode: GlassEffectMode
 ) {
     if (settings.isChapterListVisible) {
-        // Calculate the current chapter according to the current position and chapter info passed from outside
         val currentChapter = remember(currentPosition, metadata.chapters) {
             PlayerChapterTimeline.currentChapter(metadata.chapters, currentPosition)
         }
@@ -103,13 +98,9 @@ fun ChapterListSheetStateful(
                 actions.playback.onSeek(pos, true)
                 actions.content.onDismissChapterList()
             },
-            // Hoist missing-file intent (Delegate the missing-chapter callback to the parent actions)
-            // Passes the playback-level missing-chapter handler down to the nested sheet.
             onMissingChapterClick = actions.playback.onMissingChapterClick,
             sheetState = sheetState,
-            // Pass the hazeState shared with the player background source to the chapter list panel effect.
             hazeState = hazeState,
-            // Material mode will return the chapter list to the native BottomSheet container layer.
             glassEffectMode = glassEffectMode
         )
     }
@@ -124,11 +115,8 @@ fun ChapterListSheet(
     totalDuration: Long,
     onDismissRequest: () -> Unit,
     onChapterClick: (Long) -> Unit,
-    // Hoist missing-file intent (Receive the missing-chapter callback from stateful container)
-    // Ensures this modal sheet stays stateless and never reaches into global contexts.
     onMissingChapterClick: (bookId: String) -> Unit,
     hazeState: HazeState? = null,
-    // Glass effect mode must be explicitly passed from the settings state by the player page; the chapter BottomSheet no longer declares a Material default.
     glassEffectMode: GlassEffectMode,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 ) {
@@ -180,21 +168,14 @@ fun ChapterListSheet(
                 onChapterClick = onChapterClick,
                 onMissingChapterClick = {},
                 listState = listState,
-                // Preview/Inspection path also passes the mode to avoid discrepancies between debug rendering and the actual BottomSheet selected state.
                 glassEffectMode = glassEffectMode
             )
         } else {
-            // Use the Haze-based version of BlurModalBottomSheet to replace the original Window-blur-based wrapper.
-            // The backdrop is sourced from the player Surface's sampling, allowing the chapter list to sample the player screen to form a frosted glass effect.
-            // All original parameters (sheetState, custom drag handle, zero inner padding, etc.) are preserved.
             BlurModalBottomSheet(
                 onDismissRequest = onDismissRequest,
                 sheetState = sheetState,
-                // Pass the HazeState sampling source shared with the player background to render a high-precision frosted glass effect on the BottomSheet overlay.
                 hazeState = hazeState,
-                // Pass the Material/Haze selection into the general BottomSheet wrapper to unify control of whether internal drawBackdrop is enabled.
                 glassEffectMode = glassEffectMode,
-                // The blur parameters of the chapter list are configured directly by BlurModalBottomSheet and are no longer passed separately here.
                 tonalElevation = 8.dp,
                 contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
                 dragHandle = {
@@ -218,7 +199,6 @@ fun ChapterListSheet(
                     onMissingChapterClick = onMissingChapterClick,
                     listState = listState,
                     bottomSpacerHeight = dynamicSpacerHeight,
-                    // The chapter list content selects different current chapter highlight styles according to the Material/Haze mode.
                     glassEffectMode = glassEffectMode
                 )
             }
@@ -232,13 +212,10 @@ fun ChapterListContent(
     currentChapter: PlayerChapterItem?,
     totalDuration: Long,
     onChapterClick: (Long) -> Unit,
-    // Hoist missing-file intent (Add the missing-chapter callback to nested content layout)
-    // Decouples layout widgets from app-level DI singletons; the parent ViewModel owns feedback classification.
     onMissingChapterClick: (bookId: String) -> Unit,
     listState: LazyListState,
     modifier: Modifier = Modifier,
     bottomSpacerHeight: Dp = 0.dp,
-    // Glass effect mode must be explicitly passed from the chapter BottomSheet; the list content no longer declares a Material default.
     glassEffectMode: GlassEffectMode
 ) {
     val screenHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
@@ -246,8 +223,6 @@ fun ChapterListContent(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            // Chapter Sheet Gutter (Reuse the app-wide screen padding so modal chapter content follows viewport rhythm)
-            // The sheet can appear on phones, tablets, and desktop-sized windows, so the side inset must not be hard-coded locally.
             .padding(horizontal = screenHorizontalPadding)
     ) {
         Text(
@@ -281,12 +256,10 @@ fun ChapterListContent(
                     val isCurrent = chapter.id == currentChapter?.id
                     val isMissing = chapter.isFileMissing
 
-                    // Haze Blur mode uses a lighter rounded glass highlight, while Material mode retains a more distinct primaryContainer selection feedback. Modified references to Haze.
                     val selectedContainerColor = when (glassEffectMode) {
                         GlassEffectMode.Haze -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.22f)
                         GlassEffectMode.Material -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.36f)
                     }
-                    // Haze Blur mode uses fine borders instead of large blue blocks, making the selected state more delicate on frosted glass and less distracting from the background. Modified references to Haze.
                     val selectedBorderModifier = if (isCurrent && glassEffectMode == GlassEffectMode.Haze) {
                         Modifier.border(
                             width = 1.dp,
@@ -296,14 +269,9 @@ fun ChapterListContent(
                     } else {
                         Modifier
                     }
-                    // Uniformly add rounded corners to the current chapter row to avoid sharp rectangular highlights on the Haze-based background.
                     val rowShape = RoundedCornerShape(8.dp)
                     ListItem(
                         headlineContent = {
-                            // Simplified chapter title layout.
-                            //
-                            // Removed the redundant "[File Unavailable]" red text to cooperate with the exquisite Rounded.Warning alert icon on the right.
-                            // At the same time, the meaningless Row container nesting was physically removed to present the chapter title Text directly, reducing recomposition depth, boosting rendering performance, and achieving a more minimalist design.
                             Text(
                                 text = chapter.title,
                                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
@@ -331,15 +299,12 @@ fun ChapterListContent(
                         },
                         trailingContent = {
                             if (isMissing) {
-                                // If the physical file corresponding to the chapter is missing, replace the duration display with a high-fidelity red warning icon.
-                                // This provides a more intuitive, premium alert feedback and enhances the overall typographic quality of the list in exception scenarios.
                                 Icon(
                                     imageVector = Icons.Rounded.Warning,
                                     contentDescription = stringResource(R.string.chapter_file_unavailable_description),
                                     tint = MaterialTheme.colorScheme.error
                                 )
                             } else {
-                                // When single files contain embedded chapters, prioritize deriving duration using adjacent start times to avoid inconsistent durationMs displays.
                                 Text(
                                     text = formatTime(PlayerChapterTimeline.duration(chapters, chapter, totalDuration)),
                                     style = MaterialTheme.typography.labelMedium,
@@ -354,8 +319,6 @@ fun ChapterListContent(
                             .then(selectedBorderModifier)
                             .clickable {
                                 if (isMissing) {
-                                    // Raise missing-file intent (Command owner publishes the recovery feedback fact)
-                                    // The leaf row only reports which book's chapter is missing; classification lives in the ViewModel.
                                     onMissingChapterClick(chapter.bookId)
                                 } else {
                                     onChapterClick(chapter.startPositionMs)
@@ -379,7 +342,6 @@ fun ChapterListContent(
     }
 }
 
-// Preview of the stateful bridge component for the chapter list sheet. Since decoupling from ViewModel has been completed, mock progress and total duration can be directly passed without constructing a ViewModel.
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, apiLevel = 36)
 @Composable
@@ -389,7 +351,7 @@ fun ChapterListSheetStatefulPreview() {
             ChapterListSheetStateful(
                 currentPosition = 120000L,
                 totalDuration = 360000L,
-                metadata = BookMetadataState(title = "三体"),
+                metadata = BookMetadataState(title = "The Three-Body Problem"),
                 settings = PlayerSettingsState(isChapterListVisible = true),
                 actions = PlayerActions(),
                 sheetState = rememberModalBottomSheetState(),
@@ -414,7 +376,6 @@ fun ChapterListSheetPreview() {
             startPositionMs = i * 60000L,
             durationMs = 60000L,
             fileOffsetMs = 0L,
-            // ChapterList preview uses the application-level chapter source enum instead of data-layer schema constants.
             source = LibraryChapterSource.EMBEDDED,
             isFileMissing = i == 5
         )
@@ -427,10 +388,8 @@ fun ChapterListSheetPreview() {
                 currentChapter = sampleChapters[17],
                 totalDuration = sampleChapters.last().startPositionMs + sampleChapters.last().durationMs,
                 onChapterClick = {},
-                // Supply mock callback in preview layout (Provide empty lambda for missing-chapter intent)
                 onMissingChapterClick = {},
                 listState = rememberLazyListState(initialFirstVisibleItemIndex = 15),
-                // Preview explicitly references the default glass effect in the settings model, preventing ChapterListContent parameters from having local default values again.
                 glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
             )
         }

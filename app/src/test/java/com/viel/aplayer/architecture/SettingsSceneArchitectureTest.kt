@@ -5,7 +5,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Settings Scene Architecture Test (Pins the stage-three settings-root dependency migration)
+ * Pins the stage-three settings-root dependency migration.
  * Prevents SettingsViewModel and SettingsScreenDependencies from drifting back to the broad library transition entry point.
  */
 class SettingsSceneArchitectureTest {
@@ -29,8 +29,6 @@ class SettingsSceneArchitectureTest {
             settingsViewModelSource.contains("settingsRootReadModel") &&
                 settingsViewModelSource.contains("settingsRootCommands")
         )
-        // Title: Update SettingsViewModel command expectations (Match current refactored settingsRootCommands call signatures in ViewModel)
-        // Prunes assertions on WebDAV/ABS root sync calls which are now encapsulated elsewhere, and asserts formatSettingsRootUseCase dependency.
         assertTrue(
             "SettingsViewModel must route root operations through the settings-root command surface.",
             listOf(
@@ -61,8 +59,6 @@ class SettingsSceneArchitectureTest {
             .filter { sourceFile -> sourceFile.isFile && sourceFile.extension == "kt" }
             .toList()
 
-        // Settings Directory Entity Guard (Covers every Kotlin source owned by the settings scene)
-        // Scanning the full ui/settings tree protects SettingsScreen, dialogs, sections, and state holders from re-importing the persisted root row.
         val leakingFiles = settingsSourceFiles.filter { sourceFile ->
             sourceFile.readText().contains("import com.viel.aplayer.data.entity.LibraryRootEntity")
         }
@@ -75,8 +71,6 @@ class SettingsSceneArchitectureTest {
 
     @Test
     fun settingsDependencyViewDoesNotInheritLibraryPresentationDependencies() {
-        // Title: Update di path in test (Point to di/dependencies/PresentationDependencies.kt)
-        // Changes relative path to target the dependencies subdirectory under di.
         val dependenciesSource = resolveSourceRoot().resolve("di/dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
         val settingsInterface = dependenciesSource.substringAfter("interface SettingsScreenDependencies")
             .substringBefore("/**\n * Player Screen Dependencies")
@@ -108,8 +102,6 @@ class SettingsSceneArchitectureTest {
     }
 
     private fun resolveSourceRoot(): File {
-        // Source Root Resolution (Supports both module and repository working directories)
-        // Gradle can execute JVM tests from different directories, so the test checks both stable source-root candidates.
         val candidates = listOf(
             File("src/main/java/com/viel/aplayer"),
             File("app/src/main/java/com/viel/aplayer")

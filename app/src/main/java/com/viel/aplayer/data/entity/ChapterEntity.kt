@@ -7,8 +7,10 @@ import androidx.room.PrimaryKey
 import com.viel.aplayer.data.db.AudiobookSchema
 
 /**
- * Audiobook Chapter Schema (Entity representing logical chapter indices parsed for books)
- * Supports mapping boundaries to specific physical audio files.
+ * Represents logical chapter boundaries parsed for a book.
+ *
+ * Each chapter keeps the physical audio-file anchor needed to remap positions after source
+ * updates without depending only on global book offsets.
  */
 @Entity(
     tableName = "chapters",
@@ -26,18 +28,17 @@ import com.viel.aplayer.data.db.AudiobookSchema
             onDelete = ForeignKey.CASCADE
         )
     ],
-    // Chapters are anchored to an AUDIO BookFile for source updates and position mapping.
     indices = [Index("bookId"), Index("bookFileId")]
 )
 data class ChapterEntity(
     @PrimaryKey
-    val id: String, // Stable chapter identifier
+    val id: String,
     val bookId: String,
-    val bookFileId: String, // Stable anchor: associated physical track asset ID
+    val bookFileId: String,
     val index: Int,
     val title: String,
-    val startPositionMs: Long, // Global starting position offset in milliseconds from the book start
+    val startPositionMs: Long,
     val durationMs: Long,
-    val fileOffsetMs: Long, // Local starting offset in milliseconds relative to the physical audio file
-    val source: AudiobookSchema.ChapterSource // EMBEDDED / CUE / M3U8 / MANUAL
+    val fileOffsetMs: Long,
+    val source: AudiobookSchema.ChapterSource
 )

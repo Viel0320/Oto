@@ -22,7 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Book Download Notification Gateway (Render one Android progress notification per manual book download)
+ * Render one Android progress notification per manual book download.
  *
  * Media3 still owns the foreground summary notification required by DownloadService, while this gateway
  * turns the durable Room aggregate into the user-facing per-book progress row.
@@ -36,8 +36,6 @@ class AndroidManualDownloadNotificationGateway(
 
     @SuppressLint("MissingPermission")
     override suspend fun publish(metadata: DownloadMetadataEntity) = withContext(Dispatchers.IO) {
-        // Notification Permission Guard (Skip publishing when Android cannot display manual-download progress)
-        // UI entry points request POST_NOTIFICATIONS before creating tasks, but this defensive check keeps background sync safe after permission changes.
         if (!canPostNotifications()) return@withContext
         ensureNotificationChannel()
         val book = bookDao.getBookById(metadata.bookId)
@@ -55,11 +53,7 @@ class AndroidManualDownloadNotificationGateway(
             notificationIdForBook(metadata.bookId),
             NotificationCompat.Builder(appContext, DOWNLOAD_NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
-                // Status Title Promotion (Make the task state text the bold notification title)
-                // The book identity remains in subText/contentText so SystemUI can still surface author-title-progress around the status row.
                 .setContentTitle(statusTitle)
-                // Header SubText Mirror (Feed the same book progress label into SystemUI's notification header slot)
-                // Some Android builds render subText where the app name header appears, so this restores the user-visible author-title-progress text there.
                 .setSubText(bookProgressLabel)
                 .setContentIntent(createContentIntent(metadata.bookId))
                 .setOnlyAlertOnce(true)
@@ -75,8 +69,6 @@ class AndroidManualDownloadNotificationGateway(
     }
 
     override suspend fun cancel(bookId: String) = withContext(Dispatchers.IO) {
-        // Book Notification Cancellation (Remove the stable notification slot for a deleted manual task)
-        // The same ID mapping is used for publish and cancel so controller deletes and Media3 removal callbacks clear the visible row deterministically.
         notificationManager.cancel(notificationIdForBook(bookId))
     }
 
@@ -91,8 +83,6 @@ class AndroidManualDownloadNotificationGateway(
     }
 
     private fun NotificationCompat.Builder.applyControlActions(metadata: DownloadMetadataEntity): NotificationCompat.Builder {
-        // Book Notification Actions (Expose state-specific task controls beside every active book notification)
-        // The actions reuse the same controller commands as the management screen, so SystemUI and in-app operations cannot drift.
         ManualDownloadNotificationPresentationPolicy.actionsFor(metadata.status).forEach { action ->
             addAction(
                 action.iconRes(),
@@ -104,9 +94,6 @@ class AndroidManualDownloadNotificationGateway(
     }
 
     private fun statusTitle(metadata: DownloadMetadataEntity): String {
-        // Shared Supplemental Status Title (Compose notification status through the same policy as management rows)
-        // The percent stays in bookProgressLabel and the progress bar, while this title carries compact file count and byte progress details.
-        // Use unified formatFileSize helper from shared package to ensure consistent formatting across settings and notifications.
         val downloadedSizeText = metadata.totalBytes
             .takeIf { totalBytes -> totalBytes > 0L }
             ?.let { formatFileSize(metadata.downloadedBytes) }
@@ -130,7 +117,6 @@ class AndroidManualDownloadNotificationGateway(
             .coerceIn(0, PROGRESS_MAX)
     }
 
-    // Redundant formatBytes helper has been removed in favor of formatFileSize from shared utilities.
 
     private fun canPostNotifications(): Boolean {
         val granted = ContextCompat.checkSelfPermission(appContext, Manifest.permission.POST_NOTIFICATIONS) ==
@@ -150,8 +136,6 @@ class AndroidManualDownloadNotificationGateway(
     }
 
     private fun createContentIntent(bookId: String): PendingIntent {
-        // Book Notification Destination (Open the settings-hosted download management page)
-        // Book-level notifications are task-management surfaces, so tapping them should land on the task list instead of the generic app shell.
         val intent = MainActivity.createOpenDownloadManagementIntent(appContext)
         return PendingIntent.getActivity(
             appContext,
@@ -162,8 +146,6 @@ class AndroidManualDownloadNotificationGateway(
     }
 
     private fun notificationIdForBook(bookId: String): Int =
-        // Stable Book Notification Id (Derive one reusable Android notification slot from the book id)
-        // Updating the same slot lets progress refresh in place instead of creating a new notification for each sync tick.
         BOOK_NOTIFICATION_ID_PREFIX or (bookId.hashCode() and BOOK_NOTIFICATION_ID_MASK)
 
     private fun ManualDownloadNotificationAction.iconRes(): Int =

@@ -6,7 +6,7 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.media.PlaybackRootLookup
 
 /**
- * Downloadable Book File Selector (Centralize the manual-cache eligibility rule)
+ * Centralize the manual-cache eligibility rule.
  *
  * Manual cache commands and orphan cleanup must agree that only remote audio rows can be submitted
  * to Media3 downloads; SAF files and manifest rows remain outside L1 manual cache ownership.
@@ -17,7 +17,7 @@ class DownloadableBookFileSelector(
 ) {
     /**
      * Retrieve remote audio files eligible for manual download caching.
-     * Excludes SAF (local) files and non-audio files (like playlists/manifests).
+     * local. files and non-audio files (like playlists/manifests).
      * Employs a local cache for library roots to prevent redundant N+1 database queries.
      */
     suspend fun remoteAudioFilesForBook(bookId: String): List<BookFileEntity> {

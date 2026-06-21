@@ -4,12 +4,12 @@ import com.viel.aplayer.library.FileRef
 import java.util.Locale
 
 /**
- * Manifest Sidecar Selection Policy (Centralizes sibling text and cover candidate ranking)
+ * Centralizes sibling text and cover candidate ranking.
  * Keeps deterministic sidecar choice rules separate from text-file I/O, charset decoding, and manifest parsing.
  */
 object ManifestSidecarSelectionPolicy {
     /**
-     * Text Sidecar Selection (Ranks same-name, common-name, and single-file description candidates)
+     * Ranks same-name, common-name, and single-file description candidates.
      * Manifest parsers can request strict same-name matching, while heuristic imports can still fall back to common metadata names or the only text file in a directory.
      */
     fun selectTextDescription(
@@ -38,7 +38,7 @@ object ManifestSidecarSelectionPolicy {
     }
 
     /**
-     * Directory Cover Selection (Prefers conventional artwork filenames before generic image fallback)
+     * Prefers conventional artwork filenames before generic image fallback.
      * Parser and recovery paths share the same cover ranking so rescans do not choose different nearby artwork for the same directory.
      */
     fun selectDirectoryCover(imageFiles: List<FileRef>): FileRef? =

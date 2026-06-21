@@ -20,7 +20,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 /**
- * Library Root Store Test (Locks source-root persistence boundaries)
+ * Locks source-root persistence boundaries.
  * Exercises root registration and edit flows at the store layer so credential staging is verified before UI, gateway, or scan scheduling code can hide ordering failures.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -47,8 +47,6 @@ class LibraryRootStoreTest {
             )
         }.exceptionOrNull()
 
-        // WebDAV Userinfo Rejection (Keep credentials in credential storage, not endpoint URLs)
-        // Endpoint normalization must stop username:password authority values before a root row or staged credential can persist the secret-bearing URL.
         assertTrue(failure is WebDavEndpointValidationException)
         assertEquals(WebDavEndpointValidationReason.UserInfoNotAllowed, (failure as WebDavEndpointValidationException).reason)
         assertEquals("WEBDAV_USERINFO_NOT_ALLOWED", failure.message)
@@ -76,8 +74,6 @@ class LibraryRootStoreTest {
                 )
             }.exceptionOrNull()
 
-            // New Root Credential Rollback Guard (Prevents unbound secrets after first-time root insert failure)
-            // A WebDAV credential created for a new root must be removed if the root row never reaches Room.
             assertTrue(failure is IllegalStateException)
             assertNull(credentialStore.get(rootDao.failedRoot?.credentialId))
         } finally {
@@ -114,8 +110,6 @@ class LibraryRootStoreTest {
                 basePath = "/success"
             )
 
-            // Credential Rebinding Commit Guard (Verifies successful WebDAV edits move the root to the staged secret)
-            // Once Room stores the new credential reference, the old credential must be retired and the updated root must resolve the new values.
             assertNotEquals(oldCredential.id, updated.credentialId)
             assertNull(credentialStore.get(oldCredential.id))
             assertEquals("new-success-user", credentialStore.get(updated.credentialId)?.username)
@@ -158,8 +152,6 @@ class LibraryRootStoreTest {
                 )
             }.exceptionOrNull()
 
-            // Credential Rollback Guard (Protects the active WebDAV secret when Room cannot commit the root row)
-            // Updating a root must stage a new credential ID, keep the previously bound credential untouched after DAO failure, and remove the unbound staged credential.
             assertTrue(failure is IllegalStateException)
             assertEquals("old-user", credentialStore.get(oldCredential.id)?.username)
             assertEquals("old-password", credentialStore.get(oldCredential.id)?.password)
@@ -201,8 +193,6 @@ class LibraryRootStoreTest {
                 )
             }.exceptionOrNull()
 
-            // WebDAV Deduplication Rollback Guard (Covers add-as-update persistence failures)
-            // Re-adding an existing endpoint must not overwrite the bound credential before the deduplicated root row is safely persisted.
             assertTrue(failure is IllegalStateException)
             assertEquals("existing-user", credentialStore.get(oldCredential.id)?.username)
             assertEquals("existing-password", credentialStore.get(oldCredential.id)?.password)
@@ -248,22 +238,18 @@ class LibraryRootStoreTest {
             roots += root
         }
 
-        // Update LibraryRootStoreTest: Match FakeLibraryRootDao updateRootGrantState to use type-safe AudiobookSchema.LibraryRootStatus.
         override suspend fun updateRootGrantState(id: String, displayName: String, grantedAt: Long, status: AudiobookSchema.LibraryRootStatus) {
             error("Unexpected updateRootGrantState call in LibraryRootStoreTest")
         }
 
-        // Update LibraryRootStoreTest: Match FakeLibraryRootDao updateRootScanState to use type-safe AudiobookSchema.LibraryRootStatus.
         override suspend fun updateRootScanState(id: String, lastScannedAt: Long, status: AudiobookSchema.LibraryRootStatus) {
             error("Unexpected updateRootScanState call in LibraryRootStoreTest")
         }
 
-        // Update LibraryRootStoreTest: Match FakeLibraryRootDao updateRootStatus to use type-safe AudiobookSchema.LibraryRootStatus.
         override suspend fun updateRootStatus(id: String, status: AudiobookSchema.LibraryRootStatus) {
             error("Unexpected updateRootStatus call in LibraryRootStoreTest")
         }
 
-        // Update LibraryRootStoreTest: Match FakeLibraryRootDao updateRootAvailability to use type-safe AudiobookSchema.AvailabilityStatus.
         override suspend fun updateRootAvailability(
             id: String,
             availabilityStatus: AudiobookSchema.AvailabilityStatus,
@@ -278,8 +264,6 @@ class LibraryRootStoreTest {
         }
 
         private fun isActiveAbsRoot(root: LibraryRootEntity): Boolean {
-            // Active ABS Root Fixture Filter (Keep the fake aligned with the Room DAO warmup query)
-            // LibraryRootStore tests use one in-memory fake for all root queries, so the ABS-specific path must preserve both active-status and source-type predicates.
             return root.status == AudiobookSchema.LibraryRootStatus.ACTIVE &&
                 root.sourceType == AudiobookSchema.LibrarySourceType.ABS
         }

@@ -16,7 +16,7 @@ data class WebDavConnectionTestResult(
 )
 
 /**
- * WebDAV Connection Tester (Validates settings credentials with a single Depth-0 PROPFIND)
+ * Validates settings credentials with a single Depth-0 PROPFIND.
  * SettingsViewModel receives only success or failure outcomes, while URL normalization, TLS selection, and HTTP response mapping stay behind this application-facing module.
  */
 class WebDavConnectionTester(
@@ -36,8 +36,6 @@ class WebDavConnectionTester(
         val normalizedBasePath = normalizeWebDavBasePath(basePath, url)
         val targetUrl = if (normalizedBasePath.isEmpty()) normalizedEndpoint else "$normalizedEndpoint$normalizedBasePath"
         val settings = appSettingsRepository.cachedSettings
-        // Unsafe Network Preflight (Block HTTP test requests before Basic Auth headers are sent)
-        // Connection testing uses the same global policy as VFS reads so a successful test cannot authorize a root that playback would later reject.
         UnsafeNetworkPolicy.requireCleartextHttpAllowed(targetUrl, settings, "WebDAV connection test")
         val request = Request.Builder()
             .url(targetUrl)
@@ -45,8 +43,6 @@ class WebDavConnectionTester(
             .header("Depth", "0")
             .apply {
                 if (username.isNotBlank() || password.isNotBlank()) {
-                    // WebDAV Basic Auth Header (Compiles credentials only at request time)
-                    // The tester never persists or exposes the password, preserving credential ownership in WebDavCredentialStore.
                     header("Authorization", Credentials.basic(username, password, Charsets.UTF_8))
                 }
             }
@@ -72,8 +68,6 @@ class WebDavConnectionTester(
         val authority = parsed.encodedAuthority
             ?: throw WebDavEndpointValidationException(WebDavEndpointValidationReason.MissingHost)
         if (!parsed.encodedUserInfo.isNullOrBlank()) {
-            // WebDAV Userinfo Rejection (Keep credentials in credential storage, not endpoint URLs)
-            // Connection tests share root normalization rules so secret-bearing endpoint URLs are blocked before any authenticated PROPFIND can be built.
             throw WebDavEndpointValidationException(WebDavEndpointValidationReason.UserInfoNotAllowed)
         }
         if (scheme != "http" && scheme != "https") {

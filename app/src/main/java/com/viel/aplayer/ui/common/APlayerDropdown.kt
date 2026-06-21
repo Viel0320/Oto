@@ -85,8 +85,8 @@ import kotlin.math.roundToInt
 /**
  * One dropdown option.
  *
- * [content] is the primary slot — callers fully own the row's leading/main content. [count] is an
- * OPTIONAL trailing slot (pass null to omit) so the same component renders both "label + count"
+ * [content] is the primary slot; callers fully own the row's leading/main content. [count] is an
+ * pass null to omit. so the same component renders both "label + count"
  * filter rows and bare action rows. [key] gives each row a stable identity used for stagger keying
  * and for mapping the currently-selected row to its in-list position during the morph.
  */
@@ -99,7 +99,7 @@ class APlayerDropdownItem(
 )
 
 /**
- * Convenience builder for the common "label + optional count" row (e.g. "全部 75").
+ * Convenience builder for the common "label + optional count" row, such as "All 75".
  *
  * Keeps callers from writing a slot lambda for the dominant case while still producing a full
  * [APlayerDropdownItem] so the count slot stays optional and the row stays customizable elsewhere.
@@ -196,11 +196,6 @@ object APlayerDropdownDefaults {
     @Composable
     fun shapes(): APlayerDropdownShapes = APlayerDropdownShapes()
 }
-
-/* ------------------------------------------------------------------------------------------------
- * Internal morph machinery
- * ---------------------------------------------------------------------------------------------- */
-
 /**
  * Resolved expansion origin after the anchor's available room is measured.
  *
@@ -252,16 +247,12 @@ private class DropdownMorphState(
 
     fun provider(): () -> Float = { fraction.value }
 
-    // Stable boolean to avoid recomposition on every animation frame.
-    // Only recomposes when crossing the visibility threshold.
     private val _isVisible = mutableStateOf(initial > 0.0001f)
     val isVisible: Boolean
         get() = _isVisible.value
 
     fun animateTo(target: Float) {
         scope.launch {
-            // Update visibility immediately when EXPANDING (target > 0), but only after animation
-            // completes when COLLAPSING (target = 0), so the popup stays visible during close animation.
             if (target > 0.0001f) {
                 _isVisible.value = true
             }
@@ -272,7 +263,6 @@ private class DropdownMorphState(
                     stiffness = Spring.StiffnessMediumLow,
                 ),
             )
-            // Hide popup after collapse animation completes
             if (target <= 0.0001f) {
                 _isVisible.value = false
             }
@@ -391,11 +381,6 @@ private fun resolvePanelRect(
         Rect(left, anchor.bottom - panelHeightPx, right, anchor.bottom)
     }
 }
-
-/* ------------------------------------------------------------------------------------------------
- * Public component
- * ---------------------------------------------------------------------------------------------- */
-
 /**
  * A dropdown that morphs between a collapsed outlined button and an expanded floating panel.
  *
@@ -435,19 +420,13 @@ fun APlayerDropdown(
 
     val safeSelectedIndex = selectedIndex?.takeIf { it in items.indices }
 
-    // Resolve Haze State: Fallback to LocalHazeState if no explicit hazeState is passed
     val resolvedHazeState = hazeState ?: LocalHazeState.current
 
-    // Anchor bounds in WINDOW coordinates — the floating panel and the flying row are positioned in
-    // this same space, which is what keeps the morph one continuous piece across the popup boundary.
-    // We measure the VISUAL bounds (32dp inner row), not the touch target (48dp outer box).
     var anchorBounds by remember { mutableStateOf<Rect?>(null) }
     val fractionProvider = morph.provider()
 
     Box(
         modifier = modifier
-            // While the panel owns the visible surface, the in-layout button keeps its space but goes
-            // invisible so the caller's layout never reflows and only one copy is ever seen.
             .graphicsLayer { alpha = 1f - fractionProvider().coerceIn(0f, 1f) }
     ) {
         CollapsedAnchor(
@@ -510,20 +489,16 @@ private fun CollapsedAnchor(
     val shape = RoundedCornerShape(shapes.collapsedCorner)
     val expandedStateDescription = if (expanded) "expanded" else "collapsed"
 
-    // Dropdown button has no selected state — always use the unselected chip appearance:
-    // transparent background with outline border
     val containerColor = Color.Transparent
-    val borderColor = colors.collapsedBorder  // Use same border color as morph surface
-    val contentColor = colors.content  // Use same content color as expanded panel
+    val borderColor = colors.collapsedBorder
+    val contentColor = colors.content
 
-    // Match the expanded morph surface: in Haze mode the resting pill is glass, not a flat chip.
     val hazeModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
         Modifier.hazeEffect(state = hazeState, style = HazeMaterials.ultraThin())
     } else {
         Modifier
     }
 
-    // Outer touch target: 48dp minimum for a11y, wraps visual content width
     Box(
         modifier = Modifier
             .defaultMinSize(minHeight = DropdownCollapsedTouchTarget)
@@ -536,7 +511,6 @@ private fun CollapsedAnchor(
             .semantics { stateDescription = expandedStateDescription },
         contentAlignment = Alignment.Center,
     ) {
-        // Inner visual pill: 32dp height, chip-like styling (always unselected appearance)
         Row(
             modifier = Modifier
                 .onGloballyPositioned { onVisualBoundsMeasured(it.boundsInWindow()) }
@@ -564,7 +538,6 @@ private fun CollapsedAnchor(
             } else {
                 val item = selectedIndex?.let(items::getOrNull)
                 if (item != null) {
-                    // Render with chip-like typography: labelLarge, always normal weight (no bold)
                     androidx.compose.runtime.CompositionLocalProvider(
                         androidx.compose.material3.LocalContentColor provides contentColor,
                     ) {
@@ -597,7 +570,7 @@ private object TopLeftPositionProvider : PopupPositionProvider {
 }
 
 /**
- * The floating canvas. Fills the window (clipping disabled) so the morph surface can paint above or
+ * clipping disabled. so the morph surface can paint above or
  * below the anchor. Estimates the panel height to choose a direction on the first frame (no jump),
  * then refines from the real measured height. All morphed geometry is computed per-frame from the
  * shared fraction and read only in draw/layout lambdas.
@@ -629,16 +602,12 @@ private fun DropdownPopup(
             clippingEnabled = false,
         ),
     ) {
-        // The popup fills the window; BoxWithConstraints reports the real window extent used for the
-        // open-direction decision and the horizontal edge clamping.
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val winWPx = with(density) { maxWidth.toPx() }
             val winHPx = with(density) { maxHeight.toPx() }
             val edgeMarginPx = with(density) { DropdownSpacingBase.toPx() }
             val maxWrapWidth = maxWidth - DropdownSpacingBase * 2
 
-            // Natural content size, measured OFF the morph surface (see PanelMeasurer) so the
-            // surface's animating size can never feed back into the panel size. Null until measured.
             var measuredPanelHeightPx by remember { mutableStateOf<Float?>(null) }
             var measuredPanelWidthPx by remember { mutableStateOf<Float?>(null) }
 
@@ -648,8 +617,6 @@ private fun DropdownPopup(
                 APlayerDropdownWidth.Wrap -> null
             }
 
-            // One-shot measurement: render the measurer only until we have a size, then remove it
-            // to stop it from re-composing and re-measuring every animation frame.
             val hasMeasured = measuredPanelWidthPx != null && measuredPanelHeightPx != null
             if (!hasMeasured) {
                 PanelMeasurer(
@@ -670,15 +637,12 @@ private fun DropdownPopup(
             } else {
                 winHPx * DropdownMaxHeightFraction
             }
-            // Surface height tracks real measured content (capped); the open-direction decision below
-            // uses the stable estimate so a late measure can never flip direction mid-animation.
             val panelHeightPx = (measuredPanelHeightPx ?: estimatedHeightPx).coerceAtMost(maxHeightPx)
 
             val resolvedWidthPx = when (panelWidth) {
                 APlayerDropdownWidth.MatchAnchor -> anchor.width
                 is APlayerDropdownWidth.Fixed -> with(density) { panelWidth.width.toPx() }
                 APlayerDropdownWidth.Wrap -> {
-                    // Min width = collapsed button's actual width (measured at animation start)
                     val minWidthPx = anchor.width
                     (measuredPanelWidthPx ?: anchor.width)
                         .coerceIn(minWidthPx, (winWPx - edgeMarginPx * 2f).coerceAtLeast(minWidthPx))
@@ -715,8 +679,6 @@ private fun DropdownPopup(
                 edgeMarginPx = edgeMarginPx,
             )
 
-            // Outside-tap scrim: transparent full-window tap target that dismisses. Sits beneath the
-            // morph surface so option taps hit the surface first.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -749,7 +711,7 @@ private fun DropdownPopup(
 /**
  * Off-surface measurement pass.
  *
- * Lays out the rows at their natural size — unconstrained by the animating morph surface — and
+ * Lays out the rows at their natural size, unconstrained by the animating morph surface, and
  * reports the panel's intrinsic width/height. Rendered at alpha 0 and non-interactive; it exists
  * only so the visible surface can size to real content without a measure -> size -> measure loop.
  * Its row shell mirrors the visible list exactly so the reported size matches the real panel.
@@ -784,7 +746,6 @@ private fun PanelMeasurer(
                     .padding(horizontal = DropdownRowHorizontalPadding),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                // Render row content but override its internal fillMaxWidth to wrap instead
                 androidx.compose.runtime.CompositionLocalProvider(
                     androidx.compose.material3.LocalContentColor provides contentColor,
                 ) {
@@ -805,7 +766,7 @@ private fun PanelMeasurer(
  * The single morphing surface plus its contents.
  *
  * The outer Box is positioned and sized by [Modifier.layout] from `lerpRect(anchor, panelRect, f)`,
- * and its background, border, corner, and elevation are lerp'd in the same draw pass — so the
+ * and its background, border, corner, and elevation are lerp'd in the same draw pass, so the
  * collapsed button and the expanded panel are literally one surface at two fractions. Inside, the
  * option rows are laid out at full panel size from the start (stable slots) while their reveal is
  * staggered; in filter mode the selected row is drawn as a separate child that travels from the
@@ -836,7 +797,6 @@ private fun DropdownMorphSurface(
     val expandedElevationPx = with(density) { APlayerDropdownDefaults.ExpandedElevation.toPx() }
     val panelPaddingPx = with(density) { DropdownPanelVerticalPadding.toPx() }
 
-    // Setup haze modifier for glass effect
     val hazeModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
         Modifier.hazeEffect(state = hazeState, style = HazeMaterials.ultraThin())
     } else {
@@ -845,8 +805,6 @@ private fun DropdownMorphSurface(
 
     Box(
         modifier = Modifier
-            // Position + size: the surface IS the morphing rectangle. Read fraction here (layout
-            // phase) so geometry changes never recompose this subtree.
             .layout { measurable, _ ->
                 val f = fractionProvider().coerceIn(0f, 1f)
                 val rect = lerpRect(anchor, panelRect, f)
@@ -870,7 +828,6 @@ private fun DropdownMorphSurface(
                 val f = fractionProvider().coerceIn(0f, 1f)
                 val cornerPx = lerp(collapsedCornerPx, expandedCornerPx, f)
                 val corner = CornerRadius(cornerPx, cornerPx)
-                // Only draw background when haze is disabled; haze provides its own background
                 if (glassEffectMode != GlassEffectMode.Haze || hazeState == null) {
                     val bg = lerp(colors.collapsedContainer, colors.expandedContainer, f)
                     drawRoundRect(color = bg, cornerRadius = corner)
@@ -889,8 +846,6 @@ private fun DropdownMorphSurface(
                 }
             },
     ) {
-        // Option list: laid out at full size, revealed by stagger. The selected row's slot is left
-        // transparent because the flying child below occupies it; they coincide exactly at f = 1.
         DropdownOptionList(
             items = items,
             selectedIndex = selectedIndex,
@@ -902,7 +857,6 @@ private fun DropdownMorphSurface(
             onDismiss = onDismiss,
         )
 
-        // Flying selected row (filter mode only): travels from the button's content box to its slot.
         if (selectedIndex != null) {
             val rowHeightPx = with(density) { DropdownUnifiedHeight.toPx() }
             FlyingSelectedRow(
@@ -947,7 +901,6 @@ private fun DropdownOptionList(
     ) {
         items.forEachIndexed { index, item ->
             val isSelected = index == selectedIndex
-            // Order rows from the origin edge: top-first when opening down, bottom-first when up.
             val orderFromOrigin = if (direction.opensDown) index else items.lastIndex - index
             Box(
                 modifier = Modifier
@@ -955,8 +908,6 @@ private fun DropdownOptionList(
                     .heightIn(min = DropdownUnifiedHeight)
                     .graphicsLayer {
                         if (isSelected) {
-                            // The flying child renders this row during the morph; reveal the static
-                            // copy only at the very end so there is no double-draw and no seam.
                             alpha = if (fractionProvider() >= 0.999f) 1f else 0f
                         } else {
                             val startAt = (DropdownStaggerBase + orderFromOrigin * DropdownStaggerStep)
@@ -982,8 +933,6 @@ private fun DropdownOptionList(
                     .padding(horizontal = DropdownRowHorizontalPadding),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                // Keep the selected slot transparent during the morph (the flying child stands in)
-                // but always present so the row keeps its height and the layout stays stable.
                 if (!isSelected) {
                     DropdownRowContent(item = item, contentColor = contentColor)
                 }
@@ -995,7 +944,7 @@ private fun DropdownOptionList(
 /**
  * The selected row drawn as an independent child that lerps from the collapsed button's content box
  * to its computed in-list slot, so the current selection visibly moves into place instead of
- * cross-fading. Decorative during flight — semantics are cleared so the static list owns them.
+ * cross-fading. Decorative during flight; semantics are cleared so the static list owns them.
  */
 @Composable
 private fun FlyingSelectedRow(
@@ -1021,19 +970,13 @@ private fun FlyingSelectedRow(
             .clearAndSetSemantics { }
             .layout { measurable, constraints ->
                 val f = fractionProvider().coerceIn(0f, 1f)
-                // Source: the button's content box (window space), to the right of the chevron.
-                // Use collapsed visual height (32dp) centered in the anchor.
                 val srcLeft = anchor.left + collapsedLeadingPaddingPx + chevronBlockPx
                 val srcTop = anchor.top + (anchor.height - collapsedVisualHeightPx) / 2f
                 val src = Rect(srcLeft, srcTop, anchor.right - collapsedPaddingPx, srcTop + collapsedVisualHeightPx)
-                // Target: the row's slot inside the panel (window space), using expanded row height (32dp).
-                // Account for vertical spacing between rows.
                 val tgtLeft = panelRect.left + horizontalPaddingPx
                 val tgtTop = panelRect.top + panelPaddingPx + selectedIndex * (expandedRowHeightPx + rowSpacingPx)
                 val tgt = Rect(tgtLeft, tgtTop, panelRect.right - horizontalPaddingPx, tgtTop + expandedRowHeightPx)
                 val rect = lerpRect(src, tgt, f)
-                // Convert window-space rect to this surface's local space (surface origin = panelRect
-                // top-left at f = 1, lerp'd anchor top-left at f = 0).
                 val surfaceLeft = lerp(anchor.left, panelRect.left, f)
                 val surfaceTop = lerp(anchor.top, panelRect.top, f)
                 val w = rect.width.roundToInt().coerceAtLeast(0)
@@ -1077,51 +1020,32 @@ private fun DropdownRowContent(
         }
     }
 }
-
-/* ------------------------------------------------------------------------------------------------
- * Dimension tokens
- * ---------------------------------------------------------------------------------------------- */
-
-// Core dimensions: unified 32dp height + 4dp spacing
-private val DropdownUnifiedHeight = 32.dp  // Collapsed button and expanded row height
+private val DropdownUnifiedHeight = 32.dp
 private val DropdownRowVerticalSpacing = 4.dp
 
-// 8dp spacing family (base unit for padding and margins)
-private val DropdownSpacingBase = 8.dp  // Leading padding, chevron spacing, edge margin
-private val DropdownPanelVerticalPadding = DropdownSpacingBase  // Panel top/bottom inset
+private val DropdownSpacingBase = 8.dp
+private val DropdownPanelVerticalPadding = DropdownSpacingBase
 
-// Horizontal padding
-private val DropdownCollapsedHorizontalPadding = 16.dp  // 2 × base
+private val DropdownCollapsedHorizontalPadding = 16.dp
 private val DropdownRowHorizontalPadding = 20.dp
 
-// Other dimensions
 private val DropdownCollapsedTouchTarget = 48.dp
 private val DropdownBorderWidth = 1.dp
 private val DropdownChevronSize = 18.dp
 private val DropdownCountSpacing = 12.dp
 private val DropdownRowEnterTranslation = 14.dp
-
-/* ------------------------------------------------------------------------------------------------
- * Dimension helpers — computed values used in multiple places
- * ---------------------------------------------------------------------------------------------- */
-
-/** Chevron icon + spacing block width (used in collapsed button and flying row calculations) */
+/** Measures the chevron icon plus spacing block used by collapsed and flying rows. */
 private fun Density.chevronBlockWidth(): Float =
     (DropdownChevronSize + DropdownSpacingBase).toPx()
 
-/** Calculate total panel height for given number of rows */
+/** Calculates total panel height for a fixed number of rows. */
 private fun Density.calculatePanelHeight(rowCount: Int): Float {
     val rowHeightPx = DropdownUnifiedHeight.toPx()
     val rowSpacingPx = DropdownRowVerticalSpacing.toPx()
-    return DropdownPanelVerticalPadding.toPx() * 2f +  // top + bottom
+    return DropdownPanelVerticalPadding.toPx() * 2f +
         rowCount * rowHeightPx +
         (rowCount - 1).coerceAtLeast(0) * rowSpacingPx
 }
-
-/* ------------------------------------------------------------------------------------------------
- * Animation tuning
- * ---------------------------------------------------------------------------------------------- */
-
 private const val DropdownMaxHeightFraction = 0.6f
 private const val DropdownStaggerBase = 0.15f
 private const val DropdownStaggerStep = 0.06f
