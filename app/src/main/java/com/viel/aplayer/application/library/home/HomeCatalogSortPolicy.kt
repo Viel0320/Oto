@@ -1,9 +1,21 @@
 package com.viel.aplayer.application.library.home
 
 import android.icu.text.Collator
+import com.viel.aplayer.application.library.home.HomeCatalogSortPolicy.organize
 import com.viel.aplayer.shared.settings.HomeSortDirection
 import com.viel.aplayer.shared.settings.HomeSortRule
 import java.util.Locale
+
+/**
+ * Home Catalog Organization (Sorted rows plus section groups from one projection pass)
+ *
+ * Carries both Home list outputs so callers can avoid sorting rows and then recomputing group labels
+ * over the same batch immediately afterward.
+ */
+data class HomeCatalogOrganization(
+    val sortedBooks: List<HomeBookItem>,
+    val groupedBooks: Map<String, List<HomeBookItem>>
+)
 
 /**
  * Home Catalog Sort Policy (Orders Home catalog sections by script cluster and locale collation)
@@ -13,13 +25,66 @@ import java.util.Locale
  */
 object HomeCatalogSortPolicy {
     private const val UNKNOWN_GROUP_LABEL = "Unknown"
+    private val threadLocalCollators: ThreadLocal<Map<HomeScriptCluster, Collator>> = ThreadLocal.withInitial {
+        HomeScriptCluster.entries.associateWith { cluster -> cluster.createCollator() }
+    }
 
+    /**
+     * Organizes Home catalog rows with one cached projection pass.
+     *
+     * The sorted list and grouped map are derived from the same internal projection instances, so
+     * Home avoids re-trimming metadata keys and re-resolving visible section labels after sorting.
+     */
+    fun organize(
+        books: List<HomeBookItem>,
+        sortRule: HomeSortRule,
+        sortDirection: HomeSortDirection = HomeSortDirection.Ascending
+    ): HomeCatalogOrganization {
+        val projections = sortedProjections(
+            books = books,
+            sortRule = sortRule,
+            sortDirection = sortDirection
+        )
+        val sortedBooks = ArrayList<HomeBookItem>(projections.size)
+        val groupedBooks = linkedMapOf<String, MutableList<HomeBookItem>>()
+        projections.forEach { projection ->
+            sortedBooks += projection.book
+            groupedBooks.getOrPut(projection.groupLabel) { mutableListOf() } += projection.book
+        }
+        return HomeCatalogOrganization(
+            sortedBooks = sortedBooks,
+            groupedBooks = groupedBooks
+        )
+    }
+
+    /**
+     * Sorts Home catalog rows while reusing thread-local ICU collators.
+     *
+     * This remains available for callers that only need ordering. Callers that also need section
+     * groups should use [organize] so sort keys and group labels are projected once per batch.
+     */
     fun sort(
         books: List<HomeBookItem>,
         sortRule: HomeSortRule,
         sortDirection: HomeSortDirection = HomeSortDirection.Ascending
     ): List<HomeBookItem> {
-        val collators = HomeScriptCluster.entries.associateWith { cluster -> cluster.createCollator() }
+        return sortedProjections(
+            books = books,
+            sortRule = sortRule,
+            sortDirection = sortDirection
+        ).map { projection -> projection.book }
+    }
+
+    fun groupLabel(book: HomeBookItem, sortRule: HomeSortRule): String {
+        return book.sortKey(sortRule).ifBlank { UNKNOWN_GROUP_LABEL }
+    }
+
+    private fun sortedProjections(
+        books: List<HomeBookItem>,
+        sortRule: HomeSortRule,
+        sortDirection: HomeSortDirection
+    ): List<HomeSortProjection> {
+        val collators = checkNotNull(threadLocalCollators.get())
         // Script Cluster Projection (Cache sort keys before comparison)
         // Kotlin's comparator can invoke comparisons repeatedly, so each book receives one immutable projection containing
         // the selected metadata key, its script cluster, display fallback, and deterministic tie breakers.
@@ -28,11 +93,6 @@ object HomeCatalogSortPolicy {
             .sortedWith { left, right ->
                 compareProjections(left, right, sortDirection, collators)
             }
-            .map { projection -> projection.book }
-    }
-
-    fun groupLabel(book: HomeBookItem, sortRule: HomeSortRule): String {
-        return book.sortKey(sortRule).ifBlank { UNKNOWN_GROUP_LABEL }
     }
 
     private fun compareProjections(

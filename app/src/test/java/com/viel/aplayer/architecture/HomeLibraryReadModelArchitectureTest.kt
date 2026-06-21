@@ -46,9 +46,10 @@ class HomeLibraryReadModelArchitectureTest {
                 libraryViewModelSource.contains("homeLibraryReadModel.hasRegisteredLibraryRoots")
         )
         assertTrue(
-            "LibraryViewModel must own Home catalog sorting and grouping policy.",
-            libraryViewModelSource.contains("HomeCatalogSortPolicy.sort(") &&
-                libraryViewModelSource.contains("HomeCatalogSortPolicy.groupLabel(")
+            "LibraryViewModel must organize Home catalog sorting and grouping through one policy pass.",
+            libraryViewModelSource.contains("HomeCatalogSortPolicy.organize(") &&
+                !libraryViewModelSource.contains("HomeCatalogSortPolicy.sort(") &&
+                !libraryViewModelSource.contains("HomeCatalogSortPolicy.groupLabel(")
         )
         assertTrue(
             "LibraryViewModel must send home commands through HomeLibraryUseCases.",

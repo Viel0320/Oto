@@ -107,6 +107,24 @@ class HomeCatalogSortPolicyTest {
         )
     }
 
+    @Test
+    fun `organize returns sorted books and grouped sections from one policy pass`() {
+        val books = listOf(
+            book(id = "blank", author = " "),
+            book(id = "english-b", author = "Bob"),
+            book(id = "english-a", author = "Alice"),
+            book(id = "chinese", author = "张三")
+        )
+
+        val organization = HomeCatalogSortPolicy.organize(books, HomeSortRule.Author)
+
+        // Organization Projection Contract (Share sorted rows and section labels from the same policy)
+        // The grouped map preserves sorted insertion order, including the Unknown fallback for blank metadata.
+        assertEquals(listOf("chinese", "english-a", "english-b", "blank"), organization.sortedBooks.map { book -> book.id })
+        assertEquals(listOf("张三", "Alice", "Bob", "Unknown"), organization.groupedBooks.keys.toList())
+        assertEquals(listOf("english-a"), organization.groupedBooks.getValue("Alice").map { book -> book.id })
+    }
+
     private fun book(
         id: String,
         author: String,

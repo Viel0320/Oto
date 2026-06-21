@@ -107,14 +107,11 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         val filteredAudiobooks = statusFilteredAudiobooks.filter { book ->
             book.matchesFilter(activeFilter)
         }
-        val sortedAudiobooks = HomeCatalogSortPolicy.sort(
+        val catalogOrganization = HomeCatalogSortPolicy.organize(
             books = filteredAudiobooks,
             sortRule = appSettings.homeSortRule,
             sortDirection = appSettings.homeSortDirection
         )
-        val groupedAudiobooks = sortedAudiobooks.groupBy { book ->
-            HomeCatalogSortPolicy.groupLabel(book, appSettings.homeSortRule)
-        }
         val recentBooks = when (activeFilter) {
             HomeFilter.NotStarted -> statusFilteredAudiobooks.filter { book -> book.isNotStarted }
                 .sortedByDescending { book -> book.addedAt }
@@ -134,8 +131,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
             hasRegisteredLibraryRoots = hasRegisteredLibraryRoots,
             selectedFilter = activeFilter,
             homeBookStatusFilter = activeBookStatusFilter,
-            filteredAudiobooks = sortedAudiobooks,
-            groupedAudiobooks = groupedAudiobooks,
+            filteredAudiobooks = catalogOrganization.sortedBooks,
+            groupedAudiobooks = catalogOrganization.groupedBooks,
             recentBooks = recentBooks,
             recentTitleRes = when (activeFilter) {
                 HomeFilter.NotStarted -> R.string.recently_added_title
