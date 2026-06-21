@@ -163,6 +163,7 @@ fun PlayerScreen(
     // Determine screen orientations (To layout adaptive panels using window class attributes)
     val windowClass = LocalAppWindowSizeClass.current
     val isLandscape = windowClass.isLandscape
+    val screenHorizontalPadding = windowClass.screenHorizontalPadding
 
     LaunchedEffect(targetMode) {
         currentMode = targetMode
@@ -504,8 +505,9 @@ fun PlayerScreen(
                     ) + fadeOut(animationSpec = tween(150)),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        // Offset snackbar margins (To avoid overlapping seek undo bar over bottom controls area)
-                        .padding(horizontal = 16.dp, vertical = 96.dp)
+                        // Snackbar Screen Margin (Follow the shared responsive horizontal gutter instead of a local fixed inset)
+                        // Vertical spacing remains tied to player controls, while side spacing tracks AppWindowSizeClass.
+                        .padding(horizontal = screenHorizontalPadding, vertical = 96.dp)
                 ) {
                     // Render blur snackbar (To support blur sampling overlays under Haze styles)
                     BlurSnackbar(

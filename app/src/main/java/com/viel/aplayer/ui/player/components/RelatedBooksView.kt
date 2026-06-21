@@ -122,6 +122,7 @@ private fun relatedSectionBookKey(
 
 @Composable
 private fun RelatedSectionHeader(title: String) {
+
     Text(
         text = title,
         style = MaterialTheme.typography.titleMedium,
@@ -132,7 +133,14 @@ private fun RelatedSectionHeader(title: String) {
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 8.dp)
+            // Related Header Gutter (Align section titles with the shared player/list horizontal rhythm)
+            // Keeping this tied to AppWindowSizeClass prevents recommendation headings from drifting on wider layouts.
+            .padding(
+                start = 0.dp,
+                top = 24.dp,
+                end = 0.dp,
+                bottom = 8.dp
+            )
     )
 }
 
@@ -163,6 +171,12 @@ private fun RelatedAudiobookItem(
         // Forces views reload when cover images are regenerated.
         coverLastUpdated = book.coverLastUpdated,
         progressPercent = book.progressPercent,
+        contentPadding = PaddingValues(
+            start = 0.dp,
+            top = 8.dp,
+            end = 0.dp,
+            bottom = 8.dp
+        ),
         onClick = { onBookClick(book) },
         onPlayClick = { onPlayClick(book) }
     )

@@ -95,6 +95,7 @@ fun AboutLibrariesScreen(
     val layoutDirection = LocalLayoutDirection.current
     val density = LocalDensity.current
     val windowClass = LocalAppWindowSizeClass.current
+    val screenHorizontalPadding = windowClass.screenHorizontalPadding
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
     val startPadding = safeDrawingPadding.calculateStartPadding(layoutDirection)
     val endPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
@@ -123,8 +124,8 @@ fun AboutLibrariesScreen(
             contentWindowInsets = WindowInsets.safeDrawing
         ) { innerPadding ->
             val licenseContentPadding = PaddingValues(
-                start = startPadding + 16.dp,
-                end = endPadding + 16.dp,
+                start = startPadding + screenHorizontalPadding,
+                end = endPadding + screenHorizontalPadding,
                 top = measuredAboutTopBarHeight + 16.dp,
                 bottom = innerPadding.calculateBottomPadding() + 24.dp
             )

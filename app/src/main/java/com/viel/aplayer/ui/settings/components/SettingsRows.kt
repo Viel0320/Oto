@@ -26,6 +26,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 
 /**
  * Settings Row Components (Own reusable single-row controls for Settings sections)
@@ -35,6 +36,7 @@ import com.viel.aplayer.R
 /**
  * Settings Item Component (Renders a clickable navigation/action row)
  * Used for settings entries that trigger another flow rather than directly mutating a persisted preference.
+ * Horizontal row padding follows AppWindowSizeClass so every settings row can share one viewport gutter.
  */
 @Composable
 fun SettingsItem(
@@ -43,11 +45,13 @@ fun SettingsItem(
     subtitle: String? = null,
     onClick: () -> Unit
 ) {
+    val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(16.dp),
+            .padding(horizontal = rowHorizontalPadding, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -73,6 +77,7 @@ fun SettingsItem(
 /**
  * Settings Toggle Item Component (Renders a boolean preference row)
  * Keeps the row click target and Switch callback aligned so touch and switch interactions update the same setting.
+ * Horizontal row padding follows AppWindowSizeClass while the vertical density remains fixed for settings rhythm.
  */
 @Composable
 fun SettingsToggleItem(
@@ -83,6 +88,7 @@ fun SettingsToggleItem(
     onCheckedChange: (Boolean) -> Unit,
     enabled: Boolean = true
 ) {
+    val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
     // Settings Toggle State Description (Provide localized row-owned switch state text)
     // TalkBack reads this value from the merged settings row, so the visual Switch does not need to expose its own duplicate state node.
     val toggleStateDescription = stringResource(
@@ -106,7 +112,7 @@ fun SettingsToggleItem(
                 stateDescription = toggleStateDescription
             }
             .then(if (enabled) Modifier else Modifier.alpha(0.38f))
-            .padding(16.dp),
+            .padding(horizontal = rowHorizontalPadding, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -141,6 +147,7 @@ fun SettingsToggleItem(
 /**
  * Settings Slider Item Component (Renders a numeric preference row)
  * Keeps label, formatted value, and slider mechanics together for settings that expose bounded numeric controls.
+ * Horizontal row padding follows AppWindowSizeClass to stay aligned with adjacent settings controls.
  */
 @Composable
 fun SettingsSliderItem(
@@ -154,6 +161,7 @@ fun SettingsSliderItem(
     valueFormatter: (Float) -> String,
     enabled: Boolean = true
 ) {
+    val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
     // Localized Slider Value Summary (Format the setting subtitle and current value through resources)
     // The subtitle and formatted value are supplied by callers, while their punctuation and ordering belong to localized UI chrome.
     val valueSummaryText = stringResource(R.string.settings_slider_value_summary, subtitle, valueFormatter(value))
@@ -162,7 +170,7 @@ fun SettingsSliderItem(
         modifier = Modifier
             .fillMaxWidth()
             .then(if (enabled) Modifier else Modifier.alpha(0.38f))
-            .padding(16.dp),
+            .padding(horizontal = rowHorizontalPadding, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(

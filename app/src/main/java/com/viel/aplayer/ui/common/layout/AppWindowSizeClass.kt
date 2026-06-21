@@ -88,7 +88,7 @@ data class AppWindowSizeClass(
      * Responsive Side Padding: Differentiate margins for spacing layout.
      */
     val screenHorizontalPadding: Dp
-        get() = 16.dp
+        get() = 24.dp
     //if (isWideScreen or isLandscape) 24.dp else 16.dp
 
     /**

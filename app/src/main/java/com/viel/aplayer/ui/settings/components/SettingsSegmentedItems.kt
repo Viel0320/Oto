@@ -29,6 +29,7 @@ import com.viel.aplayer.shared.formatFileSize
 import com.viel.aplayer.shared.settings.SeekStepSeconds
 import com.viel.aplayer.shared.settings.SleepMode
 import com.viel.aplayer.shared.settings.ThemeMode
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 
 /**
  * Settings Segmented Items (Own multi-choice Settings controls)
@@ -39,6 +40,7 @@ import com.viel.aplayer.shared.settings.ThemeMode
 /**
  * Settings Segmented Sleep Mode Item (Renders sleep countdown strategy choices)
  * Keeps the three sleep modes in one component so the timer section can focus on feature grouping rather than button-row mechanics.
+ * Horizontal row padding follows AppWindowSizeClass to align multi-choice controls with simple settings rows.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,10 +52,11 @@ fun SettingsSegmentedSleepModeItem(
     onModeSelected: (SleepMode) -> Unit
 ) {
     val modes = listOf(SleepMode.Regular, SleepMode.MotionTracking, SleepMode.SleepTracking)
+    val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(horizontal = rowHorizontalPadding, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -110,6 +113,7 @@ fun SettingsSegmentedSleepModeItem(
  *
  * The control stays interactive for Material and Haze glass effects because Haze no longer owns
  * appearance mode selection; dynamic color follows the same wallpaper seed path in both modes.
+ * Horizontal row padding follows AppWindowSizeClass so segmented rows remain aligned with the rest of Settings.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -121,10 +125,11 @@ fun SettingsSegmentedThemeModeItem(
     onModeSelected: (ThemeMode) -> Unit
 ) {
     val modes = listOf(ThemeMode.System, ThemeMode.Light, ThemeMode.Dark)
+    val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(horizontal = rowHorizontalPadding, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -169,6 +174,7 @@ fun SettingsSegmentedThemeModeItem(
 /**
  * Settings Segmented Seek Step Item (Renders constrained short-seek increments)
  * Keeps the 10/20/30-second option set in one reusable component so playback behavior settings cannot drift between backward and forward rows.
+ * Horizontal row padding follows AppWindowSizeClass to keep playback controls aligned with neighboring settings rows.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -180,10 +186,11 @@ fun SettingsSegmentedSeekStepItem(
     onStepSelected: (SeekStepSeconds) -> Unit
 ) {
     val steps = SeekStepSeconds.supported
+    val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(horizontal = rowHorizontalPadding, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -249,6 +256,7 @@ private fun playbackBufferSizeOptions(): List<PlaybackBufferSizeOption> =
 /**
  * SettingsSegmentedPlaybackBufferItem Composable.
  * Renders a segmented selection bar inside the main settings layout to configure the player's max buffer capacity in memory.
+ * Horizontal row padding follows AppWindowSizeClass so cache controls share the same responsive Settings gutter.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -259,11 +267,12 @@ fun SettingsSegmentedPlaybackBufferItem(
     val options = remember { playbackBufferSizeOptions() }
     val resolvedSelectedBytes = options.firstOrNull { option -> option.bytes == selectedBytes }?.bytes
         ?: com.viel.aplayer.shared.settings.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES
+    val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(horizontal = rowHorizontalPadding, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(

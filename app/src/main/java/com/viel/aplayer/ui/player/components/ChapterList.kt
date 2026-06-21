@@ -60,6 +60,7 @@ import com.viel.aplayer.shared.formatTime
 import com.viel.aplayer.shared.settings.AppSettings
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.BlurModalBottomSheet
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.player.BookMetadataState
 import com.viel.aplayer.ui.player.PlayerActions
@@ -240,10 +241,14 @@ fun ChapterListContent(
     // Glass effect mode must be explicitly passed from the chapter BottomSheet; the list content no longer declares a Material default.
     glassEffectMode: GlassEffectMode
 ) {
+    val screenHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
+
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            // Chapter Sheet Gutter (Reuse the app-wide screen padding so modal chapter content follows viewport rhythm)
+            // The sheet can appear on phones, tablets, and desktop-sized windows, so the side inset must not be hard-coded locally.
+            .padding(horizontal = screenHorizontalPadding)
     ) {
         Text(
             text = stringResource(R.string.chapter_list_title),

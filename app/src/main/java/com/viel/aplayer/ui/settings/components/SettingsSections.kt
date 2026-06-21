@@ -52,6 +52,7 @@ import com.viel.aplayer.shared.settings.PlaybackSeekStepConfig
 import com.viel.aplayer.shared.settings.SeekStepSeconds
 import com.viel.aplayer.shared.settings.SleepMode
 import com.viel.aplayer.shared.settings.ThemeMode
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.settings.appLanguageLabel
 
 /**
@@ -65,6 +66,8 @@ fun LibraryDirectoriesSection(
     onDeletedBookRecoveryClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
+
     Column(modifier = modifier) {
         SettingsSectionHeader(title = stringResource(R.string.settings_library_management_title))
         libraryRootDisplays.forEach { display ->
@@ -84,7 +87,9 @@ fun LibraryDirectoriesSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onRootClick(display) }
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    // Library Root Row Gutter (Match custom root rows to the shared settings row inset)
+                    // Remote/local root rows are not built with SettingsItem, so they read AppWindowSizeClass directly to avoid a separate fixed margin.
+                    .padding(horizontal = rowHorizontalPadding, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(

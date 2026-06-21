@@ -18,6 +18,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -54,13 +55,13 @@ import com.viel.aplayer.shared.formatCompactDuration
 import com.viel.aplayer.ui.common.CoverImageVariant
 import com.viel.aplayer.ui.common.LazyCoverImage
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.motion.SharedElementKeys
 
 
 private val HomeListRowMinHeight = 72.dp
-private val HomeListRowHorizontalPadding = 16.dp
 private val HomeListRowVerticalPadding = 8.dp
 private val HomeListCoverSize = 56.dp
 private val HomeListMetadataGap = 16.dp
@@ -73,6 +74,7 @@ private val HomeListTrailingVisualOffset = 8.dp
  * The public API and visual slots stay stable for callers, while the implementation avoids the
  * Material ListItem slot wrapper, text-style providers, and container color locals that were being
  * created for every row in the lazy grid.
+ * Leading row inset follows AppWindowSizeClass so Home, Search, Related, and Recovery lists share one responsive gutter.
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -111,7 +113,10 @@ fun ListItem(
     moreActionsLabel: String? = null,
     // Replaceable Trailing Action (Allows non-home scenes to reuse the book row body with their own command)
     // Home keeps the default play button, while recovery can render a restore button without duplicating cover and metadata layout.
-    trailingContent: (@Composable () -> Unit)? = null
+    trailingContent: (@Composable () -> Unit)? = null,
+    // Custom Content Padding (Allows callers to override the default responsive row gutter)
+    // If null, the row uses standard Home list responsive padding based on AppWindowSizeClass.
+    contentPadding: PaddingValues? = null
 ) {
     // Localized List Row Copy (Resolve badge, metadata fallback, metadata separator, and play-button accessibility text)
     // Book titles and people names are library data, while NEW, row separators, and Play are app-authored UI labels.
@@ -129,6 +134,7 @@ fun ListItem(
     val metadataStyle = typography.labelSmall
     val primaryTextColor = colorScheme.onSurface
     val secondaryTextColor = colorScheme.onSurfaceVariant
+    val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
 
     Row(
         // Replace original clickable with combinedClickable to listen to onClick and onLongClick gestures
@@ -163,10 +169,12 @@ fun ListItem(
                 )
             }
             .padding(
-                start = HomeListRowHorizontalPadding,
-                end = HomeListTrailingVisualOffset,
-                top = HomeListRowVerticalPadding,
-                bottom = HomeListRowVerticalPadding
+                contentPadding ?: PaddingValues(
+                    start = rowHorizontalPadding,
+                    end = rowHorizontalPadding - HomeListTrailingVisualOffset,
+                    top = HomeListRowVerticalPadding,
+                    bottom = HomeListRowVerticalPadding
+                )
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -45,6 +45,7 @@ import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImage
 import com.viel.aplayer.ui.common.CoverImageVariant
 import com.viel.aplayer.ui.common.formatPeopleSubtitle
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.motion.SharedElementKeys
@@ -77,6 +78,7 @@ fun CompactMediaPlayer(
 
     val sharedTransitionScope = LocalSharedTransitionScope.current
     val mini2PlayerSourceScope = LocalMini2PlayerSourceScope.current
+    val screenHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
     /*
      * Outer Card Corner Radius Transition (Dynamic bounds shape interpolation)
      * Transition the outer card corner radius from the compact bar's 0.dp to the full screen's 28.dp.
@@ -180,7 +182,7 @@ fun CompactMediaPlayer(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(start = screenHorizontalPadding, end = screenHorizontalPadding - 8.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Transition Key Consistency Validation (Prevent invalid or empty shared transition keys)
@@ -264,24 +266,29 @@ fun CompactMediaPlayer(
                         maxLines = 1
                     )
                 }
-
-                IconButton(
-                    onClick = actions.onPlayPauseClick,
-                    modifier = Modifier.size(48.dp)
+                Box(
+                    modifier = Modifier
+                        .size(48.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Animated play <-> pause glyph driven by isPlaying, morphing
-                    // via the shared avd_play_pause asset and tinted with onSurface.
-                    val playPauseImage = AnimatedImageVector.animatedVectorResource(R.drawable.avd_play_pause)
-                    val playPausePainter = rememberAnimatedVectorPainter(
-                        animatedImageVector = playPauseImage,
-                        atEnd = isPlaying
-                    )
-                    Image(
-                        painter = playPausePainter,
-                        contentDescription = playPauseContentDescription,
-                        modifier = Modifier.size(32.dp),
-                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface)
-                    )
+                    IconButton(
+                        onClick = actions.onPlayPauseClick,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        // Animated play <-> pause glyph driven by isPlaying, morphing
+                        // via the shared avd_play_pause asset and tinted with onSurface.
+                        val playPauseImage = AnimatedImageVector.animatedVectorResource(R.drawable.avd_play_pause)
+                        val playPausePainter = rememberAnimatedVectorPainter(
+                            animatedImageVector = playPauseImage,
+                            atEnd = isPlaying
+                        )
+                        Image(
+                            painter = playPausePainter,
+                            contentDescription = playPauseContentDescription,
+                            modifier = Modifier.size(32.dp),
+                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface)
+                        )
+                    }
                 }
             }
         }

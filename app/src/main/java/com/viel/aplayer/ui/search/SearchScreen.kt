@@ -60,6 +60,7 @@ import com.viel.aplayer.application.library.search.SearchHistoryItem
 import com.viel.aplayer.application.library.search.SearchResultSnapshot
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.CoverImageSourceSelector
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import com.viel.aplayer.ui.home.components.ListItem
@@ -178,12 +179,14 @@ fun SearchContent(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val scrollState = rememberLazyListState()
+    val screenHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
 
-    // Dynamically sense side cutout screen and landscape navigation bar based on runtime WindowInsets.safeDrawing, avoiding hard-coded offsets entirely
+    // Search Horizontal Insets (Combine physical safeDrawing bounds with the app-wide responsive screen padding token)
+    // This keeps the overlay aligned with other screens when AppWindowSizeClass changes its horizontal rhythm.
     val safeDrawingPadding = WindowInsets.safeDrawing.asPaddingValues()
     val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
-    val searchStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection) + 16.dp
-    val searchEndPadding = safeDrawingPadding.calculateEndPadding(layoutDirection) + 16.dp
+    val searchStartPadding = safeDrawingPadding.calculateStartPadding(layoutDirection) + screenHorizontalPadding
+    val searchEndPadding = safeDrawingPadding.calculateEndPadding(layoutDirection) + screenHorizontalPadding
 
     LaunchedEffect(scrollState.isScrollInProgress) {
         if (scrollState.isScrollInProgress) {
@@ -337,7 +340,12 @@ fun SearchContent(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
+                                        .padding(
+                                            start = screenHorizontalPadding,
+                                            end = screenHorizontalPadding,
+                                            top = 8.dp,
+                                            bottom = 4.dp
+                                        )
                                 ) {
                                     Text(
                                         text = recentSearchesText,
@@ -431,7 +439,10 @@ fun SearchContent(
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                                    modifier = Modifier.padding(
+                                        horizontal = screenHorizontalPadding,
+                                        vertical = 4.dp
+                                    )
                                 )
                             }
                             items(
@@ -503,7 +514,12 @@ fun SearchContent(
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
+                                    modifier = Modifier.padding(
+                                        start = screenHorizontalPadding,
+                                        end = screenHorizontalPadding,
+                                        top = 8.dp,
+                                        bottom = 4.dp
+                                    )
                                 )
                             }
                             items(
