@@ -14,7 +14,7 @@ import java.lang.reflect.Proxy
  * Cover Recovery Gateway Service Tests (Delegation contract for the consolidated self-heal seam)
  *
  * Pins that the gateway is a thin forwarder: the single-book and force paths delegate to the CoverSelfHealer
- * verbatim, and the catalog sweep replays the trigger for every active book returned by the DAO snapshot.
+ * verbatim, and the catalog sweep replays only the bounded DAO candidate snapshot.
  */
 class CoverRecoveryGatewayImplTest {
 
@@ -59,6 +59,21 @@ class CoverRecoveryGatewayImplTest {
     }
 
     @Test
+    fun `recoverMissingCovers applies the startup sweep limit before triggering self heal`() = runBlocking {
+        val healer = RecordingCoverSelfHealer()
+        val books = listOf(sampleBook("b1"), sampleBook("b2"), sampleBook("b3"))
+        val gateway = CoverRecoveryGatewayImpl(
+            bookDao = fakeBookDao(books),
+            coverSelfHealer = healer,
+            sweepPolicy = CoverRecoverySweepPolicy(maxBooksPerSweep = 2, batchSize = 1, batchDelayMs = 0L)
+        )
+
+        gateway.recoverMissingCovers()
+
+        assertEquals(listOf("b1", "b2"), healer.triggeredBookIds)
+    }
+
+    @Test
     fun `recoverMissingCovers does nothing when the catalog snapshot is empty`() = runBlocking {
         val healer = RecordingCoverSelfHealer()
         val gateway = CoverRecoveryGatewayImpl(fakeBookDao(emptyList()), healer)
@@ -91,9 +106,10 @@ class CoverRecoveryGatewayImplTest {
         Proxy.newProxyInstance(
             BookDao::class.java.classLoader,
             arrayOf(BookDao::class.java)
-        ) { _, method, _ ->
+        ) { _, method, args ->
             when (method.name) {
                 "getAllBooksOnce" -> books
+                "getCoverRecoveryCandidates" -> books.take(args?.firstOrNull() as Int)
                 else -> throw UnsupportedOperationException("Unexpected DAO method: ${method.name}")
             }
         } as BookDao

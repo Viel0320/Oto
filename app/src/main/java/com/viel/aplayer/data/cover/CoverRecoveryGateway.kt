@@ -23,10 +23,10 @@ interface CoverRecoveryGateway {
     suspend fun forceRegenerate(bookId: String): Boolean
 
     /**
-     * Recover Missing Covers (Single background sweep over the active catalog)
+     * Recover Missing Covers (Budgeted background sweep over the active catalog)
      *
-     * Snapshots the non-deleted books once and replays [triggerRecovery] for each, keeping filesystem presence
-     * checks off the first-frame path. Idempotent across cold starts because the helper dedups in-flight work.
+     * Samples a bounded set of non-deleted books and replays [triggerRecovery] in small batches, keeping filesystem
+     * presence checks and VFS-side recovery work away from the first-frame and early-scroll path.
      */
     suspend fun recoverMissingCovers()
 }

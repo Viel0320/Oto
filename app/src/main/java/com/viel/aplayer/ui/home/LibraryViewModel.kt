@@ -271,9 +271,9 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private companion object {
-        // Cold-start scan waits for the first frame so WorkManager scheduling does not steal cold-start I/O.
+        // Cold-start scan waits until the first catalog interaction window has passed before enqueuing WorkManager.
         private const val COLD_START_SCAN_DELAY_MS = 2_000L
-        // Cover sweep runs slightly earlier than the scan; it is cheap and only re-checks cached artwork presence.
+        // Cover sweep starts after first paint and uses its own bounded batch budget in the data layer.
         private const val COVER_RECOVERY_SWEEP_DELAY_MS = 1_000L
     }
 

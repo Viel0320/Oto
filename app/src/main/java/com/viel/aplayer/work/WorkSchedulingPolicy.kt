@@ -16,7 +16,8 @@ import java.util.concurrent.TimeUnit
 object WorkSchedulingPolicy {
     private const val LIBRARY_SYNC_WORK_NAME = "LibrarySyncWork"
     private const val ABS_SYNC_PREFIX = "abs-sync:"
-    private const val DEFAULT_BACKOFF_DELAY_SECONDS = 30L
+    private const val DEFAULT_BACKOFF_DELAY_SECONDS = 10L
+    private const val COLD_START_INITIAL_DELAY_SECONDS = 2L
 
     /**
      * Library Sync Work Policy (Differentiates cold-start debounce from user/root-edit refreshes)
@@ -36,7 +37,13 @@ object WorkSchedulingPolicy {
             constraints = if (requiresNetwork) connectedNetworkConstraints() else Constraints.NONE,
             backoffPolicy = BackoffPolicy.EXPONENTIAL,
             backoffDelay = DEFAULT_BACKOFF_DELAY_SECONDS,
-            backoffTimeUnit = TimeUnit.SECONDS
+            backoffTimeUnit = TimeUnit.SECONDS,
+            initialDelay = if (trigger == AudiobookSchema.ScanTrigger.COLD_START) {
+                COLD_START_INITIAL_DELAY_SECONDS
+            } else {
+                0L
+            },
+            initialDelayTimeUnit = TimeUnit.SECONDS
         )
 
     /**
@@ -52,7 +59,9 @@ object WorkSchedulingPolicy {
             constraints = connectedNetworkConstraints(),
             backoffPolicy = BackoffPolicy.EXPONENTIAL,
             backoffDelay = DEFAULT_BACKOFF_DELAY_SECONDS,
-            backoffTimeUnit = TimeUnit.SECONDS
+            backoffTimeUnit = TimeUnit.SECONDS,
+            initialDelay = 0L,
+            initialDelayTimeUnit = TimeUnit.SECONDS
         )
 
     private fun connectedNetworkConstraints(): Constraints =
@@ -73,5 +82,7 @@ data class UniqueWorkSchedulingPolicy(
     val constraints: Constraints,
     val backoffPolicy: BackoffPolicy,
     val backoffDelay: Long,
-    val backoffTimeUnit: TimeUnit
+    val backoffTimeUnit: TimeUnit,
+    val initialDelay: Long,
+    val initialDelayTimeUnit: TimeUnit
 )

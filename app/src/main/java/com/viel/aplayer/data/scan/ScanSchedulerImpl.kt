@@ -1,6 +1,8 @@
 package com.viel.aplayer.data.scan
 
 import android.content.Context
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -87,7 +89,7 @@ class ScanSchedulerImpl(
         // Enqueue Unique Work (Apply trigger-aware replacement and connectivity policy)
         // Cold-start scans keep debounce behavior, while user/root-edit scans replace stale queued work so new root settings are not dropped.
         val workManager = WorkManager.getInstance(appContext)
-        val request = OneTimeWorkRequestBuilder<LibrarySyncWorker>()
+        val requestBuilder = OneTimeWorkRequestBuilder<LibrarySyncWorker>()
             .setInputData(
                 Data.Builder()
                     .putString("trigger", trigger)
@@ -95,6 +97,10 @@ class ScanSchedulerImpl(
             )
             .setConstraints(policy.constraints)
             .setBackoffCriteria(policy.backoffPolicy, policy.backoffDelay, policy.backoffTimeUnit)
+        if (policy.initialDelay > 0L) {
+            requestBuilder.setInitialDelay(policy.initialDelay, policy.initialDelayTimeUnit)
+        }
+        val request = requestBuilder
             .build()
         workManager.enqueueUniqueWork(
             policy.uniqueWorkName,
@@ -116,6 +122,7 @@ class ScanSchedulerImpl(
         createScanSession().execute(ScanCommand(scanTrigger))
     }
 
+    @OptIn(UnstableApi::class)
     private fun createScanSession(): ScanSession =
         ScanSession(
             rootStatusAdapter = {

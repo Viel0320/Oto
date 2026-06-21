@@ -116,6 +116,23 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE status != 'DELETED'")
     suspend fun getAllBooksOnce(): List<BookEntity>
 
+    /**
+     * Cover Recovery Sweep Candidates (Bounded startup self-heal snapshot)
+     * Prioritizes books with missing stored artwork paths, then samples the oldest scanned books so cold-start recovery
+     * no longer walks the whole catalog or performs unbounded cache-presence checks while Home is settling.
+     */
+    @Query("""
+        SELECT * FROM books
+        WHERE status != 'DELETED'
+        ORDER BY
+            CASE WHEN coverPath IS NULL OR thumbnailPath IS NULL THEN 0 ELSE 1 END,
+            lastScannedAt ASC,
+            addedAt DESC,
+            title ASC
+        LIMIT :limit
+    """)
+    suspend fun getCoverRecoveryCandidates(limit: Int): List<BookEntity>
+
     // UI lists hide soft-deleted books while their BookFile claims stay reserved.
     @Transaction
     @Query("""

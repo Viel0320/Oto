@@ -25,6 +25,9 @@ class WorkSchedulingPolicyTest {
         assertEquals("LibrarySyncWork", coldStart.uniqueWorkName)
         assertEquals(ExistingWorkPolicy.KEEP, coldStart.existingWorkPolicy)
         assertEquals(ExistingWorkPolicy.REPLACE, user.existingWorkPolicy)
+        assertEquals(2L, coldStart.initialDelay)
+        assertEquals(TimeUnit.SECONDS, coldStart.initialDelayTimeUnit)
+        assertEquals(0L, user.initialDelay)
     }
 
     @Test
@@ -38,7 +41,7 @@ class WorkSchedulingPolicyTest {
         // The scheduler should not launch network-required root scans until WorkManager observes connectivity.
         assertEquals(NetworkType.CONNECTED, policy.constraints.requiredNetworkType)
         assertEquals(BackoffPolicy.EXPONENTIAL, policy.backoffPolicy)
-        assertEquals(30L, policy.backoffDelay)
+        assertEquals(10L, policy.backoffDelay)
         assertEquals(TimeUnit.SECONDS, policy.backoffTimeUnit)
     }
 
