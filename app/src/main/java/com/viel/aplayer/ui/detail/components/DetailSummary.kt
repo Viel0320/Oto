@@ -38,7 +38,7 @@ fun DetailSummary(
         Text(
             text = stringResource(R.string.summary_label),
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
         Spacer(modifier = Modifier.height(12.dp))
         

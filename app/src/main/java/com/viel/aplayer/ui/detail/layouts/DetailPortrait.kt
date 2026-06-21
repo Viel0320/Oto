@@ -191,9 +191,8 @@ fun DetailPortrait(
             isLandscape = false
         )
 
-        if (uiState.fullSourcePath.isEmpty()) {
-            Spacer(modifier = Modifier.height(16.dp))
-        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Synopsis Segment (Renders the text description of the audiobook)
         DetailSummary(

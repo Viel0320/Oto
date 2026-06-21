@@ -206,7 +206,7 @@ fun DetailLandscapePhone(
                 isLandscape = true,
             )
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             DetailSummary(description = book?.description ?: "")
 
