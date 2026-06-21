@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +16,8 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -125,10 +128,11 @@ fun DetailContent(
     // Setup coverHazeState (Manage detail-specific blur state) Replaced coverBackdrop with coverHazeState.
     val coverHazeState = remember { HazeState() }
 
-    // Exclude Keyboard Insets (Avoid Detail Recomposition on IME change)
-    // Exclude WindowInsets.ime from safeDrawing to prevent the details page from unnecessary recompositions
-    // when the soft keyboard pops up or dismisses inside the overlapping SearchOverlay.
-    val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
+    // IME-Independent Safe Area (Keep Detail layout stable while SearchOverlay's keyboard animates)
+    // safeDrawing already unions the IME, and exclude() subtracts edge-by-edge: once the keyboard is taller
+    // than the navigation bar the bottom inset collapses to 0, so the weight-based cover is re-measured on
+    // every IME frame. Build the safe area from systemBars + displayCutout, which never carries the IME inset.
+    val safeDrawingPadding = WindowInsets.systemBars.union(WindowInsets.displayCutout).asPaddingValues()
 
     val scope = rememberCoroutineScope()
     val offsetY = remember { Animatable(0f) }
