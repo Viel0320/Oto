@@ -45,7 +45,7 @@ class UserVisibleStringResourceTest {
             "settings_cleartext_title",
             "settings_sleep_timer_title",
             "player_widget_fallback_author",
-            "media_session_add_bookmark",
+            "bookmark_add_title",
             "chapter_file_unavailable_description",
             "bookmark_default_title",
             // Related Books Header Resource Snapshot (Pins player related-section titles after recommendation localization)
@@ -53,7 +53,7 @@ class UserVisibleStringResourceTest {
             "player_related_recommended",
             "player_related_more_by_author",
             "player_related_more_by_narrator",
-            "player_related_recently_added"
+            "recently_added_title"
         ).forEach { key ->
             assertTrue("strings.xml must define $key.", strings.contains("""name="$key""""))
         }
