@@ -61,7 +61,14 @@ class PlayerLibraryModuleTest {
     @Test
     fun coldStartPreviewUsesLastProgressAndBookDurationOnly() = runBlocking {
         val queryGateway = FakeBookQueryGateway(
-            booksById = mapOf(BOOK_ID to book(totalDurationMs = 9_000L))
+            booksById = mapOf(
+                BOOK_ID to book(
+                    title = "Preview Book",
+                    totalDurationMs = 9_000L,
+                    coverPath = "cover/original.jpg",
+                    thumbnailPath = "cover/thumb.jpg"
+                )
+            )
         )
         val progressGateway = FakeProgressGateway(
             lastProgress = BookProgressEntity(
@@ -78,8 +85,23 @@ class PlayerLibraryModuleTest {
         val preview = module.getBookPreview(BOOK_ID)
 
         assertEquals(PlayerRestoredProgressSnapshot(BOOK_ID, 4_500L), progress)
-        assertEquals(PlayerBookPreview(BOOK_ID, 9_000L), preview)
+        assertEquals(
+            PlayerBookPreview(
+                bookId = BOOK_ID,
+                title = "Preview Book",
+                author = "Author",
+                narrator = "Narrator",
+                coverPath = "cover/original.jpg",
+                thumbnailPath = "cover/thumb.jpg",
+                coverLastUpdated = 123L,
+                durationMs = 9_000L
+            ),
+            preview
+        )
         assertEquals(listOf(BOOK_ID), queryGateway.requestedBookIds)
+        assertTrue(queryGateway.observedBookIds.isEmpty())
+        assertTrue(queryGateway.chapterBookIds.isEmpty())
+        assertTrue(queryGateway.bookmarkBookIds.isEmpty())
     }
 
     @Test

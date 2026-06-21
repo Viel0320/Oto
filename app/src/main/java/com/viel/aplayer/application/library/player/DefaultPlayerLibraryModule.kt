@@ -87,6 +87,12 @@ class DefaultPlayerLibraryModule(
         return bookCatalogGateway.getBookById(bookId)?.let { book ->
             PlayerBookPreview(
                 bookId = book.id,
+                title = book.title,
+                author = book.author,
+                narrator = book.narrator,
+                coverPath = book.coverPath,
+                thumbnailPath = book.thumbnailPath,
+                coverLastUpdated = book.lastScannedAt,
                 durationMs = book.totalDurationMs
             )
         }

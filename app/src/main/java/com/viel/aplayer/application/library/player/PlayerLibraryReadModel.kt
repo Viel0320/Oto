@@ -151,11 +151,17 @@ data class PlayerRestoredProgressSnapshot(
 )
 
 /**
- * Player Book Preview (Cold-start duration projection)
- * Supplies the compact-player duration value needed for visual preview restoration without requiring a full book entity in the UI layer.
+ * Player Book Preview (Cold-start compact-player projection)
+ * Supplies only book-row fields that the mini-player needs before real playback preparation starts.
  */
 data class PlayerBookPreview(
     val bookId: String,
+    val title: String,
+    val author: String,
+    val narrator: String,
+    val coverPath: String?,
+    val thumbnailPath: String?,
+    val coverLastUpdated: Long,
     val durationMs: Long
 )
 
@@ -190,8 +196,8 @@ interface PlayerLibraryReadModel {
     suspend fun getLastPlayedSnapshot(): PlayerRestoredProgressSnapshot?
 
     /**
-     * Book Preview Lookup (Cold-start book duration lookup)
-     * Returns only the duration data required to restore preview progress for a known book id.
+     * Book Preview Lookup (Cold-start compact-player lookup)
+     * Returns the book-row projection required to restore mini-player metadata without preparing media files.
      */
     suspend fun getBookPreview(bookId: String): PlayerBookPreview?
 

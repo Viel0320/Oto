@@ -5,9 +5,11 @@ import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.application.library.player.PlayerBookPreview
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.application.library.player.PlayerLibraryMetadata
 import com.viel.aplayer.application.library.player.PlayerRelatedData
+import com.viel.aplayer.application.library.player.PlayerRestoredProgressSnapshot
 import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
 import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.event.feedback.PlaybackControlFeedbackFacts
@@ -95,11 +97,25 @@ class PlaybackViewModel(
         val requestStartMs: Long
     )
 
+    /**
+     * Restored Playback Preview (Cold-start mini-player state before media preparation)
+     *
+     * Keeps the startup preview separate from _currentBookId so restoring the mini-player does not
+     * imply that a playback plan, Media3 source, subtitles, chapters, or related rows are ready.
+     */
+    private data class RestoredPlaybackPreview(
+        val metadata: BookMetadataState,
+        val playback: PlaybackState
+    ) {
+        val bookId: String = metadata.id
+    }
+
     private val _absProgressConflictDialog = MutableStateFlow(AbsProgressConflictDialogState())
     val absProgressConflictDialogState: StateFlow<AbsProgressConflictDialogState> = _absProgressConflictDialog.asStateFlow()
 
     private var pendingAbsProgressConflict: ResolveProgressConflictUseCase.ConflictSnapshot? = null
     private var pendingAbsProgressLoadRequest: PendingAbsProgressLoadRequest? = null
+    private val _restoredPlaybackPreview = MutableStateFlow<RestoredPlaybackPreview?>(null)
 
     private val playbackDelegate = MediaPlaybackDelegate(
         playbackController = { playbackController },
@@ -109,21 +125,39 @@ class PlaybackViewModel(
 
     private var onCoverUpdateCallback: ((String?) -> Unit)? = null
 
+    /**
+     * Metadata State (Prepared media metadata or cold-start preview metadata)
+     *
+     * Emits preview metadata while no prepared media source is selected, then switches to the live
+     * metadata stream after loadBook selects a real playback target.
+     */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val metadataState: StateFlow<BookMetadataState> = _currentBookId
-        .flatMapLatest { id ->
-            if (id == null) return@flatMapLatest flowOf(BookMetadataState())
+    val metadataState: StateFlow<BookMetadataState> = combine(
+        _currentBookId,
+        _restoredPlaybackPreview
+    ) { id, preview -> id to preview }
+        .flatMapLatest { (id, preview) ->
+            if (id == null) return@flatMapLatest flowOf(preview?.metadata ?: BookMetadataState())
 
             playerLibraryReadModel.observeMetadata(id, _currentSubtitles)
                 .map { metadata -> metadata.toBookMetadataState() }
         }
         .stateIn(externalScope, SharingStarted.WhileSubscribed(5000), BookMetadataState())
 
+    /**
+     * Related Data State (Prepared-media recommendation rows)
+     *
+     * Keeps recommendation queries disabled for cold-start previews because the compact player does
+     * not render those rows and startup should avoid expanding beyond the saved book projection.
+     */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    private val _relatedData = metadataState
-        .flatMapLatest { meta ->
+    private val _relatedData = combine(
+        metadataState,
+        _currentBookId
+    ) { meta, preparedBookId -> meta to preparedBookId }
+        .flatMapLatest { (meta, preparedBookId) ->
             val id = meta.id
-            if (id.isBlank() || id == "Unknown") {
+            if (id.isBlank() || id == "Unknown" || preparedBookId != id) {
                 return@flatMapLatest flowOf(
                     PlayerRelatedData(
                         emptyList(),
@@ -143,28 +177,49 @@ class PlaybackViewModel(
             PlayerRelatedData(emptyList(), emptyList(), emptyList(), emptyList())
         )
 
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val playbackState: StateFlow<PlaybackState> = _currentBookId
-        .flatMapLatest { _ ->
-            // Title: Remove redundant flatMapLatest null-safety check (Combines playback controller states directly since playbackController is non-nullable)
-            combine(
-                playbackController.isPlaying,
-                playbackController.currentPosition,
-                playbackController.bufferedPosition,
-                playbackController.duration,
-                playbackController.playbackSpeed
-            ) { isPlaying, pos, bufferedPos, dur, speed ->
-                PlaybackState(
-                    isPlaying = isPlaying,
-                    currentPosition = pos,
-                    bufferedPosition = bufferedPos,
-                    duration = dur,
-                    playbackSpeed = speed,
-                    playWhenReady = isPlaying
-                )
-            }
+    /**
+     * Controller Playback State (Live Media3 playback projection)
+     *
+     * Represents only the actual playback engine state so preview restoration can compose over it
+     * without pretending the controller has a prepared source.
+     */
+    private val controllerPlaybackState = combine(
+        playbackController.isPlaying,
+        playbackController.currentPosition,
+        playbackController.bufferedPosition,
+        playbackController.duration,
+        playbackController.playbackSpeed
+    ) { isPlaying, pos, bufferedPos, dur, speed ->
+        PlaybackState(
+            isPlaying = isPlaying,
+            currentPosition = pos,
+            bufferedPosition = bufferedPos,
+            duration = dur,
+            playbackSpeed = speed,
+            playWhenReady = isPlaying
+        )
+    }
+
+    /**
+     * Playback State (Preview progress until real media is prepared)
+     *
+     * Uses restored progress while the mini-player is preview-only, then falls back to controller
+     * state as soon as a real current book is selected.
+     */
+    val playbackState: StateFlow<PlaybackState> = combine(
+        _currentBookId,
+        _restoredPlaybackPreview,
+        controllerPlaybackState
+    ) { preparedBookId, preview, controllerState ->
+        if (preparedBookId == null && preview != null) {
+            preview.playback.copy(
+                playbackSpeed = controllerState.playbackSpeed,
+                isSpeedManualMode = controllerState.isSpeedManualMode
+            )
+        } else {
+            controllerState
         }
-        .stateIn(externalScope, SharingStarted.WhileSubscribed(5000), PlaybackState())
+    }.stateIn(externalScope, SharingStarted.WhileSubscribed(5000), PlaybackState())
 
     private val _isChapterProgressMode = MutableStateFlow(false)
 
@@ -287,17 +342,70 @@ class PlaybackViewModel(
         }
     }
 
+    /**
+     * Restore Last Played Book To Compact Player (Preview-only cold-start recovery)
+     *
+     * Rehydrates the mini-player from the persisted progress row and lightweight book row only.
+     * Real playback preparation remains deferred until the user explicitly plays or opens a book.
+     */
     private fun restoreLastPlayedBookToCompactPlayer() {
         if (hasRestoredLastPlayedBook) return
         hasRestoredLastPlayedBook = true
 
         externalScope.launch {
-            // Title: Self-heal and restore last played progress (Invokes non-nullable playback controller and library read model)
             playbackController.performColdStartSelfHealing()
             val lastProgress = playerLibraryReadModel.getLastPlayedSnapshot() ?: return@launch
-            if (_currentBookId.value == null) {
-                loadBook(lastProgress.bookId, playWhenReady = false)
+            val preview = playerLibraryReadModel.getBookPreview(lastProgress.bookId) ?: return@launch
+            if (_currentBookId.value == null && _restoredPlaybackPreview.value == null) {
+                restorePlaybackPreview(lastProgress, preview)
             }
+        }
+    }
+
+    /**
+     * Restore Playback Preview (Mini-player metadata and progress projection)
+     *
+     * Stores only display metadata and saved progress so startup can show continuity without
+     * building a playback plan or opening source files.
+     */
+    private fun restorePlaybackPreview(
+        progress: PlayerRestoredProgressSnapshot,
+        preview: PlayerBookPreview
+    ) {
+        val durationMs = preview.durationMs.coerceAtLeast(0L)
+        val positionMs = if (durationMs > 0L) {
+            progress.positionMs.coerceIn(0L, durationMs)
+        } else {
+            progress.positionMs.coerceAtLeast(0L)
+        }
+        _restoredPlaybackPreview.value = RestoredPlaybackPreview(
+            metadata = BookMetadataState(
+                id = preview.bookId,
+                title = preview.title,
+                author = preview.author,
+                narrator = preview.narrator,
+                coverPath = preview.coverPath,
+                thumbnailPath = preview.thumbnailPath,
+                coverLastUpdated = preview.coverLastUpdated
+            ),
+            playback = PlaybackState(
+                currentPosition = positionMs,
+                bufferedPosition = positionMs,
+                duration = durationMs
+            )
+        )
+        onMiniPlayerHiddenChanged?.invoke(false)
+    }
+
+    /**
+     * Clear Restored Playback Preview (Preview-to-real state transition)
+     *
+     * Removes stale mini-player preview state once a real media source is selected or the preview is closed.
+     */
+    private fun clearRestoredPlaybackPreview(bookId: String? = null) {
+        val preview = _restoredPlaybackPreview.value ?: return
+        if (bookId == null || preview.bookId == bookId) {
+            _restoredPlaybackPreview.value = null
         }
     }
 
@@ -312,6 +420,7 @@ class PlaybackViewModel(
                     if (mediaParts != null) {
                         val bookId = mediaParts.bookId
                         val bookFileId = mediaParts.fileId
+                        clearRestoredPlaybackPreview(bookId)
                         _currentBookId.value = bookId
                         onMiniPlayerHiddenChanged?.invoke(false)
 
@@ -395,6 +504,7 @@ class PlaybackViewModel(
         loadBookRequestStart: Long
     ) {
         subtitleLoadJob?.cancel()
+        clearRestoredPlaybackPreview(id)
         _currentBookId.value = id
         _currentSubtitles.value = emptyList()
         onUndoSeekVisibilityChanged?.invoke(false)
@@ -480,25 +590,31 @@ class PlaybackViewModel(
         )
 
     fun closePlayback(bookId: String) {
-        if (_currentBookId.value == bookId) {
+        val closesPreparedBook = _currentBookId.value == bookId
+        val closesPreviewBook = _restoredPlaybackPreview.value?.bookId == bookId
+        if (closesPreparedBook || closesPreviewBook) {
             subtitleLoadJob?.cancel()
-            _currentBookId.value = null
+            if (closesPreparedBook) {
+                _currentBookId.value = null
+            }
+            clearRestoredPlaybackPreview(bookId)
             _currentSubtitles.value = emptyList()
-            // Title: Pause playback on close (Invokes non-nullable controller directly)
-            playbackController.pause()
+            if (closesPreparedBook) {
+                playbackController.pause()
+            }
             onFullPlayerMinimized?.invoke()
             onMiniPlayerHiddenChanged?.invoke(true)
         }
     }
 
     fun closeCurrentPlayback() {
-        _currentBookId.value?.let(::closePlayback)
+        (_currentBookId.value ?: _restoredPlaybackPreview.value?.bookId)?.let(::closePlayback)
     }
 
     fun togglePlayPause() = if (playbackState.value.isPlaying) pause() else play()
 
     fun play() {
-        val id = _currentBookId.value
+        val id = _currentBookId.value ?: _restoredPlaybackPreview.value?.bookId
         if (id != null && !isMediaSourceLoadedFor(id)) {
             loadBook(id, playWhenReady = true)
         } else {
@@ -596,6 +712,10 @@ class PlaybackViewModel(
 
     fun currentBookAvailability(bookId: String): kotlinx.coroutines.flow.Flow<Boolean> = flow {
         if (bookId.isBlank()) {
+            emit(true)
+            return@flow
+        }
+        if (_currentBookId.value != bookId && _restoredPlaybackPreview.value?.bookId == bookId) {
             emit(true)
             return@flow
         }
