@@ -54,6 +54,7 @@ import com.viel.aplayer.shared.settings.SleepMode
 import com.viel.aplayer.shared.settings.ThemeMode
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.settings.appLanguageLabel
+import dev.chrisbanes.haze.HazeState
 
 /**
  * LibraryDirectoriesSection Composable: Renders media library folder locations and sync history statuses.
@@ -165,6 +166,7 @@ fun LibraryDirectoriesSection(
 /**
  * Download Cache Section (Provides settings navigation for manual downloads, Wi-Fi only download policy, and playback buffer size selector)
  * Consolidates download and cache configurations on the main settings screen instead of keeping cache settings on a separate sub-page.
+ * Receives the page Haze context because the playback-buffer selector renders a floating dropdown surface inside this section.
  */
 @Composable
 fun DownloadCacheSection(
@@ -174,6 +176,8 @@ fun DownloadCacheSection(
     playbackBufferMaxBytes: Long,
     onPlaybackBufferMaxBytesChange: (Long) -> Unit,
     onDownloadManagementClick: () -> Unit,
+    glassEffectMode: GlassEffectMode,
+    hazeState: HazeState?,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -196,7 +200,9 @@ fun DownloadCacheSection(
         // Segmented Playback Buffer Capacity Selector (Moved from the old independent cache page to the outer settings screen)
         SettingsSegmentedPlaybackBufferItem(
             selectedBytes = playbackBufferMaxBytes,
-            onSelected = onPlaybackBufferMaxBytesChange
+            onSelected = onPlaybackBufferMaxBytesChange,
+            glassEffectMode = glassEffectMode,
+            hazeState = hazeState
         )
     }
 }
@@ -204,6 +210,7 @@ fun DownloadCacheSection(
 
 /**
  * InterfaceSettingsSection Composable: Handles themes, dynamic color settings, and experimental blur effect toggles.
+ * Threads the active Haze context into the theme-mode dropdown so visual-effect changes do not split Settings controls across different surface policies.
  */
 @Composable
 fun InterfaceSettingsSection(
@@ -217,6 +224,7 @@ fun InterfaceSettingsSection(
     onAmoledEnabledChange: (Boolean) -> Unit,
     glassEffectMode: GlassEffectMode,
     onGlassEffectModeChange: (GlassEffectMode) -> Unit,
+    hazeState: HazeState?,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -235,7 +243,9 @@ fun InterfaceSettingsSection(
             // Theme Mode Icon (Represent light, dark, and system appearance selection)
             icon = Icons.Rounded.DarkMode,
             selectedMode = themeMode,
-            onModeSelected = onThemeModeChange
+            onModeSelected = onThemeModeChange,
+            glassEffectMode = glassEffectMode,
+            hazeState = hazeState
         )
         val isDynamicColorSupported = true
         SettingsToggleItem(
@@ -279,6 +289,7 @@ fun InterfaceSettingsSection(
 /**
  * PlaybackBehaviorSection Composable (Groups listening-behavior settings)
  * Keeps progress display, silence skipping, auto rewind, and notification focus behavior together because each option changes active playback behavior after a book starts.
+ * Receives the active Haze context for seek-step dropdowns while leaving playback persistence in the existing settings commands.
  */
 @Composable
 fun PlaybackBehaviorSection(
@@ -293,6 +304,8 @@ fun PlaybackBehaviorSection(
     onSeekForwardStepChange: (SeekStepSeconds) -> Unit,
     isNotificationAvoidanceEnabled: Boolean,
     onNotificationAvoidanceEnabledChange: (Boolean) -> Unit,
+    glassEffectMode: GlassEffectMode,
+    hazeState: HazeState?,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -322,7 +335,9 @@ fun PlaybackBehaviorSection(
             // The configured seconds are variable, so the generic rewind control avoids implying a fixed 10-second preset.
             icon = Icons.Rounded.FastRewind,
             selectedStep = playbackSeekStepConfig.backward,
-            onStepSelected = onSeekBackwardStepChange
+            onStepSelected = onSeekBackwardStepChange,
+            glassEffectMode = glassEffectMode,
+            hazeState = hazeState
         )
         SettingsSegmentedSeekStepItem(
             title = stringResource(R.string.settings_seek_forward_step_title),
@@ -331,7 +346,9 @@ fun PlaybackBehaviorSection(
             // The control configures the player skip button, making the media-forward symbol more direct than a generic settings scale.
             icon = Icons.Rounded.FastForward,
             selectedStep = playbackSeekStepConfig.forward,
-            onStepSelected = onSeekForwardStepChange
+            onStepSelected = onSeekForwardStepChange,
+            glassEffectMode = glassEffectMode,
+            hazeState = hazeState
         )
         val disabledText = stringResource(R.string.settings_auto_rewind_disabled)
         val resources = LocalResources.current
@@ -409,6 +426,7 @@ fun NetworkSecuritySection(
 
 /**
  * SleepTimerSection Composable: Collects timer mode selections and related shake triggers or volume fading configurations.
+ * Passes the page Haze context to the sleep-mode dropdown so timer controls render with the same backdrop sampling as the Settings surface.
  */
 @Composable
 fun SleepTimerSection(
@@ -418,6 +436,8 @@ fun SleepTimerSection(
     onSleepFadeOutEnabledChange: (Boolean) -> Unit,
     isShakeToResetEnabled: Boolean,
     onShakeToResetEnabledChange: (Boolean) -> Unit,
+    glassEffectMode: GlassEffectMode,
+    hazeState: HazeState?,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -429,7 +449,9 @@ fun SleepTimerSection(
             // The row selects how the app counts down before resting playback, so the bedtime icon matches the listening-at-night workflow.
             icon = Icons.Rounded.Bedtime,
             selectedMode = sleepMode,
-            onModeSelected = onSleepModeChange
+            onModeSelected = onSleepModeChange,
+            glassEffectMode = glassEffectMode,
+            hazeState = hazeState
         )
         SettingsToggleItem(
             title = stringResource(R.string.settings_sleep_fade_title),

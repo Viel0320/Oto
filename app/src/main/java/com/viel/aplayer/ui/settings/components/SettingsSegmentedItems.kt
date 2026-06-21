@@ -10,15 +10,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -26,10 +25,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.formatFileSize
+import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.shared.settings.SeekStepSeconds
 import com.viel.aplayer.shared.settings.SleepMode
 import com.viel.aplayer.shared.settings.ThemeMode
+import com.viel.aplayer.ui.common.APlayerDropdown
+import com.viel.aplayer.ui.common.APlayerDropdownWidth
+import com.viel.aplayer.ui.common.aPlayerTextDropdownItem
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
+import dev.chrisbanes.haze.HazeState
 
 /**
  * Settings Segmented Items (Own multi-choice Settings controls)
@@ -38,18 +42,19 @@ import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 
 
 /**
- * Settings Segmented Sleep Mode Item (Renders sleep countdown strategy choices)
- * Keeps the three sleep modes in one component so the timer section can focus on feature grouping rather than button-row mechanics.
- * Horizontal row padding follows AppWindowSizeClass to align multi-choice controls with simple settings rows.
+ * Settings Segmented Sleep Mode Item (Renders sleep countdown strategy choices through the shared dropdown)
+ * Keeps the historical function boundary for Settings call sites while replacing the former segmented row with APlayerDropdown.
+ * Haze parameters are passed through explicitly so the trailing dropdown samples the same settings-page backdrop as the rest of the page chrome.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsSegmentedSleepModeItem(
     title: String,
     subtitle: String,
     icon: ImageVector,
     selectedMode: SleepMode,
-    onModeSelected: (SleepMode) -> Unit
+    onModeSelected: (SleepMode) -> Unit,
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    hazeState: HazeState? = null
 ) {
     val modes = listOf(SleepMode.Regular, SleepMode.MotionTracking, SleepMode.SleepTracking)
     val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
@@ -73,28 +78,7 @@ fun SettingsSegmentedSleepModeItem(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            // Sleep Mode Selection Group Semantics (Rely on Material3's built-in selectable group row)
-            // The surrounding settings row stays a passive layout container because only an individual segment can identify the requested sleep mode.
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                modes.forEachIndexed { index, mode ->
-                    SegmentedButton(
-                        selected = selectedMode == mode,
-                        onClick = { onModeSelected(mode) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size)
-                    ) {
-                        Text(
-                            text = when (mode) {
-                                SleepMode.Regular -> stringResource(R.string.settings_sleep_mode_regular)
-                                SleepMode.MotionTracking -> stringResource(R.string.settings_sleep_mode_motion_tracking)
-                                SleepMode.SleepTracking -> stringResource(R.string.settings_sleep_mode_sleep_tracking)
-                            },
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = when (selectedMode) {
                     SleepMode.Regular -> stringResource(R.string.settings_sleep_mode_regular_description)
@@ -105,24 +89,41 @@ fun SettingsSegmentedSleepModeItem(
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
             )
         }
+        Spacer(modifier = Modifier.width(12.dp))
+        SettingsDropdownControl(
+            options = modes.map { mode ->
+                SettingsDropdownOption(
+                    value = mode,
+                    label = when (mode) {
+                        SleepMode.Regular -> stringResource(R.string.settings_sleep_mode_regular)
+                        SleepMode.MotionTracking -> stringResource(R.string.settings_sleep_mode_motion_tracking)
+                        SleepMode.SleepTracking -> stringResource(R.string.settings_sleep_mode_sleep_tracking)
+                    }
+                )
+            },
+            selectedValue = selectedMode,
+            onSelected = onModeSelected,
+            glassEffectMode = glassEffectMode,
+            hazeState = hazeState
+        )
     }
 }
 
 /**
- * Settings Segmented Theme Mode Item (Renders light/dark/system theme choices)
+ * Settings Segmented Theme Mode Item (Renders light/dark/system theme choices through the shared dropdown)
  *
- * The control stays interactive for Material and Haze glass effects because Haze no longer owns
- * appearance mode selection; dynamic color follows the same wallpaper seed path in both modes.
- * Horizontal row padding follows AppWindowSizeClass so segmented rows remain aligned with the rest of Settings.
+ * The control keeps the existing Settings API and delegates option rendering to APlayerDropdown so
+ * appearance mode selection shares the same dropdown treatment and explicit Haze backdrop as the other Settings selectors.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsSegmentedThemeModeItem(
     title: String,
     subtitle: String,
     icon: ImageVector,
     selectedMode: ThemeMode,
-    onModeSelected: (ThemeMode) -> Unit
+    onModeSelected: (ThemeMode) -> Unit,
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    hazeState: HazeState? = null
 ) {
     val modes = listOf(ThemeMode.System, ThemeMode.Light, ThemeMode.Dark)
     val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
@@ -146,44 +147,41 @@ fun SettingsSegmentedThemeModeItem(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            // Theme Mode Selection Group Semantics (Rely on Material3's built-in selectable group row)
-            // Keeping the group marker inside the segmented button row lets accessibility services announce radio-style choices without making the full settings row clickable.
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                modes.forEachIndexed { index, mode ->
-                    SegmentedButton(
-                        selected = selectedMode == mode,
-                        onClick = { onModeSelected(mode) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = modes.size)
-                    ) {
-                        Text(
-                            text = when (mode) {
-                                ThemeMode.System -> stringResource(R.string.settings_theme_mode_system)
-                                ThemeMode.Light -> stringResource(R.string.settings_theme_mode_light)
-                                ThemeMode.Dark -> stringResource(R.string.settings_theme_mode_dark)
-                            },
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                }
-            }
         }
+        Spacer(modifier = Modifier.width(12.dp))
+        SettingsDropdownControl(
+            options = modes.map { mode ->
+                SettingsDropdownOption(
+                    value = mode,
+                    label = when (mode) {
+                        ThemeMode.System -> stringResource(R.string.settings_theme_mode_system)
+                        ThemeMode.Light -> stringResource(R.string.settings_theme_mode_light)
+                        ThemeMode.Dark -> stringResource(R.string.settings_theme_mode_dark)
+                    }
+                )
+            },
+            selectedValue = selectedMode,
+            onSelected = onModeSelected,
+            glassEffectMode = glassEffectMode,
+            hazeState = hazeState
+        )
     }
 }
 
 /**
- * Settings Segmented Seek Step Item (Renders constrained short-seek increments)
+ * Settings Segmented Seek Step Item (Renders constrained short-seek increments through the shared dropdown)
  * Keeps the 10/20/30-second option set in one reusable component so playback behavior settings cannot drift between backward and forward rows.
- * Horizontal row padding follows AppWindowSizeClass to keep playback controls aligned with neighboring settings rows.
+ * Haze parameters remain explicit because seek-step dropdowns are page controls, not standalone popups with their own sampled source.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsSegmentedSeekStepItem(
     title: String,
     subtitle: String,
     icon: ImageVector,
     selectedStep: SeekStepSeconds,
-    onStepSelected: (SeekStepSeconds) -> Unit
+    onStepSelected: (SeekStepSeconds) -> Unit,
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    hazeState: HazeState? = null
 ) {
     val steps = SeekStepSeconds.supported
     val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
@@ -207,24 +205,20 @@ fun SettingsSegmentedSeekStepItem(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            // Seek Step Selection Group Semantics (Rely on Material3's built-in selectable group row)
-            // The row title and subtitle remain descriptive context while each segment owns the concrete step-change action.
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                steps.forEachIndexed { index, step ->
-                    SegmentedButton(
-                        selected = selectedStep == step,
-                        onClick = { onStepSelected(step) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = steps.size)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_seek_step_seconds_option, step.seconds),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                }
-            }
         }
+        Spacer(modifier = Modifier.width(12.dp))
+        SettingsDropdownControl(
+            options = steps.map { step ->
+                SettingsDropdownOption(
+                    value = step,
+                    label = stringResource(R.string.settings_seek_step_seconds_option, step.seconds)
+                )
+            },
+            selectedValue = selectedStep,
+            onSelected = onStepSelected,
+            glassEffectMode = glassEffectMode,
+            hazeState = hazeState
+        )
     }
 }
 
@@ -255,14 +249,15 @@ private fun playbackBufferSizeOptions(): List<PlaybackBufferSizeOption> =
 
 /**
  * SettingsSegmentedPlaybackBufferItem Composable.
- * Renders a segmented selection bar inside the main settings layout to configure the player's max buffer capacity in memory.
- * Horizontal row padding follows AppWindowSizeClass so cache controls share the same responsive Settings gutter.
+ * Renders an APlayerDropdown inside the main settings layout to configure the player's max buffer capacity in memory.
+ * Explicit Haze parameters keep cache-capacity dropdown rendering aligned with the active Settings page visual effect mode.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsSegmentedPlaybackBufferItem(
     selectedBytes: Long,
-    onSelected: (Long) -> Unit
+    onSelected: (Long) -> Unit,
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
+    hazeState: HazeState? = null
 ) {
     val options = remember { playbackBufferSizeOptions() }
     val resolvedSelectedBytes = options.firstOrNull { option -> option.bytes == selectedBytes }?.bytes
@@ -292,22 +287,66 @@ fun SettingsSegmentedPlaybackBufferItem(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                options.forEachIndexed { index, option ->
-                    SegmentedButton(
-                        selected = resolvedSelectedBytes == option.bytes,
-                        onClick = { onSelected(option.bytes) },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size)
-                    ) {
-                        Text(
-                            text = option.label,
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                }
-            }
         }
+        Spacer(modifier = Modifier.width(12.dp))
+        SettingsDropdownControl(
+            options = options.map { option ->
+                SettingsDropdownOption(
+                    value = option.bytes,
+                    label = option.label
+                )
+            },
+            selectedValue = resolvedSelectedBytes,
+            onSelected = onSelected,
+            glassEffectMode = glassEffectMode,
+            hazeState = hazeState
+        )
     }
+}
+
+/**
+ * Dropdown option projection for Settings selectors.
+ * Stores the domain value next to its localized label so each settings item can keep enum or byte
+ * ownership while sharing one APlayerDropdown adapter.
+ */
+private data class SettingsDropdownOption<T : Any>(
+    val value: T,
+    val label: String
+)
+
+/**
+ * Shared Settings dropdown adapter.
+ * Bridges existing single-choice Settings values to a trailing APlayerDropdown without changing the
+ * caller-facing composable APIs or moving selection persistence out of the existing Settings actions.
+ * The visual-effect parameters are kept at this boundary so every converted selector uses the same Haze contract.
+ */
+@Composable
+private fun <T : Any> SettingsDropdownControl(
+    options: List<SettingsDropdownOption<T>>,
+    selectedValue: T,
+    onSelected: (T) -> Unit,
+    glassEffectMode: GlassEffectMode,
+    hazeState: HazeState?
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedIndex = options.indexOfFirst { option -> option.value == selectedValue }
+        .takeIf { index -> index >= 0 }
+    val items = options.map { option ->
+        aPlayerTextDropdownItem(
+            key = option.value,
+            label = option.label
+        )
+    }
+
+    APlayerDropdown(
+        items = items,
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        onSelect = { index -> options.getOrNull(index)?.value?.let(onSelected) },
+        selectedIndex = selectedIndex,
+        panelWidth = APlayerDropdownWidth.Wrap,
+        hazeState = hazeState,
+        glassEffectMode = glassEffectMode
+    )
 }
 

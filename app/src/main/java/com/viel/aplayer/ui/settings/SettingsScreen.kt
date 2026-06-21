@@ -210,6 +210,8 @@ fun SettingsScreen(
                                 playbackBufferMaxBytes = playbackBufferMaxBytes,
                                 onPlaybackBufferMaxBytesChange = onPlaybackBufferMaxBytesChange,
                                 onDownloadManagementClick = onDownloadManagementClick,
+                                glassEffectMode = glassEffectMode,
+                                hazeState = resolvedSettingsHazeState,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -225,6 +227,7 @@ fun SettingsScreen(
                             onAmoledEnabledChange = onAmoledEnabledChange,
                             glassEffectMode = glassEffectMode,
                             onGlassEffectModeChange = onGlassEffectModeChange,
+                            hazeState = resolvedSettingsHazeState,
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -240,6 +243,8 @@ fun SettingsScreen(
                             onSeekForwardStepChange = onSeekForwardStepChange,
                             isNotificationAvoidanceEnabled = isNotificationAvoidanceEnabled,
                             onNotificationAvoidanceEnabledChange = onNotificationAvoidanceEnabledChange,
+                            glassEffectMode = glassEffectMode,
+                            hazeState = resolvedSettingsHazeState,
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -250,6 +255,8 @@ fun SettingsScreen(
                             onSleepFadeOutEnabledChange = onSleepFadeOutEnabledChange,
                             isShakeToResetEnabled = isShakeToResetEnabled,
                             onShakeToResetEnabledChange = onShakeToResetEnabledChange,
+                            glassEffectMode = glassEffectMode,
+                            hazeState = resolvedSettingsHazeState,
                             modifier = Modifier.fillMaxWidth()
                         )
 

@@ -209,7 +209,7 @@
     <string name="settings_interface_effects_title">界面</string>
     <string name="settings_theme_mode_title">主题模式</string>
     <string name="settings_theme_mode_subtitle">选择界面配色：跟随系统、始终浅色或始终深色。</string>
-    <string name="settings_theme_mode_system">跟随系统</string>
+    <string name="settings_theme_mode_system">系统</string>
     <string name="settings_theme_mode_light">浅色</string>
     <string name="settings_theme_mode_dark">深色</string>
     <string name="settings_dynamic_color_title">Monet 动态取色</string>
