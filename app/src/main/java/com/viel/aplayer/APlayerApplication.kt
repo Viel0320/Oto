@@ -25,6 +25,7 @@ import com.viel.aplayer.di.dependencies.ManualDownloadNotificationActionDependen
 import com.viel.aplayer.di.dependencies.PlaybackRecoveryDependencies
 import com.viel.aplayer.di.dependencies.PlaybackRuntimeDependencies
 import com.viel.aplayer.di.dependencies.PlayerScreenDependencies
+import com.viel.aplayer.di.dependencies.RemoteConnectionDependencies
 import com.viel.aplayer.di.dependencies.SearchScreenDependencies
 import com.viel.aplayer.di.dependencies.SettingsScreenDependencies
 import com.viel.aplayer.di.dependencies.VfsPlaybackDependencies
@@ -295,6 +296,18 @@ class APlayerApplication : Application(), ImageLoaderFactory {
          * @return The settings-screen dependency view backed by the global container
          */
         fun getSettingsScreenDependencies(context: Context): SettingsScreenDependencies {
+            return getContainer(context)
+        }
+
+        /**
+         * Return the remote-connection scene dependency view.
+         * Gives the app-level RemoteConnectionViewModel only the connection-test, ABS login, and root
+         * registration seams it needs, without exposing the broader settings surface.
+         *
+         * @param context Component Context
+         * @return The remote-connection dependency view backed by the global container
+         */
+        fun getRemoteConnectionDependencies(context: Context): RemoteConnectionDependencies {
             return getContainer(context)
         }
 

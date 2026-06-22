@@ -274,3 +274,19 @@ interface EditScreenDependencies {
      */
     val editBookCommands: EditBookCommands
 }
+
+/**
+ * Remote-connection scene dependency view.
+ * Exposes only the connection-test, ABS login, root registration, and maintenance seams that the
+ * app-level RemoteConnectionViewModel needs to add or edit WebDAV/ABS/SAF library roots, kept
+ * separate from the broader settings surface so the connection flow no longer depends on settings.
+ */
+interface RemoteConnectionDependencies {
+    val absSettingsConnectionUseCase: AbsSettingsConnectionUseCase
+    val testWebDavConnectionUseCase: TestWebDavConnectionUseCase
+    val settingsQueryUseCase: SettingsQueryUseCase
+    val settingsRootCommands: SettingsRootCommands
+    val formatSettingsRootUseCase: FormatSettingsRootUseCase
+    val settingsLibraryMaintenanceUseCase: SettingsLibraryMaintenanceUseCase
+    val appEventSink: AppEventSink
+}

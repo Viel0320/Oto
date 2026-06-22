@@ -22,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
-import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.shared.settings.AppLanguage
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDialogTemplate
@@ -34,11 +33,8 @@ import dev.chrisbanes.haze.HazeState
 sealed interface SettingsDialogState {
     data object None : SettingsDialogState
     data object LanguagePicker : SettingsDialogState
-    data object AddLibraryType : SettingsDialogState
     data object WebDavRoot : SettingsDialogState
     data object AbsServer : SettingsDialogState
-    data class RootActions(val root: SettingsRootItem) : SettingsDialogState
-    data class DeleteRoot(val root: SettingsRootItem) : SettingsDialogState
 
     data class ImportConfirm(
         val uri: Uri,
@@ -102,42 +98,7 @@ fun LanguagePickerDialog(
 }
 
 class SettingsDialogController {
-    var editingSafRootId by mutableStateOf<String?>(null)
     var dialogState by mutableStateOf<SettingsDialogState>(SettingsDialogState.None)
-
-    var webDavUrl by mutableStateOf("")
-    var webDavUsername by mutableStateOf("")
-    var webDavPassword by mutableStateOf("")
-    var webDavDisplayName by mutableStateOf("")
-    var webDavBasePath by mutableStateOf("")
-
-    var absBaseUrl by mutableStateOf("")
-    var absUsername by mutableStateOf("")
-    var absPassword by mutableStateOf("")
-    var absLibraryId by mutableStateOf("")
-    var absLibraryName by mutableStateOf("")
-    var absDisplayName by mutableStateOf("")
-
-    var editingRootId by mutableStateOf<String?>(null)
-
-    fun resetWebDavForm() {
-        webDavUrl = ""
-        webDavUsername = ""
-        webDavPassword = ""
-        webDavDisplayName = ""
-        webDavBasePath = ""
-        editingRootId = null
-    }
-
-    fun resetAbsForm() {
-        absBaseUrl = ""
-        absUsername = ""
-        absPassword = ""
-        absLibraryId = ""
-        absLibraryName = ""
-        absDisplayName = ""
-        editingRootId = null
-    }
 }
 
 @Composable

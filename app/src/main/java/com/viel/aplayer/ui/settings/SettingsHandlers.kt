@@ -3,7 +3,6 @@ package com.viel.aplayer.ui.settings
 import android.app.Application
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.settings.AppSettingsCommands
-import com.viel.aplayer.application.library.settings.SettingsAbsSyncInspection
 import com.viel.aplayer.application.library.settings.SettingsCredential
 import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.usecase.AbsConnectionReuseSnapshot
@@ -165,8 +164,6 @@ class SettingsConnectionHandler(
 
     private val _webDavConnectionState = MutableStateFlow(WebDavConnectionUiState())
     val webDavConnectionState: StateFlow<WebDavConnectionUiState> = _webDavConnectionState.asStateFlow()
-
-    private val _absSyncConfirmationState = MutableStateFlow<AbsSyncConfirmationState?>(null)
 
     private var lastSuccessfulAbsConnection: AbsConnectionReuseSnapshot? = null
 
@@ -372,45 +369,6 @@ class SettingsConnectionHandler(
 
     fun resetAbsConnectionState() {
         _absConnectionState.value = AbsConnectionUiState()
-    }
-
-    fun syncAbsRoot(rootId: String) {
-        scope.launch {
-            when (val inspection = settingsRootCommands.inspectManualAbsSync(rootId)) {
-                SettingsAbsSyncInspection.MissingRoot -> {
-                    appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncRootMissing())
-                }
-                is SettingsAbsSyncInspection.Blocked -> {
-                    appEventSink.emitFeedback(inspection.fact)
-                }
-                is SettingsAbsSyncInspection.Ready -> {
-                    val start = AbsSettingsLogger.mark()
-                    AbsSettingsLogger.logManualSyncStart(rootId = inspection.rootId, displayName = inspection.displayName)
-                    if (inspection.requiresConfirmation) {
-                        AbsSettingsLogger.logManualSyncRequiresConfirmation(rootId = inspection.rootId, totalItems = inspection.totalItems)
-                        _absSyncConfirmationState.value = AbsSyncConfirmationState(rootId = inspection.rootId, totalItems = inspection.totalItems)
-                        return@launch
-                    }
-                    val scheduled = settingsRootCommands.startManualAbsSync(inspection.rootId)
-                    if (scheduled) {
-                        AbsSettingsLogger.logManualSyncFinished(rootId = inspection.rootId, costMs = AbsSettingsLogger.elapsedMs(start))
-                        appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncStarted(inspection.rootId))
-                    } else {
-                        appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncAlreadyRunning(inspection.rootId))
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Starts a user-priority rescan for the selected local or WebDAV root.
-     *
-     * SettingsScreen already separates ABS sync from directory rescans, so this handler receives
-     * only roots that should be processed by the directory import pipeline.
-     */
-    fun triggerRescan(rootId: String) {
-        settingsRootCommands.scheduleUserSync(rootId)
     }
 
     private fun launchAutoAbsSync(rootId: String) {

@@ -30,11 +30,14 @@ class SettingsSceneArchitectureTest {
                 settingsViewModelSource.contains("settingsRootCommands")
         )
         assertTrue(
-            "SettingsViewModel must route root operations through the settings-root command surface.",
-            listOf(
-                "settingsRootCommands.refreshAllRootStatuses()",
-                "settingsRootCommands.addLocalRootAndScheduleSync(uri)"
-            ).all { expectedCall -> settingsViewModelSource.contains(expectedCall) }
+            "SettingsViewModel must refresh root statuses through the settings-root command surface.",
+            settingsViewModelSource.contains("settingsRootCommands.refreshAllRootStatuses()")
+        )
+        val remoteConnectionViewModelSource =
+            resolveSourceRoot().resolve("ui/settings/remote/RemoteConnectionViewModel.kt").readText()
+        assertTrue(
+            "RemoteConnectionViewModel must register local roots through the settings-root command surface.",
+            remoteConnectionViewModelSource.contains("settingsRootCommands.addLocalRootAndScheduleSync(uri)")
         )
         assertTrue(
             "SettingsViewModel must consume FormatSettingsRootUseCase.",

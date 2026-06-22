@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
+import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.event.feedback.render
 import com.viel.aplayer.shared.formatDate
@@ -41,8 +42,55 @@ fun APlayerAppDialogHost(
     onAcceptRemoteAbsProgressConflict: () -> Unit,
     onAcceptLocalAbsProgressConflict: () -> Unit,
     onDismissTrackUnavailable: () -> Unit,
-    onSkipToNextAvailableTrack: (String, Int) -> Unit
+    onSkipToNextAvailableTrack: (String, Int) -> Unit,
+    showAddLibraryDialog: Boolean,
+    onDismissAddLibrary: () -> Unit,
+    onAddLibraryPickSaf: () -> Unit,
+    onAddLibraryPickWebDav: () -> Unit,
+    onAddLibraryPickAbs: () -> Unit,
+    rootActionsTarget: SettingsRootItem?,
+    onDismissRootActions: () -> Unit,
+    onEditRoot: (SettingsRootItem) -> Unit,
+    onSyncRoot: (SettingsRootItem) -> Unit,
+    onRescanRoot: (SettingsRootItem) -> Unit,
+    onRequestDeleteRoot: (SettingsRootItem) -> Unit,
+    rootPendingDelete: SettingsRootItem?,
+    onConfirmDeleteRoot: () -> Unit,
+    onDismissDeleteRoot: () -> Unit
 ) {
+    if (showAddLibraryDialog) {
+        AddLibrarySourceDialog(
+            glassEffectMode = glassEffectMode,
+            hazeState = hazeState,
+            onPickSaf = onAddLibraryPickSaf,
+            onPickWebDav = onAddLibraryPickWebDav,
+            onPickAbs = onAddLibraryPickAbs,
+            onDismiss = onDismissAddLibrary
+        )
+    }
+
+    if (rootActionsTarget != null) {
+        LibraryRootActionsDialog(
+            root = rootActionsTarget,
+            glassEffectMode = glassEffectMode,
+            hazeState = hazeState,
+            onEdit = onEditRoot,
+            onSync = onSyncRoot,
+            onRescan = onRescanRoot,
+            onRequestDelete = onRequestDeleteRoot,
+            onDismiss = onDismissRootActions
+        )
+    }
+
+    if (rootPendingDelete != null) {
+        DeleteLibraryRootDialog(
+            glassEffectMode = glassEffectMode,
+            hazeState = hazeState,
+            onConfirm = onConfirmDeleteRoot,
+            onDismiss = onDismissDeleteRoot
+        )
+    }
+
     if (feedbackDialogMessage != null) {
         val context = LocalContext.current
         APlayerDialogTemplate(

@@ -63,6 +63,7 @@ import com.viel.aplayer.di.dependencies.LibrarySyncWorkerDependencies
 import com.viel.aplayer.di.dependencies.ManualDownloadNotificationActionDependencies
 import com.viel.aplayer.di.dependencies.PlaybackRuntimeDependencies
 import com.viel.aplayer.di.dependencies.PlayerScreenDependencies
+import com.viel.aplayer.di.dependencies.RemoteConnectionDependencies
 import com.viel.aplayer.di.dependencies.SearchScreenDependencies
 import com.viel.aplayer.di.dependencies.SettingsScreenDependencies
 import com.viel.aplayer.di.dependencies.VfsPlaybackDependencies
@@ -99,6 +100,7 @@ interface AppContainer :
     SearchScreenDependencies,
     DetailScreenDependencies,
     SettingsScreenDependencies,
+    RemoteConnectionDependencies,
     PlayerScreenDependencies,
     EditScreenDependencies,
     AppShellDependencies,

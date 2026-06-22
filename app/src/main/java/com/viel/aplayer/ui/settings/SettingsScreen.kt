@@ -1,10 +1,8 @@
 package com.viel.aplayer.ui.settings
 import android.net.Uri
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -16,18 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Sync
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,7 +29,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +37,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
-import com.viel.aplayer.application.library.settings.SettingsCredential
 import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.shared.settings.AppLanguage
 import com.viel.aplayer.shared.settings.AppSettings
@@ -73,7 +60,6 @@ import com.viel.aplayer.ui.settings.components.SectionsColumns
 import com.viel.aplayer.ui.settings.components.SleepTimerSection
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
-import kotlinx.coroutines.launch
 
 /**
  * SettingsScreen Composable: Defines the top-level settings controller view, handling local inputs, dialog visibility, and adaptive setting sections.
@@ -286,23 +272,10 @@ fun SettingsDialogHost(
     settingsDialogHazeState: HazeState? = null,
     appLanguage: AppLanguage,
     onAppLanguageChange: (AppLanguage) -> Unit,
-    onResetWebDavConnectionState: () -> Unit,
-    onResetAbsConnectionState: () -> Unit,
-    getWebDavCredentials: (credentialId: String) -> SettingsCredential?,
-    getAbsCredential: suspend (credentialId: String) -> SettingsCredential?,
-    onAbsSync: (rootId: String) -> Unit,
-    onRescan: (rootId: String) -> Unit,
-    onDeleteLibraryRoot: (SettingsRootItem) -> Unit,
-    onLaunchSafRootPicker: () -> Unit,
-    onOpenWebDavConnectionPage: () -> Unit,
-    onOpenAbsConnectionPage: () -> Unit,
     onImportConfirm: (Uri) -> Unit = {}
 ) {
     val dialogState = controller.dialogState
-    val rootToDelete = (dialogState as? SettingsDialogState.DeleteRoot)?.root
     val showLanguagePicker = dialogState == SettingsDialogState.LanguagePicker
-    val showAddLibraryTypeDialog = dialogState == SettingsDialogState.AddLibraryType
-    val rootForAction = (dialogState as? SettingsDialogState.RootActions)?.root
     val resolvedSettingsDialogHazeState = settingsDialogHazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
 
     if (showLanguagePicker) {
@@ -312,215 +285,6 @@ fun SettingsDialogHost(
             glassEffectMode = glassEffectMode,
             onLanguageSelected = onAppLanguageChange,
             onDismiss = { controller.dialogState = SettingsDialogState.None }
-        )
-    }
-
-    if (rootToDelete != null) {
-        SettingsTemplateDialog(
-            onDismissRequest = { controller.dialogState = SettingsDialogState.None },
-            hazeState = resolvedSettingsDialogHazeState,
-            glassEffectMode = glassEffectMode,
-            title = { Text(stringResource(R.string.settings_delete_root_title)) },
-            text = { Text(stringResource(R.string.settings_delete_root_body)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDeleteLibraryRoot(rootToDelete)
-                        controller.dialogState = SettingsDialogState.None
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text(stringResource(R.string.settings_delete_root_confirm))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { controller.dialogState = SettingsDialogState.None }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-            }
-        )
-    }
-
-    if (showAddLibraryTypeDialog) {
-        SettingsTemplateDialog(
-            onDismissRequest = { controller.dialogState = SettingsDialogState.None },
-            hazeState = resolvedSettingsDialogHazeState,
-            glassEffectMode = glassEffectMode,
-            title = { Text(stringResource(R.string.settings_add_library_type_title)) },
-            text = {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                controller.dialogState = SettingsDialogState.None
-                                controller.editingSafRootId = null
-                                onLaunchSafRootPicker()
-                            }
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Rounded.FolderOpen, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(stringResource(R.string.settings_library_type_local_saf), style = MaterialTheme.typography.bodyLarge)
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                controller.dialogState = SettingsDialogState.None
-                                controller.resetWebDavForm()
-                                onResetWebDavConnectionState()
-                                onOpenWebDavConnectionPage()
-                            }
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Rounded.Cloud, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(stringResource(R.string.settings_library_type_webdav), style = MaterialTheme.typography.bodyLarge)
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                controller.dialogState = SettingsDialogState.None
-                                controller.resetAbsForm()
-                                onResetAbsConnectionState()
-                                onOpenAbsConnectionPage()
-                            }
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Rounded.Sync, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(stringResource(R.string.settings_library_type_abs), style = MaterialTheme.typography.bodyLarge)
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { controller.dialogState = SettingsDialogState.None }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-            }
-        )
-    }
-
-    if (rootForAction != null) {
-        val isAbsRoot = rootForAction.isAbsRoot
-        val isWebDavRoot = rootForAction.isWebDavRoot
-        val scope = rememberCoroutineScope()
-        SettingsTemplateDialog(
-            onDismissRequest = { controller.dialogState = SettingsDialogState.None },
-            hazeState = resolvedSettingsDialogHazeState,
-            glassEffectMode = glassEffectMode,
-            title = { Text(rootForAction.displayName.ifBlank { stringResource(R.string.settings_root_action_title_fallback) }) },
-            text = {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                if (rootForAction.isSafRoot) {
-                                    controller.editingSafRootId = rootForAction.rootId
-                                    controller.dialogState = SettingsDialogState.None
-                                    onLaunchSafRootPicker()
-                                } else if (isWebDavRoot) {
-                                    val creds =
-                                        getWebDavCredentials(rootForAction.credentialId ?: "")
-                                    controller.webDavUrl = rootForAction.sourceUri
-                                    controller.webDavDisplayName = rootForAction.displayName
-                                    controller.webDavBasePath = rootForAction.basePath
-                                    controller.webDavUsername = creds?.username ?: ""
-                                    controller.webDavPassword = creds?.password ?: ""
-                                    controller.editingRootId = rootForAction.rootId
-                                    controller.dialogState = SettingsDialogState.None
-                                    onResetWebDavConnectionState()
-                                    onOpenWebDavConnectionPage()
-                                } else if (isAbsRoot) {
-                                    scope.launch {
-                                        val creds =
-                                            getAbsCredential(rootForAction.credentialId ?: "")
-                                        controller.absBaseUrl = rootForAction.sourceUri
-                                        controller.absUsername = creds?.username ?: ""
-                                        controller.absPassword = ""
-                                        controller.absLibraryId = rootForAction.basePath
-                                        controller.absLibraryName = rootForAction.displayName
-                                        controller.absDisplayName = rootForAction.displayName
-                                        controller.editingRootId = rootForAction.rootId
-                                        controller.dialogState = SettingsDialogState.None
-                                        onResetAbsConnectionState()
-                                        onOpenAbsConnectionPage()
-                                    }
-                                }
-                            }
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            if (rootForAction.isSafRoot) {
-                                stringResource(R.string.settings_root_action_relocate_saf)
-                            } else {
-                                stringResource(R.string.settings_root_action_edit_remote)
-                            },
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                if (isAbsRoot) {
-                                    onAbsSync(rootForAction.rootId)
-                                } else {
-                                    onRescan(rootForAction.rootId)
-                                }
-                                controller.dialogState = SettingsDialogState.None
-                            }
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            if (isAbsRoot) {
-                                stringResource(R.string.settings_root_action_sync)
-                            } else {
-                                stringResource(R.string.settings_root_action_rescan)
-                            },
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                controller.dialogState = SettingsDialogState.DeleteRoot(
-                                    rootForAction
-                                )
-                            }
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(stringResource(R.string.settings_root_action_remove), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { controller.dialogState = SettingsDialogState.None }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-            }
         )
     }
 

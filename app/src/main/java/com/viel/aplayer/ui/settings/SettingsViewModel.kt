@@ -12,9 +12,7 @@ import com.viel.aplayer.application.usecase.BackupManifest
 import com.viel.aplayer.event.feedback.DataTransferFeedbackFacts
 import com.viel.aplayer.event.feedback.DownloadCacheFeedbackFacts
 import com.viel.aplayer.event.feedback.FeedbackFact
-import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.logger.AbsLogSanitizer
-import com.viel.aplayer.logger.AbsSettingsLogger
 import com.viel.aplayer.shared.settings.AppSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,9 +33,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val formatSettingsRootUseCase = settingsDependencies.formatSettingsRootUseCase
     private val settingsRootReadModel = settingsDependencies.settingsRootReadModel
     private val settingsRootCommands = settingsDependencies.settingsRootCommands
-    private val settingsLibraryMaintenanceUseCase = settingsDependencies.settingsLibraryMaintenanceUseCase
     private val appEventSink = settingsDependencies.appEventSink
-    private val libraryRootManagementUseCase = settingsDependencies.libraryRootManagementUseCase
     private val exportUserDataUseCase = settingsDependencies.exportUserDataUseCase
     private val importUserDataUseCase = settingsDependencies.importUserDataUseCase
     private val downloadManagementReadModel = settingsDependencies.downloadManagementReadModel
@@ -49,26 +45,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         app = getApplication()
     )
 
-    val connectionHandler = SettingsConnectionHandler(
-        absSettingsConnectionUseCase = settingsDependencies.absSettingsConnectionUseCase,
-        testWebDavConnectionUseCase = settingsDependencies.testWebDavConnectionUseCase,
-        settingsQueryUseCase = settingsDependencies.settingsQueryUseCase,
-        settingsRootCommands = settingsRootCommands,
-        formatSettingsRootUseCase = formatSettingsRootUseCase,
-        appEventSink = appEventSink,
-        scope = viewModelScope,
-        app = getApplication()
-    )
-
     private val _isVisible = MutableStateFlow(false)
     val isVisible: StateFlow<Boolean> = _isVisible.asStateFlow()
 
     fun setVisible(visible: Boolean) {
         _isVisible.value = visible
     }
-
-    val absConnectionState: StateFlow<AbsConnectionUiState> = connectionHandler.absConnectionState
-    val webDavConnectionState: StateFlow<WebDavConnectionUiState> = connectionHandler.webDavConnectionState
 
     /** Exposed settings flow */
     val settingsState: StateFlow<AppSettings> = settingsReadModel.settingsFlow
@@ -103,71 +85,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                     settingsRootCommands.refreshAllRootStatuses()
                 }
             }
-        }
-    }
-
-    fun onLibraryRootSelected(uri: Uri) {
-        settingsRootCommands.addLocalRootAndScheduleSync(uri)
-    }
-
-    /**
-     * To update local library path and clear incremental cache.
-     */
-    fun onSafRootRelocated(id: String, newUri: Uri) {
-        viewModelScope.launch {
-            runCatching {
-                settingsLibraryMaintenanceUseCase.updateSafRootAndScheduleSync(id, newUri)
-            }.onSuccess {
-                appEventSink.emitFeedback(LibraryAccessFeedbackFacts.localLibraryRelocated(id))
-            }.onFailure { error ->
-                com.viel.aplayer.logger.ScanWorkflowLogger.error("onSafRootRelocated failed", error)
-                appEventSink.emitFeedback(
-                    LibraryAccessFeedbackFacts.localLibraryRelocationFailed(id, error.message)
-                )
-            }
-        }
-    }
-
-    fun updateWebDavRoot(
-        id: String,
-        url: String,
-        username: String,
-        password: String,
-        displayName: String,
-        basePath: String
-    ) {
-        viewModelScope.launch {
-            runCatching {
-                settingsLibraryMaintenanceUseCase.updateWebDavRootAndScheduleSync(
-                    id = id,
-                    url = url,
-                    username = username,
-                    password = password,
-                    displayName = displayName,
-                    basePath = basePath
-                )
-            }.onSuccess {
-                appEventSink.emitFeedback(LibraryAccessFeedbackFacts.webDavRootUpdated(id))
-            }.onFailure { error ->
-                appEventSink.emitFeedback(
-                    LibraryAccessFeedbackFacts.webDavRootUpdateFailed(id, error.message)
-                )
-            }
-        }
-    }
-
-    fun deleteLibraryRoot(root: SettingsRootItem) {
-        viewModelScope.launch {
-            AbsSettingsLogger.logDeleteServerStart(rootId = root.rootId, sourceType = root.sourceType)
-            val playbackWasStopped = libraryRootManagementUseCase.deleteLibraryRoot(root.rootId)
-            AbsSettingsLogger.logDeleteServerFinished(rootId = root.rootId, playbackStopped = playbackWasStopped)
-            appEventSink.emitFeedback(
-                LibraryAccessFeedbackFacts.rootRemoved(
-                    rootId = root.rootId,
-                    sourceType = root.sourceType,
-                    playbackWasStopped = playbackWasStopped
-                )
-            )
         }
     }
 

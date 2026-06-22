@@ -2,6 +2,8 @@ package com.viel.aplayer.ui.navigation
 
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.Box
@@ -25,9 +27,9 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.savedstate.compose.LocalSavedStateRegistryOwner
 import com.viel.aplayer.application.library.home.toDetailBookItem
+import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.i18n.AppLocaleController
-import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.shared.settings.ThemeMode
 import com.viel.aplayer.ui.common.theme.APlayerTheme
 import com.viel.aplayer.ui.common.theme.VisualEffectPolicy
@@ -51,6 +53,8 @@ import com.viel.aplayer.ui.search.SearchRoute
 import com.viel.aplayer.ui.search.SearchViewModel
 import com.viel.aplayer.ui.settings.SettingsOverlay
 import com.viel.aplayer.ui.settings.SettingsViewModel
+import com.viel.aplayer.ui.settings.remote.RemoteConnectionRoute
+import com.viel.aplayer.ui.settings.remote.RemoteConnectionViewModel
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -218,7 +222,10 @@ fun APlayerApp(
         var pendingSearchQuery by remember { mutableStateOf<String?>(null) }
         var shouldMountSettings by remember { mutableStateOf(openDownloadManagementRequest) }
         var pendingOpenSettingsOverlay by remember { mutableStateOf(openDownloadManagementRequest) }
-        var pendingOpenAddLibraryType by remember { mutableStateOf(false) }
+        var showAddLibraryDialog by remember { mutableStateOf(false) }
+        var shouldMountRemoteConnection by remember { mutableStateOf(false) }
+        var rootActionsTarget by remember { mutableStateOf<SettingsRootItem?>(null) }
+        var rootPendingDelete by remember { mutableStateOf<SettingsRootItem?>(null) }
 
         val editViewModel: EditBookViewModel? = if (shouldMountEdit) {
             viewModel(
@@ -257,6 +264,37 @@ fun APlayerApp(
             )
         } else {
             null
+        }
+
+        // Mounted alongside settings so editing/relocating an existing root from settings has a
+        // non-null view model, and on its own when the add-library flow is triggered from elsewhere.
+        val remoteConnectionViewModel: RemoteConnectionViewModel? =
+            if (shouldMountRemoteConnection || shouldMountSettings) {
+                viewModel(
+                    factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                            return RemoteConnectionViewModel(application) as T
+                        }
+                    }
+                )
+            } else {
+                null
+            }
+
+        val libraryRootLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocumentTree()
+        ) { uri ->
+            uri?.let {
+                val vm = remoteConnectionViewModel ?: return@let
+                val relocatingRootId = vm.editingSafRootId
+                if (relocatingRootId != null) {
+                    vm.onSafRootRelocated(relocatingRootId, it)
+                    vm.setEditingSafRootId(null)
+                } else {
+                    vm.onLibraryRootSelected(it)
+                }
+            }
         }
 
         LaunchedEffect(editViewModel, pendingEditBookId) {
@@ -458,9 +496,8 @@ fun APlayerApp(
                             pendingSearchQuery = ""
                         },
                         onAddLibraryRequested = {
-                            shouldMountSettings = true
-                            pendingOpenSettingsOverlay = true
-                            pendingOpenAddLibraryType = true
+                            shouldMountRemoteConnection = true
+                            showAddLibraryDialog = true
                         },
                         onEditBookRequested = { bookId ->
                             shouldMountEdit = true
@@ -574,10 +611,25 @@ fun APlayerApp(
                     SettingsOverlay(
                         settingsViewModel = settingsViewModel,
                         glassEffectMode = activeGlassEffectMode,
+                        appHazeState = hazeState,
                         openDownloadManagementRequest = openDownloadManagementRequest,
                         onOpenDownloadManagementConsumed = onOpenDownloadManagementConsumed,
-                        openAddLibraryTypeRequest = pendingOpenAddLibraryType,
-                        onOpenAddLibraryTypeConsumed = { pendingOpenAddLibraryType = false }
+                        onRequestAddLibrary = {
+                            shouldMountRemoteConnection = true
+                            showAddLibraryDialog = true
+                        },
+                        onRequestRootActions = { root ->
+                            shouldMountRemoteConnection = true
+                            rootActionsTarget = root
+                        }
+                    )
+                }
+
+                if (remoteConnectionViewModel != null) {
+                    RemoteConnectionRoute(
+                        remoteConnectionViewModel = remoteConnectionViewModel,
+                        glassEffectMode = activeGlassEffectMode,
+                        hazeState = hazeState
                     )
                 }
 
@@ -596,7 +648,46 @@ fun APlayerApp(
                     onDismissTrackUnavailable = { playbackViewModel.dismissTrackUnavailableDialog() },
                     onSkipToNextAvailableTrack = { bookId, queueIndex ->
                         playbackViewModel.skipToNextAvailableTrack(bookId, queueIndex)
-                    }
+                    },
+                    showAddLibraryDialog = showAddLibraryDialog,
+                    onDismissAddLibrary = { showAddLibraryDialog = false },
+                    onAddLibraryPickSaf = {
+                        showAddLibraryDialog = false
+                        remoteConnectionViewModel?.setEditingSafRootId(null)
+                        libraryRootLauncher.launch(null)
+                    },
+                    onAddLibraryPickWebDav = {
+                        showAddLibraryDialog = false
+                        remoteConnectionViewModel?.openWebDav()
+                    },
+                    onAddLibraryPickAbs = {
+                        showAddLibraryDialog = false
+                        remoteConnectionViewModel?.openAbs()
+                    },
+                    rootActionsTarget = rootActionsTarget,
+                    onDismissRootActions = { rootActionsTarget = null },
+                    onEditRoot = { root ->
+                        when {
+                            root.isSafRoot -> {
+                                remoteConnectionViewModel?.setEditingSafRootId(root.rootId)
+                                libraryRootLauncher.launch(null)
+                            }
+                            root.isWebDavRoot -> remoteConnectionViewModel?.openWebDavForEdit(root)
+                            else -> remoteConnectionViewModel?.openAbsForEdit(root)
+                        }
+                    },
+                    onSyncRoot = { root -> remoteConnectionViewModel?.syncAbsRoot(root.rootId) },
+                    onRescanRoot = { root -> remoteConnectionViewModel?.triggerRescan(root.rootId) },
+                    onRequestDeleteRoot = { root ->
+                        rootActionsTarget = null
+                        rootPendingDelete = root
+                    },
+                    rootPendingDelete = rootPendingDelete,
+                    onConfirmDeleteRoot = {
+                        rootPendingDelete?.let { remoteConnectionViewModel?.deleteLibraryRoot(it) }
+                        rootPendingDelete = null
+                    },
+                    onDismissDeleteRoot = { rootPendingDelete = null }
                 )
             }
         }
