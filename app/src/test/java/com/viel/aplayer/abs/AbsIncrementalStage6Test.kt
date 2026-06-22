@@ -162,14 +162,14 @@ class AbsIncrementalStage6Test {
             )
         )
 
-        assertTrue(!AbsCatalogSynchronizer(UnsupportedApi(), createCredentialStore("https://example.com/audiobookshelf", "token-1"), freshStore).isAuthorizedProgressRefreshDue("fresh-root", now))
-        assertTrue(AbsCatalogSynchronizer(UnsupportedApi(), createCredentialStore("https://example.com/audiobookshelf", "token-1"), staleStore).isAuthorizedProgressRefreshDue("stale-root", now))
-        assertTrue(AbsCatalogSynchronizer(UnsupportedApi(), createCredentialStore("https://example.com/audiobookshelf", "token-1"), FakeCatalogStore()).isAuthorizedProgressRefreshDue("missing-root", now))
+        assertTrue(!AbsCatalogSynchronizer(UnsupportedApi(), createCredentialStore("https://example.com/AudiobookShelf", "token-1"), freshStore).isAuthorizedProgressRefreshDue("fresh-root", now))
+        assertTrue(AbsCatalogSynchronizer(UnsupportedApi(), createCredentialStore("https://example.com/AudiobookShelf", "token-1"), staleStore).isAuthorizedProgressRefreshDue("stale-root", now))
+        assertTrue(AbsCatalogSynchronizer(UnsupportedApi(), createCredentialStore("https://example.com/AudiobookShelf", "token-1"), FakeCatalogStore()).isAuthorizedProgressRefreshDue("missing-root", now))
     }
 
     @Test
     fun `incremental sync should retry a failed item at most three times then keep only root level error summary`() = runBlocking {
-        val credentialStore = createCredentialStore("https://example.com/audiobookshelf", "token-1")
+        val credentialStore = createCredentialStore("https://example.com/AudiobookShelf", "token-1")
         val store = FakeCatalogStore()
         val api = AlwaysFailingDetailApi()
         val synchronizer = AbsCatalogSynchronizer(
@@ -190,8 +190,8 @@ class AbsIncrementalStage6Test {
 
     @Test
     fun `incremental sync should reactivate unchanged remote deleted mirror without detail refetch`() = runBlocking {
-        val credentialStore = createCredentialStore("https://example.com/audiobookshelf", "token-1")
-        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val credentialStore = createCredentialStore("https://example.com/AudiobookShelf", "token-1")
+        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
         val root = sampleRoot()
         val existingBookId = idMapper.bookId(serverKey, "item-1")
         val store = FakeCatalogStore(
@@ -245,7 +245,7 @@ class AbsIncrementalStage6Test {
 
     @Test
     fun `sync summary should report added and failed item counts`() = runBlocking {
-        val credentialStore = createCredentialStore("https://example.com/audiobookshelf", "token-1")
+        val credentialStore = createCredentialStore("https://example.com/AudiobookShelf", "token-1")
         val store = FakeCatalogStore()
         val api = PartialDetailApi()
         val synchronizer = AbsCatalogSynchronizer(
@@ -265,8 +265,8 @@ class AbsIncrementalStage6Test {
 
     @Test
     fun `catalog sync should refresh expired cover even when metadata fingerprint is unchanged`() = runBlocking {
-        val credentialStore = createCredentialStore("https://example.com/audiobookshelf", "token-1")
-        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val credentialStore = createCredentialStore("https://example.com/AudiobookShelf", "token-1")
+        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
         val root = sampleRoot()
         val existingBookId = idMapper.bookId(serverKey, "item-1")
         val now = System.currentTimeMillis()
@@ -332,7 +332,7 @@ class AbsIncrementalStage6Test {
         val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
         val adapter = moshi.adapter(AbsLibraryItemDto::class.java)
         val root = sampleRoot()
-        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
 
         val missingTracksItem = adapter.fromJson(
             """
@@ -408,8 +408,8 @@ class AbsIncrementalStage6Test {
 
     @Test
     fun `incremental sync should clear fingerprint when library is switched`() = runBlocking {
-        val credentialStore = createCredentialStore("https://example.com/audiobookshelf", "token-1")
-        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val credentialStore = createCredentialStore("https://example.com/AudiobookShelf", "token-1")
+        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
         val root = sampleRoot().copy(basePath = "lib-new")
         val existingBookId = idMapper.bookId(serverKey, "item-1")
         val oldFingerprint = AbsCatalogSynchronizer.minifiedFingerprint(
@@ -467,7 +467,7 @@ class AbsIncrementalStage6Test {
     private fun sampleRoot() = LibraryRootEntity(
         id = "root-1",
         sourceType = AudiobookSchema.LibrarySourceType.ABS,
-        sourceUri = "https://example.com/audiobookshelf",
+        sourceUri = "https://example.com/AudiobookShelf",
         basePath = "lib-1",
         credentialId = "cred-1",
         displayName = "Audiobooks"

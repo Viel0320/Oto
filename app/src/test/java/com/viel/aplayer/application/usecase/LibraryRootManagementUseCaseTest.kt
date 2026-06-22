@@ -194,7 +194,7 @@ class LibraryRootManagementUseCaseTest {
     }
 
     /**
-     * Represent Audiobookshelf roots using basePath as the persisted library id.
+     * Represent AudiobookShelf roots using basePath as the persisted library id.
      * The production root store stores the selected ABS library id in basePath, so switch tests compare that field.
      */
     private fun absRoot(id: String, libraryId: String): LibraryRootEntity {

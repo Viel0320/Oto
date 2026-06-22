@@ -4,7 +4,7 @@ package com.viel.aplayer.event.feedback
  * Top-level grouping for short-lived feedback by perceived task and outcome.
  *
  * Categories never absorb each other, even under app-wide burst pressure. Local folders, WebDAV, and
- * Audiobookshelf are peer access forms within [LIBRARY_ACCESS] rather than separate top-level families.
+ * AudiobookShelf are peer access forms within [LIBRARY_ACCESS] rather than separate top-level families.
  */
 enum class FeedbackCategory {
     LIBRARY_ACCESS,

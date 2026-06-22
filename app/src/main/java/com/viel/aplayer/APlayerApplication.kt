@@ -244,7 +244,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
         }
 
         /**
-         * Return the narrow Audiobookshelf worker dependency view.
+         * Return the narrow AudiobookShelf worker dependency view.
          * Lets ABS background jobs mirror one root and publish feedback without receiving unrelated container entries.
          *
          * @param context Component Context

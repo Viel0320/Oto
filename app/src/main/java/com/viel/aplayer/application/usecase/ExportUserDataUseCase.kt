@@ -123,10 +123,12 @@ class ExportUserDataUseCase(private val context: Context) {
             shmFile.copyTo(tempShmFile, overwrite = true)
         }
 
-        SQLiteDatabase.openDatabase(tempDbFile.path, null, SQLiteDatabase.OPEN_READWRITE)
+        SQLiteDatabase.openDatabase(tempDbFile.path, null, SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.NO_LOCALIZED_COLLATORS)
             .use { db ->
                 db.execSQL("DELETE FROM download_metadata")
-                db.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", emptyArray()).use { cursor ->
+                // Execute checkpoint to merge WAL changes back into the main database file before zipping.
+                // Using rawQuery + moveToFirst ensures the command is actually executed and waited for.
+                db.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { cursor ->
                     cursor.moveToFirst()
                 }
             }

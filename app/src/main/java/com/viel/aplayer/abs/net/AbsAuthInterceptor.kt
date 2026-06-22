@@ -6,7 +6,7 @@ import okhttp3.Interceptor
 import okhttp3.Response
 
 /**
- * Authentication Interceptor for Audiobookshelf OkHttp client.
+ * Authentication Interceptor for AudiobookShelf OkHttp client.
  * Extracts the [AbsAuth] tag from the request to dynamically inject
  * the "Authorization: Bearer <token>" header before the request is sent.
  */

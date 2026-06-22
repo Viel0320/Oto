@@ -46,10 +46,10 @@ class AbsSettingsConnectionUseCase(
     private val maintenanceUseCase: SettingsLibraryMaintenanceUseCase
 ) {
     /**
-     * Tests an Audiobookshelf draft and returns the server's selectable libraries.
+     * Tests an AudiobookShelf draft and returns the server's selectable libraries.
      *
      * Duplicate root detection is intentionally deferred to [saveServer], because a single
-     * Audiobookshelf server can expose several libraries and the selected library id is not known until
+     * AudiobookShelf server can expose several libraries and the selected library id is not known until
      * after this connection test succeeds.
      */
     suspend fun testConnection(
@@ -72,7 +72,7 @@ class AbsSettingsConnectionUseCase(
     }
 
     /**
-     * Persists a selected Audiobookshelf library after blocking exact duplicate roots.
+     * Persists a selected AudiobookShelf library after blocking exact duplicate roots.
      *
      * New additions compare normalized server URL plus selected library id, allowing the same server to
      * host multiple roots while preventing the same library from being added twice.

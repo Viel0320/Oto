@@ -355,7 +355,7 @@ interface AppContainer :
     override val playbackSourcePreflight: PlaybackSourcePreflight
 
     /**
-     * Dedicated mirror processor for Audiobookshelf servers.
+     * Dedicated mirror processor for AudiobookShelf servers.
      * Kept separate from local library seams to prevent remote REST details leaking into the local domain.
      */
     override val absCatalogSynchronizer: AbsCatalogSynchronizer

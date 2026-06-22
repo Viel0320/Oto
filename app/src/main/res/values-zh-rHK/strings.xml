@@ -1,4 +1,4 @@
-    <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedQuantity">
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedQuantity">
     <string name="author_label">作者</string>
     <string name="narrator_label">朗讀者</string>
     <string name="summary_label">概要</string>
@@ -86,11 +86,14 @@
     <string name="feedback_settings_webdav_connection_succeeded">WebDAV 測試連線成功</string>
     <string name="feedback_settings_webdav_connection_failed">WebDAV 測試連線失敗：%1$s</string>
     <string name="feedback_settings_webdav_root_already_exists">呢個 WebDAV 目錄已存在於媒體庫中。</string>
-    <string name="feedback_settings_cleartext_http_blocked">明文 HTTP 已被全域設定封鎖。請先在設定中允許明文 HTTP 後再使用此端點。</string>
+    <string name="feedback_settings_cleartext_http_blocked">明文 HTTP 已被全域設定封鎖。請先在設定中允許明文 HTTP
+        後再使用此端點。</string>
     <string name="feedback_settings_webdav_url_missing_scheme">WebDAV URL 缺少通訊協定。</string>
     <string name="feedback_settings_webdav_url_missing_host">WebDAV URL 缺少主機名稱。</string>
-    <string name="feedback_settings_webdav_url_userinfo_not_allowed">WebDAV URL 不能包含用戶名稱或密碼。請在 WebDAV 憑證欄位填寫憑證。</string>
-    <string name="feedback_settings_webdav_url_unsupported_scheme">WebDAV URL 只支援 http:// 或 https://。</string>
+    <string name="feedback_settings_webdav_url_userinfo_not_allowed">WebDAV URL 不能包含用戶名稱或密碼。請在
+        WebDAV 憑證欄位填寫憑證。</string>
+    <string name="feedback_settings_webdav_url_unsupported_scheme">WebDAV URL 只支援 http:// 或
+        https://。</string>
     <string name="feedback_settings_webdav_auth_failed">身份驗證失敗，請檢查用戶名稱和密碼。</string>
     <string name="feedback_settings_webdav_forbidden">伺服器拒絕存取。</string>
     <string name="feedback_settings_webdav_not_found">找不到路徑，請檢查 URL 和媒體庫路徑。</string>
@@ -207,7 +210,7 @@
     <string name="settings_library_status_synced">已同步</string>
     <string name="settings_library_status_idle">閒置</string>
     <string name="settings_add_library_title">加入媒體庫</string>
-    <string name="settings_add_library_subtitle">支援本機 SAF、WebDAV、Audiobookshelf 伺服器</string>
+    <string name="settings_add_library_subtitle">支援本機 SAF、WebDAV、AudiobookShelf 伺服器</string>
     <string name="settings_interface_effects_title">介面</string>
     <string name="settings_theme_mode_title">主題模式</string>
     <string name="settings_theme_mode_subtitle">選擇介面配色：跟隨系統、固定淺色或固定深色。</string>
@@ -248,7 +251,8 @@
     <string name="settings_sleep_fade_title">睡眠倒數音量漸隱</string>
     <string name="settings_sleep_fade_subtitle">倒數或章節結束前最後 10 秒，音量會平滑漸隱至靜音。</string>
     <string name="settings_shake_reset_title">搖晃手機重設睡眠定時器</string>
-    <string name="settings_shake_reset_subtitle">最後 10 秒漸隱階段輕輕搖晃手機即可獲得震動回饋並重設定時器。章節結束模式下可順延至下一章並使用 15 分鐘倒數。</string>
+    <string name="settings_shake_reset_subtitle">最後 10 秒漸隱階段輕輕搖晃手機即可獲得震動回饋並重設定時器。章節結束模式下可順延至下一章並使用
+        15 分鐘倒數。</string>
     <string name="settings_auto_rewind_toggle_title">暫停自動倒帶</string>
     <string name="settings_auto_rewind_subtitle">暫停或停止播放後自動倒退的時長，通知避讓除外</string>
     <string name="settings_auto_rewind_disabled">已關閉</string>
@@ -281,12 +285,13 @@
     <string name="settings_webdav_test_connecting">測試連線中…</string>
     <string name="settings_webdav_connection_success">連線測試成功，可以儲存媒體庫。</string>
     <string name="settings_delete_root_title">移除媒體庫根目錄</string>
-    <string name="settings_delete_root_body">移除此媒體庫根目錄後，應用程式將失去對其實體檔案的存取權。相關書籍紀錄會從媒體庫移除，但不會刪除儲存空間中的實體音訊檔案。確定要移除此目錄並釋放存取授權嗎？</string>
+    <string name="settings_delete_root_body">
+        移除此媒體庫根目錄後，應用程式將失去對其實體檔案的存取權。相關書籍紀錄會從媒體庫移除，但不會刪除儲存空間中的實體音訊檔案。確定要移除此目錄並釋放存取授權嗎？</string>
     <string name="settings_delete_root_confirm">移除</string>
     <string name="settings_add_library_type_title">選擇媒體庫類別</string>
     <string name="settings_library_type_local_saf">本機（SAF）</string>
     <string name="settings_library_type_webdav">WebDAV 媒體庫</string>
-    <string name="settings_library_type_abs">Audiobookshelf 伺服器（absserver）</string>
+    <string name="settings_library_type_abs">AudiobookShelf 伺服器</string>
     <string name="settings_root_action_title_fallback">媒體庫操作</string>
     <string name="settings_root_action_relocate_saf">重新定位書庫位置</string>
     <string name="settings_root_action_edit_remote">編輯媒體庫設定</string>
@@ -294,20 +299,29 @@
     <string name="settings_root_action_rescan">重新掃描</string>
     <string name="settings_root_action_remove">移除媒體庫</string>
     <string name="about_version_text">版本 %1$s</string>
-    <string name="about_app_description">APlayer 是為聽書愛好者打造的本機有聲書播放器。優秀產品離不開開源社群的基礎貢獻，謹向讓本應用程式成為可能的庫作者與組織致敬。</string>
+    <string name="about_app_description">APlayer
+        是為聽書愛好者打造的本機有聲書播放器。優秀產品離不開開源社群的基礎貢獻，謹向讓本應用程式成為可能的庫作者與組織致敬。</string>
     <string name="about_developer_credit">由 %1$s 提供</string>
     <string name="about_visit_project_homepage_content_description">瀏覽項目主頁</string>
     <string name="about_license_details_title">詳細授權聲明</string>
     <string name="about_visit_project_homepage">瀏覽項目主頁 (GitHub / Maven)</string>
-    <string name="about_library_compose_description">Jetpack Compose 是用於構建原生 Android 介面的現代聲明式工具包，提供更少代碼、強大工具和直觀 Kotlin API。</string>
-    <string name="about_library_media3_description">Media3 是新一代 AndroidX 媒體技術棧，包含 ExoPlayer。APlayer 使用它處理有聲書串流載入、斷點續播和硬件播放。</string>
-    <string name="about_library_room_description">Room 在 SQLite 之上提供抽象層，支撐 APlayer 的本機中繼資料、播放進度和斷點持久化。</string>
-    <string name="about_library_haze_description">Haze 為 Jetpack Compose 提供高效能模糊效果。APlayer 使用它呈現玻璃質感面板、彈窗、徽章和播放器介面。</string>
-    <string name="about_library_coil_description">Coil 是由 Kotlin 協程驅動的高速 Android 圖像載入庫。APlayer 使用它載入、快取和解碼有聲書封面。</string>
-    <string name="about_library_glance_description">Glance 讓開發者用 Compose 風格聲明式 API 構建桌面小工具。APlayer 使用它提供現代高效的桌面媒體控制。</string>
+    <string name="about_library_compose_description">Jetpack Compose 是用於構建原生 Android
+        介面的現代聲明式工具包，提供更少代碼、強大工具和直觀 Kotlin API。</string>
+    <string name="about_library_media3_description">Media3 是新一代 AndroidX 媒體技術棧，包含 ExoPlayer。APlayer
+        使用它處理有聲書串流載入、斷點續播和硬件播放。</string>
+    <string name="about_library_room_description">Room 在 SQLite 之上提供抽象層，支撐 APlayer
+        的本機中繼資料、播放進度和斷點持久化。</string>
+    <string name="about_library_haze_description">Haze 為 Jetpack Compose 提供高效能模糊效果。APlayer
+        使用它呈現玻璃質感面板、彈窗、徽章和播放器介面。</string>
+    <string name="about_library_coil_description">Coil 是由 Kotlin 協程驅動的高速 Android 圖像載入庫。APlayer
+        使用它載入、快取和解碼有聲書封面。</string>
+    <string name="about_library_glance_description">Glance 讓開發者用 Compose 風格聲明式 API 構建桌面小工具。APlayer
+        使用它提供現代高效的桌面媒體控制。</string>
     <string name="about_library_coroutines_description">Kotlin 協程為媒體掃描、網絡分析和資料庫查詢提供輕量異步執行與並發控制。</string>
-    <string name="about_library_datastore_description">DataStore 是 SharedPreferences 的現代替代方案。APlayer 使用它透過 Flow 異步儲存全域設定與偏好。</string>
-    <string name="about_library_workmanager_description">WorkManager 用於調度可靠的背景工作。APlayer 使用它執行媒體庫同步和維護任務。</string>
+    <string name="about_library_datastore_description">DataStore 是 SharedPreferences 的現代替代方案。APlayer
+        使用它透過 Flow 異步儲存全域設定與偏好。</string>
+    <string name="about_library_workmanager_description">WorkManager 用於調度可靠的背景工作。APlayer
+        使用它執行媒體庫同步和維護任務。</string>
     <string name="edit_book_title">修改書籍資料</string>
     <string name="title_label">書名</string>
     <string name="edit_book_title_placeholder">請輸入書名</string>
@@ -332,7 +346,8 @@
     <string name="abs_progress_use_remote">使用伺服器</string>
     <string name="abs_progress_finished_suffix">（已完成）</string>
     <string name="track_unavailable_title">分軌檔案不可用</string>
-    <string name="track_unavailable_body">目前收聽的分軌實體檔案不存在或損壞。是否跳過此分軌並播放下一首可用分軌？\n\n注意：強制跳軌可能會打亂原本預定的收聽進度。</string>
+    <string name="track_unavailable_body">
+        目前收聽的分軌實體檔案不存在或損壞。是否跳過此分軌並播放下一首可用分軌？\n\n注意：強制跳軌可能會打亂原本預定的收聽進度。</string>
     <string name="track_unavailable_confirm_skip">確認跳過</string>
     <string name="home_action_mark_read_status">標記閱讀狀態</string>
     <string name="accessibility_choice_selected">已選取</string>
@@ -343,7 +358,8 @@
     <string name="home_action_remove_title">從媒體庫移除</string>
     <string name="home_action_remove_subtitle">只從播放列表移除此書籍，手機來源檔案仍會保留</string>
     <string name="home_action_remove_confirm_title">確認從媒體庫移除？</string>
-    <string name="home_action_remove_confirm_body">確定要從 APlayer 媒體庫中移除《%1$s》嗎？\n\n注意：此操作只是軟刪除，會從播放列表移出，但不會刪除手機儲存空間中的實體音訊檔案。</string>
+    <string name="home_action_remove_confirm_body">確定要從 APlayer
+        媒體庫中移除《%1$s》嗎？\n\n注意：此操作只是軟刪除，會從播放列表移出，但不會刪除手機儲存空間中的實體音訊檔案。</string>
     <string name="home_action_remove_confirm_button">確認刪除</string>
     <string name="chapter_list_title">章節</string>
     <string name="chapter_list_empty">沒有可用章節</string>
@@ -426,7 +442,8 @@
     <string name="bookmark_update_label">更新書籤：</string>
 
     <string name="deleted_book_recovery_empty">沒有可復原的已刪除書籍</string>
-    <string name="deleted_book_recovery_failure_abs_remote_deleted">此 Audiobookshelf 書籍已在伺服器上刪除。請在伺服器上復原或重新加入，然後再次同步 APlayer。</string>
+    <string name="deleted_book_recovery_failure_abs_remote_deleted">此 AudiobookShelf
+        書籍已在伺服器上刪除。請在伺服器上復原或重新加入，然後再次同步 APlayer。</string>
     <string name="deleted_book_recovery_failure_all_files_unavailable">此書籍的所有音訊檔案均無法使用：%1$s</string>
     <string name="deleted_book_recovery_failure_missing_book">該書籍紀錄已不存在或已被復原。</string>
     <string name="deleted_book_recovery_failure_missing_root">該書籍的媒體庫根目錄已不存在。</string>
@@ -434,7 +451,8 @@
     <string name="deleted_book_recovery_failure_root_unavailable">媒體庫根目錄無法使用：%1$s</string>
     <string name="deleted_book_recovery_failure_title">復原失敗</string>
     <string name="deleted_book_recovery_failure_unexpected">無法完成復原：%1$s</string>
-    <string name="deleted_book_recovery_partial_body">此書籍僅有部分音訊檔案可讀。復原後，APlayer 會將該書籍標記為部分可用，且缺失的音訊將無法播放。</string>
+    <string name="deleted_book_recovery_partial_body">此書籍僅有部分音訊檔案可讀。復原後，APlayer
+        會將該書籍標記為部分可用，且缺失的音訊將無法播放。</string>
     <string name="deleted_book_recovery_partial_confirm">確認復原</string>
     <string name="deleted_book_recovery_partial_title">部分音訊檔案無法使用</string>
     <string name="deleted_book_recovery_restore_action">復原書籍</string>
@@ -450,7 +468,8 @@
     <string name="settings_import_data_title">匯入數據備份</string>
     <string name="settings_import_data_subtitle">從備份檔案恢復數據庫和應用設定</string>
     <string name="settings_import_confirm_title">覆蓋本地數據確認</string>
-    <string name="settings_import_confirm_body">匯入此備份將會完全覆蓋您當前的數據庫和應用設定（包括所有已登錄的賬號、書籍列表、書籤和播放進度）。\n\n重要提示：在當前設備上未通過 SAF 授權的目錄，在您前往設定重新授權之前將無法使用。</string>
+    <string name="settings_import_confirm_body">匯入此備份將會完全覆蓋您當前的數據庫和應用設定（包括所有已登錄的賬號、書籍列表、書籤和播放進度）。\n\n重要提示：在當前設備上未通過
+        SAF 授權的目錄，在您前往設定重新授權之前將無法使用。</string>
     <string name="settings_import_manifest_info">應用：%1$s（%2$s）\n版本：%3$s（%4$d）\n匯出時間：%5$s</string>
     <string name="settings_import_manifest_roots">媒體庫根目錄：\n%1$s</string>
     <string name="feedback_settings_export_success">數據已成功匯出</string>
@@ -521,10 +540,16 @@
     <string name="download_management_delete_all_action">刪除全部</string>
     <string name="download_management_delete_all_confirm_title">刪除全部下載</string>
     <string name="download_management_delete_all_confirm_body">確定要刪除所有離線快取下載嗎？</string>
-    <string name="about_library_navigation3_description">Navigation 3 提供面向 Compose 的導覽構建塊。APlayer 使用它保持頁面堆疊和浮層路由由狀態驅動。</string>
-    <string name="about_library_materialkolor_description">MaterialKolor 可從種子色生成 Material You 配色。APlayer 使用它支援桌布和封面感知的動態主題。</string>
-    <string name="about_library_palette_description">AndroidX Palette 可從圖像中提取代表性顏色。APlayer 使用它在生成主題介面前推導封面強調色。</string>
-    <string name="about_library_documentfile_description">DocumentFile 封裝 Android 儲存空間存取框架文件。APlayer 使用它檢查使用者授權的本機媒體庫資料夾。</string>
-    <string name="about_library_okhttp_description">OkHttp 是現代 HTTP 用戶端。APlayer 使用它處理 WebDAV 和 Audiobookshelf 網絡存取，包括串流讀取和 API 呼叫。</string>
-    <string name="about_library_moshi_description">Moshi 將 JSON 映射為具型別 Kotlin 模型。APlayer 使用它解析結構化 Audiobookshelf 協議回應。</string>
+    <string name="about_library_navigation3_description">Navigation 3 提供面向 Compose 的導覽構建塊。APlayer
+        使用它保持頁面堆疊和浮層路由由狀態驅動。</string>
+    <string name="about_library_materialkolor_description">MaterialKolor 可從種子色生成 Material You
+        配色。APlayer 使用它支援桌布和封面感知的動態主題。</string>
+    <string name="about_library_palette_description">AndroidX Palette 可從圖像中提取代表性顏色。APlayer
+        使用它在生成主題介面前推導封面強調色。</string>
+    <string name="about_library_documentfile_description">DocumentFile 封裝 Android 儲存空間存取框架文件。APlayer
+        使用它檢查使用者授權的本機媒體庫資料夾。</string>
+    <string name="about_library_okhttp_description">OkHttp 是現代 HTTP 用戶端。APlayer 使用它處理 WebDAV 和
+        AudiobookShelf 網絡存取，包括串流讀取和 API 呼叫。</string>
+    <string name="about_library_moshi_description">Moshi 將 JSON 映射為具型別 Kotlin 模型。APlayer 使用它解析結構化
+        AudiobookShelf 協議回應。</string>
 </resources>

@@ -315,16 +315,15 @@ private fun resolveDirection(
         }
     }
 
-    val minLeft = edgeMarginPx
     val maxRight = windowWidthPx - edgeMarginPx
     val centeredLeft = anchor.center.x - panelWidthPx / 2f
     val centeredRight = centeredLeft + panelWidthPx
-    if (centeredLeft >= minLeft && centeredRight <= maxRight) {
+    if (centeredLeft >= edgeMarginPx && centeredRight <= maxRight) {
         return if (opensDown) OpenDirection.DownCenter else OpenDirection.UpCenter
     }
 
     val spaceToRight = maxRight - anchor.left
-    val spaceToLeft = anchor.right - minLeft
+    val spaceToLeft = anchor.right - edgeMarginPx
     val fitsRight = spaceToRight >= panelWidthPx
     val fitsLeft = spaceToLeft >= panelWidthPx
     val opensRight = when {

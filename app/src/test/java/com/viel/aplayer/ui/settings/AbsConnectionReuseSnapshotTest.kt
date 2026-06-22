@@ -13,7 +13,7 @@ class AbsConnectionReuseSnapshotTest {
     @Test
     fun `reuse snapshot should match same server same user and selected library`() {
         val snapshot = AbsConnectionReuseSnapshot(
-            baseUrl = "https://example.com/audiobookshelf",
+            baseUrl = "https://example.com/AudiobookShelf",
             username = "demo",
             token = "token-1",
             connection = AbsConnectionTestResult(
@@ -29,7 +29,7 @@ class AbsConnectionReuseSnapshotTest {
         assertTrue(
             shouldReuseAbsConnectionSnapshot(
                 snapshot = snapshot,
-                baseUrl = "https://example.com/audiobookshelf/",
+                baseUrl = "https://example.com/AudiobookShelf/",
                 username = "demo",
                 libraryId = "lib-1"
             )
@@ -39,7 +39,7 @@ class AbsConnectionReuseSnapshotTest {
     @Test
     fun `reuse snapshot should reject changed server user or library`() {
         val snapshot = AbsConnectionReuseSnapshot(
-            baseUrl = "https://example.com/audiobookshelf",
+            baseUrl = "https://example.com/AudiobookShelf",
             username = "demo",
             token = "token-1",
             connection = AbsConnectionTestResult(
@@ -52,8 +52,8 @@ class AbsConnectionReuseSnapshotTest {
             )
         )
 
-        assertFalse(shouldReuseAbsConnectionSnapshot(snapshot, "https://other.example/audiobookshelf", "demo", "lib-1"))
-        assertFalse(shouldReuseAbsConnectionSnapshot(snapshot, "https://example.com/audiobookshelf", "other", "lib-1"))
-        assertFalse(shouldReuseAbsConnectionSnapshot(snapshot, "https://example.com/audiobookshelf", "demo", "lib-2"))
+        assertFalse(shouldReuseAbsConnectionSnapshot(snapshot, "https://other.example/AudiobookShelf", "demo", "lib-1"))
+        assertFalse(shouldReuseAbsConnectionSnapshot(snapshot, "https://example.com/AudiobookShelf", "other", "lib-1"))
+        assertFalse(shouldReuseAbsConnectionSnapshot(snapshot, "https://example.com/AudiobookShelf", "demo", "lib-2"))
     }
 }

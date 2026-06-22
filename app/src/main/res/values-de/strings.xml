@@ -32,9 +32,11 @@
     <string name="home_view_dialog_close">Schließen</string>
     <string name="import_content_description">Medien importieren</string>
     <string name="rescan_library_title">Bibliothek erneut scannen</string>
-    <string name="rescan_library_subtitle">Vollständigen Scan aller autorisierten Ordner manuell starten</string>
+    <string name="rescan_library_subtitle">Vollständigen Scan aller autorisierten Ordner manuell
+        starten</string>
     <string name="chapter_progress_title">Kapitelfortschritt</string>
-    <string name="chapter_progress_subtitle">Fortschrittsleiste und Benachrichtigungen zeigen nur das aktuelle Kapitel</string>
+    <string name="chapter_progress_subtitle">Fortschrittsleiste und Benachrichtigungen zeigen nur
+        das aktuelle Kapitel</string>
     <string name="action_add">Hinzufügen</string>
     <string name="action_save">Speichern</string>
     <string name="action_cancel">Abbrechen</string>
@@ -63,80 +65,123 @@
     <string name="player_widget_background_placeholder_description">Hintergrundplatzhalter</string>
     <string name="player_widget_seek_backward_description">Zurückspulen</string>
     <string name="player_widget_seek_forward_description">Vorspulen</string>
-    <string name="feedback_playback_cleartext_blocked">Klartext-HTTP-Wiedergabe wurde aus Sicherheitsgründen blockiert. Aktivieren Sie sie zuerst in den Einstellungen.</string>
-    <string name="feedback_playback_initial_media_load_failed">Medienquelle konnte nicht geladen werden: %1$s</string>
-    <string name="feedback_playback_no_available_track_after_failure">Kein weiterer abspielbarer Audiotitel gefunden. Wiedergabe gestoppt.</string>
+    <string name="feedback_playback_cleartext_blocked">Klartext-HTTP-Wiedergabe wurde aus
+        Sicherheitsgründen blockiert. Aktivieren Sie sie zuerst in den Einstellungen.</string>
+    <string name="feedback_playback_initial_media_load_failed">Medienquelle konnte nicht geladen
+        werden: %1$s</string>
+    <string name="feedback_playback_no_available_track_after_failure">Kein weiterer abspielbarer
+        Audiotitel gefunden. Wiedergabe gestoppt.</string>
     <string name="feedback_playback_stopped_scope">\nWiedergabe gestoppt: %1$s</string>
     <plurals name="feedback_playback_finished_shutdown_scheduled">
         <item quantity="one">Wiedergabe beendet. Herunterfahren in %1$d Sekunde.</item>
         <item quantity="other">Wiedergabe beendet. Herunterfahren in %1$d Sekunden.</item>
     </plurals>
-    <string name="feedback_playback_bookmark_created">Lesezeichen an der aktuellen Wiedergabeposition hinzugefügt</string>
-    <string name="feedback_playback_remote_progress_save_failed">Remote-Fortschritt konnte lokal nicht geschrieben werden: %1$s</string>
+    <string name="feedback_playback_bookmark_created">Lesezeichen an der aktuellen
+        Wiedergabeposition hinzugefügt</string>
+    <string name="feedback_playback_remote_progress_save_failed">Remote-Fortschritt konnte lokal
+        nicht geschrieben werden: %1$s</string>
     <string name="feedback_playback_speed_reset">Wiedergabegeschwindigkeit zurückgesetzt</string>
     <string name="feedback_playback_speed_changed">Wiedergabegeschwindigkeit: %1$sx</string>
     <string name="feedback_playback_source_preflight_blocked">%1$s</string>
-    <string name="feedback_playback_source_preflight_missing_root">Der Bibliotheksstamm fehlt. Die Medienquelle kann nicht geladen werden.</string>
-    <string name="feedback_playback_source_preflight_unavailable_root">Der Bibliotheksstamm ist nicht verfügbar. Die Medienquelle kann nicht geladen werden: %1$s</string>
-    <string name="feedback_playback_track_unavailable">Die aktuelle Titeldatei ist nicht verfügbar. Prüfen Sie, ob Sie zu einem anderen Titel springen möchten.</string>
-    <string name="feedback_settings_local_library_relocated">Lokaler Medienbibliotheksort aktualisiert. Scan gestartet.</string>
-    <string name="feedback_settings_local_library_relocation_failed">Ort konnte nicht aktualisiert werden: %1$s</string>
+    <string name="feedback_playback_source_preflight_missing_root">Der Bibliotheksstamm fehlt. Die
+        Medienquelle kann nicht geladen werden.</string>
+    <string name="feedback_playback_source_preflight_unavailable_root">Der Bibliotheksstamm ist
+        nicht verfügbar. Die Medienquelle kann nicht geladen werden: %1$s</string>
+    <string name="feedback_playback_track_unavailable">Die aktuelle Titeldatei ist nicht verfügbar.
+        Prüfen Sie, ob Sie zu einem anderen Titel springen möchten.</string>
+    <string name="feedback_settings_local_library_relocated">Lokaler Medienbibliotheksort
+        aktualisiert. Scan gestartet.</string>
+    <string name="feedback_settings_local_library_relocation_failed">Ort konnte nicht aktualisiert
+        werden: %1$s</string>
     <string name="feedback_settings_webdav_updated">WebDAV-Medienbibliothek aktualisiert</string>
-    <string name="feedback_settings_webdav_update_failed">WebDAV konnte nicht aktualisiert werden: %1$s</string>
+    <string name="feedback_settings_webdav_update_failed">WebDAV konnte nicht aktualisiert werden:
+        %1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">WebDAV-Testverbindung erfolgreich</string>
-    <string name="feedback_settings_webdav_connection_failed">WebDAV-Testverbindung fehlgeschlagen: %1$s</string>
-    <string name="feedback_settings_webdav_root_already_exists">Dieser WebDAV-Speicherort ist bereits in deinen Medienbibliotheken vorhanden.</string>
-    <string name="feedback_settings_cleartext_http_blocked">Unverschlüsseltes HTTP ist durch die globalen Einstellungen blockiert. Aktivieren Sie es manuell in den Einstellungen, um diesen Endpunkt zu verwenden.</string>
+    <string name="feedback_settings_webdav_connection_failed">WebDAV-Testverbindung fehlgeschlagen:
+        %1$s</string>
+    <string name="feedback_settings_webdav_root_already_exists">Dieser WebDAV-Speicherort ist
+        bereits in deinen Medienbibliotheken vorhanden.</string>
+    <string name="feedback_settings_cleartext_http_blocked">Unverschlüsseltes HTTP ist durch die
+        globalen Einstellungen blockiert. Aktivieren Sie es manuell in den Einstellungen, um diesen
+        Endpunkt zu verwenden.</string>
     <string name="feedback_settings_webdav_url_missing_scheme">Der WebDAV-URL fehlt ein Schema.</string>
     <string name="feedback_settings_webdav_url_missing_host">Der WebDAV-URL fehlt ein Host.</string>
-    <string name="feedback_settings_webdav_url_userinfo_not_allowed">Die WebDAV-URL darf keinen Benutzernamen oder kein Passwort enthalten. Gib die Zugangsdaten in die WebDAV-Zugangsdatenfelder ein.</string>
-    <string name="feedback_settings_webdav_url_unsupported_scheme">WebDAV-URLs unterstützen nur http:// oder https://.</string>
-    <string name="feedback_settings_webdav_auth_failed">Authentifizierung fehlgeschlagen. Prüfen Sie Benutzername und Passwort.</string>
+    <string name="feedback_settings_webdav_url_userinfo_not_allowed">Die WebDAV-URL darf keinen
+        Benutzernamen oder kein Passwort enthalten. Gib die Zugangsdaten in die
+        WebDAV-Zugangsdatenfelder ein.</string>
+    <string name="feedback_settings_webdav_url_unsupported_scheme">WebDAV-URLs unterstützen nur
+        http:// oder https://.</string>
+    <string name="feedback_settings_webdav_auth_failed">Authentifizierung fehlgeschlagen. Prüfen Sie
+        Benutzername und Passwort.</string>
     <string name="feedback_settings_webdav_forbidden">Der Server hat den Zugriff verweigert.</string>
-    <string name="feedback_settings_webdav_not_found">Pfad nicht gefunden. Prüfen Sie URL und Bibliothekspfad.</string>
+    <string name="feedback_settings_webdav_not_found">Pfad nicht gefunden. Prüfen Sie URL und
+        Bibliothekspfad.</string>
     <string name="feedback_settings_webdav_http_status">Verbindung fehlgeschlagen. HTTP-Status: %1$d</string>
-    <string name="feedback_settings_abs_server_updated">ABS-Server aktualisiert. Synchronisierung gestartet.</string>
-    <string name="feedback_settings_abs_server_added">ABS-Server hinzugefügt. Synchronisierung gestartet.</string>
-    <string name="feedback_settings_abs_server_save_failed">ABS-Server konnte nicht gespeichert werden: %1$s</string>
+    <string name="feedback_settings_abs_server_updated">ABS-Server aktualisiert. Synchronisierung
+        gestartet.</string>
+    <string name="feedback_settings_abs_server_added">ABS-Server hinzugefügt. Synchronisierung
+        gestartet.</string>
+    <string name="feedback_settings_abs_server_save_failed">ABS-Server konnte nicht gespeichert
+        werden: %1$s</string>
     <plurals name="feedback_settings_abs_connection_succeeded">
         <item quantity="one">Verbindung erfolgreich. %1$d verfügbare Bibliothek gefunden.</item>
         <item quantity="other">Verbindung erfolgreich. %1$d verfügbare Bibliotheken gefunden.</item>
     </plurals>
     <string name="feedback_settings_abs_connection_failed">Verbindung fehlgeschlagen: %1$s</string>
-    <string name="feedback_settings_abs_root_already_exists">Diese ABS-Bibliothek ist bereits in deinen Medienbibliotheken vorhanden.</string>
+    <string name="feedback_settings_abs_root_already_exists">Diese ABS-Bibliothek ist bereits in
+        deinen Medienbibliotheken vorhanden.</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
     <string name="feedback_message_separator">\u003B\u0020</string>
     <string name="feedback_sync_roots_unavailable_none">Keine synchronisierbaren Bibliotheksstämme</string>
     <plurals name="feedback_sync_roots_unavailable_multiple">
         <item quantity="one">Ein Bibliotheksstamm ist nicht verfügbar. %1$d Stamm übersprungen.</item>
-        <item quantity="other">Einige Bibliotheksstämme sind nicht verfügbar. %1$d Stämme übersprungen.</item>
+        <item quantity="other">Einige Bibliotheksstämme sind nicht verfügbar. %1$d Stämme
+            übersprungen.</item>
     </plurals>
-    <string name="feedback_sync_root_unavailable_revoked">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Autorisierung abgelaufen)</string>
-    <string name="feedback_sync_root_unavailable_auth_failed">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Authentifizierung fehlgeschlagen)</string>
-    <string name="feedback_sync_root_unavailable_network_unavailable">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Netzwerk nicht verfügbar)</string>
-    <string name="feedback_sync_root_unavailable_timeout">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Verbindungstimeout)</string>
-    <string name="feedback_sync_root_unavailable_not_found">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Pfad nicht gefunden)</string>
-    <string name="feedback_sync_root_unavailable_permission_denied">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Berechtigung verweigert)</string>
-    <string name="feedback_sync_root_unavailable_server_error">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Serverfehler)</string>
-    <string name="feedback_sync_root_unavailable_unsupported">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (Quelle nicht unterstützt)</string>
-    <string name="feedback_sync_root_unavailable_status_code">Bibliotheksstamm nicht verfügbar. Synchronisierung übersprungen: %1$s (%2$s)</string>
+    <string name="feedback_sync_root_unavailable_revoked">Bibliotheksstamm nicht verfügbar.
+        Synchronisierung übersprungen: %1$s (Autorisierung abgelaufen)</string>
+    <string name="feedback_sync_root_unavailable_auth_failed">Bibliotheksstamm nicht verfügbar.
+        Synchronisierung übersprungen: %1$s (Authentifizierung fehlgeschlagen)</string>
+    <string name="feedback_sync_root_unavailable_network_unavailable">Bibliotheksstamm nicht
+        verfügbar. Synchronisierung übersprungen: %1$s (Netzwerk nicht verfügbar)</string>
+    <string name="feedback_sync_root_unavailable_timeout">Bibliotheksstamm nicht verfügbar.
+        Synchronisierung übersprungen: %1$s (Verbindungstimeout)</string>
+    <string name="feedback_sync_root_unavailable_not_found">Bibliotheksstamm nicht verfügbar.
+        Synchronisierung übersprungen: %1$s (Pfad nicht gefunden)</string>
+    <string name="feedback_sync_root_unavailable_permission_denied">Bibliotheksstamm nicht
+        verfügbar. Synchronisierung übersprungen: %1$s (Berechtigung verweigert)</string>
+    <string name="feedback_sync_root_unavailable_server_error">Bibliotheksstamm nicht verfügbar.
+        Synchronisierung übersprungen: %1$s (Serverfehler)</string>
+    <string name="feedback_sync_root_unavailable_unsupported">Bibliotheksstamm nicht verfügbar.
+        Synchronisierung übersprungen: %1$s (Quelle nicht unterstützt)</string>
+    <string name="feedback_sync_root_unavailable_status_code">Bibliotheksstamm nicht verfügbar.
+        Synchronisierung übersprungen: %1$s (%2$s)</string>
     <string name="feedback_settings_abs_sync_started">ABS-Synchronisierung gestartet</string>
     <string name="feedback_settings_abs_sync_already_running">ABS-Synchronisierung läuft bereits</string>
-    <string name="feedback_settings_library_root_removed_playback_stopped">Medienbibliothek entfernt. Aktuelle Wiedergabe gestoppt.</string>
+    <string name="feedback_settings_library_root_removed_playback_stopped">Medienbibliothek
+        entfernt. Aktuelle Wiedergabe gestoppt.</string>
     <string name="feedback_settings_library_root_removed">Medienbibliothek entfernt</string>
-    <string name="feedback_settings_ssl_certificate_untrusted">SSL/TLS-Zertifikatsprüfung fehlgeschlagen. Die Zertifikatskette ist nicht vertrauenswürdig.</string>
-    <string name="feedback_settings_ssl_hostname_mismatch">SSL/TLS-Hostnamenprüfung fehlgeschlagen. Domain und Zertifikat stimmen nicht überein.</string>
+    <string name="feedback_settings_ssl_certificate_untrusted">SSL/TLS-Zertifikatsprüfung
+        fehlgeschlagen. Die Zertifikatskette ist nicht vertrauenswürdig.</string>
+    <string name="feedback_settings_ssl_hostname_mismatch">SSL/TLS-Hostnamenprüfung fehlgeschlagen.
+        Domain und Zertifikat stimmen nicht überein.</string>
     <string name="feedback_settings_connection_failed_fallback">Verbindung fehlgeschlagen</string>
-    <string name="feedback_settings_abs_server_save_failed_fallback">ABS-Server konnte nicht gespeichert werden</string>
-    <string name="feedback_home_book_deleted_source_kept">Buch aus der Medienbibliothek entfernt\nQuelldatei beibehalten</string>
-    <string name="feedback_home_book_deleted_source_missing">Buch aus der Medienbibliothek entfernt\nQuelldatei fehlt oder ist nicht verfügbar</string>
+    <string name="feedback_settings_abs_server_save_failed_fallback">ABS-Server konnte nicht
+        gespeichert werden</string>
+    <string name="feedback_home_book_deleted_source_kept">Buch aus der Medienbibliothek
+        entfernt\nQuelldatei beibehalten</string>
+    <string name="feedback_home_book_deleted_source_missing">Buch aus der Medienbibliothek
+        entfernt\nQuelldatei fehlt oder ist nicht verfügbar</string>
     <string name="feedback_home_read_status_not_started">Markiert als: Nicht begonnen</string>
     <string name="feedback_home_read_status_in_progress">Markiert als: In Bearbeitung</string>
     <string name="feedback_home_read_status_finished">Markiert als: Abgeschlossen</string>
     <string name="feedback_home_read_status_updated">Status aktualisiert</string>
-    <string name="feedback_home_cover_metadata_regeneration_started">Cover und Metadaten werden neu aufgebaut…</string>
-    <string name="feedback_home_cover_metadata_regeneration_completed">Cover und Metadaten neu aufgebaut</string>
-    <string name="feedback_abs_background_sync_root_missing">ABS-Hintergrundsync fehlgeschlagen: passende ABS-Bibliothekswurzel nicht gefunden</string>
+    <string name="feedback_home_cover_metadata_regeneration_started">Cover und Metadaten werden neu
+        aufgebaut…</string>
+    <string name="feedback_home_cover_metadata_regeneration_completed">Cover und Metadaten neu
+        aufgebaut</string>
+    <string name="feedback_abs_background_sync_root_missing">ABS-Hintergrundsync fehlgeschlagen:
+        passende ABS-Bibliothekswurzel nicht gefunden</string>
     <string name="feedback_abs_background_sync_unavailable">%1$s</string>
     <string name="feedback_abs_background_sync_completed">ABS-Hintergrundsync abgeschlossen:\u0020</string>
     <plurals name="feedback_abs_background_sync_added_books">
@@ -154,7 +199,8 @@
         <item quantity="other">Medienbibliothek synchronisiert. %1$d Bücher hinzugefügt.</item>
     </plurals>
     <string name="feedback_scan_completed">Medienbibliothek synchronisiert</string>
-    <string name="feedback_scan_library_empty">Medienbibliothek ist leer. Keine gültigen Bücher gefunden.</string>
+    <string name="feedback_scan_library_empty">Medienbibliothek ist leer. Keine gültigen Bücher
+        gefunden.</string>
     <string name="feedback_scan_already_up_to_date">Medienbibliothek ist bereits aktuell</string>
     <plurals name="feedback_scan_suffix_updated">
         <item quantity="one">, %1$d Buch aktualisiert</item>
@@ -164,17 +210,27 @@
         <item quantity="one">, davon %1$d teilweise importiert</item>
         <item quantity="other">, davon %1$d teilweise importiert</item>
     </plurals>
-    <string name="feedback_scan_blocked_no_available_libraries">Keine Bibliothek für die Synchronisierung verfügbar</string>
-    <string name="feedback_scan_retry_later">Synchronisierung vorübergehend fehlgeschlagen und wird später erneut versucht</string>
+    <string name="feedback_scan_blocked_no_available_libraries">Keine Bibliothek für die
+        Synchronisierung verfügbar</string>
+    <string name="feedback_scan_retry_later">Synchronisierung vorübergehend fehlgeschlagen und wird
+        später erneut versucht</string>
     <string name="feedback_scan_failed">Synchronisierung der Medienbibliothek fehlgeschlagen: %1$s</string>
-    <string name="feedback_sleep_motion_tracking_paused">Bewegung erkannt. Der Sleeptimer bleibt eine Minute pausiert.</string>
-    <string name="feedback_sleep_tracking_paused_by_activity">Körperaktivität erkannt. Schlaftracking pausiert, bis das Gerät wieder nahezu still ist.</string>
-    <string name="feedback_sleep_motion_tracking_resumed">Stillstand erkannt. Sleeptimer fortgesetzt.</string>
-    <string name="feedback_sleep_shake_extended_to_next_chapter">Schütteln erkannt. Timer bis zum Ende des nächsten Kapitels verlängert.</string>
-    <string name="feedback_sleep_shake_no_next_chapter">Dies ist das letzte Kapitel. Verlängerung nicht möglich.</string>
-    <string name="feedback_sleep_shake_countdown_reset">Schütteln erkannt. Schlaf-Countdown zurückgesetzt.</string>
-    <string name="feedback_sleep_shake_test_countdown_reset">Schütteln erkannt. Test-Countdown zurückgesetzt.</string>
-    <string name="feedback_sleep_tracking_countdown_started">Stabiler Schlaf erkannt. Schlaf-Countdown gestartet.</string>
+    <string name="feedback_sleep_motion_tracking_paused">Bewegung erkannt. Der Sleeptimer bleibt
+        eine Minute pausiert.</string>
+    <string name="feedback_sleep_tracking_paused_by_activity">Körperaktivität erkannt.
+        Schlaftracking pausiert, bis das Gerät wieder nahezu still ist.</string>
+    <string name="feedback_sleep_motion_tracking_resumed">Stillstand erkannt. Sleeptimer
+        fortgesetzt.</string>
+    <string name="feedback_sleep_shake_extended_to_next_chapter">Schütteln erkannt. Timer bis zum
+        Ende des nächsten Kapitels verlängert.</string>
+    <string name="feedback_sleep_shake_no_next_chapter">Dies ist das letzte Kapitel. Verlängerung
+        nicht möglich.</string>
+    <string name="feedback_sleep_shake_countdown_reset">Schütteln erkannt. Schlaf-Countdown
+        zurückgesetzt.</string>
+    <string name="feedback_sleep_shake_test_countdown_reset">Schütteln erkannt. Test-Countdown
+        zurückgesetzt.</string>
+    <string name="feedback_sleep_tracking_countdown_started">Stabiler Schlaf erkannt.
+        Schlaf-Countdown gestartet.</string>
     <string name="feedback_sleep_timer_off">Sleeptimer ausgeschaltet</string>
     <string name="feedback_sleep_timer_five_seconds">Wiedergabe stoppt in 5 Sekunden</string>
     <string name="feedback_sleep_timer_end_of_chapter">Wiedergabe stoppt am Ende dieses Kapitels</string>
@@ -182,7 +238,8 @@
         <item quantity="one">Sleeptimer: %1$d Minute</item>
         <item quantity="other">Sleeptimer: %1$d Minuten</item>
     </plurals>
-    <string name="feedback_chapter_physical_file_missing">Die physische Datei für dieses Kapitel fehlt und kann nicht abgespielt werden</string>
+    <string name="feedback_chapter_physical_file_missing">Die physische Datei für dieses Kapitel
+        fehlt und kann nicht abgespielt werden</string>
     <string name="bookmark_default_title">Lesezeichen</string>
     <string name="settings_library_management_title">Medienbibliothek verwalten</string>
     <string name="settings_library_location_with_abs">Ort: %1$s · Aktuelle Bibliothek: %2$s</string>
@@ -207,50 +264,70 @@
     <string name="settings_library_status_synced">Synchronisiert</string>
     <string name="settings_library_status_idle">Leerlauf</string>
     <string name="settings_add_library_title">Medienbibliothek hinzufügen</string>
-    <string name="settings_add_library_subtitle">Unterstützt lokales SAF, WebDAV und Audiobookshelf-Server</string>
+    <string name="settings_add_library_subtitle">Unterstützt lokales SAF, WebDAV und
+        AudiobookShelf-Server</string>
     <string name="settings_interface_effects_title">Oberfläche</string>
     <string name="settings_theme_mode_title">Designmodus</string>
-    <string name="settings_theme_mode_subtitle">Farbmodus wählen: System, immer hell oder immer dunkel.</string>
+    <string name="settings_theme_mode_subtitle">Farbmodus wählen: System, immer hell oder immer
+        dunkel.</string>
     <string name="settings_theme_mode_system">System</string>
     <string name="settings_theme_mode_light">Hell</string>
     <string name="settings_theme_mode_dark">Dunkel</string>
     <string name="settings_dynamic_color_title">Monet Dynamic Color</string>
-    <string name="settings_dynamic_color_supported_subtitle">Wenn aktiviert, übernimmt das App-Design Farben aus dem Systemhintergrund</string>
-    <string name="settings_dynamic_color_unsupported_subtitle">Monet Dynamic Color benötigt Android 8.0 oder neuer</string>
+    <string name="settings_dynamic_color_supported_subtitle">Wenn aktiviert, übernimmt das
+        App-Design Farben aus dem Systemhintergrund</string>
+    <string name="settings_dynamic_color_unsupported_subtitle">Monet Dynamic Color benötigt Android
+        8.0 oder neuer</string>
     <string name="settings_amoled_title">AMOLED-Dunkeldesign</string>
-    <string name="settings_amoled_subtitle">Im Dunkelmodus rein schwarze Flächen verwenden, um auf OLED-Bildschirmen Strom zu sparen</string>
+    <string name="settings_amoled_subtitle">Im Dunkelmodus rein schwarze Flächen verwenden, um auf
+        OLED-Bildschirmen Strom zu sparen</string>
     <string name="settings_haze_effect_title">Experimenteller Unschärfeeffekt</string>
-    <string name="settings_haze_effect_subtitle">Aktiviert experimentelle Hintergrundunschärfe auf unterstützten Bildschirmen</string>
+    <string name="settings_haze_effect_subtitle">Aktiviert experimentelle Hintergrundunschärfe auf
+        unterstützten Bildschirmen</string>
     <string name="settings_playback_behavior_title">Wiedergabeverhalten</string>
     <string name="settings_network_security_title">Netzwerksicherheit</string>
     <string name="settings_cleartext_title">Klartext-HTTP-Verkehr zulassen</string>
-    <string name="settings_cleartext_subtitle">Unsichere http:// Hörbuchquellen laden und abspielen. Für die stärkste Sicherheit ausgeschaltet lassen.</string>
+    <string name="settings_cleartext_subtitle">Unsichere http:// Hörbuchquellen laden und abspielen.
+        Für die stärkste Sicherheit ausgeschaltet lassen.</string>
     <string name="settings_insecure_tls_title">Unsicheres TLS zulassen</string>
-    <string name="settings_insecure_tls_subtitle">Zertifikatsprüfung für selbstsignierte oder unsichere SSL/TLS-Server ignorieren. Für die stärkste Sicherheit ausgeschaltet lassen.</string>
+    <string name="settings_insecure_tls_subtitle">Zertifikatsprüfung für selbstsignierte oder
+        unsichere SSL/TLS-Server ignorieren. Für die stärkste Sicherheit ausgeschaltet lassen.</string>
     <string name="settings_notification_avoidance_title">Benachrichtigungen vermeiden</string>
-    <string name="settings_notification_avoidance_subtitle">Bei Verlust des Audiofokus pausieren und bei Rückkehr fortsetzen, damit beim Ducking kein Inhalt verloren geht.</string>
+    <string name="settings_notification_avoidance_subtitle">Bei Verlust des Audiofokus pausieren und
+        bei Rückkehr fortsetzen, damit beim Ducking kein Inhalt verloren geht.</string>
     <string name="settings_skip_silence_toggle_title">Stille überspringen</string>
-    <string name="settings_skip_silence_subtitle">Pausen, Atemzüge und Stille am Kapitelende während der Hörbuchwiedergabe automatisch überspringen.</string>
+    <string name="settings_skip_silence_subtitle">Pausen, Atemzüge und Stille am Kapitelende während
+        der Hörbuchwiedergabe automatisch überspringen.</string>
     <string name="settings_seek_backward_step_title">Rücksprung-Schritt</string>
-    <string name="settings_seek_backward_step_subtitle">Wählen, wie weit die Zurück-Taste die Wiedergabe verschiebt.</string>
+    <string name="settings_seek_backward_step_subtitle">Wählen, wie weit die Zurück-Taste die
+        Wiedergabe verschiebt.</string>
     <string name="settings_seek_forward_step_title">Vorsprung-Schritt</string>
-    <string name="settings_seek_forward_step_subtitle">Wählen, wie weit die Vor-Taste die Wiedergabe verschiebt.</string>
+    <string name="settings_seek_forward_step_subtitle">Wählen, wie weit die Vor-Taste die Wiedergabe
+        verschiebt.</string>
     <string name="settings_seek_step_seconds_option">%1$ds</string>
     <string name="settings_sleep_timer_title">Sleeptimer</string>
     <string name="settings_sleep_mode_title">Schlafmodus</string>
-    <string name="settings_sleep_mode_subtitle">Countdown-Methode wählen: regulär, Bewegungstracking oder Schlaftracking.</string>
+    <string name="settings_sleep_mode_subtitle">Countdown-Methode wählen: regulär, Bewegungstracking
+        oder Schlaftracking.</string>
     <string name="settings_sleep_mode_regular">Regulär</string>
     <string name="settings_sleep_mode_motion_tracking">Bewegung</string>
     <string name="settings_sleep_mode_sleep_tracking">Schlaf</string>
-    <string name="settings_sleep_mode_regular_description">Hinweis: Nach dem Start zählt der Countdown weiter und pausiert die Wiedergabe am Ende.</string>
-    <string name="settings_sleep_mode_motion_tracking_description">Hinweis: Zeit läuft nur ab, wenn das Gerät still ist. Bewegung pausiert den Countdown eine Minute.</string>
-    <string name="settings_sleep_mode_sleep_tracking_description">Hinweis: Nach 10 Minuten nahezu stiller Lage wird Schlaf angenommen und der Countdown startet.</string>
+    <string name="settings_sleep_mode_regular_description">Hinweis: Nach dem Start zählt der
+        Countdown weiter und pausiert die Wiedergabe am Ende.</string>
+    <string name="settings_sleep_mode_motion_tracking_description">Hinweis: Zeit läuft nur ab, wenn
+        das Gerät still ist. Bewegung pausiert den Countdown eine Minute.</string>
+    <string name="settings_sleep_mode_sleep_tracking_description">Hinweis: Nach 10 Minuten nahezu
+        stiller Lage wird Schlaf angenommen und der Countdown startet.</string>
     <string name="settings_sleep_fade_title">Lautstärke während des Schlaf-Countdowns ausblenden</string>
-    <string name="settings_sleep_fade_subtitle">In den letzten 10 Sekunden eines Countdowns oder Kapitels wird die Lautstärke sanft auf stumm reduziert.</string>
+    <string name="settings_sleep_fade_subtitle">In den letzten 10 Sekunden eines Countdowns oder
+        Kapitels wird die Lautstärke sanft auf stumm reduziert.</string>
     <string name="settings_shake_reset_title">Telefon schütteln, um Sleeptimer zurückzusetzen</string>
-    <string name="settings_shake_reset_subtitle">Während der letzten 10 Sekunden löst leichtes Schütteln haptisches Feedback aus und setzt den Timer zurück. Im Kapitelende-Modus kann bis zum nächsten Kapitel mit 15 Minuten Countdown verlängert werden.</string>
+    <string name="settings_shake_reset_subtitle">Während der letzten 10 Sekunden löst leichtes
+        Schütteln haptisches Feedback aus und setzt den Timer zurück. Im Kapitelende-Modus kann bis
+        zum nächsten Kapitel mit 15 Minuten Countdown verlängert werden.</string>
     <string name="settings_auto_rewind_toggle_title">Automatisch zurückspulen nach Pause</string>
-    <string name="settings_auto_rewind_subtitle">Rücksprungdauer nach Pause oder Stopp, außer bei Benachrichtigungsvermeidung</string>
+    <string name="settings_auto_rewind_subtitle">Rücksprungdauer nach Pause oder Stopp, außer bei
+        Benachrichtigungsvermeidung</string>
     <string name="settings_auto_rewind_disabled">Aus</string>
     <string name="settings_toggle_state_on">Ein</string>
     <string name="settings_toggle_state_off">Aus</string>
@@ -260,7 +337,8 @@
     </plurals>
     <string name="settings_about_title">Über</string>
     <string name="settings_open_source_license_title">Open-Source-Lizenzen</string>
-    <string name="settings_open_source_license_subtitle">Verwendete Open-Source-Bibliotheken und Lizenzen anzeigen</string>
+    <string name="settings_open_source_license_subtitle">Verwendete Open-Source-Bibliotheken und
+        Lizenzen anzeigen</string>
     <string name="settings_abs_add_title">ABS-Server hinzufügen</string>
     <string name="settings_abs_edit_title">ABS-Server bearbeiten</string>
     <string name="settings_abs_base_url_label">Basis-URL</string>
@@ -269,7 +347,8 @@
     <string name="settings_password_optional_label">Passwort (leer lassen, um es nicht zu ändern)</string>
     <string name="settings_test_connection">Verbindung testen</string>
     <string name="settings_test_connecting">Verbindung wird hergestellt…</string>
-    <string name="settings_abs_login_success">Anmeldung erfolgreich. Wählen Sie eine Buchbibliothek und bestätigen Sie.</string>
+    <string name="settings_abs_login_success">Anmeldung erfolgreich. Wählen Sie eine Buchbibliothek
+        und bestätigen Sie.</string>
     <string name="settings_abs_server_version">Serverversion: %1$s</string>
     <string name="settings_abs_selected_library">Ausgewählte Bibliothek: %1$s</string>
     <string name="settings_abs_select_library_title">Buchbibliothek auswählen</string>
@@ -279,14 +358,18 @@
     <string name="settings_display_name_label">Anzeigename</string>
     <string name="settings_library_base_path_label">Bibliothekspfad</string>
     <string name="settings_webdav_test_connecting">Verbindung wird getestet…</string>
-    <string name="settings_webdav_connection_success">Verbindungstest erfolgreich. Sie können die Medienbibliothek speichern.</string>
+    <string name="settings_webdav_connection_success">Verbindungstest erfolgreich. Sie können die
+        Medienbibliothek speichern.</string>
     <string name="settings_delete_root_title">Medienbibliothekswurzel entfernen</string>
-    <string name="settings_delete_root_body">Wenn diese Medienbibliothekswurzel entfernt wird, verliert die App Zugriff auf ihre physischen Dateien. Verknüpfte Buchdatensätze werden aus der Bibliothek entfernt, aber Audiodateien im Speicher werden nicht gelöscht. Dieses Verzeichnis entfernen und seine Zugriffsberechtigung freigeben?</string>
+    <string name="settings_delete_root_body">Wenn diese Medienbibliothekswurzel entfernt wird,
+        verliert die App Zugriff auf ihre physischen Dateien. Verknüpfte Buchdatensätze werden aus
+        der Bibliothek entfernt, aber Audiodateien im Speicher werden nicht gelöscht. Dieses
+        Verzeichnis entfernen und seine Zugriffsberechtigung freigeben?</string>
     <string name="settings_delete_root_confirm">Entfernen</string>
     <string name="settings_add_library_type_title">Medienbibliothekstyp auswählen</string>
     <string name="settings_library_type_local_saf">Lokal (SAF)</string>
     <string name="settings_library_type_webdav">WebDAV-Medienbibliothek</string>
-    <string name="settings_library_type_abs">Audiobookshelf-Server (absserver)</string>
+    <string name="settings_library_type_abs">AudiobookShelf-Server</string>
     <string name="settings_root_action_title_fallback">Medienbibliotheksaktionen</string>
     <string name="settings_root_action_relocate_saf">Bibliotheksordner neu festlegen</string>
     <string name="settings_root_action_edit_remote">Medienbibliothekskonfiguration bearbeiten</string>
@@ -294,20 +377,33 @@
     <string name="settings_root_action_rescan">Erneut scannen</string>
     <string name="settings_root_action_remove">Medienbibliothek entfernen</string>
     <string name="about_version_text">Version %1$s</string>
-    <string name="about_app_description">APlayer ist ein lokaler Hörbuchplayer für engagierte Hörer. Gute Produkte stehen auf Open-Source-Grundlagen, und wir danken den Autoren und Organisationen, die diese App ermöglichen.</string>
+    <string name="about_app_description">APlayer ist ein lokaler Hörbuchplayer für engagierte Hörer.
+        Gute Produkte stehen auf Open-Source-Grundlagen, und wir danken den Autoren und
+        Organisationen, die diese App ermöglichen.</string>
     <string name="about_developer_credit">von %1$s</string>
     <string name="about_visit_project_homepage_content_description">Projektseite besuchen</string>
     <string name="about_license_details_title">Ausführlicher Lizenzhinweis</string>
     <string name="about_visit_project_homepage">Projektseite besuchen (GitHub / Maven)</string>
-    <string name="about_library_compose_description">Jetpack Compose ist ein modernes deklaratives Toolkit zum Erstellen nativer Android-Oberflächen mit weniger Code, starken Werkzeugen und intuitiven Kotlin-APIs.</string>
-    <string name="about_library_media3_description">Media3 ist der moderne AndroidX-Medienstapel mit ExoPlayer. APlayer nutzt ihn für Streamladen, Fortsetzen und hardwaregestützte Wiedergabe.</string>
-    <string name="about_library_room_description">Room abstrahiert SQLite und speichert lokale Metadaten, Wiedergabefortschritt und Fortsetzungspunkte von APlayer.</string>
-    <string name="about_library_haze_description">Haze bietet leistungsfähige Unschärfeeffekte für Jetpack Compose. APlayer nutzt es für glasartige Panels, Dialoge, Badges und Playerflächen.</string>
-    <string name="about_library_coil_description">Coil ist eine schnelle Android-Bildladebibliothek auf Basis von Kotlin-Coroutines. APlayer nutzt sie für Coverbilder.</string>
-    <string name="about_library_glance_description">Glance ermöglicht App-Widgets mit deklarativen Compose-ähnlichen APIs. APlayer nutzt es für effiziente Mediensteuerung auf dem Startbildschirm.</string>
-    <string name="about_library_coroutines_description">Kotlin Coroutines bieten leichte asynchrone Ausführung für Medienscans, Netzwerkanalyse und Datenbankabfragen.</string>
-    <string name="about_library_datastore_description">DataStore ist ein moderner Ersatz für SharedPreferences. APlayer nutzt es zum Speichern globaler Einstellungen mit Flow.</string>
-    <string name="about_library_workmanager_description">WorkManager plant zuverlässige Hintergrundarbeit. APlayer nutzt es für Bibliothekssynchronisierung und Wartung.</string>
+    <string name="about_library_compose_description">Jetpack Compose ist ein modernes deklaratives
+        Toolkit zum Erstellen nativer Android-Oberflächen mit weniger Code, starken Werkzeugen und
+        intuitiven Kotlin-APIs.</string>
+    <string name="about_library_media3_description">Media3 ist der moderne AndroidX-Medienstapel mit
+        ExoPlayer. APlayer nutzt ihn für Streamladen, Fortsetzen und hardwaregestützte Wiedergabe.</string>
+    <string name="about_library_room_description">Room abstrahiert SQLite und speichert lokale
+        Metadaten, Wiedergabefortschritt und Fortsetzungspunkte von APlayer.</string>
+    <string name="about_library_haze_description">Haze bietet leistungsfähige Unschärfeeffekte für
+        Jetpack Compose. APlayer nutzt es für glasartige Panels, Dialoge, Badges und Playerflächen.</string>
+    <string name="about_library_coil_description">Coil ist eine schnelle Android-Bildladebibliothek
+        auf Basis von Kotlin-Coroutines. APlayer nutzt sie für Coverbilder.</string>
+    <string name="about_library_glance_description">Glance ermöglicht App-Widgets mit deklarativen
+        Compose-ähnlichen APIs. APlayer nutzt es für effiziente Mediensteuerung auf dem
+        Startbildschirm.</string>
+    <string name="about_library_coroutines_description">Kotlin Coroutines bieten leichte asynchrone
+        Ausführung für Medienscans, Netzwerkanalyse und Datenbankabfragen.</string>
+    <string name="about_library_datastore_description">DataStore ist ein moderner Ersatz für
+        SharedPreferences. APlayer nutzt es zum Speichern globaler Einstellungen mit Flow.</string>
+    <string name="about_library_workmanager_description">WorkManager plant zuverlässige
+        Hintergrundarbeit. APlayer nutzt es für Bibliothekssynchronisierung und Wartung.</string>
     <string name="edit_book_title">Buchinformationen bearbeiten</string>
     <string name="title_label">Buchtitel</string>
     <string name="edit_book_title_placeholder">Buchtitel eingeben</string>
@@ -332,18 +428,25 @@
     <string name="abs_progress_use_remote">Server verwenden</string>
     <string name="abs_progress_finished_suffix"> (abgeschlossen)</string>
     <string name="track_unavailable_title">Titeldatei nicht verfügbar</string>
-    <string name="track_unavailable_body">Die physische Datei des aktuellen Titels fehlt oder ist beschädigt. Diesen Titel überspringen und den nächsten verfügbaren abspielen?\n\nHinweis: Erzwungenes Überspringen kann den geplanten Hörfortschritt stören.</string>
+    <string name="track_unavailable_body">Die physische Datei des aktuellen Titels fehlt oder ist
+        beschädigt. Diesen Titel überspringen und den nächsten verfügbaren abspielen?\n\nHinweis:
+        Erzwungenes Überspringen kann den geplanten Hörfortschritt stören.</string>
     <string name="track_unavailable_confirm_skip">Überspringen bestätigen</string>
     <string name="home_action_mark_read_status">Lesestatus markieren</string>
     <string name="accessibility_choice_selected">Ausgewählt</string>
     <string name="accessibility_choice_unselected">Nicht ausgewählt</string>
-    <string name="home_action_edit_subtitle">Titel, Mitwirkende, Beschreibung und Cover manuell bearbeiten</string>
+    <string name="home_action_edit_subtitle">Titel, Mitwirkende, Beschreibung und Cover manuell
+        bearbeiten</string>
     <string name="home_action_regenerate_title">Cover und Metadaten neu aufbauen</string>
-    <string name="home_action_regenerate_subtitle">Cover und Beschreibung erneut aus Audiodateien extrahieren</string>
+    <string name="home_action_regenerate_subtitle">Cover und Beschreibung erneut aus Audiodateien
+        extrahieren</string>
     <string name="home_action_remove_title">Aus Medienbibliothek entfernen</string>
-    <string name="home_action_remove_subtitle">Nur aus der Wiedergabeliste entfernen. Quelldateien auf dem Telefon bleiben erhalten.</string>
+    <string name="home_action_remove_subtitle">Nur aus der Wiedergabeliste entfernen. Quelldateien
+        auf dem Telefon bleiben erhalten.</string>
     <string name="home_action_remove_confirm_title">Aus Medienbibliothek entfernen?</string>
-    <string name="home_action_remove_confirm_body">„%1$s“ aus der APlayer-Medienbibliothek entfernen?\n\nHinweis: Dies ist eine Soft-Löschung. Das Buch wird aus der Wiedergabeliste entfernt, physische Audiodateien werden nicht gelöscht.</string>
+    <string name="home_action_remove_confirm_body">„%1$s“ aus der APlayer-Medienbibliothek
+        entfernen?\n\nHinweis: Dies ist eine Soft-Löschung. Das Buch wird aus der Wiedergabeliste
+        entfernt, physische Audiodateien werden nicht gelöscht.</string>
     <string name="home_action_remove_confirm_button">Löschen bestätigen</string>
     <string name="chapter_list_title">Kapitel</string>
     <string name="chapter_list_empty">Keine Kapitel verfügbar</string>
@@ -425,47 +528,72 @@
     <string name="bookmark_edit_title">Lesezeichen bearbeiten</string>
     <string name="bookmark_update_label">Lesezeichen aktualisieren:</string>
 
-    <string name="deleted_book_recovery_empty">Keine gelöschten Bücher können wiederhergestellt werden</string>
-    <string name="deleted_book_recovery_failure_abs_remote_deleted">Dieses Audiobookshelf-Element wurde auf dem Server gelöscht. Stellen Sie es auf dem Server wieder her oder fügen Sie es erneut hinzu, und synchronisieren Sie APlayer dann erneut.</string>
-    <string name="deleted_book_recovery_failure_all_files_unavailable">Alle Audiodateien für dieses Buch sind nicht verfügbar: %1$s</string>
-    <string name="deleted_book_recovery_failure_missing_book">Der Bucheintrag existiert nicht mehr oder wurde bereits wiederhergestellt.</string>
-    <string name="deleted_book_recovery_failure_missing_root">Das Medienbibliothek-Verzeichnis für dieses Buch existiert nicht mehr.</string>
-    <string name="deleted_book_recovery_failure_no_audio_files">Dieses Buch enthält keine wiederherstellbaren Audiodateien.</string>
-    <string name="deleted_book_recovery_failure_root_unavailable">Das Medienbibliothek-Verzeichnis ist nicht verfügbar: %1$s</string>
+    <string name="deleted_book_recovery_empty">Keine gelöschten Bücher können wiederhergestellt
+        werden</string>
+    <string name="deleted_book_recovery_failure_abs_remote_deleted">Dieses AudiobookShelf-Element
+        wurde auf dem Server gelöscht. Stellen Sie es auf dem Server wieder her oder fügen Sie es
+        erneut hinzu, und synchronisieren Sie APlayer dann erneut.</string>
+    <string name="deleted_book_recovery_failure_all_files_unavailable">Alle Audiodateien für dieses
+        Buch sind nicht verfügbar: %1$s</string>
+    <string name="deleted_book_recovery_failure_missing_book">Der Bucheintrag existiert nicht mehr
+        oder wurde bereits wiederhergestellt.</string>
+    <string name="deleted_book_recovery_failure_missing_root">Das Medienbibliothek-Verzeichnis für
+        dieses Buch existiert nicht mehr.</string>
+    <string name="deleted_book_recovery_failure_no_audio_files">Dieses Buch enthält keine
+        wiederherstellbaren Audiodateien.</string>
+    <string name="deleted_book_recovery_failure_root_unavailable">Das Medienbibliothek-Verzeichnis
+        ist nicht verfügbar: %1$s</string>
     <string name="deleted_book_recovery_failure_title">Wiederherstellung fehlgeschlagen</string>
-    <string name="deleted_book_recovery_failure_unexpected">Wiederherstellung konnte nicht abgeschlossen werden: %1$s</string>
-    <string name="deleted_book_recovery_partial_body">Nur einige Audiodateien für dieses Buch können noch gelesen werden. Nach der Wiederherstellung markiert APlayer das Buch als teilweise verfügbar, und fehlende Audiodateien bleiben unspielbar.</string>
+    <string name="deleted_book_recovery_failure_unexpected">Wiederherstellung konnte nicht
+        abgeschlossen werden: %1$s</string>
+    <string name="deleted_book_recovery_partial_body">Nur einige Audiodateien für dieses Buch können
+        noch gelesen werden. Nach der Wiederherstellung markiert APlayer das Buch als teilweise
+        verfügbar, und fehlende Audiodateien bleiben unspielbar.</string>
     <string name="deleted_book_recovery_partial_confirm">Wiederherstellung bestätigen</string>
     <string name="deleted_book_recovery_partial_title">Einige Audiodateien sind nicht verfügbar</string>
     <string name="deleted_book_recovery_restore_action">Buch wiederherstellen</string>
-    <string name="deleted_book_recovery_settings_subtitle">Stellen Sie aus APlayer entfernte Bücher wieder her, wenn deren Audiodateien noch verfügbar sind</string>
+    <string name="deleted_book_recovery_settings_subtitle">Stellen Sie aus APlayer entfernte Bücher
+        wieder her, wenn deren Audiodateien noch verfügbar sind</string>
     <string name="deleted_book_recovery_title">Wiederherstellung gelöschter Bücher</string>
     <string name="feedback_deleted_book_recovery_restored_partial">Buch teilweise wiederhergestellt</string>
     <string name="feedback_deleted_book_recovery_restored_ready">Buch wiederhergestellt</string>
     <string name="deleted_book_recovery_confirm_title">Buch wiederherstellen</string>
-    <string name="deleted_book_recovery_confirm_body">Sind Sie sicher, dass Sie „%1$s“ wiederherstellen möchten?\n\nHinweis: Dadurch wird das Buch in Ihrer aktiven Medienbibliothek wiederhergestellt.</string>
+    <string name="deleted_book_recovery_confirm_body">Sind Sie sicher, dass Sie „%1$s“
+        wiederherstellen möchten?\n\nHinweis: Dadurch wird das Buch in Ihrer aktiven
+        Medienbibliothek wiederhergestellt.</string>
 
     <string name="settings_backup_restore_title">Sichern &amp; Wiederherstellen</string>
     <string name="settings_export_data_title">Datensicherung exportieren</string>
     <string name="settings_export_data_subtitle">Lokale Datenbank und alle App-Einstellungen sichern</string>
     <string name="settings_import_data_title">Datensicherung importieren</string>
-    <string name="settings_import_data_subtitle">Datenbank und App-Einstellungen aus einer Sicherung wiederherstellen</string>
+    <string name="settings_import_data_subtitle">Datenbank und App-Einstellungen aus einer Sicherung
+        wiederherstellen</string>
     <string name="settings_import_confirm_title">Überschreiben der Daten bestätigen</string>
-    <string name="settings_import_confirm_body">Das Importieren dieses Backups überschreibt Ihre aktuelle Datenbank und die Anwendungseinstellungen (einschließlich aller angemeldeten Konten, Bücher, Lesezeichen und des Wiedergabefortschritts) vollständig.\n\nWICHTIG: Verzeichnispfade, die auf diesem Gerät nicht über SAF autorisiert sind, sind nicht verfügbar, bis sie in den Einstellungen erneut autorisiert werden.</string>
-    <string name="settings_import_manifest_info">App: %1$s (%2$s)\nVersion: %3$s (%4$d)\nExportiert: %5$s</string>
+    <string name="settings_import_confirm_body">Das Importieren dieses Backups überschreibt Ihre
+        aktuelle Datenbank und die Anwendungseinstellungen (einschließlich aller angemeldeten
+        Konten, Bücher, Lesezeichen und des Wiedergabefortschritts) vollständig.\n\nWICHTIG:
+        Verzeichnispfade, die auf diesem Gerät nicht über SAF autorisiert sind, sind nicht
+        verfügbar, bis sie in den Einstellungen erneut autorisiert werden.</string>
+    <string name="settings_import_manifest_info">App: %1$s (%2$s)\nVersion: %3$s (%4$d)\nExportiert:
+        %5$s</string>
     <string name="settings_import_manifest_roots">Bibliotheksstammordner:\n%1$s</string>
     <string name="feedback_settings_export_success">Daten erfolgreich exportiert</string>
     <string name="feedback_settings_export_failed">Export fehlgeschlagen: %1$s</string>
     <string name="feedback_settings_import_failed">Import fehlgeschlagen: %1$s</string>
-    <string name="feedback_settings_export_stream_failed">Zieldateistream konnte nicht geöffnet werden</string>
-    <string name="feedback_settings_import_stream_failed">Sicherungsdateistream konnte nicht geöffnet werden</string>
-    <string name="feedback_settings_import_version_incompatible">Import nicht möglich: Datenbankversion des Backups (%1$d) ist neuer als die aktuelle App (%2$d)</string>
-    <string name="download_notification_active">Hörbücher für die Offline-Wiedergabe zwischenspeichern</string>
+    <string name="feedback_settings_export_stream_failed">Zieldateistream konnte nicht geöffnet
+        werden</string>
+    <string name="feedback_settings_import_stream_failed">Sicherungsdateistream konnte nicht
+        geöffnet werden</string>
+    <string name="feedback_settings_import_version_incompatible">Import nicht möglich:
+        Datenbankversion des Backups (%1$d) ist neuer als die aktuelle App (%2$d)</string>
+    <string name="download_notification_active">Hörbücher für die Offline-Wiedergabe
+        zwischenspeichern</string>
     <string name="download_notification_waiting">Warten auf Download-Voraussetzungen</string>
     <string name="download_notification_failed">Einige Downloads erfordern Aufmerksamkeit</string>
     <string name="download_notification_idle">Offline-Cache ist auf dem neuesten Stand</string>
     <string name="download_notification_book_queued">Warteschlange · %1$d/%2$d Dateien</string>
-    <string name="download_notification_book_downloading">Herunterladen · %1$d/%2$d Dateien · %3$s/%4$s</string>
+    <string name="download_notification_book_downloading">Herunterladen · %1$d/%2$d Dateien ·
+        %3$s/%4$s</string>
     <string name="download_notification_book_paused">Pausiert · %1$d/%2$d Dateien</string>
     <string name="download_notification_book_completed">Download abgeschlossen · %1$d/%2$d Dateien</string>
     <string name="download_notification_book_failed">Download fehlgeschlagen · %1$d/%2$d Dateien</string>
@@ -482,7 +610,8 @@
     <string name="detail_download_dialog_title_paused">Download pausiert</string>
     <string name="detail_download_dialog_title_completed">Offline gespeichert</string>
     <string name="detail_download_dialog_title_failed">Download fehlgeschlagen</string>
-    <string name="detail_download_dialog_body_none">Dieses Remote-Hörbuch ist nicht für die Offline-Wiedergabe zwischengespeichert.</string>
+    <string name="detail_download_dialog_body_none">Dieses Remote-Hörbuch ist nicht für die
+        Offline-Wiedergabe zwischengespeichert.</string>
     <string name="detail_download_dialog_body_progress">Gespeichert %1$d%% - %2$d/%3$d Dateien</string>
     <string name="detail_download_start_action">Download starten</string>
     <string name="detail_download_retry_action">Wiederholen</string>
@@ -491,13 +620,15 @@
     <string name="detail_download_cancel_action">Download abbrechen</string>
     <string name="detail_download_delete_action">Cache löschen</string>
     <string name="detail_download_permission_title">Download-Benachrichtigungen zulassen</string>
-    <string name="detail_download_permission_body">Android erfordert eine Benachrichtigungsberechtigung, bevor Vordergrund-Downloads gestartet werden können.</string>
+    <string name="detail_download_permission_body">Android erfordert eine
+        Benachrichtigungsberechtigung, bevor Vordergrund-Downloads gestartet werden können.</string>
     <string name="detail_download_permission_confirm">Weiter</string>
     <string name="feedback_download_cache_queued">Offline-Cache gestartet</string>
     <string name="feedback_download_cache_paused">Download pausiert</string>
     <string name="feedback_download_cache_resumed">Download fortgesetzt</string>
     <string name="feedback_download_cache_deleted">Offline-Cache gelöscht</string>
-    <string name="feedback_download_notification_permission_denied">Benachrichtigungsberechtigung für Offline-Downloads erforderlich</string>
+    <string name="feedback_download_notification_permission_denied">Benachrichtigungsberechtigung
+        für Offline-Downloads erforderlich</string>
     <string name="feedback_download_cache_command_failed">Download-Aktion fehlgeschlagen: %1$s</string>
     <string name="settings_download_cache_title">Downloads &amp; Cache</string>
     <string name="settings_download_management_title">Download-Verwaltung</string>
@@ -516,16 +647,30 @@
     <string name="download_management_status_completed">Gespeichert</string>
     <string name="download_management_status_failed">Fehlgeschlagen</string>
     <string name="settings_download_wifi_only_title">Downloads nur über WLAN</string>
-    <string name="settings_download_wifi_only_subtitle">Manuelle Downloads warten auf eine unbegrenzte Netzwerkverbindung</string>
+    <string name="settings_download_wifi_only_subtitle">Manuelle Downloads warten auf eine
+        unbegrenzte Netzwerkverbindung</string>
     <string name="settings_cache_playback_capacity_title">Puffergröße</string>
-    <string name="settings_cache_playback_capacity_subtitle">Gilt beim nächsten Neuaufbau des Players</string>
+    <string name="settings_cache_playback_capacity_subtitle">Gilt beim nächsten Neuaufbau des
+        Players</string>
     <string name="download_management_delete_all_action">Alle löschen</string>
     <string name="download_management_delete_all_confirm_title">Alle Downloads löschen</string>
-    <string name="download_management_delete_all_confirm_body">Sind Sie sicher, dass Sie alle Offline-Cache-Downloads löschen möchten?</string>
-    <string name="about_library_navigation3_description">Navigation 3 bietet Compose-orientierte Navigationsbausteine. APlayer nutzt es, um Bildschirmstapel und Overlay-Routen zustandsgesteuert zu halten.</string>
-    <string name="about_library_materialkolor_description">MaterialKolor erzeugt Material You-Farbschemata aus Seed-Farben. APlayer nutzt es für dynamische Designs aus Wallpaper- und Cover-Farben.</string>
-    <string name="about_library_palette_description">AndroidX Palette extrahiert repräsentative Farben aus Bildern. APlayer nutzt es, um Cover-Akzente vor dem Erzeugen thematischer Oberflächen abzuleiten.</string>
-    <string name="about_library_documentfile_description">DocumentFile kapselt Dokumente des Android Storage Access Framework. APlayer nutzt es zum Prüfen benutzerautorisierter lokaler Medienbibliotheksordner.</string>
-    <string name="about_library_okhttp_description">OkHttp ist ein moderner HTTP-Client. APlayer nutzt es für WebDAV- und Audiobookshelf-Netzwerkzugriff, einschließlich Streaming und API-Aufrufen.</string>
-    <string name="about_library_moshi_description">Moshi ordnet JSON typisierten Kotlin-Modellen zu. APlayer nutzt es zum Parsen strukturierter Audiobookshelf-Protokollantworten.</string>
+    <string name="download_management_delete_all_confirm_body">Sind Sie sicher, dass Sie alle
+        Offline-Cache-Downloads löschen möchten?</string>
+    <string name="about_library_navigation3_description">Navigation 3 bietet Compose-orientierte
+        Navigationsbausteine. APlayer nutzt es, um Bildschirmstapel und Overlay-Routen
+        zustandsgesteuert zu halten.</string>
+    <string name="about_library_materialkolor_description">MaterialKolor erzeugt Material
+        You-Farbschemata aus Seed-Farben. APlayer nutzt es für dynamische Designs aus Wallpaper- und
+        Cover-Farben.</string>
+    <string name="about_library_palette_description">AndroidX Palette extrahiert repräsentative
+        Farben aus Bildern. APlayer nutzt es, um Cover-Akzente vor dem Erzeugen thematischer
+        Oberflächen abzuleiten.</string>
+    <string name="about_library_documentfile_description">DocumentFile kapselt Dokumente des Android
+        Storage Access Framework. APlayer nutzt es zum Prüfen benutzerautorisierter lokaler
+        Medienbibliotheksordner.</string>
+    <string name="about_library_okhttp_description">OkHttp ist ein moderner HTTP-Client. APlayer
+        nutzt es für WebDAV- und AudiobookShelf-Netzwerkzugriff, einschließlich Streaming und
+        API-Aufrufen.</string>
+    <string name="about_library_moshi_description">Moshi ordnet JSON typisierten Kotlin-Modellen zu.
+        APlayer nutzt es zum Parsen strukturierter AudiobookShelf-Protokollantworten.</string>
 </resources>

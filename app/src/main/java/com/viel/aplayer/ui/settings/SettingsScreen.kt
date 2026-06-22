@@ -286,27 +286,20 @@ fun SettingsDialogHost(
     settingsDialogHazeState: HazeState? = null,
     appLanguage: AppLanguage,
     onAppLanguageChange: (AppLanguage) -> Unit,
-    webDavConnectionState: WebDavConnectionUiState,
-    onWebDavConnectionTest: (url: String, username: String, password: String, basePath: String, editingRootId: String?) -> Unit,
     onResetWebDavConnectionState: () -> Unit,
-    onWebDavRootSubmitted: (url: String, username: String, password: String, displayName: String, basePath: String) -> Unit,
-    onWebDavRootUpdated: (id: String, url: String, username: String, password: String, displayName: String, basePath: String) -> Unit,
-    absConnectionState: AbsConnectionUiState,
-    onAbsConnectionTest: (baseUrl: String, username: String, password: String, editingRootId: String?) -> Unit,
     onResetAbsConnectionState: () -> Unit,
-    onAbsRootSubmitted: (baseUrl: String, username: String, password: String, libraryId: String, libraryName: String, editingRootId: String?) -> Unit,
     getWebDavCredentials: (credentialId: String) -> SettingsCredential?,
     getAbsCredential: suspend (credentialId: String) -> SettingsCredential?,
     onAbsSync: (rootId: String) -> Unit,
     onRescan: (rootId: String) -> Unit,
     onDeleteLibraryRoot: (SettingsRootItem) -> Unit,
     onLaunchSafRootPicker: () -> Unit,
+    onOpenWebDavConnectionPage: () -> Unit,
+    onOpenAbsConnectionPage: () -> Unit,
     onImportConfirm: (Uri) -> Unit = {}
 ) {
     val dialogState = controller.dialogState
     val rootToDelete = (dialogState as? SettingsDialogState.DeleteRoot)?.root
-    val showWebDavDialog = dialogState == SettingsDialogState.WebDavRoot
-    val showAbsDialog = dialogState == SettingsDialogState.AbsServer
     val showLanguagePicker = dialogState == SettingsDialogState.LanguagePicker
     val showAddLibraryTypeDialog = dialogState == SettingsDialogState.AddLibraryType
     val rootForAction = (dialogState as? SettingsDialogState.RootActions)?.root
@@ -319,131 +312,6 @@ fun SettingsDialogHost(
             glassEffectMode = glassEffectMode,
             onLanguageSelected = onAppLanguageChange,
             onDismiss = { controller.dialogState = SettingsDialogState.None }
-        )
-    }
-
-    if (showWebDavDialog) {
-        WebDavRootDialog(
-            url = controller.webDavUrl,
-            username = controller.webDavUsername,
-            password = controller.webDavPassword,
-            displayName = controller.webDavDisplayName,
-            basePath = controller.webDavBasePath,
-            editingRootId = controller.editingRootId,
-            hazeState = resolvedSettingsDialogHazeState,
-            glassEffectMode = glassEffectMode,
-            connectionState = webDavConnectionState,
-            onUrlChange = {
-                controller.webDavUrl = it
-                onResetWebDavConnectionState()
-            },
-            onUsernameChange = {
-                controller.webDavUsername = it
-                onResetWebDavConnectionState()
-            },
-            onPasswordChange = {
-                controller.webDavPassword = it
-                onResetWebDavConnectionState()
-            },
-            onDisplayNameChange = { controller.webDavDisplayName = it },
-            onBasePathChange = {
-                controller.webDavBasePath = it
-                onResetWebDavConnectionState()
-            },
-            onTestConnection = {
-                onWebDavConnectionTest(
-                    controller.webDavUrl.trim(),
-                    controller.webDavUsername.trim(),
-                    controller.webDavPassword,
-                    controller.webDavBasePath.trim(),
-                    controller.editingRootId
-                )
-            },
-            onDismiss = {
-                controller.dialogState = SettingsDialogState.None
-                controller.resetWebDavForm()
-                onResetWebDavConnectionState()
-            },
-            onConfirm = {
-                val rootId = controller.editingRootId
-                if (rootId != null) {
-                    onWebDavRootUpdated(
-                        rootId,
-                        controller.webDavUrl.trim(),
-                        controller.webDavUsername.trim(),
-                        controller.webDavPassword,
-                        controller.webDavDisplayName.trim(),
-                        controller.webDavBasePath.trim()
-                    )
-                } else {
-                    onWebDavRootSubmitted(
-                        controller.webDavUrl.trim(),
-                        controller.webDavUsername.trim(),
-                        controller.webDavPassword,
-                        controller.webDavDisplayName.trim(),
-                        controller.webDavBasePath.trim()
-                    )
-                }
-                controller.dialogState = SettingsDialogState.None
-                controller.resetWebDavForm()
-                onResetWebDavConnectionState()
-            }
-        )
-    }
-
-    if (showAbsDialog) {
-        AbsServerDialog(
-            baseUrl = controller.absBaseUrl,
-            username = controller.absUsername,
-            password = controller.absPassword,
-            editingRootId = controller.editingRootId,
-            hazeState = resolvedSettingsDialogHazeState,
-            glassEffectMode = glassEffectMode,
-            connectionState = absConnectionState,
-            selectedLibraryId = controller.absLibraryId,
-            selectedLibraryName = controller.absLibraryName,
-            onBaseUrlChange = {
-                controller.absBaseUrl = it
-                onResetAbsConnectionState()
-            },
-            onUsernameChange = {
-                controller.absUsername = it
-                onResetAbsConnectionState()
-            },
-            onPasswordChange = {
-                controller.absPassword = it
-                onResetAbsConnectionState()
-            },
-            onLibrarySelected = { id, name ->
-                controller.absLibraryId = id
-                controller.absLibraryName = name
-            },
-            onTestConnection = {
-                onAbsConnectionTest(
-                    controller.absBaseUrl.trim(),
-                    controller.absUsername.trim(),
-                    controller.absPassword,
-                    controller.editingRootId
-                )
-            },
-            onDismiss = {
-                controller.dialogState = SettingsDialogState.None
-                controller.resetAbsForm()
-                onResetAbsConnectionState()
-            },
-            onConfirm = {
-                onAbsRootSubmitted(
-                    controller.absBaseUrl.trim(),
-                    controller.absUsername.trim(),
-                    controller.absPassword,
-                    controller.absLibraryId.trim(),
-                    controller.absLibraryName.trim(),
-                    controller.editingRootId
-                )
-                controller.dialogState = SettingsDialogState.None
-                controller.resetAbsForm()
-                onResetAbsConnectionState()
-            }
         )
     }
 
@@ -504,7 +372,8 @@ fun SettingsDialogHost(
                             .clickable {
                                 controller.dialogState = SettingsDialogState.None
                                 controller.resetWebDavForm()
-                                controller.dialogState = SettingsDialogState.WebDavRoot
+                                onResetWebDavConnectionState()
+                                onOpenWebDavConnectionPage()
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -519,7 +388,8 @@ fun SettingsDialogHost(
                             .clickable {
                                 controller.dialogState = SettingsDialogState.None
                                 controller.resetAbsForm()
-                                controller.dialogState = SettingsDialogState.AbsServer
+                                onResetAbsConnectionState()
+                                onOpenAbsConnectionPage()
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -567,7 +437,9 @@ fun SettingsDialogHost(
                                     controller.webDavUsername = creds?.username ?: ""
                                     controller.webDavPassword = creds?.password ?: ""
                                     controller.editingRootId = rootForAction.rootId
-                                    controller.dialogState = SettingsDialogState.WebDavRoot
+                                    controller.dialogState = SettingsDialogState.None
+                                    onResetWebDavConnectionState()
+                                    onOpenWebDavConnectionPage()
                                 } else if (isAbsRoot) {
                                     scope.launch {
                                         val creds =
@@ -579,7 +451,9 @@ fun SettingsDialogHost(
                                         controller.absLibraryName = rootForAction.displayName
                                         controller.absDisplayName = rootForAction.displayName
                                         controller.editingRootId = rootForAction.rootId
-                                        controller.dialogState = SettingsDialogState.AbsServer
+                                        controller.dialogState = SettingsDialogState.None
+                                        onResetAbsConnectionState()
+                                        onOpenAbsConnectionPage()
                                     }
                                 }
                             }

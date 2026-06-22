@@ -35,7 +35,7 @@ class AbsAuthorizedProgressSyncTest {
 
     @Test
     fun `authorized progress sync should merge authorize media progress through conflict resolver`() = runBlocking {
-        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
         val remoteBook = absBook(idMapper.bookId(serverKey, "remote-new"), readStatus = AudiobookSchema.ReadStatus.NOT_STARTED)
         val localBook = absBook(idMapper.bookId(serverKey, "local-new"), readStatus = AudiobookSchema.ReadStatus.IN_PROGRESS)
         val bookGateway = FakeBookQueryGateway(remoteBook, localBook)
@@ -55,7 +55,7 @@ class AbsAuthorizedProgressSyncTest {
         )
         val synchronizer = AbsAuthorizedProgressSynchronizer(
             apiClient = api,
-            credentialProvider = { AbsAuthorizedProgressSynchronizer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            credentialProvider = { AbsAuthorizedProgressSynchronizer.CredentialSnapshot("https://example.com/AudiobookShelf", "token-1") },
             bookCatalogGateway = bookGateway,
             bookMetadataGateway = bookGateway,
             progressGateway = progressGateway
@@ -77,7 +77,7 @@ class AbsAuthorizedProgressSyncTest {
     private fun absRoot() = LibraryRootEntity(
         id = "root-1",
         sourceType = AudiobookSchema.LibrarySourceType.ABS,
-        sourceUri = "https://example.com/audiobookshelf",
+        sourceUri = "https://example.com/AudiobookShelf",
         basePath = "lib-1",
         credentialId = "cred-1",
         displayName = "ABS"
@@ -87,7 +87,7 @@ class AbsAuthorizedProgressSyncTest {
         id = id,
         rootId = "root-1",
         sourceType = AudiobookSchema.SourceType.ABS_REMOTE,
-        sourceRoot = "https://example.com/audiobookshelf",
+        sourceRoot = "https://example.com/AudiobookShelf",
         title = id.substringAfterLast(':'),
         totalDurationMs = 120_000L,
         readStatus = readStatus

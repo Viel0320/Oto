@@ -58,9 +58,9 @@ class AbsCatalogStage2Test {
 
     @Test
     fun `remote id mapper must be stable and scoped by user plus server`() {
-        val key1 = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
-        val key2 = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
-        val key3 = idMapper.serverKey("https://example.com/audiobookshelf", "user-2")
+        val key1 = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
+        val key2 = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
+        val key3 = idMapper.serverKey("https://example.com/AudiobookShelf", "user-2")
         assertEquals(key1, key2)
         assertTrue(key1 != key3)
         assertEquals("abs:$key1:library:lib-1", idMapper.rootId(key1, "lib-1"))
@@ -70,11 +70,11 @@ class AbsCatalogStage2Test {
 
     @Test
     fun `catalog mapper should map pi book track and chapter to local entities`() {
-        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
         val root = LibraryRootEntity(
             id = idMapper.rootId(serverKey, "lib-1"),
             sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/audiobookshelf",
+            sourceUri = "https://example.com/AudiobookShelf",
             basePath = "lib-1",
             credentialId = "cred-1",
             displayName = "Audiobooks"
@@ -104,11 +104,11 @@ class AbsCatalogStage2Test {
 
     @Test
     fun `catalog mapper should preserve remote addedAt for new ABS books and keep local value on resync`() {
-        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
         val root = LibraryRootEntity(
             id = idMapper.rootId(serverKey, "lib-1"),
             sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/audiobookshelf",
+            sourceUri = "https://example.com/AudiobookShelf",
             basePath = "lib-1",
             credentialId = "cred-1",
             displayName = "Audiobooks"
@@ -171,11 +171,11 @@ class AbsCatalogStage2Test {
 
     @Test
     fun `progress mapper should convert seconds to millis and skip missing progress`() {
-        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
         val root = LibraryRootEntity(
             id = idMapper.rootId(serverKey, "lib-1"),
             sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/audiobookshelf",
+            sourceUri = "https://example.com/AudiobookShelf",
             basePath = "lib-1",
             credentialId = "cred-1",
             displayName = "Audiobooks"
@@ -200,18 +200,18 @@ class AbsCatalogStage2Test {
 
     @Test
     fun `catalog sync should leave authorize media progress to authorized synchronizer`() = runBlocking {
-        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
         val root = LibraryRootEntity(
             id = idMapper.rootId(serverKey, "lib-1"),
             sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/audiobookshelf",
+            sourceUri = "https://example.com/AudiobookShelf",
             basePath = "lib-1",
             credentialId = "cred-1",
             displayName = "Audiobooks"
         )
         val itemWithoutInlineProgress = sampleItem(itemId = "item-1", libraryId = "lib-1", progress = null)
         val catalogStore = FakeAbsCatalogStore()
-        val credentialStore = createCredentialStore(token = "token-1", baseUrl = "https://example.com/audiobookshelf")
+        val credentialStore = createCredentialStore(token = "token-1", baseUrl = "https://example.com/AudiobookShelf")
         val synchronizer = AbsCatalogSynchronizer(
             apiClient = FakeAbsApiClient(
                 minified = AbsLibraryItemsResponseDto(results = listOf(itemWithoutInlineProgress), total = 1, limit = 1, page = 0),
@@ -239,11 +239,11 @@ class AbsCatalogStage2Test {
 
     @Test
     fun `catalog sync should route reused mirrors through authorized progress synchronizer`() = runBlocking {
-        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
         val root = LibraryRootEntity(
             id = idMapper.rootId(serverKey, "lib-1"),
             sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/audiobookshelf",
+            sourceUri = "https://example.com/AudiobookShelf",
             basePath = "lib-1",
             credentialId = "cred-1",
             displayName = "Audiobooks"
@@ -278,7 +278,7 @@ class AbsCatalogStage2Test {
                 fullListFingerprint = AbsCatalogSynchronizer.minifiedFingerprint(listOf(existingItem))
             )
         )
-        val credentialStore = createCredentialStore(token = "token-1", baseUrl = "https://example.com/audiobookshelf")
+        val credentialStore = createCredentialStore(token = "token-1", baseUrl = "https://example.com/AudiobookShelf")
         val progressGateway = FakeProgressGateway(catalogStore.progress)
         val progressBookGateway = FakeBookQueryGateway(catalogStore.books, mapOf(existingBook.id to existingFiles))
         val authorizedProgressSynchronizer = AbsAuthorizedProgressSynchronizer(
@@ -286,7 +286,7 @@ class AbsCatalogStage2Test {
                 minified = AbsLibraryItemsResponseDto(results = listOf(existingItem), total = 1, limit = 1, page = 0),
                 details = emptyList()
             ),
-            credentialProvider = { AbsAuthorizedProgressSynchronizer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            credentialProvider = { AbsAuthorizedProgressSynchronizer.CredentialSnapshot("https://example.com/AudiobookShelf", "token-1") },
             bookCatalogGateway = progressBookGateway,
             bookMetadataGateway = progressBookGateway,
             progressGateway = progressGateway
@@ -322,11 +322,11 @@ class AbsCatalogStage2Test {
 
     @Test
     fun `catalog synchronizer should mark unseen active items as stale and keep addedAt on resync`() = runBlocking {
-        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
         val root = LibraryRootEntity(
             id = idMapper.rootId(serverKey, "lib-1"),
             sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/audiobookshelf",
+            sourceUri = "https://example.com/AudiobookShelf",
             basePath = "lib-1",
             credentialId = "cred-1",
             displayName = "Audiobooks"
@@ -354,7 +354,7 @@ class AbsCatalogStage2Test {
             syncState = AbsSyncStateEntity(rootId = root.id, serverKey = serverKey, libraryId = "lib-1")
         )
         val credentialStore = createCredentialStore(
-            baseUrl = "https://example.com/audiobookshelf",
+            baseUrl = "https://example.com/AudiobookShelf",
             token = "token-1"
         )
         val api = FakeAbsApiClient(
@@ -400,11 +400,11 @@ class AbsCatalogStage2Test {
 
     @Test
     fun `catalog synchronizer should not mark stale when detail batch fails and must not create new book from minified only`() = runBlocking {
-        val serverKey = idMapper.serverKey("https://example.com/audiobookshelf", "user-1")
+        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
         val root = LibraryRootEntity(
             id = idMapper.rootId(serverKey, "lib-1"),
             sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/audiobookshelf",
+            sourceUri = "https://example.com/AudiobookShelf",
             basePath = "lib-1",
             credentialId = "cred-1",
             displayName = "Audiobooks"
@@ -432,7 +432,7 @@ class AbsCatalogStage2Test {
             syncState = AbsSyncStateEntity(rootId = root.id, serverKey = serverKey, libraryId = "lib-1")
         )
         val credentialStore = createCredentialStore(
-            baseUrl = "https://example.com/audiobookshelf",
+            baseUrl = "https://example.com/AudiobookShelf",
             token = "token-1"
         )
         val api = FailingBatchAbsApiClient(

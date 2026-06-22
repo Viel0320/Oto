@@ -70,7 +70,7 @@ class AbsApiClientTest {
         val store = createCredentialStore("abs-credential-store")
 
         val saved = store.save(
-            baseUrl = "https://example.com/audiobookshelf/",
+            baseUrl = "https://example.com/AudiobookShelf/",
             token = "super-secret-token",
             userId = "user-1",
             username = "demo",
@@ -79,7 +79,7 @@ class AbsApiClientTest {
         val loaded = store.get(saved.id)
 
         assertNotNull(loaded)
-        assertEquals("https://example.com/audiobookshelf", loaded?.baseUrl)
+        assertEquals("https://example.com/AudiobookShelf", loaded?.baseUrl)
         assertEquals("super-secret-token", loaded?.token)
         assertFalse(saved.toString().contains("super-secret-token"))
         assertTrue(saved.toString().contains("<redacted>"))
@@ -92,7 +92,7 @@ class AbsApiClientTest {
     fun `credential store update token should preserve credential id`() = runBlocking {
         val store = createCredentialStore("abs-credential-update")
         store.save(
-            baseUrl = "https://example.com/audiobookshelf",
+            baseUrl = "https://example.com/AudiobookShelf",
             token = "old-token",
             userId = "user-1",
             username = "demo",
@@ -120,12 +120,12 @@ class AbsApiClientTest {
             val client = RealAbsApiClient(settingsProvider = ::allowCleartextSettings)
 
             runBlocking {
-                client.authorize(server.url("/audiobookshelf").toString(), "token-123")
+                client.authorize(server.url("/AudiobookShelf").toString(), "token-123")
             }
 
             val request = server.takeRequest()
             assertEquals("POST", request.method)
-            assertEquals("/audiobookshelf/api/authorize", request.path)
+            assertEquals("/AudiobookShelf/api/authorize", request.path)
             assertEquals("Bearer token-123", request.getHeader("Authorization"))
         }
     }
@@ -140,7 +140,7 @@ class AbsApiClientTest {
             )
             val store = createCredentialStore("abs-refresh")
             store.save(
-                baseUrl = server.url("/audiobookshelf/").toString(),
+                baseUrl = server.url("/AudiobookShelf/").toString(),
                 token = "old-token",
                 userId = "user-1",
                 username = "demo",
@@ -157,7 +157,7 @@ class AbsApiClientTest {
             assertEquals("new-token", store.get("cred-1")?.token)
             val request = server.takeRequest()
             assertEquals("POST", request.method)
-            assertEquals("/audiobookshelf/api/authorize", request.path)
+            assertEquals("/AudiobookShelf/api/authorize", request.path)
             assertEquals("Bearer old-token", request.getHeader("Authorization"))
         }
     }
@@ -178,7 +178,7 @@ class AbsApiClientTest {
             )
             val store = createCredentialStore("abs-rest-retry")
             store.save(
-                baseUrl = server.url("/audiobookshelf/").toString(),
+                baseUrl = server.url("/AudiobookShelf/").toString(),
                 token = "old-token",
                 credentialId = "cred-1"
             )
@@ -188,7 +188,7 @@ class AbsApiClientTest {
             )
 
             val libraries = client.getLibraries(
-                baseUrl = server.url("/audiobookshelf/").toString(),
+                baseUrl = server.url("/AudiobookShelf/").toString(),
                 token = "old-token",
                 credentialId = "cred-1"
             )
@@ -198,11 +198,11 @@ class AbsApiClientTest {
             val firstLibrariesRequest = server.takeRequest()
             val refreshRequest = server.takeRequest()
             val retryLibrariesRequest = server.takeRequest()
-            assertEquals("/audiobookshelf/api/libraries", firstLibrariesRequest.path)
+            assertEquals("/AudiobookShelf/api/libraries", firstLibrariesRequest.path)
             assertEquals("Bearer old-token", firstLibrariesRequest.getHeader("Authorization"))
-            assertEquals("/audiobookshelf/api/authorize", refreshRequest.path)
+            assertEquals("/AudiobookShelf/api/authorize", refreshRequest.path)
             assertEquals("Bearer old-token", refreshRequest.getHeader("Authorization"))
-            assertEquals("/audiobookshelf/api/libraries", retryLibrariesRequest.path)
+            assertEquals("/AudiobookShelf/api/libraries", retryLibrariesRequest.path)
             assertEquals("Bearer new-token", retryLibrariesRequest.getHeader("Authorization"))
         }
     }
@@ -218,12 +218,12 @@ class AbsApiClientTest {
             val client = RealAbsApiClient(settingsProvider = ::allowCleartextSettings)
 
             runBlocking {
-                client.login(server.url("/audiobookshelf").toString(), "demo", "demo")
+                client.login(server.url("/AudiobookShelf").toString(), "demo", "demo")
             }
 
             val request = server.takeRequest()
             assertEquals("POST", request.method)
-            assertEquals("/audiobookshelf/login", request.path)
+            assertEquals("/AudiobookShelf/login", request.path)
             assertEquals("application/json; charset=utf-8", request.getHeader("Content-Type"))
             assertEquals("""{"username":"demo","password":"demo"}""", request.body.readUtf8())
         }
@@ -260,16 +260,16 @@ class AbsApiClientTest {
             val tester = AbsConnectionTester(client)
 
             val result = runBlocking {
-                tester.testConnection(server.url("/audiobookshelf/").toString(), "token-456")
+                tester.testConnection(server.url("/AudiobookShelf/").toString(), "token-456")
             }
 
             val statusRequest = server.takeRequest()
             val authorizeRequest = server.takeRequest()
             val librariesRequest = server.takeRequest()
 
-            assertEquals("/audiobookshelf/status", statusRequest.path)
-            assertEquals("/audiobookshelf/api/authorize", authorizeRequest.path)
-            assertEquals("/audiobookshelf/api/libraries", librariesRequest.path)
+            assertEquals("/AudiobookShelf/status", statusRequest.path)
+            assertEquals("/AudiobookShelf/api/authorize", authorizeRequest.path)
+            assertEquals("/AudiobookShelf/api/libraries", librariesRequest.path)
             assertEquals("2.35.1", result.serverVersion)
             assertEquals("u1", result.userId)
             assertEquals("demo", result.username)
@@ -289,14 +289,14 @@ class AbsApiClientTest {
 
             try {
                 runBlocking {
-                    tester.testConnection(server.url("/audiobookshelf/").toString(), "token-456")
+                    tester.testConnection(server.url("/AudiobookShelf/").toString(), "token-456")
                 }
                 error("Expected unsupported version rejection")
             } catch (error: Exception) {
                 assertTrue(error.message?.contains("version unsupported") == true)
                 assertTrue(error.message?.contains(MIN_SUPPORTED_ABS_SERVER_VERSION) == true)
                 val statusRequest = server.takeRequest()
-                assertEquals("/audiobookshelf/status", statusRequest.path)
+                assertEquals("/AudiobookShelf/status", statusRequest.path)
                 assertEquals(0, server.requestCount - 1)
             }
         }
@@ -323,7 +323,7 @@ class AbsApiClientTest {
 
         runBlocking {
             callerThreadName.set(Thread.currentThread().name)
-            client.login("https://example.com/audiobookshelf", "demo", "demo")
+            client.login("https://example.com/AudiobookShelf", "demo", "demo")
         }
 
         assertNotNull(networkThreadName.get())

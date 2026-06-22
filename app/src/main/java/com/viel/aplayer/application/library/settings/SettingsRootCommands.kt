@@ -54,13 +54,13 @@ interface SettingsRootCommands {
     suspend fun inspectManualAbsSync(rootId: String): SettingsAbsSyncInspection
 
     /**
-     * Queue a user-triggered Audiobookshelf catalog sync.
+     * Queue a user-triggered AudiobookShelf catalog sync.
      * Lets SettingsViewModel schedule work by rootId without importing ABS task origin constants or worker details.
      */
     fun startManualAbsSync(rootId: String): Boolean
 
     /**
-     * Queue first sync after adding or editing an Audiobookshelf root.
+     * Queue first sync after adding or editing an AudiobookShelf root.
      * Preserves the separate AUTO_ADD origin without exposing task-coordinator types to presentation code.
      */
     fun startAutoAbsSync(rootId: String): Boolean

@@ -56,7 +56,7 @@ class LibraryAccessFeedbackFactsTest {
         )
         assertEquals(FeedbackSeverity.BLOCKED, abs.outcome.severity)
         assertEquals(
-            FeedbackContext.DraftLibraryAccess("draft-1", LibraryAccessForm.AUDIOBOOKSHELF),
+            FeedbackContext.DraftLibraryAccess("draft-1", LibraryAccessForm.AudiobookShelf),
             abs.outcome.identity.context
         )
         assertEquals(
@@ -87,7 +87,7 @@ class LibraryAccessFeedbackFactsTest {
         ).outcome.identity
 
         assertEquals(
-            FeedbackContext.LibraryRoot("root-1", LibraryAccessForm.AUDIOBOOKSHELF),
+            FeedbackContext.LibraryRoot("root-1", LibraryAccessForm.AudiobookShelf),
             identity.context
         )
     }

@@ -59,7 +59,7 @@ class AbsPlaybackSessionStage4Test {
             absPlaybackSessionDao = playbackSessionDao,
             absPendingProgressSyncDao = pendingDao,
             catalogStore = FakeCatalogStore(),
-            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") }
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/AudiobookShelf", "token-1") }
         )
         val book = absBook()
 
@@ -98,7 +98,7 @@ class AbsPlaybackSessionStage4Test {
             absPlaybackSessionDao = playbackSessionDao,
             absPendingProgressSyncDao = pendingDao,
             catalogStore = FakeCatalogStore(),
-            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") }
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/AudiobookShelf", "token-1") }
         )
         val book = absBook()
 
@@ -122,7 +122,7 @@ class AbsPlaybackSessionStage4Test {
             absPlaybackSessionDao = playbackSessionDao,
             absPendingProgressSyncDao = FakePendingSyncDao(),
             catalogStore = FakeCatalogStore(),
-            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") }
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/AudiobookShelf", "token-1") }
         )
         val book = absBook()
 
@@ -154,7 +154,7 @@ class AbsPlaybackSessionStage4Test {
             absPlaybackSessionDao = playbackSessionDao,
             absPendingProgressSyncDao = FakePendingSyncDao(),
             catalogStore = FakeCatalogStore(),
-            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/AudiobookShelf", "token-1") },
             currentTimeMillis = { now }
         )
 
@@ -187,7 +187,7 @@ class AbsPlaybackSessionStage4Test {
             absPlaybackSessionDao = playbackSessionDao,
             absPendingProgressSyncDao = FakePendingSyncDao(),
             catalogStore = FakeCatalogStore(),
-            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/AudiobookShelf", "token-1") },
             currentTimeMillis = { now }
         )
 
@@ -227,7 +227,7 @@ class AbsPlaybackSessionStage4Test {
             absPlaybackSessionDao = playbackSessionDao,
             absPendingProgressSyncDao = pendingDao,
             catalogStore = FakeCatalogStore(),
-            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/AudiobookShelf", "token-1") },
             progressConflictCoordinator = coordinator,
             currentTimeMillis = { 3_000L }
         )
@@ -269,7 +269,7 @@ class AbsPlaybackSessionStage4Test {
             absPlaybackSessionDao = playbackSessionDao,
             absPendingProgressSyncDao = pendingDao,
             catalogStore = FakeCatalogStore(),
-            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/AudiobookShelf", "token-1") },
             progressConflictCoordinator = coordinator
         )
 
@@ -301,7 +301,7 @@ class AbsPlaybackSessionStage4Test {
             absPlaybackSessionDao = FakePlaybackSessionDao(),
             absPendingProgressSyncDao = pendingDao,
             catalogStore = FakeCatalogStore(),
-            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/AudiobookShelf", "token-1") },
             currentTimeMillis = { now }
         )
 
@@ -359,7 +359,7 @@ class AbsPlaybackSessionStage4Test {
             absPlaybackSessionDao = playbackSessionDao,
             absPendingProgressSyncDao = pendingDao,
             catalogStore = FakeCatalogStore(),
-            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") },
+            credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/AudiobookShelf", "token-1") },
             progressConflictCoordinator = coordinator
         )
 
@@ -388,7 +388,7 @@ class AbsPlaybackSessionStage4Test {
             coordinator.resolveUploadDecision(
                 book = book,
                 localProgress = localProgress,
-                credential = AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1")
+                credential = AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/AudiobookShelf", "token-1")
             )
             fail("Expected CancellationException to propagate from upload arbitration")
         } catch (error: CancellationException) {
@@ -433,7 +433,7 @@ class AbsPlaybackSessionStage4Test {
         id = "abs:server:item:item-1",
         rootId = "root-1",
         sourceType = AudiobookSchema.SourceType.ABS_REMOTE,
-        sourceRoot = "https://example.com/audiobookshelf",
+        sourceRoot = "https://example.com/AudiobookShelf",
         title = "ABS Book"
     )
 
@@ -450,7 +450,7 @@ class AbsPlaybackSessionStage4Test {
         bookCatalogGateway = FakeBookQueryGateway(book),
         bookMetadataGateway = FakeBookQueryGateway(book),
         progressGateway = FakeProgressGateway(localProgress),
-        credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/audiobookshelf", "token-1") }
+        credentialProvider = { AbsPlaybackSessionSyncer.CredentialSnapshot("https://example.com/AudiobookShelf", "token-1") }
     )
 
     private class SuccessfulPlaybackApi(

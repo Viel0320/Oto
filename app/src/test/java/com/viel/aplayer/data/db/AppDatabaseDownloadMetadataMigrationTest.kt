@@ -58,7 +58,7 @@ class AppDatabaseDownloadMetadataMigrationTest {
                 lastAvailabilityCheckedAt, lastAvailabilityErrorCode, displayName, grantedAt,
                 lastScannedAt, status
             ) VALUES (
-                'root-1', 'ABS', 'https://example.com/audiobookshelf', 'lib-1', 'cred-1',
+                'root-1', 'ABS', 'https://example.com/AudiobookShelf', 'lib-1', 'cred-1',
                 'AVAILABLE', 1, NULL, 'ABS Root', 1, 1, 'ACTIVE'
             )
             """.trimIndent()

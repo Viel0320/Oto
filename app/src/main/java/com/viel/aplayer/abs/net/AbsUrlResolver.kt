@@ -5,7 +5,7 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
- * Unified helper to resolve and normalize Audiobookshelf URLs.
+ * Unified helper to resolve and normalize AudiobookShelf URLs.
  *
  * REST client, Cover Cache, and VFS provider. share the same URL sanitization,
  * trailing-slash trimming, and structural endpoint construction logic.

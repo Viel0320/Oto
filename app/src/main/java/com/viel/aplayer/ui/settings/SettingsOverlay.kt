@@ -62,7 +62,9 @@ fun SettingsOverlay(
     settingsViewModel: SettingsViewModel = viewModel(),
     glassEffectMode: GlassEffectMode,
     openDownloadManagementRequest: Boolean = false,
-    onOpenDownloadManagementConsumed: () -> Unit = {}
+    onOpenDownloadManagementConsumed: () -> Unit = {},
+    openAddLibraryTypeRequest: Boolean = false,
+    onOpenAddLibraryTypeConsumed: () -> Unit = {}
 ) {
     val isVisible by settingsViewModel.isVisible.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -71,6 +73,7 @@ fun SettingsOverlay(
     val aboutHazeState = remember { HazeState() }
     val deletedRecoveryHazeState = remember { HazeState() }
     val downloadManagementHazeState = remember { HazeState() }
+    val connectionHazeState = remember { HazeState() }
     val isBlur = glassEffectMode == GlassEffectMode.Haze
     val scope = rememberCoroutineScope()
     val settingsDialogController = rememberSettingsDialogController()
@@ -160,6 +163,14 @@ fun SettingsOverlay(
             if (openDownloadManagementRequest && isVisible) {
                 activeSettingsPage = SettingsOverlayPage.DownloadManagement
                 onOpenDownloadManagementConsumed()
+            }
+        }
+
+        LaunchedEffect(openAddLibraryTypeRequest, isVisible) {
+            if (openAddLibraryTypeRequest && isVisible) {
+                activeSettingsPage = SettingsOverlayPage.Main
+                settingsDialogController.dialogState = SettingsDialogState.AddLibraryType
+                onOpenAddLibraryTypeConsumed()
             }
         }
 
@@ -285,11 +296,136 @@ fun SettingsOverlay(
                         }
                     }
 
+                    SettingsOverlayPage.WebDavConnection -> {
+                        val webDavConnectionState by settingsViewModel.webDavConnectionState.collectAsStateWithLifecycle()
+                        WebDavConnectionPage(
+                            url = settingsDialogController.webDavUrl,
+                            username = settingsDialogController.webDavUsername,
+                            password = settingsDialogController.webDavPassword,
+                            displayName = settingsDialogController.webDavDisplayName,
+                            basePath = settingsDialogController.webDavBasePath,
+                            editingRootId = settingsDialogController.editingRootId,
+                            connectionState = webDavConnectionState,
+                            glassEffectMode = glassEffectMode,
+                            hazeState = if (isBlur) connectionHazeState else null,
+                            onUrlChange = {
+                                settingsDialogController.webDavUrl = it
+                                settingsViewModel.connectionHandler.resetWebDavConnectionState()
+                            },
+                            onUsernameChange = {
+                                settingsDialogController.webDavUsername = it
+                                settingsViewModel.connectionHandler.resetWebDavConnectionState()
+                            },
+                            onPasswordChange = {
+                                settingsDialogController.webDavPassword = it
+                                settingsViewModel.connectionHandler.resetWebDavConnectionState()
+                            },
+                            onDisplayNameChange = { settingsDialogController.webDavDisplayName = it },
+                            onBasePathChange = {
+                                settingsDialogController.webDavBasePath = it
+                                settingsViewModel.connectionHandler.resetWebDavConnectionState()
+                            },
+                            onTestConnection = {
+                                settingsViewModel.connectionHandler.testWebDavConnection(
+                                    settingsDialogController.webDavUrl.trim(),
+                                    settingsDialogController.webDavUsername.trim(),
+                                    settingsDialogController.webDavPassword,
+                                    settingsDialogController.webDavBasePath.trim(),
+                                    settingsDialogController.editingRootId
+                                )
+                            },
+                            onBack = {
+                                activeSettingsPage = SettingsOverlayPage.Main
+                                settingsDialogController.resetWebDavForm()
+                                settingsViewModel.connectionHandler.resetWebDavConnectionState()
+                            },
+                            onConfirm = {
+                                val rootId = settingsDialogController.editingRootId
+                                if (rootId != null) {
+                                    settingsViewModel.updateWebDavRoot(
+                                        rootId,
+                                        settingsDialogController.webDavUrl.trim(),
+                                        settingsDialogController.webDavUsername.trim(),
+                                        settingsDialogController.webDavPassword,
+                                        settingsDialogController.webDavDisplayName.trim(),
+                                        settingsDialogController.webDavBasePath.trim()
+                                    )
+                                } else {
+                                    settingsViewModel.connectionHandler.onWebDavRootSubmitted(
+                                        settingsDialogController.webDavUrl.trim(),
+                                        settingsDialogController.webDavUsername.trim(),
+                                        settingsDialogController.webDavPassword,
+                                        settingsDialogController.webDavDisplayName.trim(),
+                                        settingsDialogController.webDavBasePath.trim()
+                                    )
+                                }
+                                activeSettingsPage = SettingsOverlayPage.Main
+                                settingsDialogController.resetWebDavForm()
+                                settingsViewModel.connectionHandler.resetWebDavConnectionState()
+                            }
+                        )
+                    }
+
+                    SettingsOverlayPage.AbsConnection -> {
+                        val absConnectionState by settingsViewModel.absConnectionState.collectAsStateWithLifecycle()
+                        AbsConnectionPage(
+                            baseUrl = settingsDialogController.absBaseUrl,
+                            username = settingsDialogController.absUsername,
+                            password = settingsDialogController.absPassword,
+                            editingRootId = settingsDialogController.editingRootId,
+                            connectionState = absConnectionState,
+                            glassEffectMode = glassEffectMode,
+                            hazeState = if (isBlur) connectionHazeState else null,
+                            selectedLibraryId = settingsDialogController.absLibraryId,
+                            selectedLibraryName = settingsDialogController.absLibraryName,
+                            onBaseUrlChange = {
+                                settingsDialogController.absBaseUrl = it
+                                settingsViewModel.connectionHandler.resetAbsConnectionState()
+                            },
+                            onUsernameChange = {
+                                settingsDialogController.absUsername = it
+                                settingsViewModel.connectionHandler.resetAbsConnectionState()
+                            },
+                            onPasswordChange = {
+                                settingsDialogController.absPassword = it
+                                settingsViewModel.connectionHandler.resetAbsConnectionState()
+                            },
+                            onLibrarySelected = { id, name ->
+                                settingsDialogController.absLibraryId = id
+                                settingsDialogController.absLibraryName = name
+                            },
+                            onTestConnection = {
+                                settingsViewModel.connectionHandler.testAbsConnection(
+                                    settingsDialogController.absBaseUrl.trim(),
+                                    settingsDialogController.absUsername.trim(),
+                                    settingsDialogController.absPassword,
+                                    settingsDialogController.editingRootId
+                                )
+                            },
+                            onBack = {
+                                activeSettingsPage = SettingsOverlayPage.Main
+                                settingsDialogController.resetAbsForm()
+                                settingsViewModel.connectionHandler.resetAbsConnectionState()
+                            },
+                            onConfirm = {
+                                settingsViewModel.connectionHandler.addAbsServerWithPassword(
+                                    settingsDialogController.absBaseUrl.trim(),
+                                    settingsDialogController.absUsername.trim(),
+                                    settingsDialogController.absPassword,
+                                    settingsDialogController.absLibraryId.trim(),
+                                    settingsDialogController.absLibraryName.trim(),
+                                    settingsDialogController.editingRootId
+                                )
+                                activeSettingsPage = SettingsOverlayPage.Main
+                                settingsDialogController.resetAbsForm()
+                                settingsViewModel.connectionHandler.resetAbsConnectionState()
+                            }
+                        )
+                    }
+
                     SettingsOverlayPage.Main -> {
                     val settingsState by settingsViewModel.settingsState.collectAsStateWithLifecycle()
                     val libraryRootDisplays by settingsViewModel.libraryRootDisplays.collectAsStateWithLifecycle()
-                    val absConnectionState by settingsViewModel.absConnectionState.collectAsStateWithLifecycle()
-                    val webDavConnectionState by settingsViewModel.webDavConnectionState.collectAsStateWithLifecycle()
                     val downloadTasks by settingsViewModel.downloadTasks.collectAsStateWithLifecycle()
                     val effectiveAppLanguage = AppLocaleController.resolveEffectiveLanguage(context, settingsState.appLanguage)
 
@@ -361,28 +497,11 @@ fun SettingsOverlay(
                             settingsDialogHazeState = if (isBlur) settingsHazeState else null,
                             appLanguage = effectiveAppLanguage,
                             onAppLanguageChange = { settingsViewModel.preferencesHandler.updateAppLanguage(it) },
-                            webDavConnectionState = webDavConnectionState,
-                            onWebDavConnectionTest = { url, username, password, basePath, editingRootId ->
-                                settingsViewModel.connectionHandler.testWebDavConnection(url, username, password, basePath, editingRootId)
-                            },
                             onResetWebDavConnectionState = {
                                 settingsViewModel.connectionHandler.resetWebDavConnectionState()
                             },
-                            onWebDavRootSubmitted = { url, username, password, displayName, basePath ->
-                                settingsViewModel.connectionHandler.onWebDavRootSubmitted(url, username, password, displayName, basePath)
-                            },
-                            onWebDavRootUpdated = { id, url, username, password, displayName, basePath ->
-                                settingsViewModel.updateWebDavRoot(id, url, username, password, displayName, basePath)
-                            },
-                            absConnectionState = absConnectionState,
-                            onAbsConnectionTest = { baseUrl, username, password, editingRootId ->
-                                settingsViewModel.connectionHandler.testAbsConnection(baseUrl, username, password, editingRootId)
-                            },
                             onResetAbsConnectionState = {
                                 settingsViewModel.connectionHandler.resetAbsConnectionState()
-                            },
-                            onAbsRootSubmitted = { baseUrl, username, password, libraryId, libraryName, editingRootId ->
-                                settingsViewModel.connectionHandler.addAbsServerWithPassword(baseUrl, username, password, libraryId, libraryName, editingRootId)
                             },
                             getWebDavCredentials = { credentialId ->
                                 settingsViewModel.connectionHandler.getWebDavCredentials(credentialId)
@@ -394,6 +513,8 @@ fun SettingsOverlay(
                             onRescan = { rootId -> settingsViewModel.connectionHandler.triggerRescan(rootId) },
                             onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
                             onLaunchSafRootPicker = { libraryRootLauncher.launch(null) },
+                            onOpenWebDavConnectionPage = { activeSettingsPage = SettingsOverlayPage.WebDavConnection },
+                            onOpenAbsConnectionPage = { activeSettingsPage = SettingsOverlayPage.AbsConnection },
                             onImportConfirm = { uri -> settingsViewModel.importUserData(uri) }
                         )
                     }
@@ -412,5 +533,7 @@ private enum class SettingsOverlayPage {
     Main,
     AboutLibraries,
     DeletedBookRecovery,
-    DownloadManagement
+    DownloadManagement,
+    WebDavConnection,
+    AbsConnection
 }

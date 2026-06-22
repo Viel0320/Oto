@@ -181,7 +181,7 @@ class AbsSyncWorkerCancellationTest {
     private fun absRoot() = LibraryRootEntity(
         id = "root-1",
         sourceType = AudiobookSchema.LibrarySourceType.ABS,
-        sourceUri = "https://example.com/audiobookshelf",
+        sourceUri = "https://example.com/AudiobookShelf",
         basePath = "lib-1",
         credentialId = "cred-1",
         displayName = "ABS"
@@ -196,7 +196,7 @@ class AbsSyncWorkerCancellationTest {
         )
         runBlocking {
             store.save(
-                baseUrl = "https://example.com/audiobookshelf",
+                baseUrl = "https://example.com/AudiobookShelf",
                 token = "token-1",
                 credentialId = "cred-1"
             )

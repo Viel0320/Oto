@@ -28,7 +28,7 @@ class AbsCoverCacheTest {
     @Test
     fun `http cover download should be blocked before bearer token request is sent`() = runBlocking {
         MockWebServer().use { server ->
-            val credentialStore = createCredentialStore("http://example.com/audiobookshelf/", "token-1")
+            val credentialStore = createCredentialStore("http://example.com/AudiobookShelf/", "token-1")
             val cache = createCoverCache(
                 credentialStore = credentialStore,
                 settingsProvider = { AppSettings() }
@@ -53,7 +53,7 @@ class AbsCoverCacheTest {
                     .setHeader("Content-Type", "image/jpeg")
                     .setBody("not-a-real-image-but-a-real-stream")
             )
-            val credentialStore = createCredentialStore(server.url("/audiobookshelf/").toString(), "token-1")
+            val credentialStore = createCredentialStore(server.url("/AudiobookShelf/").toString(), "token-1")
             val cache = createCoverCache(
                 credentialStore = credentialStore,
                 settingsProvider = { AppSettings(isCleartextTrafficAllowed = true) }
@@ -63,7 +63,7 @@ class AbsCoverCacheTest {
             val request = server.takeRequest()
 
             assertEquals("GET", request.method)
-            assertEquals("/audiobookshelf/api/items/item%2Fwith%20space/cover", request.path)
+            assertEquals("/AudiobookShelf/api/items/item%2Fwith%20space/cover", request.path)
             assertEquals("Bearer token-1", request.getHeader("Authorization"))
             assertNotNull(result.originalPath)
         }
@@ -83,7 +83,7 @@ class AbsCoverCacheTest {
         LibraryRootEntity(
             id = "root-1",
             sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = server.url("/audiobookshelf").toString().trimEnd('/'),
+            sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
             basePath = "lib-1",
             credentialId = "cred-1",
             displayName = "Audiobooks"

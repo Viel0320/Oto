@@ -334,7 +334,7 @@ class LibraryRootStore(
 
     /**
      * Modify reference bindings.
-     * Updates matching display names and references to the chosen Audiobookshelf library.
+     * Updates matching display names and references to the chosen AudiobookShelf library.
      *
      * @param id Target root record ID
      * @param credentialId Server credential lookup key

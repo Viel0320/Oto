@@ -56,9 +56,9 @@ internal fun hasExistingWebDavRootForNewConnection(
 }
 
 /**
- * Throws when a new Audiobookshelf save targets an already registered server and library.
+ * Throws when a new AudiobookShelf save targets an already registered server and library.
  *
- * Audiobookshelf exposes several libraries from the same server, so duplicate detection must include
+ * AudiobookShelf exposes several libraries from the same server, so duplicate detection must include
  * the selected library id and run after connection testing has populated the library picker.
  */
 internal fun requireUniqueAbsRootForNewConnection(
@@ -73,7 +73,7 @@ internal fun requireUniqueAbsRootForNewConnection(
 }
 
 /**
- * Checks duplicate Audiobookshelf roots after canonical server URL normalization.
+ * Checks duplicate AudiobookShelf roots after canonical server URL normalization.
  *
  * Existing rows are normalized defensively so legacy rows with trailing slashes still participate, but
  * different library ids under the same server are allowed.

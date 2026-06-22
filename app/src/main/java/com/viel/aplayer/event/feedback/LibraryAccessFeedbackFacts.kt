@@ -7,7 +7,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
  *
  * Library access feedback follows the user task as its topic: connection testing, library root changes,
  * sync, and rescan, while the access form and the specific root or draft stay as context so one access
- * form or root never absorbs another. Audiobookshelf sync feedback (manual and background) and the ABS
+ * form or root never absorbs another. AudiobookShelf sync feedback (manual and background) and the ABS
  * remote-progress save failure all classify as [FeedbackTopic.LibrarySync]; the remote-progress failure
  * stays keyed to the book instead of the server root. Display names, paths, URLs, tokens, and credentials
  * never enter the aggregation identity. Resource keys are unchanged from the previous inline messages.
@@ -42,30 +42,30 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.BLOCKED
         )
 
-    /** A draft Audiobookshelf configuration reached the server. */
+    /** A draft AudiobookShelf configuration reached the server. */
     fun absConnectionSucceeded(draftId: String, libraryCount: Int): FeedbackFact =
         connectionTestFact(
             message = FeedbackMessages.settingsAbsConnectionSucceeded(libraryCount),
             draftId = draftId,
-            accessForm = LibraryAccessForm.AUDIOBOOKSHELF,
+            accessForm = LibraryAccessForm.AudiobookShelf,
             severity = FeedbackSeverity.COMPLETED
         )
 
-    /** A draft Audiobookshelf configuration failed to reach the server. */
+    /** A draft AudiobookShelf configuration failed to reach the server. */
     fun absConnectionFailed(draftId: String, friendlyMessage: String): FeedbackFact =
         connectionTestFact(
             message = FeedbackMessages.settingsAbsConnectionFailed(friendlyMessage),
             draftId = draftId,
-            accessForm = LibraryAccessForm.AUDIOBOOKSHELF,
+            accessForm = LibraryAccessForm.AudiobookShelf,
             severity = FeedbackSeverity.FAILED
         )
 
-    /** A new Audiobookshelf draft was blocked because the selected server library already exists. */
+    /** A new AudiobookShelf draft was blocked because the selected server library already exists. */
     fun absRootAlreadyExists(draftId: String): FeedbackFact =
         connectionTestFact(
             message = FeedbackMessages.settingsAbsRootAlreadyExists(),
             draftId = draftId,
-            accessForm = LibraryAccessForm.AUDIOBOOKSHELF,
+            accessForm = LibraryAccessForm.AudiobookShelf,
             severity = FeedbackSeverity.BLOCKED
         )
 
@@ -102,16 +102,16 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.FAILED
         )
 
-    /** A new or edited Audiobookshelf root was persisted. */
+    /** A new or edited AudiobookShelf root was persisted. */
     fun absServerSaved(rootId: String, editing: Boolean): FeedbackFact =
         rootChangeFact(
             message = FeedbackMessages.settingsAbsServerSaved(editing = editing),
-            context = libraryRootContext(rootId, LibraryAccessForm.AUDIOBOOKSHELF),
+            context = libraryRootContext(rootId, LibraryAccessForm.AudiobookShelf),
             severity = FeedbackSeverity.COMPLETED
         )
 
     /**
-     * Persisting an Audiobookshelf root failed.
+     * Persisting an AudiobookShelf root failed.
      *
      * The failure branch has no persisted root id yet, so it uses the explicit missing-object context.
      */
@@ -135,11 +135,11 @@ object LibraryAccessFeedbackFacts {
         )
 
 
-    /** A manual Audiobookshelf catalog sync was scheduled. */
+    /** A manual AudiobookShelf catalog sync was scheduled. */
     fun syncStarted(rootId: String): FeedbackFact =
         syncFact(
             message = FeedbackMessages.settingsAbsSyncStarted(),
-            context = libraryRootContext(rootId, LibraryAccessForm.AUDIOBOOKSHELF),
+            context = libraryRootContext(rootId, LibraryAccessForm.AudiobookShelf),
             severity = FeedbackSeverity.STARTED
         )
 
@@ -147,11 +147,11 @@ object LibraryAccessFeedbackFacts {
     fun syncAlreadyRunning(rootId: String): FeedbackFact =
         syncFact(
             message = FeedbackMessages.settingsAbsSyncAlreadyRunning(),
-            context = libraryRootContext(rootId, LibraryAccessForm.AUDIOBOOKSHELF),
+            context = libraryRootContext(rootId, LibraryAccessForm.AudiobookShelf),
             severity = FeedbackSeverity.HINT
         )
 
-    /** The Audiobookshelf root for the requested sync no longer exists. */
+    /** The AudiobookShelf root for the requested sync no longer exists. */
     fun syncRootMissing(): FeedbackFact =
         syncFact(
             message = FeedbackMessages.absBackgroundSyncRootMissing(),
@@ -159,34 +159,34 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.BLOCKED
         )
 
-    /** The Audiobookshelf root is unavailable, so sync was skipped before any request. */
+    /** The AudiobookShelf root is unavailable, so sync was skipped before any request. */
     fun syncBlocked(rootId: String, detailMessage: FeedbackMessage): FeedbackFact =
         syncFact(
             message = FeedbackMessages.absBackgroundSyncUnavailable(detailMessage),
-            context = libraryRootContext(rootId, LibraryAccessForm.AUDIOBOOKSHELF),
+            context = libraryRootContext(rootId, LibraryAccessForm.AudiobookShelf),
             severity = FeedbackSeverity.BLOCKED
         )
 
-    /** A background Audiobookshelf catalog sync finished. */
+    /** A background AudiobookShelf catalog sync finished. */
     fun syncCompleted(rootId: String, addedBooks: Int, failedItems: Int): FeedbackFact =
         syncFact(
             message = FeedbackMessages.absBackgroundSyncCompleted(addedBooks, failedItems),
-            context = libraryRootContext(rootId, LibraryAccessForm.AUDIOBOOKSHELF),
+            context = libraryRootContext(rootId, LibraryAccessForm.AudiobookShelf),
             severity = FeedbackSeverity.COMPLETED
         )
 
-    /** A background Audiobookshelf catalog sync failed. */
+    /** A background AudiobookShelf catalog sync failed. */
     fun syncFailed(rootId: String, redactedMessage: String): FeedbackFact =
         syncFact(
             message = FeedbackMessages.absBackgroundSyncFailed(redactedMessage),
-            context = libraryRootContext(rootId, LibraryAccessForm.AUDIOBOOKSHELF),
+            context = libraryRootContext(rootId, LibraryAccessForm.AudiobookShelf),
             severity = FeedbackSeverity.FAILED
         )
 
     /**
      * Saving accepted remote ABS progress for a book failed.
      *
-     * This is an Audiobookshelf sync result rather than a playback-content recovery, so it shares the
+     * This is an AudiobookShelf sync result rather than a playback-content recovery, so it shares the
      * sync topic but stays keyed to the book; different books never absorb each other, and it never
      * merges with root-bound background sync feedback. The redacted error is a rendering argument only.
      */
@@ -232,7 +232,7 @@ object LibraryAccessFeedbackFacts {
         when (sourceType) {
             AudiobookSchema.LibrarySourceType.SAF -> LibraryAccessForm.LOCAL_FOLDER
             AudiobookSchema.LibrarySourceType.WEBDAV -> LibraryAccessForm.WEBDAV
-            AudiobookSchema.LibrarySourceType.ABS -> LibraryAccessForm.AUDIOBOOKSHELF
+            AudiobookSchema.LibrarySourceType.ABS -> LibraryAccessForm.AudiobookShelf
         }
 
     private fun connectionTestFact(

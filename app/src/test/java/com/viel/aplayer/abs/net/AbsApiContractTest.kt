@@ -47,7 +47,7 @@ class AbsApiContractTest {
     @Test
     fun `get authorize 404 sample must stay non json`() {
         val html = resourceText("abs/authorize_get_404.html")
-        assertTrue(html.contains("Cannot GET /audiobookshelf/api/authorize"))
+        assertTrue(html.contains("Cannot GET /AudiobookShelf/api/authorize"))
         assertFalse(html.trim().startsWith("{"))
     }
 

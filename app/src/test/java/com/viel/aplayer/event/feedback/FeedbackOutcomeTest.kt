@@ -44,7 +44,7 @@ class FeedbackOutcomeTest {
     @Test
     fun `library root context keeps the access form so peer forms stay distinct`() {
         val webdav = FeedbackContext.LibraryRoot(rootId = "root-1", accessForm = LibraryAccessForm.WEBDAV)
-        val abs = FeedbackContext.LibraryRoot(rootId = "root-1", accessForm = LibraryAccessForm.AUDIOBOOKSHELF)
+        val abs = FeedbackContext.LibraryRoot(rootId = "root-1", accessForm = LibraryAccessForm.AudiobookShelf)
 
         assertNotEquals(webdav, abs)
     }
@@ -54,7 +54,7 @@ class FeedbackOutcomeTest {
         val identity = FeedbackAggregationIdentity(
             category = FeedbackCategory.LIBRARY_ACCESS,
             topic = FeedbackTopic.LibrarySync,
-            context = FeedbackContext.LibraryRoot(rootId = "root-1", accessForm = LibraryAccessForm.AUDIOBOOKSHELF)
+            context = FeedbackContext.LibraryRoot(rootId = "root-1", accessForm = LibraryAccessForm.AudiobookShelf)
         )
 
         val rendered = identity.toString()

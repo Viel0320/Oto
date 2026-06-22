@@ -357,7 +357,7 @@ class AbsCatalogSynchronizer(
     }
 
     /**
-     * Upserts an Audiobookshelf library item into the local database catalog.
+     * Upserts an AudiobookShelf library item into the local database catalog.
      *
      * e.g. author, description, files. into local
      * database entities. Since cover synchronization is now decoupled from the catalog sync flow,

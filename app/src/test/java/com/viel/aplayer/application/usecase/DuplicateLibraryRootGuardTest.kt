@@ -93,7 +93,7 @@ class DuplicateLibraryRootGuardTest {
             root(
                 id = "abs-root",
                 sourceType = AudiobookSchema.LibrarySourceType.ABS,
-                sourceUri = "https://abs.example.test/audiobookshelf",
+                sourceUri = "https://abs.example.test/AudiobookShelf",
                 basePath = "library-a"
             )
         )
@@ -101,13 +101,13 @@ class DuplicateLibraryRootGuardTest {
         val failure = runCatching {
             requireUniqueAbsRootForNewConnection(
                 roots = roots,
-                baseUrl = "https://abs.example.test/audiobookshelf/",
+                baseUrl = "https://abs.example.test/AudiobookShelf/",
                 libraryId = "library-a",
                 editingRootId = null
             )
         }.exceptionOrNull()
 
-        assertTrue(hasExistingAbsRootForNewConnection(roots, "https://abs.example.test/audiobookshelf/", "library-a", null))
+        assertTrue(hasExistingAbsRootForNewConnection(roots, "https://abs.example.test/AudiobookShelf/", "library-a", null))
         assertTrue(failure is DuplicateLibraryRootException)
         assertEquals(AudiobookSchema.LibrarySourceType.ABS, (failure as DuplicateLibraryRootException).sourceType)
     }
@@ -118,19 +118,19 @@ class DuplicateLibraryRootGuardTest {
             root(
                 id = "abs-root",
                 sourceType = AudiobookSchema.LibrarySourceType.ABS,
-                sourceUri = "https://abs.example.test/audiobookshelf",
+                sourceUri = "https://abs.example.test/AudiobookShelf",
                 basePath = "library-a"
             )
         )
 
         requireUniqueAbsRootForNewConnection(
             roots = roots,
-            baseUrl = "https://abs.example.test/audiobookshelf/",
+            baseUrl = "https://abs.example.test/AudiobookShelf/",
             libraryId = "library-b",
             editingRootId = null
         )
 
-        assertFalse(hasExistingAbsRootForNewConnection(roots, "https://abs.example.test/audiobookshelf/", "library-b", null))
+        assertFalse(hasExistingAbsRootForNewConnection(roots, "https://abs.example.test/AudiobookShelf/", "library-b", null))
     }
 
     @Test
@@ -139,19 +139,19 @@ class DuplicateLibraryRootGuardTest {
             root(
                 id = "abs-root",
                 sourceType = AudiobookSchema.LibrarySourceType.ABS,
-                sourceUri = "https://abs.example.test/audiobookshelf",
+                sourceUri = "https://abs.example.test/AudiobookShelf",
                 basePath = "library-a"
             )
         )
 
         requireUniqueAbsRootForNewConnection(
             roots = roots,
-            baseUrl = "https://abs.example.test/audiobookshelf/",
+            baseUrl = "https://abs.example.test/AudiobookShelf/",
             libraryId = "library-a",
             editingRootId = "abs-root"
         )
 
-        assertFalse(hasExistingAbsRootForNewConnection(roots, "https://abs.example.test/audiobookshelf/", "library-a", "abs-root"))
+        assertFalse(hasExistingAbsRootForNewConnection(roots, "https://abs.example.test/AudiobookShelf/", "library-a", "abs-root"))
     }
 
     private fun root(

@@ -17,7 +17,7 @@ interface LibrarySyncWorkerDependencies {
 }
 
 /**
- * Background Audiobookshelf sync dependency view.
+ * Background AudiobookShelf sync dependency view.
  * Exposes only the feedback sink and catalog synchronizer required by ABS WorkManager jobs.
  */
 interface AbsSyncWorkerDependencies {

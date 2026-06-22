@@ -16,7 +16,7 @@ class AbsStage5LogicTest {
         val root = LibraryRootEntity(
             id = "root-1",
             sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/audiobookshelf",
+            sourceUri = "https://example.com/AudiobookShelf",
             basePath = "lib-1",
             credentialId = "cred-1",
             displayName = "Library 1"
@@ -31,7 +31,7 @@ class AbsStage5LogicTest {
         val root = LibraryRootEntity(
             id = "root-1",
             sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/audiobookshelf",
+            sourceUri = "https://example.com/AudiobookShelf",
             basePath = "lib-1",
             credentialId = "cred-1",
             displayName = "Library 1"

@@ -1,11 +1,9 @@
 {
-  "app": "audiobookshelf",
+  "app": "AudiobookShelf",
   "serverVersion": "2.35.1",
   "isInit": true,
   "language": "en-us",
-  "authMethods": [
-    "local"
-  ],
+  "authMethods": ["local"],
   "authFormData": {
     "authLoginCustomMessage": "<p>Demo login</p>"
   }

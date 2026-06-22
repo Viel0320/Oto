@@ -2,8 +2,6 @@ package com.viel.aplayer.ui.navigation
 
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.Box
@@ -51,11 +49,8 @@ import com.viel.aplayer.ui.player.PlayerSettingsViewModel
 import com.viel.aplayer.ui.player.rememberActions
 import com.viel.aplayer.ui.search.SearchRoute
 import com.viel.aplayer.ui.search.SearchViewModel
-import com.viel.aplayer.ui.settings.SettingsDialogHost
-import com.viel.aplayer.ui.settings.SettingsDialogState
 import com.viel.aplayer.ui.settings.SettingsOverlay
 import com.viel.aplayer.ui.settings.SettingsViewModel
-import com.viel.aplayer.ui.settings.rememberSettingsDialogController
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -223,6 +218,7 @@ fun APlayerApp(
         var pendingSearchQuery by remember { mutableStateOf<String?>(null) }
         var shouldMountSettings by remember { mutableStateOf(openDownloadManagementRequest) }
         var pendingOpenSettingsOverlay by remember { mutableStateOf(openDownloadManagementRequest) }
+        var pendingOpenAddLibraryType by remember { mutableStateOf(false) }
 
         val editViewModel: EditBookViewModel? = if (shouldMountEdit) {
             viewModel(
@@ -293,15 +289,6 @@ fun APlayerApp(
             if (settingsViewModel != null && pendingOpenSettingsOverlay) {
                 settingsViewModel.setVisible(true)
                 pendingOpenSettingsOverlay = false
-            }
-        }
-
-        val homeAddLibraryDialogController = rememberSettingsDialogController()
-        val homeAddLibraryRootLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.OpenDocumentTree()
-        ) { uri ->
-            uri?.let { selectedRoot ->
-                libraryViewModel.addLocalRootAndScheduleSync(selectedRoot)
             }
         }
 
@@ -472,7 +459,8 @@ fun APlayerApp(
                         },
                         onAddLibraryRequested = {
                             shouldMountSettings = true
-                            homeAddLibraryDialogController.dialogState = SettingsDialogState.AddLibraryType
+                            pendingOpenSettingsOverlay = true
+                            pendingOpenAddLibraryType = true
                         },
                         onEditBookRequested = { bookId ->
                             shouldMountEdit = true
@@ -583,54 +571,13 @@ fun APlayerApp(
                     }
 
                 if (settingsViewModel != null) {
-                    val absConnectionState by settingsViewModel.absConnectionState.collectAsStateWithLifecycle()
-                    val webDavConnectionState by settingsViewModel.webDavConnectionState.collectAsStateWithLifecycle()
                     SettingsOverlay(
                         settingsViewModel = settingsViewModel,
                         glassEffectMode = activeGlassEffectMode,
                         openDownloadManagementRequest = openDownloadManagementRequest,
-                        onOpenDownloadManagementConsumed = onOpenDownloadManagementConsumed
-                    )
-
-                    SettingsDialogHost(
-                        controller = homeAddLibraryDialogController,
-                        glassEffectMode = activeGlassEffectMode,
-                        settingsDialogHazeState = if (activeGlassEffectMode == GlassEffectMode.Haze) hazeState else null,
-                        appLanguage = effectiveAppLanguage,
-                        onAppLanguageChange = { settingsViewModel.preferencesHandler.updateAppLanguage(it) },
-                        webDavConnectionState = webDavConnectionState,
-                        onWebDavConnectionTest = { url, username, password, basePath, editingRootId ->
-                            settingsViewModel.connectionHandler.testWebDavConnection(url, username, password, basePath, editingRootId)
-                        },
-                        onResetWebDavConnectionState = {
-                            settingsViewModel.connectionHandler.resetWebDavConnectionState()
-                        },
-                        onWebDavRootSubmitted = { url, username, password, displayName, basePath ->
-                            settingsViewModel.connectionHandler.onWebDavRootSubmitted(url, username, password, displayName, basePath)
-                        },
-                        onWebDavRootUpdated = { id, url, username, password, displayName, basePath ->
-                            settingsViewModel.updateWebDavRoot(id, url, username, password, displayName, basePath)
-                        },
-                        absConnectionState = absConnectionState,
-                        onAbsConnectionTest = { baseUrl, username, password, editingRootId ->
-                            settingsViewModel.connectionHandler.testAbsConnection(baseUrl, username, password, editingRootId)
-                        },
-                        onResetAbsConnectionState = {
-                            settingsViewModel.connectionHandler.resetAbsConnectionState()
-                        },
-                        onAbsRootSubmitted = { baseUrl, username, password, libraryId, libraryName, editingRootId ->
-                            settingsViewModel.connectionHandler.addAbsServerWithPassword(baseUrl, username, password, libraryId, libraryName, editingRootId)
-                        },
-                        getWebDavCredentials = { credentialId ->
-                            settingsViewModel.connectionHandler.getWebDavCredentials(credentialId)
-                        },
-                        getAbsCredential = { credentialId ->
-                            settingsViewModel.connectionHandler.getAbsCredential(credentialId)
-                        },
-                        onAbsSync = { rootId -> settingsViewModel.connectionHandler.syncAbsRoot(rootId) },
-                        onRescan = { rootId -> settingsViewModel.connectionHandler.triggerRescan(rootId) },
-                        onDeleteLibraryRoot = { settingsViewModel.deleteLibraryRoot(it) },
-                        onLaunchSafRootPicker = { homeAddLibraryRootLauncher.launch(null) }
+                        onOpenDownloadManagementConsumed = onOpenDownloadManagementConsumed,
+                        openAddLibraryTypeRequest = pendingOpenAddLibraryType,
+                        onOpenAddLibraryTypeConsumed = { pendingOpenAddLibraryType = false }
                     )
                 }
 

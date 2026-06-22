@@ -62,11 +62,11 @@ interface LibraryRootGateway {
     ): LibraryRootEntity
 
     /**
-     * Audiobookshelf library link.
+     * AudiobookShelf library link.
      * Persists an ABS remote library reference mapping.
      *
      * @param credentialId Stable identifier referencing credentials in ABS secure store
-     * @param libraryId Remote Audiobookshelf library ID
+     * @param libraryId Remote AudiobookShelf library ID
      * @param displayName Label visible in settings UI
      * @return Newly created or updated ABS LibraryRootEntity record
      */

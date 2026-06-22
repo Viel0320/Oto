@@ -15,7 +15,7 @@ import com.viel.aplayer.abs.sync.AbsSyncTaskCoordinator
 import java.io.Closeable
 
 /**
- * Owns Audiobookshelf credentials, remote clients, catalog sync, and playback session sync.
+ * Owns AudiobookShelf credentials, remote clients, catalog sync, and playback session sync.
  * Keeps remote protocol construction separate from local library and playback di wiring.
  */
 @UnstableApi

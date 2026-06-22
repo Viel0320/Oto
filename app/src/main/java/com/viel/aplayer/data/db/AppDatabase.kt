@@ -130,15 +130,13 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
+                INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "aplayer_database"
                 )
                     .addMigrations(MIGRATION_41_42, MIGRATION_42_43)
-                    .build()
-                INSTANCE = instance
-                instance
+                    .build().also { INSTANCE = it }
             }
         }
 

@@ -130,7 +130,7 @@ class AbsSyncTaskCoordinatorTest {
             assertEquals(FeedbackCategory.LIBRARY_ACCESS, identity.category)
             assertEquals(FeedbackTopic.LibrarySync, identity.topic)
             assertEquals(
-                FeedbackContext.LibraryRoot(ROOT_ID, LibraryAccessForm.AUDIOBOOKSHELF),
+                FeedbackContext.LibraryRoot(ROOT_ID, LibraryAccessForm.AudiobookShelf),
                 identity.context
             )
             assertEquals(FeedbackSeverity.FAILED, fact.outcome.severity)
@@ -167,7 +167,7 @@ class AbsSyncTaskCoordinatorTest {
         )
         runBlocking {
             store.save(
-                baseUrl = "https://example.com/audiobookshelf",
+                baseUrl = "https://example.com/AudiobookShelf",
                 token = "token-1",
                 credentialId = CREDENTIAL_ID
             )
@@ -178,7 +178,7 @@ class AbsSyncTaskCoordinatorTest {
     private fun absRoot() = LibraryRootEntity(
         id = ROOT_ID,
         sourceType = AudiobookSchema.LibrarySourceType.ABS,
-        sourceUri = "https://example.com/audiobookshelf",
+        sourceUri = "https://example.com/AudiobookShelf",
         basePath = "lib-1",
         credentialId = CREDENTIAL_ID,
         displayName = "ABS"

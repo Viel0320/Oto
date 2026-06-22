@@ -34,7 +34,7 @@ class AbsSourceProviderStage3Test {
 
     @Test
     fun `resolve content url should preserve base subpath and reject external hosts`() {
-        val credentialStore = createCredentialStore("https://example.com/audiobookshelf", "token-1")
+        val credentialStore = createCredentialStore("https://example.com/AudiobookShelf", "token-1")
         val provider = AbsSourceProvider(
             context = null,
             credentialStore = credentialStore,
@@ -43,20 +43,20 @@ class AbsSourceProviderStage3Test {
         val root = LibraryRootEntity(
             id = "root-1",
             sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/audiobookshelf",
+            sourceUri = "https://example.com/AudiobookShelf",
             basePath = "lib-1",
             credentialId = "cred-1",
             displayName = "Audiobooks"
         )
         val resolved = provider.resolveContentUrl(
-            baseUrl = "https://example.com/audiobookshelf/",
+            baseUrl = "https://example.com/AudiobookShelf/",
             root = root,
             contentUrl = "/api/items/item-1/file/856465"
         )
-        assertEquals("https://example.com/audiobookshelf/api/items/item-1/file/856465", resolved.toString())
+        assertEquals("https://example.com/AudiobookShelf/api/items/item-1/file/856465", resolved.toString())
         try {
             provider.resolveContentUrl(
-                baseUrl = "https://example.com/audiobookshelf/",
+                baseUrl = "https://example.com/AudiobookShelf/",
                 root = root,
                 contentUrl = "https://malicious.example/api/items/item-1/file/856465"
             )
@@ -82,7 +82,7 @@ class AbsSourceProviderStage3Test {
                     .setHeader("Content-Range", "bytes 5-9/10")
                     .setBody("56789")
             )
-            val credentialStore = createCredentialStore(server.url("/audiobookshelf/").toString(), "token-1")
+            val credentialStore = createCredentialStore(server.url("/AudiobookShelf/").toString(), "token-1")
             val provider = AbsSourceProvider(
                 context = null,
                 credentialStore = credentialStore,
@@ -91,7 +91,7 @@ class AbsSourceProviderStage3Test {
             val root = LibraryRootEntity(
                 id = "root-1",
                 sourceType = AudiobookSchema.LibrarySourceType.ABS,
-                sourceUri = server.url("/audiobookshelf").toString().trimEnd('/'),
+                sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
                 basePath = "lib-1",
                 credentialId = "cred-1",
                 displayName = "Audiobooks"
@@ -116,7 +116,7 @@ class AbsSourceProviderStage3Test {
                     .setHeader("Content-Type", "audio/mpeg")
                     .setBody("0123456789")
             )
-            val credentialStore = createCredentialStore(server.url("/audiobookshelf/").toString(), "token-1")
+            val credentialStore = createCredentialStore(server.url("/AudiobookShelf/").toString(), "token-1")
             val provider = AbsSourceProvider(
                 context = null,
                 credentialStore = credentialStore,
@@ -125,7 +125,7 @@ class AbsSourceProviderStage3Test {
             val root = LibraryRootEntity(
                 id = "root-1",
                 sourceType = AudiobookSchema.LibrarySourceType.ABS,
-                sourceUri = server.url("/audiobookshelf").toString().trimEnd('/'),
+                sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
                 basePath = "lib-1",
                 credentialId = "cred-1",
                 displayName = "Audiobooks"
@@ -154,7 +154,7 @@ class AbsSourceProviderStage3Test {
                     .setHeader("Content-Range", "bytes ${Long.MAX_VALUE - 1L}-${Long.MAX_VALUE}/*")
                     .setBody("xy")
             )
-            val credentialStore = createCredentialStore(server.url("/audiobookshelf/").toString(), "token-1")
+            val credentialStore = createCredentialStore(server.url("/AudiobookShelf/").toString(), "token-1")
             val provider = AbsSourceProvider(
                 context = null,
                 credentialStore = credentialStore,
@@ -163,7 +163,7 @@ class AbsSourceProviderStage3Test {
             val root = LibraryRootEntity(
                 id = "root-1",
                 sourceType = AudiobookSchema.LibrarySourceType.ABS,
-                sourceUri = server.url("/audiobookshelf").toString().trimEnd('/'),
+                sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
                 basePath = "lib-1",
                 credentialId = "cred-1",
                 displayName = "Audiobooks"
@@ -181,7 +181,7 @@ class AbsSourceProviderStage3Test {
     fun `stream unauthorized should refresh token and throw typed auth expiration`() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setResponseCode(401))
-            val credentialStore = createCredentialStore(server.url("/audiobookshelf/").toString(), "token-1")
+            val credentialStore = createCredentialStore(server.url("/AudiobookShelf/").toString(), "token-1")
             val tokenRefreshClient = RecordingTokenRefreshClient(AbsTokenRefreshResult.Success("token-2"))
             val provider = AbsSourceProvider(
                 context = null,
@@ -192,7 +192,7 @@ class AbsSourceProviderStage3Test {
             val root = LibraryRootEntity(
                 id = "root-1",
                 sourceType = AudiobookSchema.LibrarySourceType.ABS,
-                sourceUri = server.url("/audiobookshelf").toString().trimEnd('/'),
+                sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
                 basePath = "lib-1",
                 credentialId = "cred-1",
                 displayName = "Audiobooks"
@@ -216,7 +216,7 @@ class AbsSourceProviderStage3Test {
 
     @Test
     fun `catalog synchronizer should write cached cover paths into book`() = runBlocking {
-        val credentialStore = createCredentialStore("https://example.com/audiobookshelf", "token-1")
+        val credentialStore = createCredentialStore("https://example.com/AudiobookShelf", "token-1")
         val store = FakeCatalogStore()
         val synchronizer = AbsCatalogSynchronizer(
             apiClient = FakeCatalogApi(),
@@ -226,7 +226,7 @@ class AbsSourceProviderStage3Test {
         val root = LibraryRootEntity(
             id = "root-1",
             sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/audiobookshelf",
+            sourceUri = "https://example.com/AudiobookShelf",
             basePath = "lib-1",
             credentialId = "cred-1",
             displayName = "Audiobooks"

@@ -57,13 +57,13 @@ sealed interface FeedbackContext {
 /**
  * User-visible way a library becomes available.
  *
- * Local folders, WebDAV, and Audiobookshelf are peer access forms from the listener's point of view, so
+ * Local folders, WebDAV, and AudiobookShelf are peer access forms from the listener's point of view, so
  * they stay part of the aggregation identity instead of being modeled as separate top-level categories.
  */
 enum class LibraryAccessForm {
     LOCAL_FOLDER,
     WEBDAV,
-    AUDIOBOOKSHELF
+    AudiobookShelf
 }
 
 /**

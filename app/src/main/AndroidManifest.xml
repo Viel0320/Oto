@@ -1,38 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-
-    <!-- SAF Library Access Policy (Rely on user-selected tree grants instead of broad shared-media access) -->
-    <!-- Local library roots are opened through persistable Storage Access Framework URIs, so READ_MEDIA_AUDIO stays undeclared until a MediaStore import flow exists. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <!-- Manual Download Foreground Service (Declare Android 14+ dataSync type permission for offline caching)
-         Media3 DownloadService runs user-requested remote file caching as data synchronization, separate from active audio playback. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <!-- WebDAV Networking (Allows remote provider to access LAN/Internet HTTP services) -->
-    <!-- This is required for listing directories, reading metadata, and streaming audio playback. -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Haptic Feedback Permission (Declare vibrate permission to provide physical cues when sleep timer is reset) -->
-    <!-- Provides a subtle vibration feedback when the user gently shakes the phone to reset the countdown, enhancing night-time accessibility. -->
     <uses-permission android:name="android.permission.VIBRATE" />
-
     <attribution android:tag="media_playback" android:label="@string/app_name" />
     <attribution android:tag="library_sync" android:label="@string/app_name" />
-
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />
         </intent>
-        <!-- For Android Auto connection status -->
         <intent>
             <action android:name="androidx.car.app.connection.CarConnection" />
         </intent>
     </queries>
-
-    <!-- Heap Expansion Policy (Enable largeHeap attribute to request a larger Java heap memory allocation) -->
-    <!-- This mitigates potential OOM crashes when parsing multiple large-sized .m4b audiobook files, which allocate massive sample size arrays under Media3. -->
     <application
         android:name=".APlayerApplication"
         android:allowBackup="true"
@@ -48,31 +33,17 @@
         tools:targetApi="36"
         android:largeHeap="true"
         android:networkSecurityConfig="@xml/network_security_config">
-        <!-- Android App Language Picker (Expose the supported locale list to platform settings)
-             The localeConfig resource powers Android 13+ per-app language selection and shares the same language set as the in-app picker. -->
-        <!-- 
-             Soft Keyboard Window Mode (Configure MainActivity windowSoftInputMode to adjustNothing)
-         This prevents the system from resizing the root window when the IME keyboard appears, keeping the underlying HomeScreen stable.
-         This avoids visual glitches or flickers in the real-time frosted glass backdrop sampling, while layout padding adjustments are handled via Compose insets. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:windowSoftInputMode="adjustNothing"
             android:theme="@style/Theme.APlayer">
-            <!-- SingleTop Launch Behavior (Ensure widget clicks reuse the existing MainActivity instance)
-                 Launches via singleTop so that onNewIntent can intercept the event to bring up the player overlay sheet. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-
-
-
-        <!-- Widget Broadcast Receiver (Register PlayerWidgetReceiver for handling system-triggered desktop widget updates)
-             All custom media control actions are detached to prevent malicious external processes from hijacking playback or forcing service starts. -->
         <receiver
             android:name=".widget.PlayerWidgetReceiver"
             android:enabled="true"
@@ -84,9 +55,6 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/player_widget_info" />
         </receiver>
-
-        <!-- Playback Action Broadcast Receiver (Register local PlayerWidgetActionReceiver to handle widget media actions)
-             Explicitly configured with android:exported="false" to restrict access to local package context and drop spoofed external intents. -->
         <receiver
             android:name=".widget.PlayerWidgetActionReceiver"
             android:enabled="true"
@@ -97,19 +65,10 @@
                 <action android:name="com.viel.aplayer.widget.ACTION_PLAY_PAUSE" />
             </intent-filter>
         </receiver>
-
-        <!-- Manual Download Notification Action Receiver (Handle package-local task controls from SystemUI notifications)
-             Notification action PendingIntents target this receiver explicitly, so it stays non-exported while routing commands through DownloadController. -->
         <receiver
             android:name=".media.service.ManualDownloadNotificationActionReceiver"
             android:enabled="true"
             android:exported="false" />
-
-        <!-- 
-             File Sharing Provider (Declare FileProvider to facilitate secure, cross-process data sharing)
-             Provides temporary URI read permissions to system components (e.g., SystemUI MediaDataManager) for accessing cached covers.
-             Utilizes content:// schemes to comply with sandboxing policies, completely eliminating physical path-related ENOENT file errors.
-        -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.viel.aplayer.fileprovider"
@@ -119,16 +78,10 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
-        <!-- Manual Download Service Registration (Host Media3 foreground offline-cache commands)
-             Explicit service commands are package-local, so the service is not exported and uses the Android 14+ dataSync foreground type. -->
         <service
             android:name=".media.service.APlayerDownloadService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
-
-        <!-- Playback Service Registration (Fix crash by declaring PlaybackService in manifest)
-             This declares PlaybackService in the AndroidManifest with the required androidx.media3.session.MediaSessionService intent action to resolve SessionToken creation, and sets the foreground service type to mediaPlayback to prevent runtime permission errors on Android 14+. -->
         <service
             android:name=".media.service.PlaybackService"
             android:foregroundServiceType="mediaPlayback"

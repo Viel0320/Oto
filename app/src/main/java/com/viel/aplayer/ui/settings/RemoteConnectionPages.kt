@@ -1,0 +1,808 @@
+package com.viel.aplayer.ui.settings
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.dp
+import com.viel.aplayer.R
+import com.viel.aplayer.shared.settings.GlassEffectMode
+import com.viel.aplayer.ui.common.APlayerGlassTopBar
+import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
+
+/**
+ * URL split into the parts the remote-connection forms edit independently.
+ * [scheme] and [port] are null when the source text did not contain them, letting the host
+ * field tell a pasted full URL apart from a bare host that is still being typed.
+ */
+private data class ParsedServerUrl(
+    val scheme: String?,
+    val host: String,
+    val port: String?,
+    val path: String
+)
+
+private val SERVER_URL_REGEX =
+    Regex("^(?:([a-zA-Z][a-zA-Z0-9+.\\-]*)://)?([^:/?#]*)(:(\\d*))?([/?#].*)?$")
+
+private val HOST_WITH_PORT_REGEX = Regex(".*:\\d+$")
+
+/**
+ * Splits a server URL without android.net.Uri, whose getPort() logs and swallows a
+ * NumberFormatException on an in-progress authority such as "http://host:". Segments the
+ * input never supplied come back as null ([scheme]/[port]) or empty ([host]/[path]).
+ */
+private fun parseServerUrl(raw: String): ParsedServerUrl {
+    val trimmed = raw.trim()
+    val match = SERVER_URL_REGEX.find(trimmed)
+        ?: return ParsedServerUrl(null, trimmed, null, "")
+    val scheme = match.groupValues[1].takeIf { it.isNotEmpty() }?.lowercase()
+    val port = if (match.groups[3] != null) match.groupValues[4] else null
+    return ParsedServerUrl(scheme, match.groupValues[2], port, match.groupValues[5])
+}
+
+/**
+ * Rebuilds a server URL from the edited fields. A port already embedded in [host]
+ * (e.g. "192.168.1.100:13378") wins over the separate [port] field, and a dangling colon
+ * with no digits is dropped so the result is always a clean URL.
+ */
+private fun buildServerUrl(protocol: String, host: String, port: String, path: String = ""): String {
+    val trimmedHost = host.trim()
+    if (trimmedHost.isEmpty()) return ""
+    val portSuffix = when {
+        HOST_WITH_PORT_REGEX.matches(trimmedHost) -> ""
+        port.isBlank() -> ""
+        else -> ":${port.trim()}"
+    }
+    return "$protocol://${trimmedHost.removeSuffix(":")}$portSuffix$path"
+}
+
+/**
+ * Folds host-field input into the (protocol, host, port) triple. Text carrying a scheme is
+ * treated as a pasted full URL and split across the fields; bare text is kept verbatim so the
+ * user can still type "host:port" without losing characters or fighting re-derivation.
+ */
+private fun foldHostInput(
+    raw: String,
+    currentProtocol: String,
+    currentPort: String,
+    protocols: List<String>
+): Triple<String, String, String> {
+    val parts = parseServerUrl(raw)
+    return if (parts.scheme != null) {
+        Triple(
+            parts.scheme.takeIf { it in protocols } ?: currentProtocol,
+            parts.host,
+            parts.port ?: currentPort
+        )
+    } else {
+        Triple(currentProtocol, raw, currentPort)
+    }
+}
+
+/**
+ * Presents the WebDAV root form as a route-owned page instead of a dialog.
+ * The page keeps SettingsConnectionHandler as the single owner of connection testing and root persistence.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WebDavConnectionPage(
+    url: String,
+    username: String,
+    password: String,
+    displayName: String,
+    basePath: String,
+    editingRootId: String? = null,
+    connectionState: WebDavConnectionUiState,
+    glassEffectMode: GlassEffectMode,
+    hazeState: HazeState?,
+    onUrlChange: (String) -> Unit,
+    onUsernameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onDisplayNameChange: (String) -> Unit,
+    onBasePathChange: (String) -> Unit,
+    onTestConnection: () -> Unit,
+    onBack: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val protocols = listOf("https", "http")
+    var protocolExpanded by remember { mutableStateOf(false) }
+
+    val initial = remember(editingRootId) { parseServerUrl(url) }
+    var protocol by remember(editingRootId) {
+        mutableStateOf(initial.scheme?.takeIf { it in protocols } ?: "https")
+    }
+    var host by remember(editingRootId) { mutableStateOf(initial.host) }
+    var port by remember(editingRootId) { mutableStateOf(initial.port.orEmpty()) }
+
+    val rebuildUrl: () -> Unit = {
+        val pathPart = basePath.trim().takeIf { it.isNotBlank() }?.let {
+            if (it.startsWith("/")) it else "/$it"
+        }.orEmpty()
+        onUrlChange(buildServerUrl(protocol, host, port, pathPart))
+    }
+
+    val urlPreview = buildServerUrl(protocol, host, port).ifEmpty { "-" }
+
+    RemoteConnectionPageFrame(
+        title = stringResource(R.string.settings_library_type_webdav),
+        onBack = onBack,
+        glassEffectMode = glassEffectMode,
+        hazeState = hazeState,
+        primaryAction = {
+            Button(
+                onClick = {
+                    if (displayName.isBlank()) {
+                        onDisplayNameChange(host.ifBlank { url })
+                    }
+                    onConfirm()
+                },
+                enabled = host.isNotBlank() && connectionState.testSucceeded,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    if (editingRootId != null) {
+                        stringResource(R.string.action_save)
+                    } else {
+                        stringResource(R.string.action_connect)
+                    }
+                )
+            }
+        },
+        secondaryAction = {
+            TextButton(
+                onClick = onTestConnection,
+                enabled = host.isNotBlank() && !connectionState.isTesting,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    if (connectionState.isTesting) {
+                        stringResource(R.string.settings_webdav_test_connecting)
+                    } else {
+                        stringResource(R.string.action_test)
+                    }
+                )
+            }
+        },
+        serverContent = {
+            RemoteSectionTitle(text = stringResource(R.string.settings_server_section))
+
+            ExposedDropdownMenuBox(
+                expanded = protocolExpanded,
+                onExpandedChange = { protocolExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = protocol.uppercase(),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(stringResource(R.string.settings_protocol_label)) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = protocolExpanded) },
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                )
+                ExposedDropdownMenu(
+                    expanded = protocolExpanded,
+                    onDismissRequest = { protocolExpanded = false }
+                ) {
+                    protocols.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option.uppercase()) },
+                            onClick = {
+                                protocol = option
+                                protocolExpanded = false
+                                rebuildUrl()
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            RemoteTextField(
+                value = host,
+                onValueChange = {
+                    val (newProtocol, newHost, newPort) = foldHostInput(it, protocol, port, protocols)
+                    protocol = newProtocol
+                    host = newHost
+                    port = newPort
+                    rebuildUrl()
+                },
+                label = stringResource(R.string.settings_server_url_label),
+                placeholder = stringResource(R.string.settings_server_address_placeholder),
+                keyboardType = KeyboardType.Uri,
+                isError = connectionState.lastError != null && host.isBlank()
+            )
+            connectionState.lastError?.takeIf { it.isNotBlank() && host.isBlank() }?.let { error ->
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            RemoteTextField(
+                value = basePath,
+                onValueChange = {
+                    onBasePathChange(it)
+                    rebuildUrl()
+                },
+                label = stringResource(R.string.settings_library_base_path_label)
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+            RemoteTextField(
+                value = port,
+                onValueChange = {
+                    port = it.filter { c -> c.isDigit() }
+                    rebuildUrl()
+                },
+                label = stringResource(R.string.settings_port_hint, 443),
+                keyboardType = KeyboardType.Number
+            )
+
+            Text(
+                text = "${stringResource(R.string.settings_url_preview_label)} $urlPreview",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            )
+        },
+        authContent = {
+            RemoteSectionTitle(text = stringResource(R.string.settings_auth_section))
+            Text(
+                text = stringResource(R.string.settings_auth_anonymous_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            RemoteTextField(
+                value = username,
+                onValueChange = onUsernameChange,
+                label = stringResource(R.string.settings_username_label)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            RemotePasswordField(
+                value = password,
+                onValueChange = onPasswordChange,
+                label = if (editingRootId != null) {
+                    stringResource(R.string.settings_password_optional_label)
+                } else {
+                    stringResource(R.string.settings_password_label)
+                }
+            )
+            WebDavConnectionFeedback(connectionState)
+        }
+    )
+}
+
+/**
+ * Presents the AudiobookShelf server form as a route-owned page.
+ * Editing an existing ABS root still refreshes libraries on entry so saved server metadata remains selectable.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AbsConnectionPage(
+    baseUrl: String,
+    username: String,
+    password: String,
+    editingRootId: String?,
+    connectionState: AbsConnectionUiState,
+    glassEffectMode: GlassEffectMode,
+    hazeState: HazeState?,
+    selectedLibraryId: String,
+    selectedLibraryName: String,
+    onBaseUrlChange: (String) -> Unit,
+    onUsernameChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onLibrarySelected: (String, String) -> Unit,
+    onTestConnection: () -> Unit,
+    onBack: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    LaunchedEffect(editingRootId) {
+        if (editingRootId != null) {
+            onTestConnection()
+        }
+    }
+
+    val protocols = listOf("https", "http")
+    var protocolExpanded by remember { mutableStateOf(false) }
+
+    val initial = remember(editingRootId) { parseServerUrl(baseUrl) }
+    var protocol by remember(editingRootId) {
+        mutableStateOf(initial.scheme?.takeIf { it in protocols } ?: "http")
+    }
+    var host by remember(editingRootId) { mutableStateOf(initial.host) }
+    var port by remember(editingRootId) { mutableStateOf(initial.port.orEmpty()) }
+
+    val rebuildUrl: () -> Unit = {
+        onBaseUrlChange(buildServerUrl(protocol, host, port))
+    }
+
+    val urlPreview = buildServerUrl(protocol, host, port).ifEmpty { "-" }
+
+    RemoteConnectionPageFrame(
+        title = stringResource(R.string.settings_library_type_abs),
+        onBack = onBack,
+        glassEffectMode = glassEffectMode,
+        hazeState = hazeState,
+        primaryAction = {
+            Button(
+                onClick = onConfirm,
+                enabled = baseUrl.isNotBlank() &&
+                    username.isNotBlank() &&
+                    (password.isNotBlank() || editingRootId != null) &&
+                    selectedLibraryId.isNotBlank() &&
+                    selectedLibraryName.isNotBlank(),
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    if (editingRootId != null) {
+                        stringResource(R.string.action_save)
+                    } else {
+                        stringResource(R.string.action_connect)
+                    }
+                )
+            }
+        },
+        secondaryAction = {
+            TextButton(
+                onClick = onTestConnection,
+                enabled = baseUrl.isNotBlank() &&
+                    username.isNotBlank() &&
+                    (password.isNotBlank() || editingRootId != null) &&
+                    !connectionState.isTesting,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    if (connectionState.isTesting) {
+                        stringResource(R.string.settings_test_connecting)
+                    } else {
+                        stringResource(R.string.action_test)
+                    }
+                )
+            }
+        },
+        serverContent = {
+            RemoteSectionTitle(text = stringResource(R.string.settings_server_section))
+
+            ExposedDropdownMenuBox(
+                expanded = protocolExpanded,
+                onExpandedChange = { protocolExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = protocol.uppercase(),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(stringResource(R.string.settings_protocol_label)) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = protocolExpanded) },
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                )
+                ExposedDropdownMenu(
+                    expanded = protocolExpanded,
+                    onDismissRequest = { protocolExpanded = false }
+                ) {
+                    protocols.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option.uppercase()) },
+                            onClick = {
+                                protocol = option
+                                protocolExpanded = false
+                                rebuildUrl()
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            RemoteTextField(
+                value = host,
+                onValueChange = {
+                    val (newProtocol, newHost, newPort) = foldHostInput(it, protocol, port, protocols)
+                    protocol = newProtocol
+                    host = newHost
+                    port = newPort
+                    rebuildUrl()
+                },
+                label = stringResource(R.string.settings_abs_base_url_label),
+                placeholder = stringResource(R.string.settings_server_address_placeholder),
+                keyboardType = KeyboardType.Uri
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+            RemoteTextField(
+                value = port,
+                onValueChange = {
+                    port = it.filter { c -> c.isDigit() }
+                    rebuildUrl()
+                },
+                label = stringResource(R.string.settings_port_hint, 443),
+                keyboardType = KeyboardType.Number
+            )
+
+            Text(
+                text = "${stringResource(R.string.settings_url_preview_label)} $urlPreview",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            )
+        },
+        authContent = {
+            RemoteSectionTitle(text = stringResource(R.string.settings_auth_section))
+            Text(
+                text = stringResource(R.string.settings_auth_anonymous_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            RemoteTextField(
+                value = username,
+                onValueChange = onUsernameChange,
+                label = stringResource(R.string.settings_username_label)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            RemotePasswordField(
+                value = password,
+                onValueChange = onPasswordChange,
+                label = if (editingRootId != null) {
+                    stringResource(R.string.settings_password_optional_label)
+                } else {
+                    stringResource(R.string.settings_password_label)
+                }
+            )
+            AbsConnectionFeedback(
+                connectionState = connectionState,
+                selectedLibraryId = selectedLibraryId,
+                selectedLibraryName = selectedLibraryName,
+                onLibrarySelected = onLibrarySelected
+            )
+        }
+    )
+}
+
+/**
+ * Shared page frame for remote-source login forms.
+ * Chrome is the shared [APlayerGlassTopBar] overlaid on top of the scrolling form, matching the other
+ * settings sub-pages. The top bar owns the top safe-drawing inset and reports its height so the content
+ * starts below it; the content applies the remaining start/end/bottom safe-drawing and IME insets.
+ * The frame owns the responsive split: [serverContent] and [authContent] sit side by side on wide
+ * (landscape/tablet) viewports and stack vertically on compact ones. The test/connect actions flow at
+ * the end of the scrollable content rather than being pinned to the bottom.
+ */
+@Composable
+private fun RemoteConnectionPageFrame(
+    title: String,
+    onBack: () -> Unit,
+    glassEffectMode: GlassEffectMode,
+    hazeState: HazeState?,
+    primaryAction: @Composable RowScope.() -> Unit,
+    secondaryAction: @Composable RowScope.() -> Unit,
+    serverContent: @Composable ColumnScope.() -> Unit,
+    authContent: @Composable ColumnScope.() -> Unit
+) {
+    val twoColumn = LocalAppWindowSizeClass.current.isWideScreen
+    val resolvedHazeState = hazeState.takeIf { glassEffectMode == GlassEffectMode.Haze }
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    val safeDrawingPadding = WindowInsets.safeDrawing.exclude(WindowInsets.ime).asPaddingValues()
+    val imeBottom = WindowInsets.ime.asPaddingValues().calculateBottomPadding()
+
+    var topBarHeightPx by remember { mutableIntStateOf(0) }
+    val topBarHeight = if (topBarHeightPx > 0) {
+        with(density) { topBarHeightPx.toDp() }
+    } else {
+        safeDrawingPadding.calculateTopPadding() + 64.dp
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(if (resolvedHazeState != null) Modifier.hazeSource(resolvedHazeState) else Modifier)
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    start = safeDrawingPadding.calculateStartPadding(layoutDirection) + 24.dp,
+                    end = safeDrawingPadding.calculateEndPadding(layoutDirection) + 24.dp,
+                    top = topBarHeight + 8.dp,
+                    bottom = imeBottom.coerceAtLeast(safeDrawingPadding.calculateBottomPadding()) + 20.dp
+                ),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (twoColumn) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) { serverContent() }
+                    Column(modifier = Modifier.weight(1f)) { authContent() }
+                }
+            } else {
+                serverContent()
+                Spacer(modifier = Modifier.height(28.dp))
+                authContent()
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                secondaryAction()
+                primaryAction()
+            }
+        }
+
+        APlayerGlassTopBar(
+            glassEffectMode = glassEffectMode,
+            hazeState = resolvedHazeState,
+            onHeightChanged = { topBarHeightPx = it },
+            modifier = Modifier.align(Alignment.TopCenter),
+            title = { Text(title) },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = stringResource(R.string.back_content_description)
+                    )
+                }
+            }
+        )
+    }
+}
+
+/**
+ * Draws a compact source badge without introducing image assets for remote providers.
+ * The stable square shape keeps the header aligned with the reference page while remaining theme-aware.
+ */
+
+/**
+ * Standardizes section headings for remote login pages.
+ * Centered headings make the form scan as server details followed by authentication details.
+ */
+@Composable
+private fun RemoteSectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(bottom = 12.dp)
+    )
+}
+
+/**
+ * Applies the same field treatment to all remote-source inputs.
+ * Keeping the styling local avoids changing the broader settings text-field behavior.
+ */
+@Composable
+private fun RemoteTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String = "",
+    keyboardType: KeyboardType = KeyboardType.Text,
+    isPassword: Boolean = false,
+    isError: Boolean = false
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        placeholder = if (placeholder.isNotBlank()) {
+            { Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) }
+        } else null,
+        singleLine = true,
+        isError = isError,
+        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+/**
+ * Password field with visibility toggle icon.
+ */
+@Composable
+private fun RemotePasswordField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String
+) {
+    var passwordVisible by remember { mutableStateOf(false) }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = true,
+        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        trailingIcon = {
+            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                Icon(
+                    imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = null
+                )
+            }
+        },
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+/**
+ * Shows WebDAV test output directly under the authentication group.
+ * The page keeps success and error feedback visible while the user decides whether to save the root.
+ */
+@Composable
+private fun WebDavConnectionFeedback(connectionState: WebDavConnectionUiState) {
+    if (connectionState.testSucceeded) {
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = stringResource(R.string.settings_webdav_connection_success),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+    connectionState.lastError?.takeIf { it.isNotBlank() }?.let { error ->
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = error,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+/**
+ * Shows ABS login output, server metadata, and the selectable library list after a successful test.
+ * Library rows stay inside the page so choosing a remote library is part of the connection workflow.
+ */
+@Composable
+private fun AbsConnectionFeedback(
+    connectionState: AbsConnectionUiState,
+    selectedLibraryId: String,
+    selectedLibraryName: String,
+    onLibrarySelected: (String, String) -> Unit
+) {
+    if (connectionState.loginSucceeded) {
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = stringResource(R.string.settings_abs_login_success),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+    connectionState.serverVersion?.let { version ->
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = stringResource(R.string.settings_abs_server_version, version),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+    if (selectedLibraryName.isNotBlank()) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = stringResource(R.string.settings_abs_selected_library, selectedLibraryName),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+    connectionState.lastError?.takeIf { it.isNotBlank() }?.let { error ->
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = error,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+    if (connectionState.libraries.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(24.dp))
+        RemoteSectionTitle(text = stringResource(R.string.settings_abs_select_library_title))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            connectionState.libraries.forEach { library ->
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    color = MaterialTheme.colorScheme.surface,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onLibrarySelected(library.id, library.name) }
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(PaddingValues(horizontal = 12.dp, vertical = 8.dp))
+                    ) {
+                        RadioButton(
+                            selected = selectedLibraryId == library.id,
+                            onClick = { onLibrarySelected(library.id, library.name) }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "${library.name} (${library.id})",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

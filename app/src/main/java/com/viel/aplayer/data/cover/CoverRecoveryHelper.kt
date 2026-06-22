@@ -108,7 +108,7 @@ class CoverRecoveryHelper(
      *
      * This function supports two main flows based on the book's source type:
      * 1. For [AudiobookSchema.SourceType.ABS_REMOTE], it downloads the cover artwork directly
-     *    from the remote Audiobookshelf server using the lazy [AbsCoverStore].
+     *    from the remote AudiobookShelf server using the lazy [AbsCoverStore].
      * 2. For local books, it attempts to extract embedded cover artwork from the audio files,
      *    falling back to sidecar images if it is a multi-file book.
      */

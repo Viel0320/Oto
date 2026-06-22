@@ -6,9 +6,9 @@ This file defines repository-specific instructions for coding agents working on 
 
 Use it to decide:
 
-* where a change belongs,
-* which architectural boundaries must be preserved,
-* what must be verified before claiming work is complete.
+- where a change belongs,
+- which architectural boundaries must be preserved,
+- what must be verified before claiming work is complete.
 
 Task-specific maintainer instructions take precedence over this file. When the request is narrow, make the smallest coherent change that satisfies it. For substantial features, invasive refactors, or behavior changes that span several layers, sketch a short phased plan before editing and keep that plan aligned with the implementation.
 
@@ -16,33 +16,33 @@ Task-specific maintainer instructions take precedence over this file. When the r
 
 ## Maintainer Preferences
 
-* Communicate with the maintainer in Chinese unless they explicitly ask for another language.
-* Keep responses concise and factual. Do not add filler, praise, or ceremony.
-* Ask before running destructive operations such as deleting files, resetting Git state, or overwriting user-owned work.
-* For code changes, follow the comment rules below.
-* Do not write policy rules into code comments. Keep rules in documentation such as this file.
+- Communicate with the maintainer in Chinese unless they explicitly ask for another language.
+- Keep responses concise and factual. Do not add filler, praise, or ceremony.
+- Ask before running destructive operations such as deleting files, resetting Git state, or overwriting user-owned work.
+- For code changes, follow the comment rules below.
+- Do not write policy rules into code comments. Keep rules in documentation such as this file.
 
 ---
 
 ## Comments
 
-* Write comments in English.
-* Use `/** ... */` KDoc at the beginning of functions, composables, classes, properties, or interfaces when changed behavior, lifecycle, protocol, state-machine intent, or cross-layer ownership is not obvious from the signature.
-* For every code change, check whether the changed boundary needs an English comment. Do not add mechanical comments that merely restate assignments, calls, or control flow.
-* Avoid comments inside function bodies unless the local logic is genuinely complex.
-* Keep repository rules in documentation, not in code comments.
+- Write comments in English.
+- Use `/** ... */` KDoc at the beginning of functions, composables, classes, properties, or interfaces when changed behavior, lifecycle, protocol, state-machine intent, or cross-layer ownership is not obvious from the signature.
+- For every code change, check whether the changed boundary needs an English comment. Do not add mechanical comments that merely restate assignments, calls, or control flow.
+- Avoid comments inside function bodies unless the local logic is genuinely complex.
+- Keep repository rules in documentation, not in code comments.
 
 ---
 
 ## Read These First When Relevant
 
-* `docs/release-policy.md` - release, backup, Room migration, unsafe network, R8, SDK, and dependency policy.
-* `settings.gradle.kts` - active Gradle modules and centralized repository policy.
-* `build.gradle.kts` and `app/build.gradle.kts` - Android, Kotlin, Compose, KSP, Room schema, signing, dependency, and test setup.
-* `app/src/main/AndroidManifest.xml` - services, workers, permissions, backup, network security, and entry points.
-* `app/src/main/java/com/viel/aplayer/AppContainer.kt` - public dependency surface and graph wiring boundary.
-* `app/src/main/java/com/viel/aplayer/di/graph/` - graph ownership and shutdown order.
-* `app/src/main/java/com/viel/aplayer/data/db/AudiobookSchema.kt` - canonical database status, source, and type constants.
+- `docs/release-policy.md` - release, backup, Room migration, unsafe network, R8, SDK, and dependency policy.
+- `settings.gradle.kts` - active Gradle modules and centralized repository policy.
+- `build.gradle.kts` and `app/build.gradle.kts` - Android, Kotlin, Compose, KSP, Room schema, signing, dependency, and test setup.
+- `app/src/main/AndroidManifest.xml` - services, workers, permissions, backup, network security, and entry points.
+- `app/src/main/java/com/viel/aplayer/AppContainer.kt` - public dependency surface and graph wiring boundary.
+- `app/src/main/java/com/viel/aplayer/di/graph/` - graph ownership and shutdown order.
+- `app/src/main/java/com/viel/aplayer/data/db/AudiobookSchema.kt` - canonical database status, source, and type constants.
 
 Do not duplicate or contradict these files casually. Update this file only for stable, repository-wide agent rules.
 
@@ -52,13 +52,13 @@ Do not duplicate or contradict these files casually. Update this file only for s
 
 APlayer is an Android audiobook player with:
 
-* local library import through SAF,
-* CUE, M3U8, generated multi-file, and single-audio book support,
-* Audiobookshelf and WebDAV remote-source infrastructure,
-* Media3 playback with progress persistence, auto rewind, bookmarks, subtitles, cache, and notifications,
-* Jetpack Compose Material 3 UI with Navigation 3 and MaterialKolor seed-driven color schemes,
-* Room, DataStore, WorkManager, OkHttp, Moshi, Coil, and Glance widgets,
-* exported Room schemas and architecture tests that guard important boundaries.
+- local library import through SAF,
+- CUE, M3U8, generated multi-file, and single-audio book support,
+- AudiobookShelf and WebDAV remote-source infrastructure,
+- Media3 playback with progress persistence, auto rewind, bookmarks, subtitles, cache, and notifications,
+- Jetpack Compose Material 3 UI with Navigation 3 and MaterialKolor seed-driven color schemes,
+- Room, DataStore, WorkManager, OkHttp, Moshi, Coil, and Glance widgets,
+- exported Room schemas and architecture tests that guard important boundaries.
 
 Many behaviors are source-specific. Do not assume SAF, WebDAV, ABS, cached playback, manual downloads, widgets, and foreground playback share the same failure modes or lifecycle rules unless current code proves it.
 
@@ -66,15 +66,15 @@ Many behaviors are source-specific. Do not assume SAF, WebDAV, ABS, cached playb
 
 ## Critical Project Constraints
 
-* Keep the layered architecture intact: UI -> Application -> Data/Library/Media/ABS -> Android or network infrastructure.
-* Do not create broad facade or provider classes that centralize unrelated responsibilities.
-* Prefer deleting obsolete transition layers over adding another wrapper around them.
-* Use the existing gateway, read-model, command, graph, and dependency-view patterns before inventing new surfaces.
-* Keep playback centered on `BookPlaybackPlan -> VfsPlaybackUri -> VfsPlaybackDataSource -> VfsFileInterface`.
-* Keep ABS as an anti-corruption layer under `abs/`; do not leak raw ABS DTO fields into UI or general library logic.
-* Treat cleartext HTTP and insecure TLS as global runtime policy decisions controlled by settings and `UnsafeNetworkPolicy`.
-* Preserve Room migrations, exported schema files, and the version `41` production baseline described in `docs/release-policy.md`.
-* Keep release shrinking, backup allowlists, network security, signing, SDK levels, and dependency policy aligned with `docs/release-policy.md`.
+- Keep the layered architecture intact: UI -> Application -> Data/Library/Media/ABS -> Android or network infrastructure.
+- Do not create broad facade or provider classes that centralize unrelated responsibilities.
+- Prefer deleting obsolete transition layers over adding another wrapper around them.
+- Use the existing gateway, read-model, command, graph, and dependency-view patterns before inventing new surfaces.
+- Keep playback centered on `BookPlaybackPlan -> VfsPlaybackUri -> VfsPlaybackDataSource -> VfsFileInterface`.
+- Keep ABS as an anti-corruption layer under `abs/`; do not leak raw ABS DTO fields into UI or general library logic.
+- Treat cleartext HTTP and insecure TLS as global runtime policy decisions controlled by settings and `UnsafeNetworkPolicy`.
+- Preserve Room migrations, exported schema files, and the version `41` production baseline described in `docs/release-policy.md`.
+- Keep release shrinking, backup allowlists, network security, signing, SDK levels, and dependency policy aligned with `docs/release-policy.md`.
 
 ---
 
@@ -82,32 +82,32 @@ Many behaviors are source-specific. Do not assume SAF, WebDAV, ABS, cached playb
 
 Top-level areas:
 
-* `app/` - the single active Android application module.
-* `app/src/main/java/com/viel/aplayer/` - production Kotlin source.
-* `app/src/test/java/com/viel/aplayer/` - JVM, Robolectric, architecture, ABS, parser, mapper, and policy tests.
-* `app/src/androidTest/java/com/viel/aplayer/` - instrumentation and Compose UI tests.
-* `app/schemas/` - exported Room schemas used by migration tests.
-* `docs/` - maintainer-facing policy and architecture documents.
+- `app/` - the single active Android application module.
+- `app/src/main/java/com/viel/aplayer/` - production Kotlin source.
+- `app/src/test/java/com/viel/aplayer/` - JVM, Robolectric, architecture, ABS, parser, mapper, and policy tests.
+- `app/src/androidTest/java/com/viel/aplayer/` - instrumentation and Compose UI tests.
+- `app/schemas/` - exported Room schemas used by migration tests.
+- `docs/` - maintainer-facing policy and architecture documents.
 
 Confirm active modules in `settings.gradle.kts` before making module-level assumptions. This repository currently includes only `:app`.
 
 Main package map:
 
-* `abs/` - Audiobookshelf auth, DTOs, catalog sync, progress sync, playback session sync, mapping, and ABS VFS source provider.
-* `application/` - use cases, read models, commands, download orchestration, and startup warmup.
-* `data/` - Room DAOs/entities/database, gateways, services, cache policies, and DataStore-backed stores.
-* `di/` - dependency contracts, manually wired graphs, graph lifecycle policy, and container-facing graph modules.
-* `event/` - app-level feedback and event sinks.
-* `i18n/` - app locale control.
-* `library/` - SAF/WebDAV source scanning, import pipeline, VFS, availability checks, and library-root lifecycle.
-* `logger/` - specialized diagnostics for import, playback, cache, ABS, cover loading, and focus behavior.
-* `media/` - Media3 playback, playback plans, metadata parsers, manifests, subtitles, cache, notifications, and playback service.
-* `network/` - shared HTTP/network policy helpers.
-* `shared/` - small cross-layer shared utilities or models.
-* `timeline/` - timeline presentation and calculation support.
-* `ui/` - Compose screens, routes, overlays, Navigation 3 shell, adaptive layout helpers, themes, and UI actions.
-* `widget/` - Glance app widget state, rendering, receivers, and playback actions.
-* `work/` - WorkManager scheduling and workers.
+- `abs/` - AudiobookShelf auth, DTOs, catalog sync, progress sync, playback session sync, mapping, and ABS VFS source provider.
+- `application/` - use cases, read models, commands, download orchestration, and startup warmup.
+- `data/` - Room DAOs/entities/database, gateways, services, cache policies, and DataStore-backed stores.
+- `di/` - dependency contracts, manually wired graphs, graph lifecycle policy, and container-facing graph modules.
+- `event/` - app-level feedback and event sinks.
+- `i18n/` - app locale control.
+- `library/` - SAF/WebDAV source scanning, import pipeline, VFS, availability checks, and library-root lifecycle.
+- `logger/` - specialized diagnostics for import, playback, cache, ABS, cover loading, and focus behavior.
+- `media/` - Media3 playback, playback plans, metadata parsers, manifests, subtitles, cache, notifications, and playback service.
+- `network/` - shared HTTP/network policy helpers.
+- `shared/` - small cross-layer shared utilities or models.
+- `timeline/` - timeline presentation and calculation support.
+- `ui/` - Compose screens, routes, overlays, Navigation 3 shell, adaptive layout helpers, themes, and UI actions.
+- `widget/` - Glance app widget state, rendering, receivers, and playback actions.
+- `work/` - WorkManager scheduling and workers.
 
 ---
 
@@ -121,15 +121,15 @@ Use the repository Gradle Wrapper:
 
 Project facts from `app/build.gradle.kts`:
 
-* Android namespace: `com.viel.aplayer`
-* compile SDK: `37`
-* min SDK: `33`
-* target SDK: `36`
-* Java/Kotlin JVM target: `21`
-* Compose is enabled through the Kotlin Compose plugin.
-* Dependencies are managed through the Gradle version catalog.
-* Repositories are centralized through `settings.gradle.kts` with `RepositoriesMode.FAIL_ON_PROJECT_REPOS`.
-* Room schemas are exported to `app/schemas`.
+- Android namespace: `com.viel.aplayer`
+- compile SDK: `37`
+- min SDK: `33`
+- target SDK: `36`
+- Java/Kotlin JVM target: `21`
+- Compose is enabled through the Kotlin Compose plugin.
+- Dependencies are managed through the Gradle version catalog.
+- Repositories are centralized through `settings.gradle.kts` with `RepositoriesMode.FAIL_ON_PROJECT_REPOS`.
+- Room schemas are exported to `app/schemas`.
 
 Do not hardcode dependency versions in module build files unless the existing pattern already does so for that exact class of dependency.
 
@@ -218,10 +218,10 @@ ABS changes usually require tests with `MockWebServer` and local mapping asserti
 
 DI is intentionally manual.
 
-* Public dependency contracts live under `di/dependencies/`.
-* Graph ownership lives under `di/graph/`.
-* `AppContainer` exposes only narrow caller-facing dependency views.
-* `DefaultAppContainer` wires concrete graph implementations.
+- Public dependency contracts live under `di/dependencies/`.
+- Graph ownership lives under `di/graph/`.
+- `AppContainer` exposes only narrow caller-facing dependency views.
+- `DefaultAppContainer` wires concrete graph implementations.
 
 Do not introduce Hilt, Koin, service locators, or global singleton shortcuts unless explicitly requested. When adding a dependency, place it in the smallest relevant dependency view and graph.
 
@@ -328,13 +328,13 @@ Preserve accessibility semantics, content descriptions, stable bounds, and touch
 
 Read `docs/release-policy.md` before changing:
 
-* SDK levels,
-* Android Gradle Plugin or Kotlin versions,
-* dependency versions for AGP, Media3, WorkManager, Room, OkHttp, backup, or network behavior,
-* release shrinking or R8 rules,
-* backup and data extraction rules,
-* network security config,
-* cleartext HTTP or insecure TLS behavior.
+- SDK levels,
+- Android Gradle Plugin or Kotlin versions,
+- dependency versions for AGP, Media3, WorkManager, Room, OkHttp, backup, or network behavior,
+- release shrinking or R8 rules,
+- backup and data extraction rules,
+- network security config,
+- cleartext HTTP or insecure TLS behavior.
 
 Release builds must keep code shrinking and resource shrinking enabled. Do not add broad keep rules to silence R8 unless the runtime failure is proven and the rule is scoped.
 
@@ -358,10 +358,10 @@ Do not create commits, push branches, or open pull requests unless the maintaine
 
 Before staging or committing:
 
-* inspect `git status`,
-* inspect the relevant diff,
-* include only files related to the requested task,
-* never include credentials, local IDE files, build outputs, unrelated user changes, or generated artifacts not required by the task.
+- inspect `git status`,
+- inspect the relevant diff,
+- include only files related to the requested task,
+- never include credentials, local IDE files, build outputs, unrelated user changes, or generated artifacts not required by the task.
 
 Use Conventional Commits when asked to write a commit message:
 
@@ -372,38 +372,38 @@ type(scope): short lowercase description
 
 Common types:
 
-* `fix:` - bug fixes and behavior corrections.
-* `feat:` - new user-facing or maintainer-facing capabilities.
-* `refactor:` - code restructuring without intended behavior changes.
-* `docs:` - documentation-only changes.
-* `test:` - test-only changes.
-* `build:` - build-system changes.
-* `i18n:` - translation-only changes.
-* `chore(deps):` - dependency updates.
+- `fix:` - bug fixes and behavior corrections.
+- `feat:` - new user-facing or maintainer-facing capabilities.
+- `refactor:` - code restructuring without intended behavior changes.
+- `docs:` - documentation-only changes.
+- `test:` - test-only changes.
+- `build:` - build-system changes.
+- `i18n:` - translation-only changes.
+- `chore(deps):` - dependency updates.
 
 Keep the subject at or below 72 characters when practical. Do not add AI signatures or generated-by trailers unless explicitly requested.
 
 For dependency changes:
 
-* explicitly list package, library, plugin, or tool names,
-* include version changes in `from -> to` form when available,
-* mention scope when inferable, such as runtime, build plugin, Gradle, Maven, npm, or pnpm,
-* do not collapse unrelated dependency updates into vague wording like "update dependencies" or "bump deps".
+- explicitly list package, library, plugin, or tool names,
+- include version changes in `from -> to` form when available,
+- mention scope when inferable, such as runtime, build plugin, Gradle, Maven, npm, or pnpm,
+- do not collapse unrelated dependency updates into vague wording like "update dependencies" or "bump deps".
 
 ---
 
 ## Common Mistakes To Avoid
 
-* Trusting the old `AGENTS.md` architecture text over current source files.
-* Treating `APlayerApp` as a convenient place for feature business logic.
-* Creating a broad provider or facade that duplicates existing gateways, VFS, or use cases.
-* Updating a UI switch without updating persistence, commands, read models, and tests.
-* Adding Room fields without migrations, schema exports, and migration tests.
-* Hardcoding strings in Compose UI.
-* Assuming ABS, WebDAV, SAF, cached playback, and manual downloads share the same source lifecycle.
-* Bypassing `UnsafeNetworkPolicy` for HTTP or insecure TLS.
-* Changing release, backup, R8, signing, or SDK policy during unrelated work.
-* Claiming compilation or tests passed when they were not run.
+- Trusting the old `AGENTS.md` architecture text over current source files.
+- Treating `APlayerApp` as a convenient place for feature business logic.
+- Creating a broad provider or facade that duplicates existing gateways, VFS, or use cases.
+- Updating a UI switch without updating persistence, commands, read models, and tests.
+- Adding Room fields without migrations, schema exports, and migration tests.
+- Hardcoding strings in Compose UI.
+- Assuming ABS, WebDAV, SAF, cached playback, and manual downloads share the same source lifecycle.
+- Bypassing `UnsafeNetworkPolicy` for HTTP or insecure TLS.
+- Changing release, backup, R8, signing, or SDK policy during unrelated work.
+- Claiming compilation or tests passed when they were not run.
 
 ---
 
@@ -433,9 +433,9 @@ For architecture or migration plans:
 
 When finishing a task, report:
 
-* **Changed:** files or areas updated.
-* **Behavior:** what changed for users or maintainers.
-* **Verification:** commands run and result.
-* **Notes:** only genuine migration concerns, unverified scenarios, or follow-up risks.
+- **Changed:** files or areas updated.
+- **Behavior:** what changed for users or maintainers.
+- **Verification:** commands run and result.
+- **Notes:** only genuine migration concerns, unverified scenarios, or follow-up risks.
 
 Keep the handoff compact, factual, and specific.
