@@ -482,11 +482,6 @@ fun APlayerApp(
                         canStartNavigation = canStartNavigation,
                         appHazeState = hazeState,
                         glassEffectMode = activeGlassEffectMode,
-                        homeViewStyle = libraryUiState.homeViewStyle,
-                        homeSortRule = libraryUiState.homeSortRule,
-                        homeSortDirection = libraryUiState.homeSortDirection,
-                        homeBookStatusFilter = libraryUiState.homeBookStatusFilter,
-                        homeDialogHazeState = hazeState,
                         onNavigateToSettings = {
                             shouldMountSettings = true
                             pendingOpenSettingsOverlay = true

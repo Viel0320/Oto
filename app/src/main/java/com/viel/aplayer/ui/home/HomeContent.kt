@@ -127,7 +127,17 @@ fun HomeContent(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .then(
+                if (!isBlur) {
+                    Modifier.background(MaterialTheme.colorScheme.background)
+                } else {
+                    Modifier
+                }
+            )
+    ) {
         if (isBlur) {
             Box(
                 modifier = Modifier

@@ -3,11 +3,7 @@ package com.viel.aplayer.ui.navigation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -21,8 +17,6 @@ import com.viel.aplayer.ui.common.uiPerformanceTrace
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.home.HomeScreen
 import com.viel.aplayer.ui.home.LibraryViewModel
-import com.viel.aplayer.ui.home.components.HomeAppBar
-import com.viel.aplayer.ui.home.components.HomeViewPreferenceDialog
 import com.viel.aplayer.ui.player.BookmarkViewModel
 import com.viel.aplayer.ui.player.PlaybackViewModel
 import com.viel.aplayer.ui.player.PlayerSettingsViewModel
@@ -36,7 +30,9 @@ data object HomeRoute : NavKey
 /**
  * Manage Core Screens under Navigation 3.
  *
- * System navigation management container, hosting core application pages using NavDisplay.
+ * System navigation management container, hosting core application pages using NavDisplay. The Home
+ * top bar and view-preference dialog are owned by [HomeScreen] itself so each page controls its own
+ * chrome, rather than being mounted globally outside [NavDisplay].
  */
 @Composable
 fun APlayerNavHost(
@@ -51,11 +47,6 @@ fun APlayerNavHost(
     canStartNavigation: () -> Boolean,
     appHazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode,
-    homeViewStyle: HomeViewStyle,
-    homeSortRule: HomeSortRule,
-    homeSortDirection: HomeSortDirection,
-    homeBookStatusFilter: HomeBookStatusFilter,
-    homeDialogHazeState: HazeState? = null,
     onNavigateToSettings: () -> Unit,
     onNavigateToSearch: () -> Unit,
     onAddLibraryRequested: () -> Unit,
@@ -66,17 +57,10 @@ fun APlayerNavHost(
     onHomeSortDirectionSelected: (HomeSortDirection) -> Unit,
     onHomeBookStatusFilterSelected: (HomeBookStatusFilter) -> Unit
 ) {
-    val isHomeRoute = navigationState.topLevelRoute == HomeRoute
     val isHazeMode = glassEffectMode == GlassEffectMode.Haze
-    val fallbackHomeTopBarHazeState = remember { HazeState() }
-    val resolvedHomeTopBarHazeState = appHazeState ?: fallbackHomeTopBarHazeState
-    var homeTopBarHeightPx by remember { mutableIntStateOf(0) }
-    var homeTopBarScrollToTopRequest by remember { mutableIntStateOf(0) }
-    var isHomeViewPreferenceDialogVisible by remember { mutableStateOf(false) }
-    val navHostTraceState = "topLevelRoute=${navigationState.topLevelRoute},isHome=$isHomeRoute," +
-        "homeViewDialog=$isHomeViewPreferenceDialogVisible,glass=$glassEffectMode"
+    val navHostTraceState = "topLevelRoute=${navigationState.topLevelRoute},glass=$glassEffectMode"
 
-    val provider = remember(libraryViewModel, playbackViewModel, bookmarkViewModel, settingsViewModel, detailViewModel, onOpenDetail, onAddLibraryRequested, onEditBookRequested, homeDialogHazeState, homeTopBarHeightPx, homeTopBarScrollToTopRequest) {
+    val provider = remember(libraryViewModel, playbackViewModel, bookmarkViewModel, settingsViewModel, detailViewModel, onOpenDetail, onAddLibraryRequested, onEditBookRequested, onNavigateToSettings, onNavigateToSearch, onHomeViewStyleSelected, onHomeSortRuleSelected, onHomeSortDirectionSelected, onHomeBookStatusFilterSelected) {
         entryProvider<NavKey> {
             entry<HomeRoute> {
                 HomeScreen(
@@ -84,11 +68,16 @@ fun APlayerNavHost(
                     playbackViewModel = playbackViewModel,
                     settingsViewModel = settingsViewModel,
                     detailViewModel = detailViewModel,
+                    canStartNavigation = canStartNavigation,
                     onOpenDetail = onOpenDetail,
-                    homeDialogHazeState = homeDialogHazeState,
-                    homeTopBarScrollToTopRequest = homeTopBarScrollToTopRequest,
+                    onNavigateToSettings = onNavigateToSettings,
+                    onNavigateToSearch = onNavigateToSearch,
                     onAddLibraryRequested = onAddLibraryRequested,
-                    onEditBookRequested = onEditBookRequested
+                    onEditBookRequested = onEditBookRequested,
+                    onHomeViewStyleSelected = onHomeViewStyleSelected,
+                    onHomeSortRuleSelected = onHomeSortRuleSelected,
+                    onHomeSortDirectionSelected = onHomeSortDirectionSelected,
+                    onHomeBookStatusFilterSelected = onHomeBookStatusFilterSelected
                 )
             }
         }
@@ -118,50 +107,6 @@ fun APlayerNavHost(
                 modifier = Modifier.fillMaxSize(),
                 entries = navigationState.toEntries(provider),
                 onBack = { navigator.goBack() }
-            )
-        }
-
-        if (isHomeRoute) {
-            HomeAppBar(
-                glassEffectMode = glassEffectMode,
-                hazeState = resolvedHomeTopBarHazeState,
-                onNavigateToSearch = {
-                    if (canStartNavigation()) {
-                        onNavigateToSearch()
-                    }
-                },
-                onHomeViewOptionsClick = {
-                    if (canStartNavigation()) {
-                        isHomeViewPreferenceDialogVisible = true
-                    }
-                },
-                onNavigateToSettings = {
-                    if (canStartNavigation()) {
-                        onNavigateToSettings()
-                    }
-                },
-                onTitleDoubleTap = {
-                    homeTopBarScrollToTopRequest += 1
-                },
-                onHeightChanged = { homeTopBarHeightPx = it }
-            )
-        }
-
-        if (isHomeRoute && isHomeViewPreferenceDialogVisible) {
-            HomeViewPreferenceDialog(
-                selectedViewStyle = homeViewStyle,
-                selectedSortRule = homeSortRule,
-                selectedSortDirection = homeSortDirection,
-                selectedBookStatusFilter = homeBookStatusFilter,
-                hazeState = homeDialogHazeState ?: resolvedHomeTopBarHazeState,
-                glassEffectMode = glassEffectMode,
-                onViewStyleSelected = onHomeViewStyleSelected,
-                onSortRuleSelected = onHomeSortRuleSelected,
-                onSortDirectionSelected = onHomeSortDirectionSelected,
-                onBookStatusFilterSelected = onHomeBookStatusFilterSelected,
-                onDismissRequest = {
-                    isHomeViewPreferenceDialogVisible = false
-                }
             )
         }
     }
