@@ -243,6 +243,39 @@ interface BookDao {
     """)
     suspend fun getMissingAudioBookFilesOnce(): List<BookFileEntity>
 
+    /**
+     * Root-scoped claim-index source for per-root parallel scans.
+     * Mirrors getAllBookFilesOnce but narrows to one root and excludes soft-deleted books so a root scan rebuilds
+     * its ExistingClaimIndex without loading the whole catalog.
+     */
+    @Query("""
+        SELECT book_files.* FROM book_files
+        INNER JOIN books ON books.id = book_files.bookId
+        WHERE books.rootId = :rootId AND books.status != 'DELETED'
+    """)
+    suspend fun getBookFilesByRootId(rootId: String): List<BookFileEntity>
+
+    /**
+     * Root-scoped active books for ExistingClaimIndex sourceType mapping.
+     * Unlike getBooksByRootId this excludes soft-deleted rows to match getAllBooksOnce semantics.
+     */
+    @Query("SELECT * FROM books WHERE rootId = :rootId AND status != 'DELETED'")
+    suspend fun getActiveBooksByRootId(rootId: String): List<BookEntity>
+
+    /**
+     * Root-scoped missing audio files for per-root recovery during a root scan.
+     */
+    @Query("""
+        SELECT book_files.* FROM book_files
+        INNER JOIN books ON books.id = book_files.bookId
+        WHERE books.rootId = :rootId
+        AND books.status != 'DELETED'
+        AND book_files.fileRole = 'AUDIO'
+        AND book_files.status = 'MISSING'
+        ORDER BY book_files.bookId ASC, book_files.`index` ASC
+    """)
+    suspend fun getMissingAudioBookFilesByRootId(rootId: String): List<BookFileEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBook(book: BookEntity)
 

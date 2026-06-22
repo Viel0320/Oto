@@ -288,5 +288,6 @@ interface RemoteConnectionDependencies {
     val settingsRootCommands: SettingsRootCommands
     val formatSettingsRootUseCase: FormatSettingsRootUseCase
     val settingsLibraryMaintenanceUseCase: SettingsLibraryMaintenanceUseCase
+    val libraryRootManagementUseCase: LibraryRootManagementUseCase
     val appEventSink: AppEventSink
 }

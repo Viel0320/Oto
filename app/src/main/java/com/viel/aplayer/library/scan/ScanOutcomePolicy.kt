@@ -47,7 +47,8 @@ object ScanOutcomePolicy {
     fun fromCompletedSession(
         session: ScanSessionEntity,
         isLibraryEmpty: Boolean,
-        skippedRoots: List<LibraryRootAvailabilityUpdate> = emptyList()
+        skippedRoots: List<LibraryRootAvailabilityUpdate> = emptyList(),
+        primaryContext: FeedbackContext = FeedbackContext.Global
     ): ScanOutcome {
         if (session.status != AudiobookSchema.ScanStatus.COMPLETED) {
             return fromFailure(
@@ -83,9 +84,24 @@ object ScanOutcomePolicy {
         }
         return ScanOutcome(
             kind = kind,
-            feedback = LibraryAccessFeedbackFacts.rescanCompleted(message, skippedRootsContext(skippedRoots)),
+            feedback = LibraryAccessFeedbackFacts.rescanCompleted(message, resolveContext(skippedRoots, primaryContext)),
             session = session
         )
+    }
+
+    /**
+     * Builds the single Global summary feedback for a cold-start fan-out that changed the catalog.
+     *
+     * Per-root cold-start jobs stay silent; the scheduler emits this one aggregated fact so a background scan of many
+     * roots never produces a burst of per-root toasts.
+     */
+    fun coldStartSummaryFeedback(discoveredBookCount: Int): FeedbackFact {
+        val message = if (discoveredBookCount > 0) {
+            FeedbackMessages.scanCompletedWithDiscoveredBooks(discoveredBookCount)
+        } else {
+            FeedbackMessages.scanCompleted()
+        }
+        return LibraryAccessFeedbackFacts.rescanCompleted(message, FeedbackContext.Global)
     }
 
     /**
@@ -158,6 +174,19 @@ object ScanOutcomePolicy {
             )
         } else {
             FeedbackContext.Global
+        }
+
+    /**
+     * Picks the rescan feedback context, preferring the caller-supplied [primaryContext] (a single user-scanned
+     * root) when nothing was skipped, and keying to a lone skipped root otherwise.
+     */
+    private fun resolveContext(
+        skippedRoots: List<LibraryRootAvailabilityUpdate>,
+        primaryContext: FeedbackContext
+    ): FeedbackContext =
+        when {
+            skippedRoots.isEmpty() -> primaryContext
+            else -> skippedRootsContext(skippedRoots)
         }
 }
 

@@ -4,6 +4,7 @@ import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.library.FileIdentity
+import com.viel.aplayer.library.orchestrator.ExistingClaimIndex.Companion.from
 
 class ExistingClaimIndex private constructor(
     private val byKey: Map<String, BookFileEntity>,
@@ -61,6 +62,14 @@ class ExistingClaimIndex private constructor(
     }
 
     companion object {
+        /**
+         * Root-scoped index for per-root parallel scans.
+         * Semantically identical to [from] but signals the caller passed only one root's files/books, so the
+         * claim index stays bounded to that root instead of the whole catalog.
+         */
+        fun fromRoot(files: List<BookFileEntity>, books: List<BookEntity> = emptyList()): ExistingClaimIndex =
+            from(files, books)
+
         fun from(files: List<BookFileEntity>, books: List<BookEntity> = emptyList()): ExistingClaimIndex {
             val map = mutableMapOf<String, BookFileEntity>()
             files.forEach { file ->

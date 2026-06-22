@@ -3,6 +3,8 @@ package com.viel.aplayer.library.scan
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.data.runCatchingCancellable
+import com.viel.aplayer.event.feedback.FeedbackContext
+import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.aplayer.library.availability.isDirectorySyncRoot
 import com.viel.aplayer.library.availability.isSyncAvailable
@@ -23,9 +25,11 @@ data class ScanCommand(
 /**
  * Root preflight seam.
  * Supplies freshly persisted root availability snapshots without exposing LibraryRootStore or Android context to ScanSession.
+ * Implementations refresh only the requested roots so per-root scans avoid N-times full-library permission refreshes;
+ * an empty target set is the library-wide cold-start fallback.
  */
 fun interface ScanRootStatusAdapter {
-    suspend fun refreshPermissionStatuses(): List<LibraryRootAvailabilityUpdate>
+    suspend fun refreshStatuses(targetRootIds: Set<String>): List<LibraryRootAvailabilityUpdate>
 }
 
 /**
@@ -66,7 +70,7 @@ class ScanSession(
         }
 
     private suspend fun executeChecked(command: ScanCommand): ScanOutcome {
-        val rootUpdates = rootStatusAdapter.refreshPermissionStatuses()
+        val rootUpdates = rootStatusAdapter.refreshStatuses(command.targetRootIds)
         val scopedRootUpdates = command.scopedRootUpdates(rootUpdates)
         val hasAvailableLibrary = scopedRootUpdates.any { update -> update.isSyncAvailable }
         val unavailableRootUpdates = scopedRootUpdates.filterNot { update -> update.isSyncAvailable }
@@ -100,7 +104,20 @@ class ScanSession(
         return ScanOutcomePolicy.fromCompletedSession(
             session = session,
             isLibraryEmpty = librarySnapshotAdapter.isLibraryEmpty(),
-            skippedRoots = unavailableRootUpdates
+            skippedRoots = unavailableRootUpdates,
+            primaryContext = singleRootContext(directoryRootUpdates.filter { update -> update.isSyncAvailable })
+        )
+    }
+
+    /**
+     * Keys a successful scan's feedback to the one root it scanned, so per-root user rescans surface a
+     * root-scoped toast instead of a Global one. Falls back to Global when the scan covered several roots.
+     */
+    private fun singleRootContext(availableDirectoryRootUpdates: List<LibraryRootAvailabilityUpdate>): FeedbackContext {
+        val root = availableDirectoryRootUpdates.singleOrNull()?.root ?: return FeedbackContext.Global
+        return LibraryAccessFeedbackFacts.libraryRootContext(
+            rootId = root.id,
+            accessForm = LibraryAccessFeedbackFacts.accessFormOf(root.sourceType)
         )
     }
 
@@ -121,8 +138,9 @@ class ScanSession(
     private fun ScanCommand.scopedRootUpdates(
         rootUpdates: List<LibraryRootAvailabilityUpdate>
     ): List<LibraryRootAvailabilityUpdate> {
-        if (trigger == AudiobookSchema.ScanTrigger.COLD_START) return rootUpdates
-        if (targetRootIds.isEmpty()) return emptyList()
-        return rootUpdates.filter { update -> update.root.id in targetRootIds }
+        if (targetRootIds.isNotEmpty()) {
+            return rootUpdates.filter { update -> update.root.id in targetRootIds }
+        }
+        return if (trigger == AudiobookSchema.ScanTrigger.COLD_START) rootUpdates else emptyList()
     }
 }

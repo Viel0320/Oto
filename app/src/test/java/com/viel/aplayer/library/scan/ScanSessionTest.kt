@@ -238,6 +238,42 @@ class ScanSessionTest {
     }
 
     @Test
+    fun `cold-start command with target root should scope import to that root only`() = runBlocking {
+        var capturedType: RescanType? = null
+        var capturedAllowedRoots: Set<String> = emptySet()
+        val session = scanSession(
+            roots = listOf(
+                rootUpdate(
+                    id = "saf-1",
+                    sourceType = AudiobookSchema.LibrarySourceType.SAF,
+                    availabilityStatus = AudiobookSchema.AvailabilityStatus.AVAILABLE
+                ),
+                rootUpdate(
+                    id = "saf-2",
+                    sourceType = AudiobookSchema.LibrarySourceType.SAF,
+                    availabilityStatus = AudiobookSchema.AvailabilityStatus.AVAILABLE
+                )
+            ),
+            importBlock = { type, _, allowedRootIds ->
+                capturedType = type
+                capturedAllowedRoots = allowedRootIds
+                scanEntity(discovered = 1)
+            }
+        )
+
+        val outcome = session.execute(
+            ScanCommand(
+                trigger = AudiobookSchema.ScanTrigger.COLD_START,
+                targetRootIds = setOf("saf-1")
+            )
+        )
+
+        assertEquals(RescanType.COLD_START_LIGHT, capturedType)
+        assertEquals(setOf("saf-1"), capturedAllowedRoots)
+        assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
+    }
+
+    @Test
     fun `user command without target roots should not fall back to global import`() = runBlocking {
         val importCalls = mutableListOf<Set<String>>()
         val session = scanSession(
@@ -351,7 +387,7 @@ class ScanSessionTest {
         librarySnapshotBlock: suspend () -> Boolean = { isLibraryEmpty }
     ): ScanSession =
         ScanSession(
-            rootStatusAdapter = ScanRootStatusAdapter { roots },
+            rootStatusAdapter = ScanRootStatusAdapter { _ -> roots },
             importAdapter = ScanImportAdapter(importBlock),
             librarySnapshotAdapter = ScanLibrarySnapshotAdapter(librarySnapshotBlock)
         )

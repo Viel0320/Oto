@@ -15,6 +15,8 @@ import com.viel.aplayer.library.vfs.VfsFileInterface
 import com.viel.aplayer.logger.ImportTimingLogger
 import com.viel.aplayer.logger.SecureLog
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 /**
  * Core Service Coordinator.
@@ -69,6 +71,15 @@ internal class ScopeOrchestrator(
         val scanClaimLedger = RunClaimLedger()
         var currentExistingIndex = initialClaimIndex
 
+        // Root-scoped scans rebuild only their own root's claim index; the all-root path is a defensive fallback
+        // for multi-root (cold-start without targets) sessions.
+        val singleRootId = roots.singleOrNull()?.id
+        val rebuildClaimIndex: suspend () -> ExistingClaimIndex = if (singleRootId != null) {
+            { ExistingClaimIndex.fromRoot(bookDao.getBookFilesByRootId(singleRootId), bookDao.getActiveBooksByRootId(singleRootId)) }
+        } else {
+            { ExistingClaimIndex.from(bookDao.getAllBookFilesOnce(), bookDao.getAllBooksOnce()) }
+        }
+
         suspend fun applyScopes(importScopes: List<ImportScope>) {
             importScopes.forEach { scope ->
                 if (scope.kind == ImportScopeKind.DIRECTORY_AUDIO) {
@@ -92,10 +103,7 @@ internal class ScopeOrchestrator(
                             scopeId = scope.timingScopeId(),
                             stage = "db.refreshClaimIndex"
                         ) {
-                            ExistingClaimIndex.from(
-                                files = bookDao.getAllBookFilesOnce(),
-                                books = bookDao.getAllBooksOnce()
-                            )
+                            rebuildClaimIndex()
                         }
                     }
                     return@forEach
@@ -157,10 +165,7 @@ internal class ScopeOrchestrator(
                         scopeId = timingScopeId,
                         stage = "db.refreshClaimIndex"
                     ) {
-                        ExistingClaimIndex.from(
-                            files = bookDao.getAllBookFilesOnce(),
-                            books = bookDao.getAllBooksOnce()
-                        )
+                        rebuildClaimIndex()
                     }
                 }
 
@@ -174,6 +179,7 @@ internal class ScopeOrchestrator(
         }
 
         scanner.scanDirectories(roots).collect { directory ->
+            currentCoroutineContext().ensureActive()
             val cachedDir = directoryCacheDao.getBySourcePath(directory.root.id, directory.sourcePath)
             val isCacheValid = cachedDir != null &&
                                 cachedDir.lastModified == directory.lastModified &&

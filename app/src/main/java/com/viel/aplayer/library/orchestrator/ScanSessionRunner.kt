@@ -5,6 +5,7 @@ import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookEntity
+import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.entity.ScanSessionEntity
 import com.viel.aplayer.library.SourceInventoryScanner
 import com.viel.aplayer.library.availability.MissingBookFileRecoveryChecker
@@ -107,18 +108,31 @@ class ScanSessionRunner(
         )
         scanSessionDao.insertSession(session)
 
+        var scannedRoots: List<LibraryRootEntity> = emptyList()
         val result = try {
             val roots = when (type) {
                 RescanType.USER_ROOTS,
                 RescanType.NEW_LIBRARY_ROOT -> targetRootIds.mapNotNull { rootId -> rootDao.getRootById(rootId) }
-                else -> rootDao.getActiveRootsOnce()
+                RescanType.COLD_START_LIGHT ->
+                    if (targetRootIds.isNotEmpty()) targetRootIds.mapNotNull { rootId -> rootDao.getRootById(rootId) }
+                    else rootDao.getActiveRootsOnce()
+                RescanType.USER_GLOBAL -> rootDao.getActiveRootsOnce()
             }
                 .filter { root -> root.isDirectorySyncRoot() }
                 .filter { root -> allowedRootIds == null || root.id in allowedRootIds }
-            val existingIndex = ExistingClaimIndex.from(
-                files = bookDao.getAllBookFilesOnce(),
-                books = bookDao.getAllBooksOnce()
-            )
+            scannedRoots = roots
+            val existingIndex = if (roots.size == 1) {
+                val onlyRootId = roots.single().id
+                ExistingClaimIndex.fromRoot(
+                    files = bookDao.getBookFilesByRootId(onlyRootId),
+                    books = bookDao.getActiveBooksByRootId(onlyRootId)
+                )
+            } else {
+                ExistingClaimIndex.from(
+                    files = bookDao.getAllBookFilesOnce(),
+                    books = bookDao.getAllBooksOnce()
+                )
+            }
 
             Result.success(scopeOrchestrator.execute(scanId, roots, existingIndex, type))
         } catch (error: CancellationException) {
@@ -130,7 +144,9 @@ class ScanSessionRunner(
 
         result.onSuccess { importResult ->
             val recoveryResult = if (type == RescanType.COLD_START_LIGHT) {
-                missingRecoveryChecker.recoverMissingAudioFiles()
+                scannedRoots.fold(MissingBookFileRecoveryResult()) { acc, root ->
+                    acc + missingRecoveryChecker.recoverMissingAudioFiles(root.id)
+                }
             } else {
                 MissingBookFileRecoveryResult()
             }

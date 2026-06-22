@@ -13,8 +13,19 @@ class MissingBookFileRecoveryChecker(private val context: Context) {
     private val availabilityChecker = AvailabilityChecker(context.applicationContext)
 
     suspend fun recoverMissingAudioFiles(): MissingBookFileRecoveryResult = withContext(Dispatchers.IO) {
-        val missingFiles = bookDao.getMissingAudioBookFilesOnce()
-        if (missingFiles.isEmpty()) return@withContext MissingBookFileRecoveryResult()
+        recoverFrom(bookDao.getMissingAudioBookFilesOnce())
+    }
+
+    /**
+     * Root-scoped missing-file recovery for per-root parallel scans.
+     * Restores only files owned by the given root so a root scan never touches other roots' rows.
+     */
+    suspend fun recoverMissingAudioFiles(rootId: String): MissingBookFileRecoveryResult = withContext(Dispatchers.IO) {
+        recoverFrom(bookDao.getMissingAudioBookFilesByRootId(rootId))
+    }
+
+    private suspend fun recoverFrom(missingFiles: List<BookFileEntity>): MissingBookFileRecoveryResult {
+        if (missingFiles.isEmpty()) return MissingBookFileRecoveryResult()
 
         val restoredBookIds = linkedSetOf<String>()
         val affectedBookIds = missingFiles.mapTo(linkedSetOf()) { it.bookId }
@@ -39,7 +50,7 @@ class MissingBookFileRecoveryChecker(private val context: Context) {
             bookDao.getBookById(bookId)?.title?.takeIf { it.isNotBlank() }
         }
 
-        MissingBookFileRecoveryResult(
+        return MissingBookFileRecoveryResult(
             restoredFileCount = restoredFileCount,
             restoredBookCount = restoredBookIds.size,
             restoredBookTitles = restoredBookTitles
@@ -68,4 +79,14 @@ data class MissingBookFileRecoveryResult(
     val restoredFileCount: Int = 0,
     val restoredBookCount: Int = 0,
     val restoredBookTitles: List<String> = emptyList()
-)
+) {
+    /**
+     * Combines per-root recovery results when a defensive multi-root scan recovers several roots in one session.
+     */
+    operator fun plus(other: MissingBookFileRecoveryResult): MissingBookFileRecoveryResult =
+        MissingBookFileRecoveryResult(
+            restoredFileCount = restoredFileCount + other.restoredFileCount,
+            restoredBookCount = restoredBookCount + other.restoredBookCount,
+            restoredBookTitles = restoredBookTitles + other.restoredBookTitles
+        )
+}

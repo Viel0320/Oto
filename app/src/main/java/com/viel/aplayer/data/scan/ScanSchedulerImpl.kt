@@ -11,6 +11,7 @@ import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.library.LibraryRootStore
+import com.viel.aplayer.library.availability.isDirectorySyncRoot
 import com.viel.aplayer.library.orchestrator.ScanSessionRunner
 import com.viel.aplayer.library.scan.ScanCommand
 import com.viel.aplayer.library.scan.ScanOutcome
@@ -24,37 +25,47 @@ import com.viel.aplayer.library.vfs.cache.NoOpDirectoryListingCache
 import com.viel.aplayer.logger.ScanWorkflowLogger
 import com.viel.aplayer.work.WorkSchedulingPolicy
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
 /**
- * Implements ScanScheduler.
+ * Per-root fan-out scan controller.
  *
  * Core Design Goals:
- * 1. Eradicate God-Class Repositories: Integrates with LibraryRootStore and ScanSessionRunner in the M6c phase, breaking all ties to the bloated BookLibraryRepository.
- * 2. Re-anchor Serial Scans Lock: Manages a private priority queue internally so user root scans can supersede queued or running background work.
+ * 1. Eradicate God-Class Repositories: Integrates with LibraryRootStore and ScanSessionRunner without any tie to a
+ *    legacy library repository.
+ * 2. Per-root parallelism: A single sync command fans out into one independent scan job per library root, each
+ *    running its own ScanSession (and thus its own ScanSessionEntity), bounded by a shared concurrency limit.
+ * 3. User commands bind to a root: a user-initiated scan on a root cancels any in-flight job for that same root and
+ *    is NOT requeued, while cold-start jobs on other roots keep running untouched.
  */
 class ScanSchedulerImpl(
     context: Context,
     private val coverRecoveryGateway: CoverRecoveryGateway,
     private val vfsFileInterface: VfsFileInterface,
     private val directoryListingCache: DirectoryListingCache = NoOpDirectoryListingCache,
-    private val appEventSink: AppEventSink
+    private val appEventSink: AppEventSink,
+    private val rootScanExecutor: RootScanExecutor? = null,
+    private val coldStartRootIdsProvider: (suspend () -> List<String>)? = null
 ) : ScanScheduler, java.io.Closeable {
 
     private val appContext = context.applicationContext
 
-    private val rootStore = LibraryRootStore(appContext)
+    private val rootStore by lazy { LibraryRootStore(appContext) }
 
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         ScanWorkflowLogger.error("scanService coroutine failure", exception)
@@ -62,21 +73,52 @@ class ScanSchedulerImpl(
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
 
-    private val queueMutex = Mutex()
-    private val pendingScans = mutableListOf<QueuedScan>()
-
-    private var activeScan: QueuedScan? = null
-    private var activeScanJob: Job? = null
-    private var nextSequence = 0L
+    private val mutex = Mutex()
+    private val activeByRoot = mutableMapOf<String, ActiveRootScan>()
+    private val scanSemaphore = Semaphore(SCAN_CONCURRENCY)
 
     override suspend fun syncLibrary(trigger: String, rootIds: Set<String>): ScanOutcome {
-        val task = enqueueScan(command = buildScanCommand(trigger, rootIds))
-        return awaitScanTask(task)
+        val scanTrigger = parseTrigger(trigger)
+        val isUser = scanTrigger != AudiobookSchema.ScanTrigger.COLD_START
+        val cleaned = rootIds.map { it.trim() }.filter { it.isNotEmpty() }
+        val targetRootIds: List<String> = when {
+            cleaned.isNotEmpty() -> cleaned
+            scanTrigger == AudiobookSchema.ScanTrigger.COLD_START -> coldStartRootIds()
+            else -> emptyList()
+        }
+
+        if (targetRootIds.isEmpty()) {
+            // USER/ADD without targets, or cold-start with no active directory roots: run one command so the
+            // blocked / no-work feedback wording is preserved.
+            val outcome = runSingleRootCommand(ScanCommand(scanTrigger, emptySet()))
+            logScanOutcome(scanTrigger.name, outcome)
+            if (isUser) emitScanOutcomeFeedback(outcome)
+            return outcome
+        }
+
+        val deferreds = mutex.withLock {
+            targetRootIds.mapNotNull { rootId -> launchRootScanLocked(rootId, scanTrigger, isUser) }
+        }
+        val outcomes = deferreds.mapNotNull { deferred ->
+            try {
+                deferred.await()
+            } catch (cancellation: CancellationException) {
+                // Distinguish our own cancellation (propagate) from a root that another user command superseded
+                // (drop it from aggregation instead of misreporting it as a failure).
+                currentCoroutineContext().ensureActive()
+                null
+            }
+        }
+        val aggregated = aggregate(outcomes)
+        if (!isUser && hasCatalogChange(outcomes)) {
+            val discovered = outcomes.sumOf { outcome -> outcome.session?.discoveredBookCount ?: 0 }
+            appEventSink.emitFeedback(ScanOutcomePolicy.coldStartSummaryFeedback(discovered))
+        }
+        return aggregated
     }
 
     override fun scheduleLibrarySync(trigger: String, requiresNetwork: Boolean, rootIds: Set<String>) {
-        val scanTrigger = runCatching { AudiobookSchema.ScanTrigger.valueOf(trigger) }
-            .getOrDefault(AudiobookSchema.ScanTrigger.USER)
+        val scanTrigger = parseTrigger(trigger)
         if (scanTrigger != AudiobookSchema.ScanTrigger.COLD_START) {
             scope.launch {
                 syncLibrary(trigger = trigger, rootIds = rootIds)
@@ -97,8 +139,7 @@ class ScanSchedulerImpl(
         if (policy.initialDelay > 0L) {
             requestBuilder.setInitialDelay(policy.initialDelay, policy.initialDelayTimeUnit)
         }
-        val request = requestBuilder
-            .build()
+        val request = requestBuilder.build()
         workManager.enqueueUniqueWork(
             policy.uniqueWorkName,
             policy.existingWorkPolicy,
@@ -107,20 +148,64 @@ class ScanSchedulerImpl(
     }
 
     /**
-     * Metadata synchronization and recovery for one dequeued command.
+     * Starts or reuses the scan job bound to one root, applying user-over-cold precedence.
      *
-     * The caller already decided priority and root scope, so this function only builds the scan
-     * adapters and lets ScanSession enforce trigger-to-rescan semantics.
+     * Must be called while holding [mutex]. A user command cancels any in-flight job for the same root and starts a
+     * fresh one (never requeued). A cold-start command yields to a user job on that root (returns null) and reuses an
+     * already-running cold-start job instead of starting a duplicate.
      */
-    private suspend fun runSyncLibrary(command: ScanCommand): ScanOutcome = withContext(Dispatchers.IO) {
-        createScanSession().execute(command)
+    private fun launchRootScanLocked(
+        rootId: String,
+        trigger: AudiobookSchema.ScanTrigger,
+        isUser: Boolean
+    ): Deferred<ScanOutcome>? {
+        val existing = activeByRoot[rootId]
+        if (!isUser) {
+            if (existing != null && existing.isUserPriority) return null
+            if (existing != null && existing.job.isActive) return existing.job
+        } else {
+            existing?.job?.cancel(CancellationException("Superseded by user scan on root $rootId"))
+        }
+
+        lateinit var deferred: Deferred<ScanOutcome>
+        deferred = scope.async(start = CoroutineStart.LAZY) {
+            try {
+                scanSemaphore.withPermit {
+                    ensureActive()
+                    val outcome = runSingleRootCommand(ScanCommand(trigger, setOf(rootId)))
+                    logScanOutcome(trigger.name, outcome)
+                    if (isUser) emitScanOutcomeFeedback(outcome)
+                    outcome
+                }
+            } finally {
+                mutex.withLock {
+                    if (activeByRoot[rootId]?.job === deferred) {
+                        activeByRoot.remove(rootId)
+                    }
+                }
+            }
+        }
+        activeByRoot[rootId] = ActiveRootScan(deferred, isUser)
+        deferred.start()
+        return deferred
     }
+
+    /**
+     * Executes one root-scoped command via the injectable executor seam, defaulting to a fresh ScanSession.
+     */
+    private suspend fun runSingleRootCommand(command: ScanCommand): ScanOutcome =
+        rootScanExecutor?.run(command)
+            ?: withContext(Dispatchers.IO) { createScanSession().execute(command) }
 
     @OptIn(UnstableApi::class)
     private fun createScanSession(): ScanSession =
         ScanSession(
-            rootStatusAdapter = {
-                rootStore.refreshPermissionStatuses()
+            rootStatusAdapter = { targetRootIds ->
+                if (targetRootIds.isEmpty()) {
+                    rootStore.refreshPermissionStatuses()
+                } else {
+                    targetRootIds.mapNotNull { rootId -> rootStore.refreshRootStatus(rootId) }
+                }
             },
             importAdapter = { type, targetRootIds, allowedRootIds ->
                 ScanSessionRunner(
@@ -135,161 +220,45 @@ class ScanSchedulerImpl(
             }
         )
 
-    /**
-     * Adds one command to the internal scan lane.
-     *
-     * User commands enter a priority lane and request preemption of the currently running older
-     * command, while cold-start commands remain low-priority and keep their WorkManager delay policy.
-     */
-    private suspend fun enqueueScan(command: ScanCommand): QueuedScan =
-        queueMutex.withLock {
-            val task = QueuedScan(
-                command = command,
-                sequence = nextSequence++
-            )
-            pendingScans += task
-            if (task.isUserPriority) {
-                preemptActiveScanLocked(incomingTask = task)
-            }
-            launchNextScanLocked()
-            task
-        }
+    private suspend fun coldStartRootIds(): List<String> =
+        coldStartRootIdsProvider?.invoke() ?: defaultColdStartRootIds()
 
     /**
-     * Waits for a queued command result on behalf of the public sync caller.
+     * Resolves all ACTIVE directory roots for a cold-start fan-out without triggering a full permission refresh.
      *
-     * If the caller's coroutine is cancelled while waiting, the matching queued or running scan is
-     * cancelled rather than being left as detached background work.
+     * Availability is intentionally not pre-filtered here: per-root ScanSession decides reachability, and keeping
+     * unreachable roots in the set still lets each root enter its recovery path.
      */
-    private suspend fun awaitScanTask(task: QueuedScan): ScanOutcome =
-        try {
-            task.result.await()
-        } catch (error: CancellationException) {
-            cancelQueuedScan(task, error)
-            throw error
-        }
+    private suspend fun defaultColdStartRootIds(): List<String> =
+        AppDatabase.getInstance(appContext).libraryRootDao().getActiveRootsOnce()
+            .filter { root -> root.isDirectorySyncRoot() }
+            .map { root -> root.id }
 
     /**
-     * Cancels a caller-owned queued command.
-     *
-     * Pending commands are removed without starting; the active command is interrupted only when the
-     * same caller-owned task is currently running, which keeps newer user preemption separate from
-     * external coroutine cancellation.
+     * Folds per-root outcomes into one, keeping the most severe kind so a WorkManager-backed cold-start surfaces a
+     * single representative result. Rank: FAILED > RETRY > PARTIAL > SUCCESS > BLOCKED.
      */
-    private suspend fun cancelQueuedScan(task: QueuedScan, cause: CancellationException) {
-        queueMutex.withLock {
-            task.cancelRequested = true
-            if (pendingScans.remove(task)) {
-                task.result.cancel(cause)
-                return
-            }
-            if (activeScan === task) {
-                activeScanJob?.cancel(cause)
-            }
-        }
+    private fun aggregate(outcomes: List<ScanOutcome>): ScanOutcome =
+        outcomes.maxByOrNull { outcome -> rank(outcome.kind) }
+            ?: ScanOutcomePolicy.noScanWorkRequired()
+
+    private fun rank(kind: ScanOutcomeKind): Int = when (kind) {
+        ScanOutcomeKind.FAILED -> 4
+        ScanOutcomeKind.RETRY -> 3
+        ScanOutcomeKind.PARTIAL -> 2
+        ScanOutcomeKind.SUCCESS -> 1
+        ScanOutcomeKind.BLOCKED -> 0
     }
 
-    /**
-     * Requests interruption of an older active command when a newer user command arrives.
-     *
-     * The interrupted command is not completed or dropped; runQueuedScan observes the preemption
-     * flag and places it back into the priority queue behind the newer user work.
-     */
-    private fun preemptActiveScanLocked(incomingTask: QueuedScan) {
-        val runningTask = activeScan ?: return
-        if (runningTask.isUserPriority && runningTask.sequence >= incomingTask.sequence) return
-        runningTask.preemptRequested = true
-        activeScanJob?.cancel(CancellationException("Scan preempted by newer user command"))
-    }
-
-    /**
-     * Starts the next queued command if the lane is idle.
-     *
-     * Selection is LIFO within the user-priority lane and lower priority for cold-start work, giving
-     * repeated user actions the newest-first behavior requested without changing cold-start delays.
-     */
-    private fun launchNextScanLocked() {
-        if (activeScanJob != null || !scope.isActive) return
-        val nextTask = selectNextScanLocked() ?: return
-        pendingScans.remove(nextTask)
-        activeScan = nextTask
-        activeScanJob = scope.launch {
-            runQueuedScan(nextTask)
+    private fun hasCatalogChange(outcomes: List<ScanOutcome>): Boolean =
+        outcomes.any { outcome ->
+            val session = outcome.session ?: return@any false
+            (session.discoveredBookCount + session.updatedBookCount + session.partialBookCount) > 0
         }
-    }
 
-    /**
-     * Selects the next command by priority and sequence.
-     *
-     * Higher priority ranks win first; within the same rank the newest sequence wins so repeated
-     * user-triggered rescans keep inserting ahead of older waiting work.
-     */
-    private fun selectNextScanLocked(): QueuedScan? =
-        pendingScans.maxWithOrNull(
-            compareBy<QueuedScan> { task -> task.priorityRank }
-                .thenBy { task -> task.sequence }
-        )
-
-    /**
-     * Runs one selected command and resolves or requeues its deferred result.
-     *
-     * Preempted scans are returned to the queue without notifying their original caller, while real
-     * cancellation and failures still complete the caller-facing deferred in the expected direction.
-     */
-    private suspend fun runQueuedScan(task: QueuedScan) {
-        var shouldRequeue = false
-        try {
-            val outcome = runSyncLibrary(task.command)
-            logScanOutcome(task.command.trigger.name, outcome)
-            emitScanOutcomeFeedback(outcome)
-            if (!task.result.isCompleted) {
-                task.result.complete(outcome)
-            }
-        } catch (error: CancellationException) {
-            shouldRequeue = task.preemptRequested &&
-                !task.cancelRequested &&
-                !task.result.isCancelled &&
-                scope.isActive
-            if (!shouldRequeue && !task.result.isCompleted) {
-                task.result.cancel(error)
-            }
-        } catch (error: Throwable) {
-            val outcome = ScanOutcomePolicy.fromFailure(error)
-            logScanOutcome(task.command.trigger.name, outcome)
-            emitScanOutcomeFeedback(outcome)
-            if (!task.result.isCompleted) {
-                task.result.complete(outcome)
-            }
-        } finally {
-            queueMutex.withLock {
-                if (activeScan === task) {
-                    activeScan = null
-                }
-                activeScanJob = null
-                if (shouldRequeue) {
-                    task.preemptRequested = false
-                    pendingScans += task
-                }
-                launchNextScanLocked()
-            }
-        }
-    }
-
-    /**
-     * Builds the scan command from boundary strings.
-     *
-     * The scheduler accepts legacy trigger strings at its public boundary, but normalizes root ids
-     * before the command reaches ScanSession so blank ids cannot accidentally widen the scan scope.
-     */
-    private fun buildScanCommand(trigger: String, rootIds: Set<String>): ScanCommand =
-        ScanCommand(
-            trigger = runCatching { AudiobookSchema.ScanTrigger.valueOf(trigger) }
-                .getOrDefault(AudiobookSchema.ScanTrigger.USER),
-            targetRootIds = rootIds
-                .map { rootId -> rootId.trim() }
-                .filter { rootId -> rootId.isNotEmpty() }
-                .toSet()
-        )
+    private fun parseTrigger(trigger: String): AudiobookSchema.ScanTrigger =
+        runCatching { AudiobookSchema.ScanTrigger.valueOf(trigger) }
+            .getOrDefault(AudiobookSchema.ScanTrigger.USER)
 
     private fun logScanOutcome(trigger: String, outcome: ScanOutcome) {
         when (outcome.kind) {
@@ -317,25 +286,28 @@ class ScanSchedulerImpl(
     override fun close() {
         scope.cancel()
     }
+
+    private companion object {
+        private const val SCAN_CONCURRENCY = 4
+    }
 }
 
 /**
- * Private scheduler queue item.
+ * Injectable per-root command executor seam.
  *
- * Carries both the scan command and the mutable preemption flags needed to requeue an interrupted
- * older command without completing the caller's deferred result prematurely.
+ * Defaults to running a fresh ScanSession; tests substitute a controllable executor to verify fan-out, precedence,
+ * concurrency limiting, and aggregation without constructing Android scan infrastructure.
  */
-private class QueuedScan(
-    val command: ScanCommand,
-    val sequence: Long,
-    val result: CompletableDeferred<ScanOutcome> = CompletableDeferred()
-) {
-    val priorityRank: Int
-        get() = if (isUserPriority) 1 else 0
-
-    val isUserPriority: Boolean
-        get() = command.trigger != AudiobookSchema.ScanTrigger.COLD_START
-
-    var preemptRequested: Boolean = false
-    var cancelRequested: Boolean = false
+fun interface RootScanExecutor {
+    suspend fun run(command: ScanCommand): ScanOutcome
 }
+
+/**
+ * Private scheduler bookkeeping for the job bound to one root.
+ *
+ * [isUserPriority] lets a cold-start fan-out yield to (rather than cancel) a user-initiated scan on the same root.
+ */
+private class ActiveRootScan(
+    val job: Deferred<ScanOutcome>,
+    val isUserPriority: Boolean
+)

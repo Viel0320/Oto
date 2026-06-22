@@ -15,6 +15,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
@@ -63,6 +65,7 @@ internal class DirectoryAudioImporter(
             val metadataJobs = candidateAudios.map { audio ->
                 async {
                     metadataSemaphore.withPermit {
+                        ensureActive()
                         val extracted = metadataResolver.extractWithEmbeddedCover(audio)
                         AudioMetadataRef(audio, extracted.metadata, extracted.embeddedCover)
                     }
@@ -81,6 +84,7 @@ internal class DirectoryAudioImporter(
 
             val metadataBatches = metadataJobs.chunked(directoryAudioMetadataBatchSize)
             metadataBatches.forEachIndexed { index, batchJobs ->
+                ensureActive()
                 val batchMetadataStartedAt = ImportTimingLogger.mark()
                 val batchRefs = batchJobs.awaitAll()
                 val chapteredRefs = mutableListOf<AudioMetadataRef>()
@@ -115,6 +119,7 @@ internal class DirectoryAudioImporter(
             metadataSummaryJob.await()
         }
 
+        currentCoroutineContext().ensureActive()
         val heuristicResult = importSubBatch(
             scope = scope,
             refs = heuristicRefs,
