@@ -550,7 +550,8 @@ internal class DefaultAppContainer(private val context: Context) : ProcessContai
     override val testWebDavConnectionUseCase: TestWebDavConnectionUseCase by lazy {
         TestWebDavConnectionUseCase(
             webDavConnectionTester = webDavConnectionTester,
-            settingsQueryUseCase = settingsQueryUseCase
+            settingsQueryUseCase = settingsQueryUseCase,
+            libraryRootGateway = library.libraryRootGateway
         )
     }
 

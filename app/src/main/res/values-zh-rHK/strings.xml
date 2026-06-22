@@ -85,6 +85,7 @@
     <string name="feedback_settings_webdav_update_failed">修改 WebDAV 失敗：%1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">WebDAV 測試連線成功</string>
     <string name="feedback_settings_webdav_connection_failed">WebDAV 測試連線失敗：%1$s</string>
+    <string name="feedback_settings_webdav_root_already_exists">呢個 WebDAV 目錄已存在於媒體庫中。</string>
     <string name="feedback_settings_cleartext_http_blocked">明文 HTTP 已被全域設定封鎖。請先在設定中允許明文 HTTP 後再使用此端點。</string>
     <string name="feedback_settings_webdav_url_missing_scheme">WebDAV URL 缺少通訊協定。</string>
     <string name="feedback_settings_webdav_url_missing_host">WebDAV URL 缺少主機名稱。</string>
@@ -102,6 +103,7 @@
         <item quantity="other">連線成功，找到 %1$d 個可用書庫</item>
     </plurals>
     <string name="feedback_settings_abs_connection_failed">連線失敗：%1$s</string>
+    <string name="feedback_settings_abs_root_already_exists">呢個 ABS 書庫已存在於媒體庫中。</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
     <string name="feedback_message_separator">\uFF1B</string>
     <string name="feedback_sync_roots_unavailable_none">沒有可同步的媒體庫根目錄</string>

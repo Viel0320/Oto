@@ -85,6 +85,7 @@
     <string name="feedback_settings_webdav_update_failed">WebDAV konnte nicht aktualisiert werden: %1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">WebDAV-Testverbindung erfolgreich</string>
     <string name="feedback_settings_webdav_connection_failed">WebDAV-Testverbindung fehlgeschlagen: %1$s</string>
+    <string name="feedback_settings_webdav_root_already_exists">Dieser WebDAV-Speicherort ist bereits in deinen Medienbibliotheken vorhanden.</string>
     <string name="feedback_settings_cleartext_http_blocked">Unverschlüsseltes HTTP ist durch die globalen Einstellungen blockiert. Aktivieren Sie es manuell in den Einstellungen, um diesen Endpunkt zu verwenden.</string>
     <string name="feedback_settings_webdav_url_missing_scheme">Der WebDAV-URL fehlt ein Schema.</string>
     <string name="feedback_settings_webdav_url_missing_host">Der WebDAV-URL fehlt ein Host.</string>
@@ -102,6 +103,7 @@
         <item quantity="other">Verbindung erfolgreich. %1$d verfügbare Bibliotheken gefunden.</item>
     </plurals>
     <string name="feedback_settings_abs_connection_failed">Verbindung fehlgeschlagen: %1$s</string>
+    <string name="feedback_settings_abs_root_already_exists">Diese ABS-Bibliothek ist bereits in deinen Medienbibliotheken vorhanden.</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
     <string name="feedback_message_separator">\u003B\u0020</string>
     <string name="feedback_sync_roots_unavailable_none">Keine synchronisierbaren Bibliotheksstämme</string>

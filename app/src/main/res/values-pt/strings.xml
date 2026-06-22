@@ -98,6 +98,7 @@
     <string name="feedback_settings_webdav_connection_succeeded">Ligação de teste WebDAV
     bem-sucedida</string>
     <string name="feedback_settings_webdav_connection_failed">Ligação de teste WebDAV falhou: %1$s</string>
+    <string name="feedback_settings_webdav_root_already_exists">Esta localização WebDAV já existe nas suas bibliotecas multimédia.</string>
     <string name="feedback_settings_cleartext_http_blocked">HTTP sem criptografia está bloqueado
     pelas configurações globais. Ative-o manualmente nas Configurações para usar este endpoint.</string>
     <string name="feedback_settings_webdav_url_missing_scheme">A URL WebDAV não tem esquema.</string>
@@ -122,6 +123,7 @@
         <item quantity="other">Ligação bem-sucedida. Encontradas %1$d bibliotecas disponíveis.</item>
     </plurals>
     <string name="feedback_settings_abs_connection_failed">Ligação falhou: %1$s</string>
+    <string name="feedback_settings_abs_root_already_exists">Esta biblioteca ABS já existe nas suas bibliotecas multimédia.</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
     <string name="feedback_message_separator">\u003B\u0020</string>
     <string name="feedback_sync_roots_unavailable_none">Não há raízes de biblioteca sincronizáveis</string>

@@ -74,8 +74,16 @@ class FormatSettingsRootUseCase(private val context: Context) {
     fun formatLibraryRootSyncTime(timestampMs: Long?, notSyncedText: String): String =
         timestampMs?.takeIf { it > 0L }?.let(::formatDate) ?: notSyncedText
 
+    /**
+     * Maps connection-test failures to user-visible settings copy.
+     *
+     * Duplicate root guards are treated as local validation failures here so the form error and
+     * toast use the same resource-backed message without pretending a network request failed.
+     */
     fun resolveConnectionFailureMessage(error: Throwable): String {
         return when (error) {
+            is DuplicateLibraryRootException ->
+                context.getString(error.sourceType.duplicateRootMessageRes())
             is UnsafeNetworkPolicyViolation ->
                 context.getString(R.string.feedback_settings_cleartext_http_blocked)
             is WebDavEndpointValidationException ->
@@ -135,6 +143,13 @@ class FormatSettingsRootUseCase(private val context: Context) {
             WebDavConnectionTestFailureReason.Forbidden -> R.string.feedback_settings_webdav_forbidden
             WebDavConnectionTestFailureReason.NotFound -> R.string.feedback_settings_webdav_not_found
             WebDavConnectionTestFailureReason.HttpStatus -> R.string.feedback_settings_webdav_http_status
+        }
+
+    private fun AudiobookSchema.LibrarySourceType.duplicateRootMessageRes(): Int =
+        when (this) {
+            AudiobookSchema.LibrarySourceType.WEBDAV -> R.string.feedback_settings_webdav_root_already_exists
+            AudiobookSchema.LibrarySourceType.ABS -> R.string.feedback_settings_abs_root_already_exists
+            AudiobookSchema.LibrarySourceType.SAF -> R.string.feedback_settings_connection_failed_fallback
         }
 
     private fun AudiobookSchema.LibraryRootStatus.libraryRootStatusMessageRes(): Int =

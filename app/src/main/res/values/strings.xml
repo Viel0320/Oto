@@ -91,6 +91,7 @@
     <string name="feedback_settings_webdav_update_failed">Failed to update WebDAV: %1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">WebDAV test connection succeeded</string>
     <string name="feedback_settings_webdav_connection_failed">WebDAV test connection failed: %1$s</string>
+    <string name="feedback_settings_webdav_root_already_exists">This WebDAV location is already in your media libraries.</string>
     <string name="feedback_settings_cleartext_http_blocked">Cleartext HTTP is blocked by global settings. Enable cleartext HTTP manually in Settings to use this endpoint.</string>
     <string name="feedback_settings_webdav_url_missing_scheme">WebDAV URL is missing a scheme.</string>
     <string name="feedback_settings_webdav_url_missing_host">WebDAV URL is missing a host.</string>
@@ -108,6 +109,7 @@
         <item quantity="other">Connection succeeded. Found %1$d available libraries.</item>
     </plurals>
     <string name="feedback_settings_abs_connection_failed">Connection failed: %1$s</string>
+    <string name="feedback_settings_abs_root_already_exists">This ABS library is already in your media libraries.</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
     <string name="feedback_message_separator">\u003B\u0020</string>
     <string name="feedback_sync_roots_unavailable_none">No syncable library roots</string>

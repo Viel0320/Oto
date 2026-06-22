@@ -45,6 +45,13 @@ class AbsSettingsConnectionUseCase(
     private val libraryRootManagementUseCase: LibraryRootManagementUseCase,
     private val maintenanceUseCase: SettingsLibraryMaintenanceUseCase
 ) {
+    /**
+     * Tests an Audiobookshelf draft and returns the server's selectable libraries.
+     *
+     * Duplicate root detection is intentionally deferred to [saveServer], because a single
+     * Audiobookshelf server can expose several libraries and the selected library id is not known until
+     * after this connection test succeeds.
+     */
     suspend fun testConnection(
         baseUrl: String,
         username: String,
@@ -64,6 +71,12 @@ class AbsSettingsConnectionUseCase(
         )
     }
 
+    /**
+     * Persists a selected Audiobookshelf library after blocking exact duplicate roots.
+     *
+     * New additions compare normalized server URL plus selected library id, allowing the same server to
+     * host multiple roots while preventing the same library from being added twice.
+     */
     suspend fun saveServer(
         baseUrl: String,
         username: String,
@@ -73,6 +86,14 @@ class AbsSettingsConnectionUseCase(
         editingRootId: String?,
         reuseSnapshot: AbsConnectionReuseSnapshot?
     ): AbsServerSaveOutcome = withContext(Dispatchers.IO) {
+        if (editingRootId.isNullOrBlank()) {
+            requireUniqueAbsRootForNewConnection(
+                roots = libraryRootGateway.getAllRootsOnce(),
+                baseUrl = baseUrl,
+                libraryId = libraryId,
+                editingRootId = editingRootId
+            )
+        }
         val reusable = reuseSnapshot?.takeIf { snapshot ->
             shouldReuseAbsConnectionSnapshot(
                 snapshot = snapshot,

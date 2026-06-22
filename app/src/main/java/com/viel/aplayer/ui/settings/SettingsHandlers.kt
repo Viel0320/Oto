@@ -8,8 +8,10 @@ import com.viel.aplayer.application.library.settings.SettingsCredential
 import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.usecase.AbsConnectionReuseSnapshot
 import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
+import com.viel.aplayer.application.usecase.DuplicateLibraryRootException
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
 import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
+import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.i18n.AppLocaleController
@@ -193,12 +195,15 @@ class SettingsConnectionHandler(
             }.onFailure { error ->
                 val friendlyMessage = formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
                 _webDavConnectionState.value = WebDavConnectionUiState(isTesting = false, testSucceeded = false, lastError = friendlyMessage)
-                appEventSink.emitFeedback(
+                val fact = if (error.isDuplicateRootFor(AudiobookSchema.LibrarySourceType.WEBDAV)) {
+                    LibraryAccessFeedbackFacts.webDavRootAlreadyExists(draftId = editingRootId ?: NEW_DRAFT_ID)
+                } else {
                     LibraryAccessFeedbackFacts.webDavConnectionFailed(
                         draftId = editingRootId ?: NEW_DRAFT_ID,
                         friendlyMessage = friendlyMessage
                     )
-                )
+                }
+                appEventSink.emitFeedback(fact)
             }
         }
     }
@@ -265,9 +270,13 @@ class SettingsConnectionHandler(
                 _absConnectionState.value = AbsConnectionUiState()
                 launchAutoAbsSync(outcome.rootId)
             }.onFailure { error ->
-                val redactedMessage = formatSettingsRootUseCase.redactAbsError(
-                    error.message ?: app.getString(R.string.feedback_settings_abs_server_save_failed_fallback)
-                )
+                val redactedMessage = if (error.isDuplicateRootFor(AudiobookSchema.LibrarySourceType.ABS)) {
+                    formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
+                } else {
+                    formatSettingsRootUseCase.redactAbsError(
+                        error.message ?: app.getString(R.string.feedback_settings_abs_server_save_failed_fallback)
+                    )
+                }
                 AbsSettingsLogger.logAddServerFailure(
                     baseUrl = baseUrl,
                     username = username,
@@ -275,7 +284,12 @@ class SettingsConnectionHandler(
                     errorClass = error::class.java.simpleName,
                     message = redactedMessage
                 )
-                appEventSink.emitFeedback(LibraryAccessFeedbackFacts.absServerSaveFailed(redactedMessage))
+                val fact = if (error.isDuplicateRootFor(AudiobookSchema.LibrarySourceType.ABS)) {
+                    LibraryAccessFeedbackFacts.absRootAlreadyExists(draftId = editingRootId ?: NEW_DRAFT_ID)
+                } else {
+                    LibraryAccessFeedbackFacts.absServerSaveFailed(redactedMessage)
+                }
+                appEventSink.emitFeedback(fact)
             }
         }
     }
@@ -343,12 +357,15 @@ class SettingsConnectionHandler(
                     errorClass = error::class.java.simpleName,
                     message = friendlyMessage
                 )
-                appEventSink.emitFeedback(
+                val fact = if (error.isDuplicateRootFor(AudiobookSchema.LibrarySourceType.ABS)) {
+                    LibraryAccessFeedbackFacts.absRootAlreadyExists(draftId = editingRootId ?: NEW_DRAFT_ID)
+                } else {
                     LibraryAccessFeedbackFacts.absConnectionFailed(
                         draftId = editingRootId ?: NEW_DRAFT_ID,
                         friendlyMessage = friendlyMessage
                     )
-                )
+                }
+                appEventSink.emitFeedback(fact)
             }
         }
     }
@@ -402,6 +419,13 @@ class SettingsConnectionHandler(
             appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncAlreadyRunning(rootId))
         }
     }
+
+    /**
+     * Identifies duplicate-root validation failures without coupling unrelated connection errors to
+     * source-specific toast facts.
+     */
+    private fun Throwable.isDuplicateRootFor(sourceType: AudiobookSchema.LibrarySourceType): Boolean =
+        this is DuplicateLibraryRootException && this.sourceType == sourceType
 
     private companion object {
         private const val NEW_DRAFT_ID = "new"

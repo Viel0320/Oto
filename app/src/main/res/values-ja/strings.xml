@@ -85,6 +85,7 @@
     <string name="feedback_settings_webdav_update_failed">WebDAV の更新に失敗しました：%1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">WebDAV テスト接続に成功しました</string>
     <string name="feedback_settings_webdav_connection_failed">WebDAV テスト接続に失敗しました：%1$s</string>
+    <string name="feedback_settings_webdav_root_already_exists">この WebDAV の場所はすでにメディアライブラリにあります。</string>
     <string name="feedback_settings_cleartext_http_blocked">平文 HTTP は全体設定でブロックされています。このエンドポイントを使うには、設定で平文 HTTP を許可してください。</string>
     <string name="feedback_settings_webdav_url_missing_scheme">WebDAV URL にスキームがありません。</string>
     <string name="feedback_settings_webdav_url_missing_host">WebDAV URL にホストがありません。</string>
@@ -102,6 +103,7 @@
         <item quantity="other">接続に成功しました。%1$d 個の利用可能なライブラリが見つかりました。</item>
     </plurals>
     <string name="feedback_settings_abs_connection_failed">接続に失敗しました：%1$s</string>
+    <string name="feedback_settings_abs_root_already_exists">この ABS ライブラリはすでにメディアライブラリにあります。</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
     <string name="feedback_message_separator">\uFF1B</string>
     <string name="feedback_sync_roots_unavailable_none">同期できるライブラリルートがありません</string>

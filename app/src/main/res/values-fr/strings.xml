@@ -85,6 +85,7 @@
     <string name="feedback_settings_webdav_update_failed">Échec de la mise à jour WebDAV : %1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">Connexion de test WebDAV réussie</string>
     <string name="feedback_settings_webdav_connection_failed">Connexion de test WebDAV échouée : %1$s</string>
+    <string name="feedback_settings_webdav_root_already_exists">Cet emplacement WebDAV existe déjà dans vos médiathèques.</string>
     <string name="feedback_settings_cleartext_http_blocked">Le HTTP non chiffré est bloqué par les paramètres globaux. Activez-le manuellement dans les paramètres pour utiliser ce point d’accès.</string>
     <string name="feedback_settings_webdav_url_missing_scheme">L’URL WebDAV n’a pas de schéma.</string>
     <string name="feedback_settings_webdav_url_missing_host">L’URL WebDAV n’a pas d’hôte.</string>
@@ -102,6 +103,7 @@
         <item quantity="other">Connexion réussie. %1$d bibliothèques disponibles trouvées.</item>
     </plurals>
     <string name="feedback_settings_abs_connection_failed">Connexion échouée : %1$s</string>
+    <string name="feedback_settings_abs_root_already_exists">Cette bibliothèque ABS existe déjà dans vos médiathèques.</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
     <string name="feedback_message_separator">\u003B\u0020</string>
     <string name="feedback_sync_roots_unavailable_none">Aucune racine de bibliothèque synchronisable</string>

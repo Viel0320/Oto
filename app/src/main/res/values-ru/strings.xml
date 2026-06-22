@@ -87,6 +87,7 @@
     <string name="feedback_settings_webdav_update_failed">Не удалось обновить WebDAV: %1$s</string>
     <string name="feedback_settings_webdav_connection_succeeded">Тестовое подключение WebDAV успешно</string>
     <string name="feedback_settings_webdav_connection_failed">Тестовое подключение WebDAV не удалось: %1$s</string>
+    <string name="feedback_settings_webdav_root_already_exists">Это расположение WebDAV уже есть в ваших медиатеках.</string>
     <string name="feedback_settings_cleartext_http_blocked">Незашифрованный HTTP заблокирован глобальными настройками. Включите его вручную в настройках, чтобы использовать этот адрес.</string>
     <string name="feedback_settings_webdav_url_missing_scheme">В URL WebDAV отсутствует схема.</string>
     <string name="feedback_settings_webdav_url_missing_host">В URL WebDAV отсутствует хост.</string>
@@ -106,6 +107,7 @@
         <item quantity="other">Подключение успешно. Найдено доступных библиотек: %1$d.</item>
     </plurals>
     <string name="feedback_settings_abs_connection_failed">Подключение не удалось: %1$s</string>
+    <string name="feedback_settings_abs_root_already_exists">Эта библиотека ABS уже есть в ваших медиатеках.</string>
     <string name="feedback_settings_root_unavailable_sync_blocked">%1$s</string>
     <string name="feedback_message_separator">\u003B\u0020</string>
     <string name="feedback_sync_roots_unavailable_none">Нет корней библиотеки для синхронизации</string>

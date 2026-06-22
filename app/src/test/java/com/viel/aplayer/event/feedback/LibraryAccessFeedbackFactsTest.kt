@@ -1,5 +1,6 @@
 package com.viel.aplayer.event.feedback
 
+import com.viel.aplayer.R
 import com.viel.aplayer.data.db.AudiobookSchema
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -37,6 +38,31 @@ class LibraryAccessFeedbackFactsTest {
         assertEquals(success.identity, failure.identity)
         assertEquals(FeedbackSeverity.COMPLETED, success.severity)
         assertEquals(FeedbackSeverity.FAILED, failure.severity)
+    }
+
+    @Test
+    fun `duplicate root feedback stays in connection testing with blocked severity`() {
+        val webDav = LibraryAccessFeedbackFacts.webDavRootAlreadyExists("draft-1")
+        val abs = LibraryAccessFeedbackFacts.absRootAlreadyExists("draft-1")
+
+        assertEquals(FeedbackSeverity.BLOCKED, webDav.outcome.severity)
+        assertEquals(
+            FeedbackContext.DraftLibraryAccess("draft-1", LibraryAccessForm.WEBDAV),
+            webDav.outcome.identity.context
+        )
+        assertEquals(
+            R.string.feedback_settings_webdav_root_already_exists,
+            (webDav.message as FeedbackMessage.Resource).resId
+        )
+        assertEquals(FeedbackSeverity.BLOCKED, abs.outcome.severity)
+        assertEquals(
+            FeedbackContext.DraftLibraryAccess("draft-1", LibraryAccessForm.AUDIOBOOKSHELF),
+            abs.outcome.identity.context
+        )
+        assertEquals(
+            R.string.feedback_settings_abs_root_already_exists,
+            (abs.message as FeedbackMessage.Resource).resId
+        )
     }
 
     @Test

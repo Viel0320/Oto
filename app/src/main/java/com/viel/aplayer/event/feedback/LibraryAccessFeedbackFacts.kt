@@ -33,6 +33,15 @@ object LibraryAccessFeedbackFacts {
             severity = FeedbackSeverity.FAILED
         )
 
+    /** A new WebDAV draft was blocked before testing because the same endpoint and path already exist. */
+    fun webDavRootAlreadyExists(draftId: String): FeedbackFact =
+        connectionTestFact(
+            message = FeedbackMessages.settingsWebDavRootAlreadyExists(),
+            draftId = draftId,
+            accessForm = LibraryAccessForm.WEBDAV,
+            severity = FeedbackSeverity.BLOCKED
+        )
+
     /** A draft Audiobookshelf configuration reached the server. */
     fun absConnectionSucceeded(draftId: String, libraryCount: Int): FeedbackFact =
         connectionTestFact(
@@ -49,6 +58,15 @@ object LibraryAccessFeedbackFacts {
             draftId = draftId,
             accessForm = LibraryAccessForm.AUDIOBOOKSHELF,
             severity = FeedbackSeverity.FAILED
+        )
+
+    /** A new Audiobookshelf draft was blocked because the selected server library already exists. */
+    fun absRootAlreadyExists(draftId: String): FeedbackFact =
+        connectionTestFact(
+            message = FeedbackMessages.settingsAbsRootAlreadyExists(),
+            draftId = draftId,
+            accessForm = LibraryAccessForm.AUDIOBOOKSHELF,
+            severity = FeedbackSeverity.BLOCKED
         )
 
 

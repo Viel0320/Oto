@@ -197,6 +197,9 @@ object FeedbackMessages {
     fun settingsWebDavConnectionFailed(friendlyMessage: String): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_settings_webdav_connection_failed, listOf(friendlyMessage))
 
+    fun settingsWebDavRootAlreadyExists(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_settings_webdav_root_already_exists)
+
     fun settingsAbsServerSaved(editing: Boolean): FeedbackMessage =
         FeedbackMessage.Resource(
             if (editing) {
@@ -214,6 +217,9 @@ object FeedbackMessages {
 
     fun settingsAbsConnectionFailed(friendlyMessage: String): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_settings_abs_connection_failed, listOf(friendlyMessage))
+
+    fun settingsAbsRootAlreadyExists(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_settings_abs_root_already_exists)
 
     fun settingsRootUnavailableSyncBlocked(detailMessage: FeedbackMessage): FeedbackMessage =
         detailMessage
