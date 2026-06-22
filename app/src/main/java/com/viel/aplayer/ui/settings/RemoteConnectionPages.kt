@@ -31,11 +31,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -63,7 +59,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.settings.GlassEffectMode
+import com.viel.aplayer.ui.common.APlayerDropdown
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
+import com.viel.aplayer.ui.common.aPlayerTextDropdownItem
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -225,39 +223,6 @@ fun WebDavConnectionPage(
         serverContent = {
             RemoteSectionTitle(text = stringResource(R.string.settings_server_section))
 
-            ExposedDropdownMenuBox(
-                expanded = protocolExpanded,
-                onExpandedChange = { protocolExpanded = it }
-            ) {
-                OutlinedTextField(
-                    value = protocol.uppercase(),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(stringResource(R.string.settings_protocol_label)) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = protocolExpanded) },
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                )
-                ExposedDropdownMenu(
-                    expanded = protocolExpanded,
-                    onDismissRequest = { protocolExpanded = false }
-                ) {
-                    protocols.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(option.uppercase()) },
-                            onClick = {
-                                protocol = option
-                                protocolExpanded = false
-                                rebuildUrl()
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
             RemoteTextField(
                 value = host,
                 onValueChange = {
@@ -292,15 +257,37 @@ fun WebDavConnectionPage(
             )
 
             Spacer(modifier = Modifier.height(10.dp))
-            RemoteTextField(
-                value = port,
-                onValueChange = {
-                    port = it.filter { c -> c.isDigit() }
-                    rebuildUrl()
-                },
-                label = stringResource(R.string.settings_port_hint, 443),
-                keyboardType = KeyboardType.Number
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Bottom,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                APlayerDropdown(
+                    items = protocols.map { option ->
+                        aPlayerTextDropdownItem(key = option, label = option.uppercase())
+                    },
+                    expanded = protocolExpanded,
+                    onExpandedChange = { protocolExpanded = it },
+                    selectedIndex = protocols.indexOf(protocol),
+                    onSelect = { index ->
+                        protocol = protocols[index]
+                        protocolExpanded = false
+                        rebuildUrl()
+                    },
+                    modifier = Modifier.width(100.dp),
+                    collapsedHeight = 56.dp
+                )
+                RemoteTextField(
+                    value = port,
+                    onValueChange = {
+                        port = it.filter { c -> c.isDigit() }
+                        rebuildUrl()
+                    },
+                    label = stringResource(R.string.settings_port_hint, 443),
+                    keyboardType = KeyboardType.Number,
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
             Text(
                 text = "${stringResource(R.string.settings_url_preview_label)} $urlPreview",
@@ -375,7 +362,7 @@ fun AbsConnectionPage(
 
     val initial = remember(editingRootId) { parseServerUrl(baseUrl) }
     var protocol by remember(editingRootId) {
-        mutableStateOf(initial.scheme?.takeIf { it in protocols } ?: "http")
+        mutableStateOf(initial.scheme?.takeIf { it in protocols } ?: "https")
     }
     var host by remember(editingRootId) { mutableStateOf(initial.host) }
     var port by remember(editingRootId) { mutableStateOf(initial.port.orEmpty()) }
@@ -431,39 +418,6 @@ fun AbsConnectionPage(
         serverContent = {
             RemoteSectionTitle(text = stringResource(R.string.settings_server_section))
 
-            ExposedDropdownMenuBox(
-                expanded = protocolExpanded,
-                onExpandedChange = { protocolExpanded = it }
-            ) {
-                OutlinedTextField(
-                    value = protocol.uppercase(),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(stringResource(R.string.settings_protocol_label)) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = protocolExpanded) },
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                )
-                ExposedDropdownMenu(
-                    expanded = protocolExpanded,
-                    onDismissRequest = { protocolExpanded = false }
-                ) {
-                    protocols.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(option.uppercase()) },
-                            onClick = {
-                                protocol = option
-                                protocolExpanded = false
-                                rebuildUrl()
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
             RemoteTextField(
                 value = host,
                 onValueChange = {
@@ -479,15 +433,37 @@ fun AbsConnectionPage(
             )
 
             Spacer(modifier = Modifier.height(10.dp))
-            RemoteTextField(
-                value = port,
-                onValueChange = {
-                    port = it.filter { c -> c.isDigit() }
-                    rebuildUrl()
-                },
-                label = stringResource(R.string.settings_port_hint, 443),
-                keyboardType = KeyboardType.Number
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Bottom,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                APlayerDropdown(
+                    items = protocols.map { option ->
+                        aPlayerTextDropdownItem(key = option, label = option.uppercase())
+                    },
+                    expanded = protocolExpanded,
+                    onExpandedChange = { protocolExpanded = it },
+                    selectedIndex = protocols.indexOf(protocol),
+                    onSelect = { index ->
+                        protocol = protocols[index]
+                        protocolExpanded = false
+                        rebuildUrl()
+                    },
+                    modifier = Modifier.width(100.dp),
+                    collapsedHeight = 56.dp
+                )
+                RemoteTextField(
+                    value = port,
+                    onValueChange = {
+                        port = it.filter { c -> c.isDigit() }
+                        rebuildUrl()
+                    },
+                    label = stringResource(R.string.settings_port_hint, 443),
+                    keyboardType = KeyboardType.Number,
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
             Text(
                 text = "${stringResource(R.string.settings_url_preview_label)} $urlPreview",
@@ -650,6 +626,7 @@ private fun RemoteTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
+    modifier: Modifier = Modifier,
     placeholder: String = "",
     keyboardType: KeyboardType = KeyboardType.Text,
     isPassword: Boolean = false,
@@ -667,7 +644,7 @@ private fun RemoteTextField(
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     )
 }
 

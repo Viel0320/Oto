@@ -411,6 +411,7 @@ fun APlayerDropdown(
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     colors: APlayerDropdownColors = APlayerDropdownDefaults.colors(),
     shapes: APlayerDropdownShapes = APlayerDropdownDefaults.shapes(),
+    collapsedHeight: Dp = DropdownUnifiedHeight,
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -425,41 +426,49 @@ fun APlayerDropdown(
     val fractionProvider = morph.provider()
 
     Box(
-        modifier = modifier
-            .graphicsLayer { alpha = 1f - fractionProvider().coerceIn(0f, 1f) }
+        modifier = modifier,
+        propagateMinConstraints = true
     ) {
-        CollapsedAnchor(
-            items = items,
-            selectedIndex = safeSelectedIndex,
-            collapsedContent = collapsedContent,
-            colors = colors,
-            shapes = shapes,
-            expanded = expanded,
-            hazeState = resolvedHazeState,
-            glassEffectMode = glassEffectMode,
-            onClick = { onExpandedChange(!expanded) },
-            onVisualBoundsMeasured = { anchorBounds = it },
-        )
-    }
+        Box(
+            modifier = Modifier
+                .graphicsLayer { alpha = 1f - fractionProvider().coerceIn(0f, 1f) },
+            propagateMinConstraints = true
+        ) {
+            CollapsedAnchor(
+                items = items,
+                selectedIndex = safeSelectedIndex,
+                collapsedContent = collapsedContent,
+                colors = colors,
+                shapes = shapes,
+                expanded = expanded,
+                hazeState = resolvedHazeState,
+                glassEffectMode = glassEffectMode,
+                onClick = { onExpandedChange(!expanded) },
+                onVisualBoundsMeasured = { anchorBounds = it },
+                collapsedHeight = collapsedHeight,
+            )
+        }
 
-    val bounds = anchorBounds
-    if (bounds != null && morph.isVisible) {
-        DropdownPopup(
-            anchor = bounds,
-            items = items,
-            selectedIndex = safeSelectedIndex,
-            morph = morph,
-            colors = colors,
-            shapes = shapes,
-            alignment = alignment,
-            panelWidth = panelWidth,
-            panelMaxHeight = panelMaxHeight,
-            hazeState = resolvedHazeState,
-            glassEffectMode = glassEffectMode,
-            density = density,
-            onSelect = onSelect,
-            onDismiss = { onExpandedChange(false) },
-        )
+        val bounds = anchorBounds
+        if (bounds != null && morph.isVisible) {
+            DropdownPopup(
+                anchor = bounds,
+                items = items,
+                selectedIndex = safeSelectedIndex,
+                morph = morph,
+                colors = colors,
+                shapes = shapes,
+                alignment = alignment,
+                panelWidth = panelWidth,
+                panelMaxHeight = panelMaxHeight,
+                hazeState = resolvedHazeState,
+                glassEffectMode = glassEffectMode,
+                density = density,
+                onSelect = onSelect,
+                onDismiss = { onExpandedChange(false) },
+                collapsedHeight = collapsedHeight,
+            )
+        }
     }
 }
 
@@ -484,6 +493,7 @@ private fun CollapsedAnchor(
     glassEffectMode: GlassEffectMode,
     onClick: () -> Unit,
     onVisualBoundsMeasured: (Rect) -> Unit,
+    collapsedHeight: Dp,
 ) {
     val shape = RoundedCornerShape(shapes.collapsedCorner)
     val expandedStateDescription = if (expanded) "expanded" else "collapsed"
@@ -513,7 +523,7 @@ private fun CollapsedAnchor(
         Row(
             modifier = Modifier
                 .onGloballyPositioned { onVisualBoundsMeasured(it.boundsInWindow()) }
-                .height(DropdownUnifiedHeight)
+                .height(collapsedHeight)
                 .clip(shape)
                 .then(hazeModifier)
                 .background(containerColor, shape)
@@ -590,6 +600,7 @@ private fun DropdownPopup(
     density: Density,
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
+    collapsedHeight: Dp,
 ) {
     Popup(
         popupPositionProvider = TopLeftPositionProvider,
@@ -702,6 +713,7 @@ private fun DropdownPopup(
                 density = density,
                 onSelect = onSelect,
                 onDismiss = onDismiss,
+                collapsedHeight = collapsedHeight,
             )
         }
     }
@@ -787,6 +799,7 @@ private fun DropdownMorphSurface(
     density: Density,
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
+    collapsedHeight: Dp,
 ) {
     val fractionProvider = morph.provider()
     val collapsedCornerPx = with(density) { shapes.collapsedCorner.toPx() }
@@ -865,7 +878,7 @@ private fun DropdownMorphSurface(
                 panelRect = panelRect,
                 fractionProvider = fractionProvider,
                 contentColor = colors.content,
-                collapsedVisualHeightPx = with(density) { DropdownUnifiedHeight.toPx() },
+                collapsedVisualHeightPx = with(density) { collapsedHeight.toPx() },
                 expandedRowHeightPx = rowHeightPx,
                 panelPaddingPx = panelPaddingPx,
             )

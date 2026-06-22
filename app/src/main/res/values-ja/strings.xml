@@ -579,4 +579,14 @@
         AudiobookShelf のネットワークアクセス、ストリーミング、API 呼び出しに利用します。</string>
     <string name="about_library_moshi_description">Moshi は JSON を型付き Kotlin モデルへ変換します。APlayer
         は構造化された AudiobookShelf プロトコル応答の解析に利用します。</string>
+    <string name="settings_server_section">サーバー</string>
+    <string name="settings_protocol_label">プロトコル</string>
+    <string name="settings_server_address_placeholder">https://サーバーのドメインまたはIPアドレス</string>
+    <string name="settings_port_hint">ポート（デフォルト=%1$d）</string>
+    <string name="settings_url_preview_label">URL:</string>
+    <string name="settings_auth_section">認証</string>
+    <string name="settings_auth_anonymous_hint">匿名の場合は空白のまま</string>
+    <string name="settings_required_field">必須</string>
+    <string name="action_test">テスト</string>
+    <string name="action_connect">サービスに接続</string>
 </resources>

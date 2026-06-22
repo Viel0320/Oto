@@ -680,4 +680,14 @@
     <string name="about_library_moshi_description">Moshi convertit le JSON en modèles Kotlin typés.
         APlayer utilise cette bibliothèque pour analyser les réponses structurées du protocole
         AudiobookShelf.</string>
+    <string name="settings_server_section">Serveur</string>
+    <string name="settings_protocol_label">Protocole</string>
+    <string name="settings_server_address_placeholder">https://domaine du serveur ou adresse IP</string>
+    <string name="settings_port_hint">Port (par défaut=%1$d)</string>
+    <string name="settings_url_preview_label">URL :</string>
+    <string name="settings_auth_section">Authentification</string>
+    <string name="settings_auth_anonymous_hint">Laisser vide pour anonyme</string>
+    <string name="settings_required_field">Obligatoire</string>
+    <string name="action_test">Tester</string>
+    <string name="action_connect">Connecter le service</string>
 </resources>
