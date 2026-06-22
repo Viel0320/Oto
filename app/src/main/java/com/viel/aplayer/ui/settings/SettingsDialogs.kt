@@ -33,8 +33,6 @@ import dev.chrisbanes.haze.HazeState
 sealed interface SettingsDialogState {
     data object None : SettingsDialogState
     data object LanguagePicker : SettingsDialogState
-    data object WebDavRoot : SettingsDialogState
-    data object AbsServer : SettingsDialogState
 
     data class ImportConfirm(
         val uri: Uri,

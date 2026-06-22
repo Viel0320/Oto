@@ -102,7 +102,7 @@ class ScanSchedulerImpl(
         val outcomes = deferreds.mapNotNull { deferred ->
             try {
                 deferred.await()
-            } catch (cancellation: CancellationException) {
+            } catch (_: CancellationException) {
                 // Distinguish our own cancellation (propagate) from a root that another user command superseded
                 // (drop it from aggregation instead of misreporting it as a failure).
                 currentCoroutineContext().ensureActive()
