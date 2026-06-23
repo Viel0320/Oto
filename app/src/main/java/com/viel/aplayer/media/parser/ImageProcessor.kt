@@ -250,6 +250,9 @@ object ImageProcessor {
 
     /**
      * Recursively unwraps common Drawable containers before color extraction.
+     *
+     * Only public Android drawable APIs are used here so cover color extraction never probes hidden
+     * framework methods through reflection on real devices.
      */
     private fun unwrapDrawable(drawable: Drawable?): Drawable? {
         if (drawable == null) return null
@@ -271,17 +274,7 @@ object ImageProcessor {
                     current = curr.drawable
                 }
                 else -> {
-                    try {
-                        val getWrappedDrawableMethod = curr.javaClass.getMethod("getWrappedDrawable")
-                        val wrapped = getWrappedDrawableMethod.invoke(curr) as? Drawable
-                        if (wrapped != null) {
-                            current = wrapped
-                        } else {
-                            break
-                        }
-                    } catch (_: Exception) {
-                        break
-                    }
+                    break
                 }
             }
         }
@@ -411,4 +404,3 @@ object ImageProcessor {
         File(context.cacheDir, "covers").also { it.mkdirs() }
 
 }
-
