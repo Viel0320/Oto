@@ -1,14 +1,13 @@
 package com.viel.aplayer.ui.settings
 
-import android.app.Application
 import android.content.Intent
 import android.net.Uri
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.application.download.ManualDownloadTaskItem
 import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.application.usecase.BackupManifest
+import com.viel.aplayer.di.dependencies.SettingsScreenDependencies
 import com.viel.aplayer.event.feedback.DataTransferFeedbackFacts
 import com.viel.aplayer.event.feedback.DownloadCacheFeedbackFacts
 import com.viel.aplayer.event.feedback.FeedbackFact
@@ -26,8 +25,10 @@ import kotlinx.coroutines.launch
  * Handler for configuration persistence interactions.
  * Manages reactive settings flows and dispatches business operations.
  */
-class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-    private val settingsDependencies = APlayerApplication.getSettingsScreenDependencies(application)
+class SettingsViewModel(
+    private val application: android.app.Application,
+    private val settingsDependencies: SettingsScreenDependencies
+) : ViewModel() {
     private val settingsReadModel = settingsDependencies.settingsReadModel
     private val settingsCommands = settingsDependencies.settingsCommands
     private val formatSettingsRootUseCase = settingsDependencies.formatSettingsRootUseCase
@@ -42,7 +43,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val preferencesHandler = SettingsPreferencesHandler(
         settingsCommands = settingsCommands,
         scope = viewModelScope,
-        app = getApplication()
+        app = application
     )
 
     private val _isVisible = MutableStateFlow(false)
@@ -90,7 +91,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun exportUserData(uri: Uri) {
         viewModelScope.launch {
-            val context = getApplication<Application>()
+            val context = application
             val manifest = runCatching {
                 exportUserDataUseCase.buildManifest(libraryRootDisplays.value.map { it.locationText })
             }.getOrElse { error ->
@@ -122,7 +123,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     suspend fun peekImportManifest(uri: Uri): BackupManifest? {
-        val context = getApplication<Application>()
+        val context = application
         return runCatching {
             val inputStream = context.contentResolver.openInputStream(uri) ?: return null
             inputStream.use { importUserDataUseCase.peekManifest(it) }
@@ -131,7 +132,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun importUserData(uri: Uri) {
         viewModelScope.launch {
-            val context = getApplication<Application>()
+            val context = application
             val inputStream = context.contentResolver.openInputStream(uri)
             if (inputStream == null) {
                 appEventSink.emitFeedback(DataTransferFeedbackFacts.importStreamFailed())

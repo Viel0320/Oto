@@ -23,6 +23,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import org.w3c.dom.Element
 import org.w3c.dom.Node
 import org.w3c.dom.NodeList
@@ -74,7 +76,10 @@ private data class ContentRangeWindow(
 /**
  * OkHttp-powered WebDAV source provider for PROPFIND, GET, and byte-range reads.
  */
-class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
+class WebDavSourceProvider(
+    context: Context,
+    appSettingsRepository: AppSettingsRepository? = null
+) : LibrarySourceProvider, KoinComponent {
     override val kind: LibrarySourceKind = LibrarySourceKind.WEBDAV
     override val capabilities: SourceCapabilities = SourceCapabilities(
         supportsDirectoryListing = true,
@@ -83,7 +88,8 @@ class WebDavSourceProvider(context: Context) : LibrarySourceProvider {
         supportsRangeRead = true
     )
 
-    private val appSettingsRepository = AppSettingsRepository.getInstance(context.applicationContext)
+    private val injectedAppSettingsRepository: AppSettingsRepository by inject()
+    private val appSettingsRepository = appSettingsRepository ?: injectedAppSettingsRepository
 
     private val clientFactory = WebDavHttpClientFactory(
         connectTimeoutSeconds = 10,

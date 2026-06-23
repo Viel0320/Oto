@@ -34,7 +34,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 /**
  * Manages persistence of user configuration via Jetpack DataStore.
  */
-class AppSettingsRepository private constructor(private val dataStore: DataStore<Preferences>) :
+class AppSettingsRepository internal constructor(private val dataStore: DataStore<Preferences>) :
     com.viel.aplayer.application.library.settings.AppSettingsReadModel,
     com.viel.aplayer.application.library.settings.AppSettingsCommands {
 
@@ -295,15 +295,6 @@ class AppSettingsRepository private constructor(private val dataStore: DataStore
     }
 
     companion object {
-        @Volatile
-        private var INSTANCE: AppSettingsRepository? = null
-
-        fun getInstance(context: Context): AppSettingsRepository {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: AppSettingsRepository(context.applicationContext.dataStore).also { INSTANCE = it }
-            }
-        }
-
         @androidx.annotation.VisibleForTesting
         fun createForTesting(dataStore: DataStore<Preferences>): AppSettingsRepository =
             AppSettingsRepository(dataStore)

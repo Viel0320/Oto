@@ -3,7 +3,6 @@ package com.viel.aplayer.abs.sync
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.runCatchingCancellable
 import com.viel.aplayer.di.dependencies.AbsSyncWorkerDependencies
@@ -12,16 +11,20 @@ import com.viel.aplayer.library.LibraryRootStore
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
 import com.viel.aplayer.library.availability.isSyncAvailable
 import com.viel.aplayer.logger.AbsSyncLogger
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 class AbsSyncWorker(
     context: Context,
     params: WorkerParameters
-) : CoroutineWorker(context, params) {
+) : CoroutineWorker(context, params), KoinComponent {
+    private val workerDependencies: AbsSyncWorkerDependencies by inject()
+    private val libraryRootStore: LibraryRootStore by inject()
+
     override suspend fun doWork(): Result {
         val rootId = inputData.getString(KEY_ROOT_ID) ?: return Result.failure()
         AbsSyncLogger.logWorkerStart(rootId)
-        val workerDependencies = APlayerApplication.getAbsSyncWorkerDependencies(applicationContext)
-        val preflight = LibraryRootStore(applicationContext).refreshRootStatus(rootId)
+        val preflight = libraryRootStore.refreshRootStatus(rootId)
             ?: return Result.failure()
         if (!preflight.isSyncAvailable) {
             val message = buildRootUnavailableSyncMessage(preflight)

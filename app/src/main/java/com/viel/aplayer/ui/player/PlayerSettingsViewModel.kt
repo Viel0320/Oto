@@ -1,11 +1,10 @@
 package com.viel.aplayer.ui.player
 
-import android.app.Application
 import android.content.Context
 import android.media.AudioManager
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.di.dependencies.PlayerScreenDependencies
 import com.viel.aplayer.event.feedback.PlaybackControlFeedbackFacts
 import com.viel.aplayer.ui.settings.FullPlayerOpenSource
 import com.viel.aplayer.ui.settings.PlayerSettingsManager
@@ -15,13 +14,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class PlayerSettingsViewModel(
-    application: Application,
+    application: android.app.Application,
+    private val playerDependencies: PlayerScreenDependencies,
     rawExternalScope: CoroutineScope? = null
-) : AndroidViewModel(application) {
+) : ViewModel() {
 
     private val externalScope = rawExternalScope ?: viewModelScope
 
-    private val playerDependencies = APlayerApplication.getPlayerScreenDependencies(application)
     private val settingsReadModel = playerDependencies.settingsReadModel
     private val settingsCommands = playerDependencies.settingsCommands
     private val appEventSink = playerDependencies.appEventSink

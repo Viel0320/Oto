@@ -169,6 +169,11 @@ dependencies {
     // Reduces runtime reflection overhead and stabilizes DTO parsing for API client modules.
     ksp(libs.moshi.kotlin.codegen)
 
+    // Koin Dependency Injection (Replace manual DI graphs with Koin modules)
+    // Provides android runtime, Compose integration, and ViewModel DSL for the app shell and scenes.
+    implementation(libs.koin.android)
+    implementation(libs.koin.androidx.compose)
+
     testImplementation(libs.junit)
     // API Testing Support (Utilize MockWebServer for local integration testing)
     // Solidifies API behaviors including HTTP methods, path routing, and authentication headers.
@@ -182,6 +187,9 @@ dependencies {
     // Room Migration Test Support (Validates exported schemas and non-destructive database upgrades)
     // Download metadata migrations must prove existing user data can upgrade without destructive rebuilds.
     testImplementation(libs.androidx.room.testing)
+    // Koin Test Support (Verify module completeness and provide KoinTest helpers for JVM tests)
+    testImplementation(libs.koin.test)
+    testImplementation(libs.koin.test.junit4)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

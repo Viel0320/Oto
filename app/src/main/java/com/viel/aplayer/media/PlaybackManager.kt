@@ -32,7 +32,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @OptIn(UnstableApi::class)
-class PlaybackManager private constructor(context: Context) {
+class PlaybackManager internal constructor(
+    context: Context,
+    playbackDependencies: com.viel.aplayer.di.dependencies.PlaybackRuntimeDependencies,
+    settingsRepository: AppSettingsRepository,
+    autoRewindManager: AutoRewindManager
+) {
 
     private val appContext = context.applicationContext
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
@@ -40,7 +45,6 @@ class PlaybackManager private constructor(context: Context) {
     }
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob() + exceptionHandler)
 
-    private val playbackDependencies = com.viel.aplayer.APlayerApplication.getPlaybackRuntimeDependencies(appContext)
     private val bookCatalogGateway = playbackDependencies.bookCatalogGateway
     private val progressGateway = playbackDependencies.progressGateway
     private val bookAvailabilityGateway = playbackDependencies.bookAvailabilityGateway
@@ -48,8 +52,8 @@ class PlaybackManager private constructor(context: Context) {
     private val playbackSourcePreflight = playbackDependencies.playbackSourcePreflight
     private val playbackEventSink = playbackDependencies.playbackDomainEventSink
 
-    private val settingsRepository = AppSettingsRepository.getInstance(appContext)
-    private val autoRewindManager = AutoRewindManager.getInstance(appContext)
+    private val settingsRepository = settingsRepository
+    private val autoRewindManager = autoRewindManager
 
     private val progressSyncTracker: ProgressSyncTracker
 
@@ -402,9 +406,6 @@ class PlaybackManager private constructor(context: Context) {
             controllerFuture = null
         }
         mediaController = null
-        synchronized(Companion) {
-            INSTANCE = null
-        }
     }
 
     /**
@@ -605,17 +606,6 @@ class PlaybackManager private constructor(context: Context) {
                 positionInFileMs = safePositionInFile,
                 lastPlayedAt = capturedAtMs
             )
-        }
-    }
-
-    companion object {
-        @Volatile
-        private var INSTANCE: PlaybackManager? = null
-
-        fun getInstance(context: Context): PlaybackManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: PlaybackManager(context).also { INSTANCE = it }
-            }
         }
     }
 }

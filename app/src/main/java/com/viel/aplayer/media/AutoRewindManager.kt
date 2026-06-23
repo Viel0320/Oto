@@ -5,6 +5,7 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import com.viel.aplayer.data.AppSettingsRepository
+import com.viel.aplayer.di.dependencies.PlaybackRecoveryDependencies
 import com.viel.aplayer.logger.PlaybackWorkflowLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
@@ -18,11 +19,15 @@ import kotlinx.coroutines.launch
  * secondary playback features from PlaybackManager.
  */
 @OptIn(UnstableApi::class)
-class AutoRewindManager private constructor(context: Context) {
+class AutoRewindManager internal constructor(
+    context: Context,
+    settingsRepository: AppSettingsRepository,
+    private val recoveryDependencies: PlaybackRecoveryDependencies
+) {
 
     private val appContext = context.applicationContext
 
-    private val settingsRepository = AppSettingsRepository.getInstance(appContext)
+    private val settingsRepository = settingsRepository
 
     /**
      * Temporarily suppress next rewind action.
@@ -110,7 +115,6 @@ class AutoRewindManager private constructor(context: Context) {
         try {
             val settings = settingsRepository.settingsFlow.first()
             if (settings.isLastPlaybackInterrupted && settings.autoRewindSeconds > 0) {
-                val recoveryDependencies = com.viel.aplayer.APlayerApplication.getPlaybackRecoveryDependencies(appContext)
                 val bookCatalogGateway = recoveryDependencies.bookCatalogGateway
                 val progressGateway = recoveryDependencies.progressGateway
 
@@ -139,20 +143,6 @@ class AutoRewindManager private constructor(context: Context) {
             }
         } catch (e: Exception) {
             PlaybackWorkflowLogger.error("autoRewind cold start self-heal failed", e)
-        }
-    }
-
-    companion object {
-        @Volatile
-        private var INSTANCE: AutoRewindManager? = null
-
-        /**
-         * Ensure thread-safe double-checked instantiation.
-         */
-        fun getInstance(context: Context): AutoRewindManager {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: AutoRewindManager(context).also { INSTANCE = it }
-            }
         }
     }
 }

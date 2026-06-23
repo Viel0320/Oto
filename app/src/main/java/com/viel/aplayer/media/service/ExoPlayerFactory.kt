@@ -18,10 +18,13 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
 import androidx.media3.extractor.ts.AdtsExtractor
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.data.AppSettingsRepository
+import com.viel.aplayer.di.dependencies.DownloadRuntimeDependencies
+import com.viel.aplayer.di.dependencies.VfsPlaybackDependencies
 import com.viel.aplayer.media.VfsPlaybackDataSource
 import com.viel.aplayer.media.cache.ManualCachePlaybackDataSource
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 
 /**
  * Constructs and configures highly optimized ExoPlayer media engine instances.
@@ -29,7 +32,7 @@ import com.viel.aplayer.media.cache.ManualCachePlaybackDataSource
  * Decouples complex multi-track and custom focus logic from the playback service domain, adhering to Single Responsibility Principle.
  */
 @UnstableApi
-object ExoPlayerFactory {
+object ExoPlayerFactory : KoinComponent {
 
     /**
      * Builds and configures an optimized ExoPlayer instance tailored for audiobook playback.
@@ -47,7 +50,7 @@ object ExoPlayerFactory {
         isAutomaticAudioFocusAllowed: Boolean
     ): ExoPlayer {
 
-        val settings = AppSettingsRepository.getInstance(context.applicationContext).cachedSettings
+        val settings = get<AppSettingsRepository>().cachedSettings
 
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
@@ -91,11 +94,11 @@ object ExoPlayerFactory {
             .setMp3ExtractorFlags(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING or Mp3Extractor.FLAG_DISABLE_ID3_METADATA)
             .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
 
-        val downloadRuntimeDependencies = APlayerApplication.getDownloadRuntimeDependencies(context)
-        val vfsPlaybackDependencies = APlayerApplication.getVfsPlaybackDependencies(context)
+        val downloadRuntimeDependencies = get<DownloadRuntimeDependencies>()
+        val vfsPlaybackDependencies = get<VfsPlaybackDependencies>()
         val manualCacheDataSourceFactory = ManualCachePlaybackDataSource.Factory(
             manualCache = downloadRuntimeDependencies.downloadCacheAccess.manualCache,
-            upstreamDataSourceFactory = VfsPlaybackDataSource.Factory(context),
+            upstreamDataSourceFactory = VfsPlaybackDataSource.Factory(context, vfsPlaybackDependencies),
             playbackFileLookup = vfsPlaybackDependencies.playbackFileLookup,
             playbackRootLookup = vfsPlaybackDependencies.playbackRootLookup
         )

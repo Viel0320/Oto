@@ -6,19 +6,20 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.logger.DownloadSyncLogger
 import kotlinx.coroutines.CancellationException
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 class ManualDownloadOrphanCleanupWorker(
     context: Context,
     params: WorkerParameters
-) : CoroutineWorker(context, params) {
+) : CoroutineWorker(context, params), KoinComponent {
+    private val orphanCleaner: ManualDownloadOrphanCleaner by inject()
+
     override suspend fun doWork(): Result {
         return try {
-            APlayerApplication.getProcessContainer(applicationContext)
-                .manualDownloadOrphanCleaner
-                .cleanOrphans()
+            orphanCleaner.cleanOrphans()
             Result.success()
         } catch (error: CancellationException) {
             throw error

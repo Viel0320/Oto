@@ -22,7 +22,7 @@ private val Context.absCredentialDataStore: DataStore<Preferences> by preference
  * 1. Room DB references and outer UI layers query using `credentialId` and never query tokens directly.
  * 2. Backed by DataStore for now; the implementation can be upgraded to Keystore-encrypted storage seamlessly.
  */
-class AbsCredentialStore private constructor(
+class AbsCredentialStore internal constructor(
     private val dataStore: DataStore<Preferences>,
     private val moshi: Moshi = Moshi.Builder().build()
 ) {
@@ -97,20 +97,7 @@ class AbsCredentialStore private constructor(
         stringPreferencesKey("abs_credential.$credentialId")
 
     companion object {
-        @Volatile
-        private var INSTANCE: AbsCredentialStore? = null
-
         internal fun createForTesting(dataStore: DataStore<Preferences>): AbsCredentialStore =
             AbsCredentialStore(dataStore = dataStore)
-
-        fun getInstance(context: Context): AbsCredentialStore {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: AbsCredentialStore(context.applicationContext.absCredentialDataStore).also { INSTANCE = it }
-            }
-        }
-
-        internal fun resetForTesting() {
-            INSTANCE = null
-        }
     }
 }

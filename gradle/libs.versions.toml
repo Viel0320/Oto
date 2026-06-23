@@ -36,6 +36,9 @@ materialKolor = "4.1.1"
 # AboutLibraries Metadata UI (Match the app's AGP 9, Kotlin 2.4, Compose 1.11, and compileSdk 37 toolchain)
 # The Android plugin generates the license metadata resource consumed by the Compose Material 3 screen.
 aboutLibraries = "15.0.0-rc01"
+# Koin Dependency Injection (Replaces manual DI graphs with Koin modules)
+# Provides android, compose, viewmodel, and test artifacts aligned with Kotlin 2.4 / Compose 1.11.
+koin = "4.2.2"
 
 
 [libraries]
@@ -98,6 +101,14 @@ haze-materials = { group = "dev.chrisbanes.haze", name = "haze-materials", versi
 material-kolor = { group = "com.materialkolor", name = "material-kolor", version.ref = "materialKolor" }
 # AboutLibraries Compose Material 3 UI (Render Gradle-generated dependency license metadata inside Settings)
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutLibraries" }
+# Koin Core Android DI (Provides GlobalContext, androidContext, and module DSL)
+koin-android = { group = "io.insert-koin", name = "koin-android", version.ref = "koin" }
+# Koin Compose Integration (Provides koinInject / koinViewModel for Compose screens)
+koin-androidx-compose = { group = "io.insert-koin", name = "koin-androidx-compose", version.ref = "koin" }
+# Koin Test Support (Provides checkKoinModule and KoinTest helpers for JVM tests)
+koin-test = { group = "io.insert-koin", name = "koin-test", version.ref = "koin" }
+# Koin JUnit4 Test Runner (Provides KoinTestRule and auto-verify extensions)
+koin-test-junit4 = { group = "io.insert-koin", name = "koin-test-junit4", version.ref = "koin" }
 
 
 [plugins]

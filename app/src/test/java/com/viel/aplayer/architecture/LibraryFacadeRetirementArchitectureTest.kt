@@ -37,15 +37,17 @@ class LibraryFacadeRetirementArchitectureTest {
     }
 
     @Test
-    fun appContainerDoesNotExposeLibraryFacadeThroughUiDependencyViews() {
-        val appContainer = resolveSourceRoot().resolve("AppContainer.kt").readText()
+    fun dependencyViewModuleDoesNotExposeLibraryFacadeThroughUiDependencyViews() {
+        val dependencyViewModule = resolveSourceRoot()
+            .resolve("di/koin/DependencyViewModule.kt")
+            .readText()
 
         assertTrue(
-            "AppContainer must not re-export LibraryFacade through the composition root or UI dependency views.",
-            !appContainer.contains("LibraryPresentationDependencies") &&
-                !appContainer.contains("override val libraryFacade") &&
-                !appContainer.contains("val libraryFacade:") &&
-                !appContainer.contains("import com.viel.aplayer.data.LibraryFacade")
+            "DependencyViewModule must not re-export LibraryFacade through UI dependency views.",
+            !dependencyViewModule.contains("LibraryPresentationDependencies") &&
+                !dependencyViewModule.contains("override val libraryFacade") &&
+                !dependencyViewModule.contains("val libraryFacade:") &&
+                !dependencyViewModule.contains("import com.viel.aplayer.data.LibraryFacade")
         )
     }
 

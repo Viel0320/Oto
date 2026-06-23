@@ -1,13 +1,12 @@
 package com.viel.aplayer.ui.search
 
-import android.app.Application
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.application.library.search.SearchHistoryItem
 import com.viel.aplayer.application.library.search.SearchResultSnapshot
+import com.viel.aplayer.di.dependencies.SearchScreenDependencies
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -25,8 +24,9 @@ import kotlin.time.Duration.Companion.milliseconds
 
 internal const val SEARCH_INPUT_DEBOUNCE_MILLIS = 250L
 
-class SearchViewModel(application: Application) : AndroidViewModel(application) {
-    private val searchDependencies = APlayerApplication.getSearchScreenDependencies(application)
+class SearchViewModel(
+    private val searchDependencies: SearchScreenDependencies
+) : ViewModel() {
     private val searchLibraryReadModel = searchDependencies.searchLibraryReadModel
     private val searchLibraryCommands = searchDependencies.searchLibraryCommands
 

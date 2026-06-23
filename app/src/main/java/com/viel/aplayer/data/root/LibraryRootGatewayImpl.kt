@@ -39,20 +39,13 @@ class LibraryRootGatewayImpl(
     private val bookDao: BookDao,
     private val scanScheduler: ScanScheduler,
     private val cacheEvictionCoordinator: CacheEvictionCoordinator,
-    private val rootStoreOverride: LibraryRootStore? = null,
-    private val webDavCredentialStoreOverride: WebDavCredentialStore? = null,
-    private val absCredentialStoreOverride: AbsCredentialStore? = null,
-    private val databaseOverride: AppDatabase? = null
+    private val rootStore: LibraryRootStore,
+    private val webDavCredentialStore: WebDavCredentialStore,
+    private val absCredentialStore: AbsCredentialStore,
+    private val database: AppDatabase
 ) : LibraryRootGateway, java.io.Closeable {
 
     private val appContext = context.applicationContext
-
-    private val rootStore = rootStoreOverride ?: LibraryRootStore(appContext)
-    private val webDavCredentialStore = webDavCredentialStoreOverride ?: WebDavCredentialStore(appContext)
-    private val absCredentialStore = absCredentialStoreOverride ?: AbsCredentialStore.getInstance(appContext)
-    private val database by lazy {
-        databaseOverride ?: AppDatabase.getInstance(appContext)
-    }
 
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         ScanWorkflowLogger.error("libraryRootService coroutine failure", exception)

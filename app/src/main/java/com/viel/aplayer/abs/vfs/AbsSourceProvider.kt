@@ -31,37 +31,36 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import java.io.IOException
 import java.io.InputStream
 import java.util.concurrent.TimeUnit
 
 class AbsSourceProvider(
     context: Context? = null,
-    private val credentialStore: AbsCredentialStore = requireNotNull(context) {
-        "AbsSourceProvider requires context when credentialStore is not injected"
-    }.let { ctx -> AbsCredentialStore.getInstance(ctx.applicationContext) },
-    private val settingsProvider: () -> AppSettings = {
-        context
-            ?.applicationContext
-            ?.let { AppSettingsRepository.getInstance(it).cachedSettings }
-            ?: AppSettings()
-    },
-    private val tokenRefreshClient: AbsTokenRefreshClient = context
+    credentialStore: AbsCredentialStore? = null,
+    settingsProvider: (() -> AppSettings)? = null,
+    tokenRefreshClient: AbsTokenRefreshClient? = null,
+    client: OkHttpClient? = null
+) : LibrarySourceProvider, KoinComponent {
+    private val injectedCredentialStore: AbsCredentialStore by inject()
+    private val injectedSettingsRepository: AppSettingsRepository by inject()
+    private val credentialStore = credentialStore ?: context
         ?.applicationContext
-        ?.let { appContext ->
-            RealAbsApiClient(
-                appSettingsRepository = AppSettingsRepository.getInstance(appContext),
-                credentialStore = credentialStore
-            )
-        }
-        ?: NoOpAbsTokenRefreshClient,
-    private val client: OkHttpClient = OkHttpClient.Builder()
+        ?.let { injectedCredentialStore }
+        ?: injectedCredentialStore
+    private val settingsProvider = settingsProvider ?: { injectedSettingsRepository.cachedSettings }
+    private val tokenRefreshClient = tokenRefreshClient ?: RealAbsApiClient(
+        credentialStore = this.credentialStore,
+        settingsProvider = this.settingsProvider
+    )
+    private val client = client ?: OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .callTimeout(40, TimeUnit.SECONDS)
-        .addInterceptor(AbsAuthInterceptor(credentialStore))
+        .addInterceptor(AbsAuthInterceptor(this.credentialStore))
         .build()
-) : LibrarySourceProvider {
     override val kind: LibrarySourceKind = LibrarySourceKind.ABS
     override val capabilities: SourceCapabilities = SourceCapabilities(
         supportsDirectoryListing = false,

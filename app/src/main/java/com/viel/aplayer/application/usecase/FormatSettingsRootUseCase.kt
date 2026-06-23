@@ -145,11 +145,11 @@ class FormatSettingsRootUseCase(private val context: Context) {
             WebDavConnectionTestFailureReason.HttpStatus -> R.string.feedback_settings_webdav_http_status
         }
 
-    private fun AudiobookSchema.LibrarySourceType.duplicateRootMessageRes(): Int =
+    private fun DuplicateLibraryRootSource.duplicateRootMessageRes(): Int =
         when (this) {
-            AudiobookSchema.LibrarySourceType.WEBDAV -> R.string.feedback_settings_webdav_root_already_exists
-            AudiobookSchema.LibrarySourceType.ABS -> R.string.feedback_settings_abs_root_already_exists
-            AudiobookSchema.LibrarySourceType.SAF -> R.string.feedback_settings_connection_failed_fallback
+            DuplicateLibraryRootSource.WEBDAV -> R.string.feedback_settings_webdav_root_already_exists
+            DuplicateLibraryRootSource.ABS -> R.string.feedback_settings_abs_root_already_exists
+            DuplicateLibraryRootSource.SAF -> R.string.feedback_settings_connection_failed_fallback
         }
 
     private fun AudiobookSchema.LibraryRootStatus.libraryRootStatusMessageRes(): Int =

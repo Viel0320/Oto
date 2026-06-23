@@ -1,6 +1,5 @@
 package com.viel.aplayer.library.orchestrator
 
-import android.content.Context
 import androidx.room.withTransaction
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -10,8 +9,9 @@ import com.viel.aplayer.library.orchestrator.draftmodels.ImportRunResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class BookImporter(context: Context) {
-    private val database = AppDatabase.getInstance(context)
+class BookImporter(
+    private val database: AppDatabase
+) {
     private val bookDao = database.bookDao()
     private val chapterDao = database.chapterDao()
     private val bookmarkDao = database.bookmarkDao()

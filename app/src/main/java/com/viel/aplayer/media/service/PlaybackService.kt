@@ -19,7 +19,6 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
 import com.viel.aplayer.data.AppSettingsRepository
@@ -30,6 +29,7 @@ import com.viel.aplayer.data.book.ChapterGateway
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.progress.ProgressGateway
 import com.viel.aplayer.logger.PlaybackWorkflowLogger
+import com.viel.aplayer.media.AutoRewindManager
 import com.viel.aplayer.media.NotificationProgressPlayer
 import com.viel.aplayer.media.PlaybackDomainEvent
 import com.viel.aplayer.media.PlaybackDomainEventSink
@@ -52,6 +52,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -63,7 +65,11 @@ import kotlin.time.Duration.Companion.milliseconds
  * Under this design, the playback service serves as a lightweight harness wrapper, reducing visual coupling.
  */
 @UnstableApi
-class PlaybackService : MediaSessionService() {
+class PlaybackService : MediaSessionService(), KoinComponent {
+    private val playbackDependencies: com.viel.aplayer.di.dependencies.PlaybackRuntimeDependencies by inject()
+    private val injectedSettingsRepository: AppSettingsRepository by inject()
+    private val autoRewindManager: AutoRewindManager by inject()
+
     private var widgetUpdateJob: Job? = null
 
     private var mediaSession: MediaSession? = null
@@ -109,7 +115,6 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
 
-        val playbackDependencies = APlayerApplication.getPlaybackRuntimeDependencies(applicationContext)
         bookCatalogGateway = playbackDependencies.bookCatalogGateway
         chapterGateway = playbackDependencies.chapterGateway
         bookmarkGateway = playbackDependencies.bookmarkGateway
@@ -117,7 +122,7 @@ class PlaybackService : MediaSessionService() {
         playbackSourcePreflight = playbackDependencies.playbackSourcePreflight
         progressGateway = playbackDependencies.progressGateway
         bookAvailabilityGateway = playbackDependencies.bookAvailabilityGateway
-        settingsRepository = AppSettingsRepository.getInstance(this)
+        settingsRepository = injectedSettingsRepository
         playbackEventSink = playbackDependencies.playbackDomainEventSink
         resumptionPreflight = PlaybackResumptionPreflight(
             playbackSourcePreflight = playbackSourcePreflight,
@@ -129,6 +134,7 @@ class PlaybackService : MediaSessionService() {
             context = this,
             serviceScope = serviceScope,
             settingsRepository = settingsRepository,
+            autoRewindManager = autoRewindManager,
             playerProvider = { mediaSession?.player }
         )
 
@@ -575,7 +581,7 @@ class PlaybackService : MediaSessionService() {
     override fun onDestroy() {
         widgetUpdateJob?.cancel()
 
-        (applicationContext as? APlayerApplication)?.appScope?.launch {
+        serviceScope.launch {
             PlayerWidgetStateHelper.updateWidgetState(
                 context = this@PlaybackService,
                 isPlaying = false,

@@ -5,7 +5,6 @@ import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.net.AbsAuth
 import com.viel.aplayer.abs.net.AbsAuthInterceptor
 import com.viel.aplayer.abs.net.AbsUrlResolver
-import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.logger.AbsAuthLogger
 import com.viel.aplayer.logger.AbsCoverLogger
 import com.viel.aplayer.logger.CoverImageCacheLogger
@@ -27,7 +26,7 @@ interface AbsCoverStore {
 
 class AbsCoverCache(
     context: Context,
-    private val credentialStore: AbsCredentialStore = AbsCredentialStore.getInstance(context.applicationContext),
+    private val credentialStore: AbsCredentialStore,
     private val coverExtractor: CoverExtractor = CoverExtractor(context.applicationContext),
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -35,9 +34,7 @@ class AbsCoverCache(
         .callTimeout(30, TimeUnit.SECONDS)
         .addInterceptor(AbsAuthInterceptor(credentialStore))
         .build(),
-    private val settingsProvider: () -> AppSettings = {
-        AppSettingsRepository.getInstance(context.applicationContext).cachedSettings
-    }
+    private val settingsProvider: () -> AppSettings
 ) : AbsCoverStore {
     override suspend fun downloadCover(root: com.viel.aplayer.data.entity.LibraryRootEntity, remoteItemId: String): CoverExtractor.CoverResult =
         withContext(Dispatchers.IO) {

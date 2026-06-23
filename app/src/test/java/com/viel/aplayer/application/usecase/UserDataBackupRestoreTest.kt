@@ -28,8 +28,6 @@ class UserDataBackupRestoreTest {
         try {
             val context = IsolatedBackupContext(RuntimeEnvironment.getApplication(), tempRoot)
 
-            AppDatabase.closeInstance()
-
             val dbFile = context.getDatabasePath("aplayer_database")
             dbFile.parentFile?.mkdirs()
             dbFile.writeText("database-content")

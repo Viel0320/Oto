@@ -6,7 +6,7 @@ import android.provider.DocumentsContract
 import androidx.core.net.toUri
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.data.db.AppDatabase
+import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.library.availability.AvailabilityChecker
@@ -25,17 +25,12 @@ import java.util.UUID
  */
 class LibraryRootStore(
     private val context: Context,
-    private val rootDaoOverride: com.viel.aplayer.data.dao.LibraryRootDao? = null,
-    private val availabilityCheckerOverride: AvailabilityChecker? = null,
-    private val webDavCredentialStoreOverride: WebDavCredentialStore? = null,
-    private val absCredentialStoreOverride: AbsCredentialStore? = null,
-    private val appSettingsRepositoryOverride: AppSettingsRepository? = null
+    private val rootDao: LibraryRootDao,
+    private val availabilityChecker: AvailabilityChecker? = null,
+    private val webDavCredentialStore: WebDavCredentialStore = WebDavCredentialStore(context.applicationContext),
+    private val absCredentialStore: AbsCredentialStore? = null,
+    private val appSettingsRepository: AppSettingsRepository
 ) {
-    private val rootDao by lazy { rootDaoOverride ?: AppDatabase.getInstance(context).libraryRootDao() }
-    private val availabilityChecker by lazy { availabilityCheckerOverride ?: AvailabilityChecker(context.applicationContext) }
-    private val webDavCredentialStore by lazy { webDavCredentialStoreOverride ?: WebDavCredentialStore(context.applicationContext) }
-    private val absCredentialStore by lazy { absCredentialStoreOverride ?: AbsCredentialStore.getInstance(context.applicationContext) }
-    private val appSettingsRepository by lazy { appSettingsRepositoryOverride ?: AppSettingsRepository.getInstance(context.applicationContext) }
 
     /**
      * Ingestion path registration.
@@ -127,7 +122,7 @@ class LibraryRootStore(
         libraryId: String,
         displayName: String
     ): LibraryRootEntity = withContext(Dispatchers.IO) {
-        val credential = requireNotNull(absCredentialStore.get(credentialId)) {
+        val credential = requireNotNull(requireAbsCredentialStore().get(credentialId)) {
             "ABS_CREDENTIAL_NOT_FOUND:$credentialId"
         }
         val normalizedBaseUrl = credential.baseUrl
@@ -171,7 +166,7 @@ class LibraryRootStore(
      * Keeps LibraryRootStatus and detailed AvailabilityStatus synchronized so UI rows and sync guards observe the same source-of-truth state.
      */
     private suspend fun refreshRootStatusInternal(root: LibraryRootEntity): LibraryRootAvailabilityUpdate {
-        val availability = availabilityChecker.checkRoot(root)
+        val availability = requireAvailabilityChecker().checkRoot(root)
         val updatedRoot = LibraryRootLifecyclePolicy.applyAvailabilitySnapshot(root, availability)
         val status = updatedRoot.status
         if (root.status != status) {
@@ -349,7 +344,7 @@ class LibraryRootStore(
         displayName: String
     ): LibraryRootEntity = withContext(Dispatchers.IO) {
         val existing = rootDao.getRootById(id) ?: throw IllegalArgumentException("Root not found: $id")
-        val credential = requireNotNull(absCredentialStore.get(credentialId)) {
+        val credential = requireNotNull(requireAbsCredentialStore().get(credentialId)) {
             "ABS_CREDENTIAL_NOT_FOUND:$credentialId"
         }
         UnsafeNetworkPolicy.requireCleartextHttpAllowed(
@@ -388,6 +383,18 @@ class LibraryRootStore(
         }
         return updated
     }
+
+    /**
+     * Returns the injected checker only for root availability refresh paths.
+     */
+    private fun requireAvailabilityChecker(): AvailabilityChecker =
+        requireNotNull(availabilityChecker) { "LibraryRootStore requires AvailabilityChecker to refresh root statuses." }
+
+    /**
+     * Returns the injected ABS credential store only for ABS root mutation paths.
+     */
+    private fun requireAbsCredentialStore(): AbsCredentialStore =
+        requireNotNull(absCredentialStore) { "LibraryRootStore requires AbsCredentialStore for ABS root mutations." }
 }
 
 internal fun mergeAbsRoot(

@@ -11,6 +11,7 @@ import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSourceException
 import androidx.media3.datasource.DataSpec
+import com.viel.aplayer.di.dependencies.VfsPlaybackDependencies
 import com.viel.aplayer.library.vfs.VfsPlaybackStreamReader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 import java.io.IOException
 import java.io.InputStream
 import java.io.InterruptedIOException
@@ -185,9 +188,14 @@ class VfsPlaybackDataSource internal constructor(
         }
     }
 
-    class Factory(context: Context) : DataSource.Factory {
+    class Factory(
+        context: Context,
+        private val injectedDependencies: VfsPlaybackDependencies? = null
+    ) : DataSource.Factory, KoinComponent {
         private val appContext = context.applicationContext
-        private val vfsPlaybackDependencies = com.viel.aplayer.APlayerApplication.getVfsPlaybackDependencies(appContext)
+        private val vfsPlaybackDependencies: VfsPlaybackDependencies by lazy {
+            injectedDependencies ?: get()
+        }
 
         override fun createDataSource(): DataSource =
             VfsPlaybackDataSource(

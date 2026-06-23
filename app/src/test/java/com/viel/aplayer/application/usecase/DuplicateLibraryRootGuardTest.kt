@@ -42,7 +42,7 @@ class DuplicateLibraryRootGuardTest {
 
         assertTrue(hasExistingWebDavRootForNewConnection(roots, "https://dav.example.test", "/audio", null))
         assertTrue(failure is DuplicateLibraryRootException)
-        assertEquals(AudiobookSchema.LibrarySourceType.WEBDAV, (failure as DuplicateLibraryRootException).sourceType)
+        assertEquals(DuplicateLibraryRootSource.WEBDAV, (failure as DuplicateLibraryRootException).sourceType)
     }
 
     @Test
@@ -109,7 +109,7 @@ class DuplicateLibraryRootGuardTest {
 
         assertTrue(hasExistingAbsRootForNewConnection(roots, "https://abs.example.test/AudiobookShelf/", "library-a", null))
         assertTrue(failure is DuplicateLibraryRootException)
-        assertEquals(AudiobookSchema.LibrarySourceType.ABS, (failure as DuplicateLibraryRootException).sourceType)
+        assertEquals(DuplicateLibraryRootSource.ABS, (failure as DuplicateLibraryRootException).sourceType)
     }
 
     @Test

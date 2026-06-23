@@ -7,13 +7,34 @@ import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavEndpointValidati
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavEndpointValidationReason
 
 /**
+ * Application-layer mirror of the data-layer library source kind.
+ *
+ * Keeps UI and application code off [AudiobookSchema.LibrarySourceType] so the presentation layer
+ * never imports the Room schema package.
+ */
+enum class DuplicateLibraryRootSource {
+    SAF,
+    WEBDAV,
+    ABS;
+
+    companion object {
+        fun fromSchemaValue(value: AudiobookSchema.LibrarySourceType): DuplicateLibraryRootSource =
+            when (value) {
+                AudiobookSchema.LibrarySourceType.SAF -> SAF
+                AudiobookSchema.LibrarySourceType.WEBDAV -> WEBDAV
+                AudiobookSchema.LibrarySourceType.ABS -> ABS
+            }
+    }
+}
+
+/**
  * Marks a new-source action as blocked because the exact library root is already registered.
  *
  * The exception carries only the source kind, keeping the duplicated location out of feedback aggregation,
  * logs, and toast identity while still letting the UI pick the correct resource-backed message.
  */
 class DuplicateLibraryRootException(
-    val sourceType: AudiobookSchema.LibrarySourceType
+    val sourceType: DuplicateLibraryRootSource
 ) : IllegalStateException("DUPLICATE_LIBRARY_ROOT:${sourceType.name}")
 
 /**
@@ -29,7 +50,7 @@ internal fun requireUniqueWebDavRootForNewConnection(
     editingRootId: String?
 ) {
     if (hasExistingWebDavRootForNewConnection(roots, url, basePath, editingRootId)) {
-        throw DuplicateLibraryRootException(AudiobookSchema.LibrarySourceType.WEBDAV)
+        throw DuplicateLibraryRootException(DuplicateLibraryRootSource.WEBDAV)
     }
 }
 
@@ -68,7 +89,7 @@ internal fun requireUniqueAbsRootForNewConnection(
     editingRootId: String?
 ) {
     if (hasExistingAbsRootForNewConnection(roots, baseUrl, libraryId, editingRootId)) {
-        throw DuplicateLibraryRootException(AudiobookSchema.LibrarySourceType.ABS)
+        throw DuplicateLibraryRootException(DuplicateLibraryRootSource.ABS)
     }
 }
 

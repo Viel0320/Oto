@@ -13,19 +13,19 @@ class PlaybackDependencyViewArchitectureTest {
     @Test
     fun playbackProvidersReturnTypedViewsInsteadOfFullContainer() {
         val sourceRoot = resolveSourceRoot()
-        val applicationSource = sourceRoot.resolve("APlayerApplication.kt").readText()
+        val dependencyViewModule = sourceRoot.resolve("di/koin/DependencyViewModule.kt").readText()
 
-        val expectedProviders = mapOf(
-            "getPlaybackRuntimeDependencies" to "PlaybackRuntimeDependencies",
-            "getPlaybackRecoveryDependencies" to "PlaybackRecoveryDependencies",
-            "getVfsPlaybackDependencies" to "VfsPlaybackDependencies",
-            "getPlayerScreenDependencies" to "PlayerScreenDependencies"
+        val expectedBindings = listOf(
+            "PlaybackRuntimeDependencies",
+            "PlaybackRecoveryDependencies",
+            "VfsPlaybackDependencies",
+            "PlayerScreenDependencies"
         )
 
-        expectedProviders.forEach { (providerName, returnType) ->
+        expectedBindings.forEach { bindingName ->
             assertTrue(
-                "$providerName must return $returnType.",
-                applicationSource.contains("fun $providerName(context: Context): $returnType")
+                "DependencyViewModule must bind $bindingName.",
+                dependencyViewModule.contains("single<$bindingName>")
             )
         }
     }
@@ -34,20 +34,20 @@ class PlaybackDependencyViewArchitectureTest {
     fun playbackCallersUseTheirNarrowDependencyProviders() {
         val sourceRoot = resolveSourceRoot()
         val expectedCalls = mapOf(
-            "media/PlaybackManager.kt" to "getPlaybackRuntimeDependencies",
-            "media/service/PlaybackService.kt" to "getPlaybackRuntimeDependencies",
-            "media/VfsPlaybackDataSource.kt" to "getVfsPlaybackDependencies",
-            "media/AutoRewindManager.kt" to "getPlaybackRecoveryDependencies",
-            "ui/player/PlaybackViewModel.kt" to "getPlayerScreenDependencies",
-            "ui/player/BookmarkViewModel.kt" to "getPlayerScreenDependencies",
-            "ui/player/PlayerSettingsViewModel.kt" to "getPlayerScreenDependencies"
+            "media/PlaybackManager.kt" to "PlaybackRuntimeDependencies",
+            "media/service/PlaybackService.kt" to "PlaybackRuntimeDependencies",
+            "media/VfsPlaybackDataSource.kt" to "VfsPlaybackDependencies",
+            "media/AutoRewindManager.kt" to "PlaybackRecoveryDependencies",
+            "ui/player/PlaybackViewModel.kt" to "PlayerScreenDependencies",
+            "ui/player/BookmarkViewModel.kt" to "PlayerScreenDependencies",
+            "ui/player/PlayerSettingsViewModel.kt" to "PlayerScreenDependencies"
         )
 
-        expectedCalls.forEach { (relativePath, providerName) ->
+        expectedCalls.forEach { (relativePath, dependencyView) ->
             val source = sourceRoot.resolve(relativePath).readText()
             assertTrue(
-                "$relativePath must use $providerName instead of the full container.",
-                source.contains(providerName)
+                "$relativePath must use $dependencyView instead of the full container.",
+                source.contains(dependencyView)
             )
         }
     }

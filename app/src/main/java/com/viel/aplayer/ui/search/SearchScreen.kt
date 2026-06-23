@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -310,8 +311,11 @@ fun SearchContent(
                                     )
                                     TextButton(
                                         onClick = onClearHistory,
+                                        // Material's compact text button can measure at 40.dp here;
+                                        // the explicit floor preserves the Android accessibility target.
                                         modifier = Modifier
                                             .align(Alignment.CenterEnd)
+                                            .heightIn(min = 48.dp)
                                             .minimumInteractiveComponentSize()
                                     ) {
                                         Text(

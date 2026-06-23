@@ -5,69 +5,73 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Locks the public container to dependency views.
- * Prevents di-owned implementation properties from reappearing on AppContainer after they have moved to process-only wiring.
+ * Locks the Koin module surface to the narrow dependency-view contracts.
+ * Prevents di-owned implementations from leaking past the dependency-view boundary now that the
+ * manual AppContainer/ProcessContainer pair has been retired in favor of Koin modules.
  */
 class AppContainerSurfaceArchitectureTest {
+
     @Test
-    fun publicAppContainerDoesNotExposeGraphOwnedProperties() {
-        val appContainerSource = resolveSourceRoot().resolve("AppContainer.kt").readText()
-        val publicSurface = appContainerSource.publicAppContainerDeclaration()
-        val violations = graphOwnedPropertyNames.filter { propertyName ->
-            Regex("""\b${Regex.escape(propertyName)}\b""").containsMatchIn(publicSurface)
+    fun dependencyViewModuleBindsEveryNarrowContract() {
+        val moduleSource = resolveKoinModule("DependencyViewModule.kt").readText()
+        val missingBindings = dependencyViewInterfaces.filter { interfaceName ->
+            !Regex("""single<$interfaceName>""").containsMatchIn(moduleSource)
         }
 
         assertTrue(
             buildString {
-                appendLine("Public AppContainer must not expose di-owned implementation properties.")
+                appendLine("DependencyViewModule must bind every narrow dependency-view interface.")
+                missingBindings.forEach { missing -> appendLine("- $missing") }
+            },
+            missingBindings.isEmpty()
+        )
+    }
+
+    @Test
+    fun koinModulesDoNotExposeGraphOwnedImplementationPropertiesOnDependencyViews() {
+        val moduleSource = resolveKoinModule("DependencyViewModule.kt").readText()
+        val violations = graphOwnedPropertyNames.filter { propertyName ->
+            Regex("""\b${Regex.escape(propertyName)}\b""").containsMatchIn(moduleSource)
+        }
+
+        assertTrue(
+            buildString {
+                appendLine("Dependency-view bindings must not expose di-owned implementation properties.")
                 violations.forEach { violation -> appendLine("- $violation") }
             },
             violations.isEmpty()
         )
     }
 
-    @Test
-    fun graphOwnedPropertiesRemainOnInternalProcessContainer() {
-        val appContainerSource = resolveSourceRoot().resolve("AppContainer.kt").readText()
-        val processSurface = appContainerSource.processContainerDeclaration()
-        val missingProperties = graphOwnedPropertyNames.filter { propertyName ->
-            !Regex("""\bval\s+${Regex.escape(propertyName)}\b""").containsMatchIn(processSurface)
-        }
-
-        assertTrue(
-            "DefaultAppContainer must implement the internal ProcessContainer surface.",
-            Regex("""internal\s+class\s+DefaultAppContainer\([^\n]+\)\s*:\s*ProcessContainer""")
-                .containsMatchIn(appContainerSource)
-        )
-        assertTrue(
-            buildString {
-                appendLine("ProcessContainer must retain the di-owned properties removed from public AppContainer.")
-                missingProperties.forEach { missing -> appendLine("- $missing") }
-            },
-            missingProperties.isEmpty()
-        )
-    }
-
-    private fun String.publicAppContainerDeclaration(): String {
-        return substringAfter("interface AppContainer")
-            .substringBefore("internal interface ProcessContainer")
-    }
-
-    private fun String.processContainerDeclaration(): String {
-        return substringAfter("internal interface ProcessContainer")
-            .substringBefore("@UnstableApi")
-    }
-
-    private fun resolveSourceRoot(): File {
+    private fun resolveKoinModule(fileName: String): File {
         val candidates = listOf(
-            File("src/main/java/com/viel/aplayer"),
-            File("app/src/main/java/com/viel/aplayer")
+            File("src/main/java/com/viel/aplayer/di/koin", fileName),
+            File("app/src/main/java/com/viel/aplayer/di/koin", fileName)
         )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app source root for app-container surface architecture test.")
+        return candidates.firstOrNull { candidate -> candidate.isFile }
+            ?: error("Could not locate koin module $fileName for app-container surface architecture test.")
     }
 
     companion object {
+        private val dependencyViewInterfaces = listOf(
+            "AppShellDependencies",
+            "AppFeedbackDependencies",
+            "PlaybackRecoveryDependencies",
+            "PlaybackRuntimeDependencies",
+            "VfsPlaybackDependencies",
+            "DownloadRuntimeDependencies",
+            "ManualDownloadNotificationActionDependencies",
+            "LibrarySyncWorkerDependencies",
+            "AbsSyncWorkerDependencies",
+            "SearchScreenDependencies",
+            "DetailScreenDependencies",
+            "HomeScreenDependencies",
+            "SettingsScreenDependencies",
+            "PlayerScreenDependencies",
+            "EditScreenDependencies",
+            "RemoteConnectionDependencies"
+        )
+
         private val graphOwnedPropertyNames = listOf(
             "libraryRootGateway",
             "searchHistoryGateway",

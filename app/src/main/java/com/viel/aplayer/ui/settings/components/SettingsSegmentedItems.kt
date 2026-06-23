@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.Icon
@@ -343,10 +344,12 @@ private fun <T : Any> SettingsDropdownControl(
         expanded = expanded,
         onExpandedChange = { expanded = it },
         onSelect = { index -> options.getOrNull(index)?.value?.let(onSelected) },
+        // These settings remain a single-choice control after the visual migration from segmented
+        // buttons to a dropdown, so TalkBack should still receive a grouped choice boundary.
+        modifier = Modifier.selectableGroup(),
         selectedIndex = selectedIndex,
         panelWidth = APlayerDropdownWidth.Wrap,
         hazeState = hazeState,
         glassEffectMode = glassEffectMode
     )
 }
-

@@ -5,8 +5,10 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Locks callers onto typed dependency views.
- * Prevents UI, media runtime, and WorkManager callers from regressing to the full AppContainer provider.
+ * Locks callers onto typed dependency views or Koin injection.
+ * Prevents UI, media runtime, and WorkManager callers from regressing to the retired
+ * AppContainer provider or from reaching into GlobalContext.get() directly outside the
+ * sanctioned composition roots.
  */
 class ContainerAccessArchitectureTest {
 
@@ -22,8 +24,7 @@ class ContainerAccessArchitectureTest {
 
         assertTrue(
             buildString {
-                appendLine("Guarded callers must use typed dependency views instead of the full AppContainer.")
-                appendLine("Use APlayerApplication.get*Dependencies(...) from the dependencies package.")
+                appendLine("Guarded callers must use typed dependency views or koinInject/koinViewModel instead of GlobalContext.")
                 violations.forEach { violation -> appendLine("- $violation") }
             },
             violations.isEmpty()
@@ -31,26 +32,21 @@ class ContainerAccessArchitectureTest {
     }
 
     @Test
-    fun defaultAppContainerClosesGraphsInStableLifecycleOrder() {
+    fun productionCodeDoesNotUseRetiredProjectSingletonAccessors() {
         val sourceRoot = resolveSourceRoot()
-        val appContainerSource = sourceRoot.resolve("AppContainer.kt")
-        val text = appContainerSource.readText()
-
-        val closeMethod = text.substringAfter("override fun close()")
-
-        assertTrue(
-            "DefaultAppContainer.close() must delegate di teardown to closeAppGraphsInLifecycleOrder(...).",
-            closeMethod.contains("closeAppGraphsInLifecycleOrder(")
-        )
+        val violations = sourceRoot
+            .walkTopDown()
+            .filter { file -> file.isFile && file.extension == "kt" }
+            .filterNot { file -> file.isCompositionRoot(sourceRoot) }
+            .flatMap { file -> file.findRetiredSingletonAccesses(sourceRoot) }
+            .toList()
 
         assertTrue(
-            "DefaultAppContainer.close() must include MediaGraph now that it owns playback runtime resources.",
-            closeMethod.contains("media = media")
-        )
-
-        assertTrue(
-            "DefaultAppContainer.close() should not close DataGraph until it owns closeable resources.",
-            !closeMethod.contains("data.close()") && !closeMethod.contains("data = data")
+            buildString {
+                appendLine("Production code must use constructor injection or Koin modules instead of retired project singletons.")
+                violations.forEach { violation -> appendLine("- $violation") }
+            },
+            violations.isEmpty()
         )
     }
 
@@ -65,9 +61,9 @@ class ContainerAccessArchitectureTest {
         )
         val unguardedExamples = listOf(
             "APlayerApplication.kt",
-            "AppContainer.kt",
             "di/dependencies/PresentationDependencies.kt",
-            "di/graph/LibraryGraph.kt"
+            "di/koin/DependencyViewModule.kt",
+            "di/koin/APlayerKoinApplication.kt"
         )
 
         assertTrue(
@@ -112,6 +108,24 @@ class ContainerAccessArchitectureTest {
         }
     }
 
+    private fun File.findRetiredSingletonAccesses(sourceRoot: File): List<String> {
+        val text = readText()
+        val relativePath = relativeTo(sourceRoot).invariantSeparatorsPath
+
+        return retiredSingletonPatterns.flatMap { forbiddenPattern ->
+            forbiddenPattern.regex.findAll(text).map { match ->
+                val line = text.take(match.range.first).count { char -> char == '\n' } + 1
+                "$relativePath:$line uses ${forbiddenPattern.name}"
+            }
+        }
+    }
+
+    private fun File.isCompositionRoot(sourceRoot: File): Boolean {
+        val relativePath = relativeTo(sourceRoot).invariantSeparatorsPath
+        return relativePath == "APlayerApplication.kt" ||
+            relativePath.startsWith("di/koin/")
+    }
+
     private data class ForbiddenPattern(
         val name: String,
         val regex: Regex
@@ -124,8 +138,55 @@ class ContainerAccessArchitectureTest {
                 regex = Regex("""\bAPlayerApplication\s*\.\s*getContainer\s*\(""")
             ),
             ForbiddenPattern(
+                name = "APlayerApplication.getProcessContainer(...)",
+                regex = Regex("""\bAPlayerApplication\s*\.\s*getProcessContainer\s*\(""")
+            ),
+            ForbiddenPattern(
+                name = "APlayerApplication.getXxxDependencies(...)",
+                regex = Regex("""\bAPlayerApplication\s*\.\s*get\w+Dependencies\s*\(""")
+            ),
+            ForbiddenPattern(
                 name = "the direct .container property",
                 regex = Regex("""\.container\b""")
+            ),
+            ForbiddenPattern(
+                name = "GlobalContext.get()",
+                regex = Regex("""\bGlobalContext\s*\.\s*get\s*\(""")
+            ),
+            ForbiddenPattern(
+                name = "org.koin.core.context.GlobalContext.get()",
+                regex = Regex("""\borg\.koin\.core\.context\.GlobalContext\s*\.\s*get\s*\(""")
+            )
+        )
+
+        private val retiredSingletonPatterns = listOf(
+            ForbiddenPattern(
+                name = "AppDatabase.getInstance(...)",
+                regex = Regex("""\bAppDatabase\s*\.\s*getInstance\s*\(""")
+            ),
+            ForbiddenPattern(
+                name = "AppDatabase.closeInstance(...)",
+                regex = Regex("""\bAppDatabase\s*\.\s*closeInstance\s*\(""")
+            ),
+            ForbiddenPattern(
+                name = "AppSettingsRepository.getInstance(...)",
+                regex = Regex("""\bAppSettingsRepository\s*\.\s*getInstance\s*\(""")
+            ),
+            ForbiddenPattern(
+                name = "AbsCredentialStore.getInstance(...)",
+                regex = Regex("""\bAbsCredentialStore\s*\.\s*getInstance\s*\(""")
+            ),
+            ForbiddenPattern(
+                name = "SearchHistoryStore.getInstance(...)",
+                regex = Regex("""\bSearchHistoryStore\s*\.\s*getInstance\s*\(""")
+            ),
+            ForbiddenPattern(
+                name = "GlobalContext.get()",
+                regex = Regex("""\bGlobalContext\s*\.\s*get\s*\(""")
+            ),
+            ForbiddenPattern(
+                name = "org.koin.core.context.GlobalContext.get()",
+                regex = Regex("""\borg\.koin\.core\.context\.GlobalContext\s*\.\s*get\s*\(""")
             )
         )
     }

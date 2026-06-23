@@ -1,12 +1,11 @@
 package com.viel.aplayer.ui.settings.recovery
 
 import android.app.Application
-import com.viel.aplayer.APlayerApplication
-import com.viel.aplayer.ProcessContainer
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryCommands
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryItem
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryReadModel
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryResult
+import com.viel.aplayer.di.dependencies.SettingsScreenDependencies
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.AppShellEvent
 import com.viel.aplayer.event.feedback.FeedbackCategory
@@ -36,6 +35,7 @@ import org.junit.Test
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 import org.junit.runner.RunWith
+import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import java.lang.reflect.Proxy
@@ -69,9 +69,9 @@ class DeletedBookRecoveryViewModelTest {
 
     @Before
     fun setUp() {
-        val fakeContainer = Proxy.newProxyInstance(
-            ProcessContainer::class.java.classLoader,
-            arrayOf(ProcessContainer::class.java)
+        val fakeSettingsDependencies = Proxy.newProxyInstance(
+            SettingsScreenDependencies::class.java.classLoader,
+            arrayOf(SettingsScreenDependencies::class.java)
         ) { _, method, _ ->
             when (method.name) {
                 "getDeletedBookRecoveryReadModel" -> fakeReadModel
@@ -79,24 +79,34 @@ class DeletedBookRecoveryViewModelTest {
                 "getAppEventSink" -> fakeEventSink
                 else -> null
             }
-        } as ProcessContainer
+        } as SettingsScreenDependencies
 
-        val clazz = APlayerApplication::class.java
-        val field = clazz.getDeclaredField("instance")
-        field.isAccessible = true
-        field.set(null, fakeContainer)
+        // Robolectric creates APlayerApplication per test class, and onTerminate may close the Koin
+        // context between tests. Ensure a Koin context is running before loading the fake module.
+        if (org.koin.core.context.GlobalContext.getOrNull() == null) {
+            org.koin.core.context.startKoin {
+                modules(
+                    module {
+                        single { fakeSettingsDependencies }
+                    }
+                )
+            }
+        } else {
+            org.koin.core.context.loadKoinModules(
+                module {
+                    single(createdAtStart = false) { fakeSettingsDependencies }
+                }
+            )
+        }
 
         application = RuntimeEnvironment.getApplication()
 
-        viewModel = DeletedBookRecoveryViewModel(application)
+        viewModel = DeletedBookRecoveryViewModel(fakeSettingsDependencies)
     }
 
     @After
     fun tearDown() {
-        val clazz = APlayerApplication::class.java
-        val field = clazz.getDeclaredField("instance")
-        field.isAccessible = true
-        field.set(null, null)
+        // Do not stopKoin: the production Koin context is owned by APlayerApplication for the test process.
     }
 
     @Test

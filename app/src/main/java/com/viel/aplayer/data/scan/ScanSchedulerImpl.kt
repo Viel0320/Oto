@@ -11,6 +11,7 @@ import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.library.LibraryRootStore
+import com.viel.aplayer.library.availability.MissingBookFileRecoveryChecker
 import com.viel.aplayer.library.availability.isDirectorySyncRoot
 import com.viel.aplayer.library.orchestrator.ScanSessionRunner
 import com.viel.aplayer.library.scan.ScanCommand
@@ -59,13 +60,14 @@ class ScanSchedulerImpl(
     private val vfsFileInterface: VfsFileInterface,
     private val directoryListingCache: DirectoryListingCache = NoOpDirectoryListingCache,
     private val appEventSink: AppEventSink,
+    private val database: AppDatabase? = null,
+    private val rootStore: LibraryRootStore? = null,
+    private val missingRecoveryChecker: MissingBookFileRecoveryChecker? = null,
     private val rootScanExecutor: RootScanExecutor? = null,
     private val coldStartRootIdsProvider: (suspend () -> List<String>)? = null
 ) : ScanScheduler, java.io.Closeable {
 
     private val appContext = context.applicationContext
-
-    private val rootStore by lazy { LibraryRootStore(appContext) }
 
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
         ScanWorkflowLogger.error("scanService coroutine failure", exception)
@@ -202,21 +204,23 @@ class ScanSchedulerImpl(
         ScanSession(
             rootStatusAdapter = { targetRootIds ->
                 if (targetRootIds.isEmpty()) {
-                    rootStore.refreshPermissionStatuses()
+                    requireRootStore().refreshPermissionStatuses()
                 } else {
-                    targetRootIds.mapNotNull { rootId -> rootStore.refreshRootStatus(rootId) }
+                    targetRootIds.mapNotNull { rootId -> requireRootStore().refreshRootStatus(rootId) }
                 }
             },
             importAdapter = { type, targetRootIds, allowedRootIds ->
                 ScanSessionRunner(
                     context = appContext,
+                    database = requireDatabase(),
                     vfsFileInterface = vfsFileInterface,
                     directoryListingCache = directoryListingCache,
-                    triggerCoverRegeneration = coverRecoveryGateway::triggerRecovery
+                    triggerCoverRegeneration = coverRecoveryGateway::triggerRecovery,
+                    missingRecoveryChecker = requireMissingRecoveryChecker()
                 ).rescan(type, targetRootIds = targetRootIds, allowedRootIds = allowedRootIds)
             },
             librarySnapshotAdapter = {
-                AppDatabase.getInstance(appContext).bookDao().getAllBooksOnce().isEmpty()
+                requireDatabase().bookDao().getAllBooksOnce().isEmpty()
             }
         )
 
@@ -230,9 +234,28 @@ class ScanSchedulerImpl(
      * unreachable roots in the set still lets each root enter its recovery path.
      */
     private suspend fun defaultColdStartRootIds(): List<String> =
-        AppDatabase.getInstance(appContext).libraryRootDao().getActiveRootsOnce()
+        requireDatabase().libraryRootDao().getActiveRootsOnce()
             .filter { root -> root.isDirectorySyncRoot() }
             .map { root -> root.id }
+
+    /**
+     * Returns the injected database only for the real scan path.
+     * Tests that substitute RootScanExecutor can avoid constructing Room without hiding a production singleton fallback.
+     */
+    private fun requireDatabase(): AppDatabase =
+        requireNotNull(database) { "ScanSchedulerImpl requires AppDatabase for real scan execution." }
+
+    /**
+     * Returns the injected root store only for the real scan path.
+     */
+    private fun requireRootStore(): LibraryRootStore =
+        requireNotNull(rootStore) { "ScanSchedulerImpl requires LibraryRootStore for real scan execution." }
+
+    /**
+     * Returns the injected missing-file recovery checker only for the real scan path.
+     */
+    private fun requireMissingRecoveryChecker(): MissingBookFileRecoveryChecker =
+        requireNotNull(missingRecoveryChecker) { "ScanSchedulerImpl requires MissingBookFileRecoveryChecker for real scan execution." }
 
     /**
      * Folds per-root outcomes into one, keeping the most severe kind so a WorkManager-backed cold-start surfaces a

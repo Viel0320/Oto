@@ -1,5 +1,7 @@
 package com.viel.aplayer.library
 
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.dao.LibraryRootDao
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.LibraryRootEntity
@@ -18,6 +20,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 /**
  * Locks source-root persistence boundaries.
@@ -31,11 +35,7 @@ class LibraryRootStoreTest {
     fun `webdav endpoint normalization should reject userinfo credentials`() = runBlocking {
         val credentialStore = WebDavCredentialStore(RuntimeEnvironment.getApplication())
         val rootDao = RecordingLibraryRootDao(initialRoots = emptyList())
-        val store = LibraryRootStore(
-            context = RuntimeEnvironment.getApplication(),
-            rootDaoOverride = rootDao,
-            webDavCredentialStoreOverride = credentialStore
-        )
+        val store = storeFor("webdav-userinfo", rootDao, credentialStore)
 
         val failure = runCatching {
             store.addWebDavRoot(
@@ -57,11 +57,7 @@ class LibraryRootStoreTest {
     fun `new webdav add failure should delete staged credential`() = runBlocking {
         val credentialStore = WebDavCredentialStore(RuntimeEnvironment.getApplication())
         val rootDao = FailingInsertLibraryRootDao(initialRoots = emptyList())
-        val store = LibraryRootStore(
-            context = RuntimeEnvironment.getApplication(),
-            rootDaoOverride = rootDao,
-            webDavCredentialStoreOverride = credentialStore
-        )
+        val store = storeFor("webdav-new-failure", rootDao, credentialStore)
 
         try {
             val failure = runCatching {
@@ -94,11 +90,7 @@ class LibraryRootStoreTest {
             credentialId = oldCredential.id
         )
         val rootDao = RecordingLibraryRootDao(initialRoots = listOf(existingRoot))
-        val store = LibraryRootStore(
-            context = RuntimeEnvironment.getApplication(),
-            rootDaoOverride = rootDao,
-            webDavCredentialStoreOverride = credentialStore
-        )
+        val store = storeFor("webdav-update-success", rootDao, credentialStore)
 
         try {
             val updated = store.updateWebDavRoot(
@@ -134,11 +126,7 @@ class LibraryRootStoreTest {
             credentialId = oldCredential.id
         )
         val rootDao = FailingInsertLibraryRootDao(initialRoots = listOf(existingRoot))
-        val store = LibraryRootStore(
-            context = RuntimeEnvironment.getApplication(),
-            rootDaoOverride = rootDao,
-            webDavCredentialStoreOverride = credentialStore
-        )
+        val store = storeFor("webdav-update-failure", rootDao, credentialStore)
 
         try {
             val failure = runCatching {
@@ -176,11 +164,7 @@ class LibraryRootStoreTest {
             credentialId = oldCredential.id
         )
         val rootDao = FailingInsertLibraryRootDao(initialRoots = listOf(existingRoot))
-        val store = LibraryRootStore(
-            context = RuntimeEnvironment.getApplication(),
-            rootDaoOverride = rootDao,
-            webDavCredentialStoreOverride = credentialStore
-        )
+        val store = storeFor("webdav-add-dedupe-failure", rootDao, credentialStore)
 
         try {
             val failure = runCatching {
@@ -270,6 +254,27 @@ class LibraryRootStoreTest {
     }
 
     private companion object {
+        fun storeFor(
+            testName: String,
+            rootDao: LibraryRootDao,
+            credentialStore: WebDavCredentialStore
+        ): LibraryRootStore =
+            LibraryRootStore(
+                context = RuntimeEnvironment.getApplication(),
+                rootDao = rootDao,
+                webDavCredentialStore = credentialStore,
+                appSettingsRepository = testSettingsRepository(testName)
+            )
+
+        fun testSettingsRepository(testName: String): AppSettingsRepository {
+            val tempDir = createTempDirectory(testName).toFile()
+            return AppSettingsRepository.createForTesting(
+                PreferenceDataStoreFactory.create(
+                    produceFile = { File(tempDir, "settings.preferences_pb") }
+                )
+            )
+        }
+
         private fun webDavRoot(id: String, credentialId: String): LibraryRootEntity =
             LibraryRootEntity(
                 id = id,

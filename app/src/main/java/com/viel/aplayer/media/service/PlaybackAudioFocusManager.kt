@@ -66,6 +66,7 @@ class PlaybackAudioFocusManager(
     context: Context,
     private val serviceScope: CoroutineScope,
     private val settingsRepository: AppSettingsRepository,
+    private val autoRewindManager: AutoRewindManager,
     private val playerProvider: () -> Player?
 ) {
     private val appContext = context.applicationContext
@@ -92,7 +93,7 @@ class PlaybackAudioFocusManager(
                         val wasPlaying = player.isPlaying
                         if (focusRecoveryPolicy.onTransientLoss(wasPlaying) == AudioFocusPlaybackAction.Pause) {
                             if (wasPlaying) {
-                                AutoRewindManager.getInstance(appContext).ignoreNextAutoRewind = true
+                                autoRewindManager.ignoreNextAutoRewind = true
                                 com.viel.aplayer.logger.AudioFocusLogger.logTransientLoss()
                             }
                             player.pause()

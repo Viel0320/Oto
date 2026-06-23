@@ -6,8 +6,9 @@ import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.media3.exoplayer.scheduler.Scheduler
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 internal const val DOWNLOAD_NOTIFICATION_ID = 4213
 internal const val DOWNLOAD_NOTIFICATION_CHANNEL_ID = "manual_downloads"
@@ -27,13 +28,15 @@ class APlayerDownloadService : DownloadService(
     DOWNLOAD_NOTIFICATION_CHANNEL_ID,
     R.string.app_name,
     0
-) {
+), KoinComponent {
+    private val injectedDownloadManager: DownloadManager by inject()
+
     private val notificationHelper by lazy {
         DownloadNotificationHelper(this, DOWNLOAD_NOTIFICATION_CHANNEL_ID)
     }
 
     override fun getDownloadManager(): DownloadManager =
-        APlayerApplication.getProcessContainer(this).media3DownloadManager
+        injectedDownloadManager
 
     override fun getScheduler(): Scheduler? =
         null

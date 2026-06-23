@@ -13,7 +13,10 @@ import java.time.format.DateTimeFormatter
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-class ExportUserDataUseCase(private val context: Context) {
+class ExportUserDataUseCase(
+    private val context: Context,
+    private val checkpointDatabaseForBackup: () -> Unit = {}
+) {
     private val manifestAdapter = Moshi.Builder().build().adapter(BackupManifest::class.java)
     private val exportedAtFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
@@ -49,7 +52,7 @@ class ExportUserDataUseCase(private val context: Context) {
     suspend fun execute(outputStream: OutputStream, manifest: BackupManifest): Result<Unit> =
         withContext(Dispatchers.IO) {
         runCatching {
-            AppDatabase.closeInstance()
+            checkpointDatabaseForBackup()
 
             ZipOutputStream(outputStream).use { zos ->
                 val manifestEntry = ZipEntry("manifest.json")

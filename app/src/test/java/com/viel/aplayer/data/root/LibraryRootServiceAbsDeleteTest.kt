@@ -7,6 +7,7 @@ import com.viel.aplayer.abs.playback.AbsPendingProgressSyncEntity
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionEntity
 import com.viel.aplayer.abs.sync.AbsItemMirrorEntity
 import com.viel.aplayer.abs.sync.AbsSyncStateEntity
+import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.cache.CacheEvictionCoordinator
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -15,6 +16,7 @@ import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.scan.ScanScheduler
 import com.viel.aplayer.library.scan.ScanOutcome
 import com.viel.aplayer.library.scan.ScanOutcomeKind
+import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -179,12 +181,13 @@ class LibraryRootServiceAbsDeleteTest {
         val context = RuntimeEnvironment.getApplication()
         /**
          * Wires memory database back into the store.
-         * Instantiates LibraryRootStore using mock database DAO and credentials, and registers it as rootStoreOverride.
+         * Instantiates LibraryRootStore using mock database DAO and credentials, and passes it into the gateway explicitly.
          */
         val rootStore = com.viel.aplayer.library.LibraryRootStore(
             context = context,
-            rootDaoOverride = database.libraryRootDao(),
-            absCredentialStoreOverride = credentialStore
+            rootDao = database.libraryRootDao(),
+            absCredentialStore = credentialStore,
+            appSettingsRepository = testSettingsRepository("abs-root-store")
         )
         return LibraryRootGatewayImpl(
             context = context,
@@ -197,9 +200,19 @@ class LibraryRootServiceAbsDeleteTest {
                 directoryCacheDao = database.directoryCacheDao(),
                 directoryChildCacheDao = database.directoryChildCacheDao()
             ),
-            rootStoreOverride = rootStore,
-            absCredentialStoreOverride = credentialStore,
-            databaseOverride = database
+            rootStore = rootStore,
+            webDavCredentialStore = WebDavCredentialStore(context),
+            absCredentialStore = credentialStore,
+            database = database
+        )
+    }
+
+    private fun testSettingsRepository(testName: String): AppSettingsRepository {
+        val tempDir = createTempDirectory(testName).toFile()
+        return AppSettingsRepository.createForTesting(
+            PreferenceDataStoreFactory.create(
+                produceFile = { File(tempDir, "settings.preferences_pb") }
+            )
         )
     }
 

@@ -1,16 +1,16 @@
 package com.viel.aplayer.library.availability
 
-import android.content.Context
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class MissingBookFileRecoveryChecker(private val context: Context) {
-    private val database = AppDatabase.getInstance(context)
+class MissingBookFileRecoveryChecker(
+    database: AppDatabase,
+    private val availabilityChecker: AvailabilityChecker
+) {
     private val bookDao = database.bookDao()
-    private val availabilityChecker = AvailabilityChecker(context.applicationContext)
 
     suspend fun recoverMissingAudioFiles(): MissingBookFileRecoveryResult = withContext(Dispatchers.IO) {
         recoverFrom(bookDao.getMissingAudioBookFilesOnce())

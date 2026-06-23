@@ -7,11 +7,15 @@ import com.viel.aplayer.library.scan.ScanOutcomeKind
 import com.viel.aplayer.library.scan.ScanOutcomePolicy
 import com.viel.aplayer.logger.ScanWorkflowLogger
 import kotlinx.coroutines.CancellationException
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 class LibrarySyncWorker(
     context: Context,
     workerParams: WorkerParameters
-) : CoroutineWorker(context, workerParams) {
+) : CoroutineWorker(context, workerParams), KoinComponent {
+    private val workerDependencies: com.viel.aplayer.di.dependencies.LibrarySyncWorkerDependencies by inject()
+
 
     /**
      * Executes one WorkManager-backed library sync command.
@@ -27,7 +31,6 @@ class LibrarySyncWorker(
                 ?.toSet()
                 .orEmpty()
 
-            val workerDependencies = com.viel.aplayer.APlayerApplication.getLibrarySyncWorkerDependencies(applicationContext)
             val scanScheduler = workerDependencies.scanScheduler
 
             scanScheduler.syncLibrary(trigger, rootIds = rootIds).toWorkerResult()

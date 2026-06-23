@@ -140,7 +140,7 @@ class WebDavSourceProviderErrorTest {
     }
 
     private suspend fun withCleartextAllowed(block: suspend () -> Unit) {
-        val repository = AppSettingsRepository.getInstance(RuntimeEnvironment.getApplication())
+        val repository = testAppSettingsRepository("webdav-error")
         repository.updateCleartextTrafficAllowed(true)
         repository.awaitCleartextSetting(true)
         try {

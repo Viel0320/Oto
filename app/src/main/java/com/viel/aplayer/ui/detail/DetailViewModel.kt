@@ -1,13 +1,12 @@
 package com.viel.aplayer.ui.detail
 
-import android.app.Application
 import android.os.SystemClock
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.application.download.BookCacheStatus
 import com.viel.aplayer.application.library.detail.DetailBookItem
 import com.viel.aplayer.application.library.detail.DetailSnapshot
+import com.viel.aplayer.di.dependencies.DetailScreenDependencies
 import com.viel.aplayer.event.feedback.DownloadCacheFeedbackFacts
 import com.viel.aplayer.event.feedback.FeedbackFact
 import com.viel.aplayer.logger.AbsLogSanitizer
@@ -26,8 +25,9 @@ import kotlin.time.Duration.Companion.milliseconds
  * and maintains reactive UI state updates.
  * Separated from `LibraryViewModel` to respect single-responsibility principles and establish clean domains.
  */
-class DetailViewModel(application: Application) : AndroidViewModel(application) {
-    private val detailDependencies = APlayerApplication.getDetailScreenDependencies(application)
+class DetailViewModel(
+    private val detailDependencies: DetailScreenDependencies
+) : ViewModel() {
     private val detailBookReadModel = detailDependencies.detailBookReadModel
     private val detailBookCommands = detailDependencies.detailBookCommands
     private val downloadStatusReadModel = detailDependencies.downloadStatusReadModel

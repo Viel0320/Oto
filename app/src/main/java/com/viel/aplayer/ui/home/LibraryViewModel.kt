@@ -1,15 +1,14 @@
 package com.viel.aplayer.ui.home
 
-import android.app.Application
 import android.net.Uri
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.application.library.home.HomeBookItem
 import com.viel.aplayer.application.library.home.HomeCatalogSortPolicy
 import com.viel.aplayer.application.library.home.matchesHomeBookStatus
+import com.viel.aplayer.di.dependencies.HomeScreenDependencies
 import com.viel.aplayer.event.feedback.BookManagementFeedbackFacts
 import com.viel.aplayer.shared.settings.AppSettings
 import com.viel.aplayer.shared.settings.HomeBookStatusFilter
@@ -27,8 +26,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
-class LibraryViewModel(application: Application) : AndroidViewModel(application) {
-    private val homeDependencies = APlayerApplication.getHomeScreenDependencies(application)
+class LibraryViewModel(
+    private val homeDependencies: HomeScreenDependencies
+) : ViewModel() {
     private val homeLibraryReadModel = homeDependencies.homeLibraryReadModel
     private val homeLibraryUseCases = homeDependencies.homeLibraryUseCases
     private val settingsReadModel = homeDependencies.settingsReadModel

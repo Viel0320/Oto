@@ -1,12 +1,11 @@
 package com.viel.aplayer.ui.settings.remote
 
-import android.app.Application
 import android.net.Uri
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.application.library.settings.SettingsAbsSyncInspection
 import com.viel.aplayer.application.library.settings.SettingsRootItem
+import com.viel.aplayer.di.dependencies.RemoteConnectionDependencies
 import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.logger.AbsSettingsLogger
 import com.viel.aplayer.logger.ScanWorkflowLogger
@@ -27,8 +26,10 @@ import kotlinx.coroutines.launch
  * settings overlay lets "add or edit a remote (or relocate a SAF) library root" run as an app-level
  * overlay that no longer depends on settings being mounted or open.
  */
-class RemoteConnectionViewModel(application: Application) : AndroidViewModel(application) {
-    private val deps = APlayerApplication.getRemoteConnectionDependencies(application)
+class RemoteConnectionViewModel(
+    application: android.app.Application,
+    private val deps: RemoteConnectionDependencies
+) : ViewModel() {
     private val maintenanceUseCase = deps.settingsLibraryMaintenanceUseCase
 
     private val handler = SettingsConnectionHandler(
@@ -39,7 +40,7 @@ class RemoteConnectionViewModel(application: Application) : AndroidViewModel(app
         formatSettingsRootUseCase = deps.formatSettingsRootUseCase,
         appEventSink = deps.appEventSink,
         scope = viewModelScope,
-        app = getApplication()
+        app = application
     )
 
     private val _form = MutableStateFlow(RemoteConnectionFormState())

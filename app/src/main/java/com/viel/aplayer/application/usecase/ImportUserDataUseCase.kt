@@ -10,7 +10,10 @@ import java.io.File
 import java.io.InputStream
 import java.util.zip.ZipInputStream
 
-class ImportUserDataUseCase(private val context: Context) {
+class ImportUserDataUseCase(
+    private val context: Context,
+    private val closeDatabaseForRestore: () -> Unit = {}
+) {
     private val manifestAdapter = Moshi.Builder().build().adapter(BackupManifest::class.java)
 
     /**
@@ -55,7 +58,7 @@ class ImportUserDataUseCase(private val context: Context) {
 
     suspend fun execute(inputStream: InputStream): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            AppDatabase.closeInstance()
+            closeDatabaseForRestore()
 
             context.getSharedPreferences("webdav_credentials", Context.MODE_PRIVATE).edit(commit = true) { clear() }
 

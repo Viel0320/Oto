@@ -36,6 +36,7 @@ import kotlinx.coroutines.ensureActive
 @UnstableApi
 internal class ScopeOrchestrator(
     private val context: Context,
+    database: AppDatabase,
     private val scanner: SourceInventoryScanner,
     private val pipeline: ImportPipeline,
     private val directoryAudioImporter: DirectoryAudioImporter,
@@ -43,7 +44,6 @@ internal class ScopeOrchestrator(
     private val triggerCoverRegeneration: (BookEntity) -> Unit
 ) {
 
-    private val database = AppDatabase.getInstance(context)
     private val bookDao = database.bookDao()
     private val directoryCacheDao = database.directoryCacheDao()
 

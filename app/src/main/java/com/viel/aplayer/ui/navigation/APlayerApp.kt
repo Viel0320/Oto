@@ -24,10 +24,10 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.savedstate.compose.LocalSavedStateRegistryOwner
 import com.viel.aplayer.application.library.home.toDetailBookItem
 import com.viel.aplayer.application.library.settings.SettingsRootItem
+import com.viel.aplayer.di.dependencies.AppShellDependencies
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.shared.settings.ThemeMode
@@ -56,6 +56,8 @@ import com.viel.aplayer.ui.settings.SettingsViewModel
 import com.viel.aplayer.ui.settings.remote.RemoteConnectionRoute
 import com.viel.aplayer.ui.settings.remote.RemoteConnectionViewModel
 import dev.chrisbanes.haze.HazeState
+import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 /**
  * Hosts the top-level app shell and resolves appearance preferences before navigation is rendered.
@@ -73,25 +75,15 @@ fun APlayerApp(
     onOpenDownloadManagementConsumed: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val application = context.applicationContext as android.app.Application
 
-    val libraryViewModel: LibraryViewModel = viewModel(
-        factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                return LibraryViewModel(application) as T
-            }
-        }
-    )
+    val libraryViewModel: LibraryViewModel = koinViewModel()
     val libraryUiState by libraryViewModel.uiState.collectAsStateWithLifecycle()
 
     val detailBookItems = remember(libraryUiState.audiobooks) {
         libraryUiState.audiobooks.associate { it.id to it.toDetailBookItem() }
     }
 
-    val appShellDependencies = remember(context) {
-        com.viel.aplayer.APlayerApplication.getAppShellDependencies(context)
-    }
+    val appShellDependencies = koinInject<AppShellDependencies>()
     val settingsReadModel = remember(appShellDependencies) {
         appShellDependencies.settingsReadModel
     }
@@ -179,43 +171,15 @@ fun APlayerApp(
         val navigator = remember { Navigator(navigationState) }
         val currentRoute = navigationState.topLevelRoute
 
-        val playbackViewModel: PlaybackViewModel = viewModel(
-            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                    return PlaybackViewModel(application) as T
-                }
-            }
-        )
-        val bookmarkViewModel: BookmarkViewModel = viewModel(
-            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                    return BookmarkViewModel(application) as T
-                }
-            }
-        )
-        val playerSettingsViewModel: PlayerSettingsViewModel = viewModel(
-            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                    return PlayerSettingsViewModel(application) as T
-                }
-            }
-        )
+        val playbackViewModel: PlaybackViewModel = koinViewModel()
+        val bookmarkViewModel: BookmarkViewModel = koinViewModel()
+        val playerSettingsViewModel: PlayerSettingsViewModel = koinViewModel()
         LaunchedEffect(playbackViewModel, playerSettingsViewModel) {
             playbackViewModel.onUndoSeekVisibilityChanged = { visible ->
                 playerSettingsViewModel.setUndoSeekVisible(visible)
             }
         }
-        val detailViewModel: DetailViewModel = viewModel(
-            factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                    return DetailViewModel(application) as T
-                }
-            }
-        )
+        val detailViewModel: DetailViewModel = koinViewModel()
         var shouldMountEdit by remember { mutableStateOf(false) }
         var pendingEditBookId by remember { mutableStateOf<String?>(null) }
         var shouldMountSearch by remember { mutableStateOf(false) }
@@ -228,40 +192,19 @@ fun APlayerApp(
         var rootPendingDelete by remember { mutableStateOf<SettingsRootItem?>(null) }
 
         val editViewModel: EditBookViewModel? = if (shouldMountEdit) {
-            viewModel(
-                factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                    @Suppress("UNCHECKED_CAST")
-                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return EditBookViewModel(application) as T
-                    }
-                }
-            )
+            koinViewModel()
         } else {
             null
         }
 
         val searchViewModel: SearchViewModel? = if (shouldMountSearch) {
-            viewModel(
-                factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                    @Suppress("UNCHECKED_CAST")
-                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return SearchViewModel(application) as T
-                    }
-                }
-            )
+            koinViewModel()
         } else {
             null
         }
 
         val settingsViewModel: SettingsViewModel? = if (shouldMountSettings) {
-            viewModel(
-                factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                    @Suppress("UNCHECKED_CAST")
-                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return SettingsViewModel(application) as T
-                    }
-                }
-            )
+            koinViewModel()
         } else {
             null
         }
@@ -270,14 +213,7 @@ fun APlayerApp(
         // non-null view model, and on its own when the add-library flow is triggered from elsewhere.
         val remoteConnectionViewModel: RemoteConnectionViewModel? =
             if (shouldMountRemoteConnection || shouldMountSettings) {
-                viewModel(
-                    factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                        @Suppress("UNCHECKED_CAST")
-                        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                            return RemoteConnectionViewModel(application) as T
-                        }
-                    }
-                )
+                koinViewModel()
             } else {
                 null
             }

@@ -73,9 +73,6 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         const val VERSION = 43
-        @Volatile
-        private var INSTANCE: AppDatabase? = null
-
         private val MIGRATION_41_42 = object : Migration(41, 42) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
@@ -128,31 +125,17 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        fun getInstance(context: Context): AppDatabase {
-            return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "aplayer_database"
-                )
-                    .addMigrations(MIGRATION_41_42, MIGRATION_42_43)
-                    .build().also { INSTANCE = it }
-            }
-        }
-
-        fun closeInstance() {
-            synchronized(this) {
-                INSTANCE?.let {
-                    try {
-                        if (it.isOpen) {
-                            it.close()
-                        }
-                    } catch (_: Exception) {
-                    } finally {
-                        INSTANCE = null
-                    }
-                }
-            }
-        }
+        /**
+         * Construct an AppDatabase bound to the supplied context without caching it globally.
+         * Used by Koin module wiring so the database lifecycle is owned by the di container.
+         */
+        internal fun create(context: Context): AppDatabase =
+            Room.databaseBuilder(
+                context.applicationContext,
+                AppDatabase::class.java,
+                "aplayer_database"
+            )
+                .addMigrations(MIGRATION_41_42, MIGRATION_42_43)
+                .build()
     }
 }

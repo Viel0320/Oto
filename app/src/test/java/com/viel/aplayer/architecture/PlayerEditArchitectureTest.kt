@@ -39,7 +39,7 @@ class PlayerEditArchitectureTest {
             val source = sourceRoot.resolve("ui/player/$name").readText()
             assertTrue(
                 "$name must resolve the player-specific dependency view.",
-                source.contains("getPlayerScreenDependencies")
+                source.contains("PlayerScreenDependencies")
             )
             assertTrue(
                 "$name must not call the old library presentation dependency provider.",
@@ -66,7 +66,7 @@ class PlayerEditArchitectureTest {
 
         assertTrue(
             "EditBookViewModel must resolve the edit-specific dependency view.",
-            editViewModelSource.contains("getEditScreenDependencies")
+            editViewModelSource.contains("EditScreenDependencies")
         )
         assertTrue(
             "EditBookViewModel must consume edit read and command scene interfaces.",

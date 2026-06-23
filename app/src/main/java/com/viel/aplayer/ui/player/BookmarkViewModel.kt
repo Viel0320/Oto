@@ -1,10 +1,9 @@
 package com.viel.aplayer.ui.player
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.application.library.player.PlayerBookmarkItem
+import com.viel.aplayer.di.dependencies.PlayerScreenDependencies
 import com.viel.aplayer.event.feedback.BookManagementFeedbackFacts
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkManager
 import kotlinx.coroutines.CoroutineScope
@@ -17,13 +16,13 @@ import kotlinx.coroutines.flow.update
  * Owns bookmark dialog state while delegating bookmark mutations to the player bookmark command boundary.
  */
 class BookmarkViewModel(
-    application: Application,
+    private val application: android.app.Application,
+    private val playerDependencies: PlayerScreenDependencies,
     rawExternalScope: CoroutineScope? = null
-) : AndroidViewModel(application) {
+) : ViewModel() {
 
     private val externalScope = rawExternalScope ?: viewModelScope
 
-    private val playerDependencies = APlayerApplication.getPlayerScreenDependencies(application)
     private val bookmarkCommands = playerDependencies.playerBookmarkCommands
     private val appEventSink = playerDependencies.appEventSink
 
@@ -76,6 +75,6 @@ class BookmarkViewModel(
     }
 
     private fun defaultBookmarkTitle(): String {
-        return getApplication<Application>().getString(com.viel.aplayer.R.string.bookmark_default_title)
+        return application.getString(com.viel.aplayer.R.string.bookmark_default_title)
     }
 }

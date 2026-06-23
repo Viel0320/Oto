@@ -4,14 +4,18 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.viel.aplayer.APlayerApplication
+import com.viel.aplayer.di.dependencies.ManualDownloadNotificationActionDependencies
 import com.viel.aplayer.logger.SecureLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
-class ManualDownloadNotificationActionReceiver : BroadcastReceiver() {
+class ManualDownloadNotificationActionReceiver : BroadcastReceiver(), KoinComponent {
+    private val dependencies: ManualDownloadNotificationActionDependencies by inject()
+
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
         val bookId = intent.getStringExtra(EXTRA_BOOK_ID)?.takeIf { value -> value.isNotBlank() } ?: return
@@ -19,9 +23,7 @@ class ManualDownloadNotificationActionReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             try {
-                val downloadController = APlayerApplication
-                    .getManualDownloadNotificationActionDependencies(context.applicationContext)
-                    .downloadController
+                val downloadController = dependencies.downloadController
                 when (action) {
                     ACTION_PAUSE_DOWNLOAD -> downloadController.pauseDownload(bookId)
                     ACTION_RESUME_DOWNLOAD -> downloadController.resumeDownload(bookId)

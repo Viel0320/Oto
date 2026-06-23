@@ -226,7 +226,7 @@ class WebDavSourceProviderXmlTest {
     }
 
     private suspend fun withCleartextAllowed(block: suspend () -> Unit) {
-        val repository = AppSettingsRepository.getInstance(RuntimeEnvironment.getApplication())
+        val repository = testAppSettingsRepository("webdav-xml")
         repository.updateCleartextTrafficAllowed(true)
         repository.awaitCleartextSetting(true)
         try {

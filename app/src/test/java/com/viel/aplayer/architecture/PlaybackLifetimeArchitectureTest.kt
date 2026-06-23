@@ -5,19 +5,20 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Locks phase-six di ownership.
- * Verifies persistence di and deletion use cases stay decoupled from playback runtime managers.
+ * Locks di ownership under the Koin-based container.
+ * Verifies persistence di and deletion use cases stay decoupled from playback runtime managers,
+ * and that the player scene keeps using the playback controller seam instead of media singletons.
  */
 class PlaybackLifetimeArchitectureTest {
 
     @Test
-    fun dataGraphDoesNotOwnPlaybackRuntimeManagers() {
-        val dataGraph = resolveSourceRoot().resolve("di/graph/DataGraph.kt").readText()
+    fun coreDataModuleDoesNotOwnPlaybackRuntimeManagers() {
+        val coreDataModule = resolveSourceRoot().resolve("di/koin/CoreDataModule.kt").readText()
 
-        assertTrue(!dataGraph.contains("PlaybackManager"))
-        assertTrue(!dataGraph.contains("AutoRewindManager"))
-        assertTrue(!dataGraph.contains("playbackManager"))
-        assertTrue(!dataGraph.contains("autoRewindManager"))
+        assertTrue(!coreDataModule.contains("PlaybackManager"))
+        assertTrue(!coreDataModule.contains("AutoRewindManager"))
+        assertTrue(!coreDataModule.contains("playbackManager"))
+        assertTrue(!coreDataModule.contains("autoRewindManager"))
     }
 
     @Test
@@ -58,32 +59,30 @@ class PlaybackLifetimeArchitectureTest {
     }
 
     @Test
-    fun libraryGraphReceivesPlaybackStopperFromMediaGraph() {
-        val libraryGraph = resolveSourceRoot().resolve("di/graph/LibraryGraph.kt").readText()
+    fun libraryUseCaseModuleReceivesPlaybackStopperFromMediaModule() {
+        val libraryUseCaseModule = resolveSourceRoot().resolve("di/koin/LibraryUseCaseModule.kt").readText()
 
-        assertTrue(libraryGraph.contains("playbackStopper = media.playbackStopper"))
-        assertTrue(!libraryGraph.contains("playbackManager = data.playbackManager"))
+        assertTrue(libraryUseCaseModule.contains("playbackStopper = get<PlaybackStopper>()"))
+        assertTrue(!libraryUseCaseModule.contains("playbackManager = data.playbackManager"))
     }
 
     @Test
-    fun managementUseCasesReceiveManualDownloadCleanupGatewayFromDownloadGraph() {
+    fun managementUseCasesReceiveManualDownloadCleanupGatewayFromDownloadModule() {
         val sourceRoot = resolveSourceRoot()
-        val appContainer = sourceRoot.resolve("AppContainer.kt").readText()
-        val libraryGraph = sourceRoot.resolve("di/graph/LibraryGraph.kt").readText()
+        val libraryUseCaseModule = sourceRoot.resolve("di/koin/LibraryUseCaseModule.kt").readText()
 
-        assertTrue(appContainer.contains("manualDownloadCleanupGatewayProvider = { download.manualDownloadCleanupGateway }"))
-        assertTrue(libraryGraph.contains("LibraryRootManagementUseCase("))
-        assertTrue(libraryGraph.contains("BookManagementUseCase("))
-        assertTrue(libraryGraph.contains("manualDownloadCleanupGateway = manualDownloadCleanupGatewayProvider()"))
+        assertTrue(libraryUseCaseModule.contains("LibraryRootManagementUseCase("))
+        assertTrue(libraryUseCaseModule.contains("BookManagementUseCase("))
+        assertTrue(libraryUseCaseModule.contains("manualDownloadCleanupGateway = get<ManualDownloadCleanupGateway>()"))
     }
 
     @Test
     fun absSettingsRootSwitchUsesLibraryRootManagementUseCase() {
         val sourceRoot = resolveSourceRoot()
-        val appContainer = sourceRoot.resolve("AppContainer.kt").readText()
+        val settingsUseCaseModule = sourceRoot.resolve("di/koin/SettingsUseCaseModule.kt").readText()
         val absSettingsUseCase = sourceRoot.resolve("application/usecase/AbsSettingsConnectionUseCase.kt").readText()
 
-        assertTrue(appContainer.contains("libraryRootManagementUseCase = library.libraryRootManagementUseCase"))
+        assertTrue(settingsUseCaseModule.contains("libraryRootManagementUseCase = get()"))
         assertTrue(absSettingsUseCase.contains("libraryRootManagementUseCase.updateAbsLibraryRoot("))
         assertTrue(!absSettingsUseCase.contains("libraryRootGateway.updateAbsLibraryRoot("))
     }
@@ -136,10 +135,10 @@ class PlaybackLifetimeArchitectureTest {
         )
 
         val dependencies = sourceRoot.resolve("di/dependencies/PresentationDependencies.kt").readText()
-        val mediaGraph = sourceRoot.resolve("di/graph/MediaGraph.kt").readText()
+        val mediaPlaybackControllerModule = sourceRoot.resolve("di/koin/MediaPlaybackControllerModule.kt").readText()
 
         assertTrue(dependencies.contains("val playerPlaybackController: PlayerPlaybackController"))
-        assertTrue(mediaGraph.contains("playerPlaybackController: PlayerPlaybackController"))
+        assertTrue(mediaPlaybackControllerModule.contains("PlayerPlaybackController"))
     }
 
     private fun resolveSourceRoot(): File {

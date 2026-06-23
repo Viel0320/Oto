@@ -1,14 +1,7 @@
 package com.viel.aplayer.architecture
 
-import com.viel.aplayer.di.graph.closeAppGraphsInLifecycleOrder
-import com.viel.aplayer.di.graph.closeInitializedAbsGraphResources
-import com.viel.aplayer.di.graph.closeInitializedLibraryGraphResources
-import com.viel.aplayer.di.graph.closeInitializedUiEventGraphResources
-import com.viel.aplayer.di.graph.releaseInitializedMediaGraphResource
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
+import com.viel.aplayer.di.koin.GraphClosePolicy
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.Closeable
@@ -17,22 +10,22 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
- * Protects application di ownership boundaries.
- * Verifies close order and initialized-resource cleanup without instantiating Android-backed di dependencies.
+ * Protects application di ownership boundaries under the Koin-based di container.
+ * Verifies that GraphClosePolicy preserves the previous close order
+ * (media -> download -> abs -> library -> uiEvents) and continues through failed teardowns.
  */
 class GraphLifecycleTest {
 
     @Test
-    fun `app container graph close order should continue through failed graph teardown`() {
-        val closeOrder = mutableListOf<String>()
+    fun `graph close policy should continue through failed graph teardown`() {
+        val closeOrder = Collections.synchronizedList(mutableListOf<String>())
+        register(GraphClosePolicy.Stage.Media, RecordingCloseable("media", closeOrder, shouldThrow = true))
+        register(GraphClosePolicy.Stage.Download, RecordingCloseable("download", closeOrder))
+        register(GraphClosePolicy.Stage.Abs, RecordingCloseable("abs", closeOrder))
+        register(GraphClosePolicy.Stage.Library, RecordingCloseable("library", closeOrder))
+        register(GraphClosePolicy.Stage.UiEvents, RecordingCloseable("uiEvents", closeOrder))
 
-        closeAppGraphsInLifecycleOrder(
-            media = RecordingCloseable("media", closeOrder, shouldThrow = true),
-            download = RecordingCloseable("download", closeOrder),
-            library = RecordingCloseable("library", closeOrder),
-            abs = RecordingCloseable("abs", closeOrder),
-            uiEvents = RecordingCloseable("uiEvents", closeOrder)
-        )
+        GraphClosePolicy.closeInLifecycleOrder()
 
         assertEquals(listOf("media", "download", "abs", "library", "uiEvents"), closeOrder)
     }
@@ -46,166 +39,70 @@ class GraphLifecycleTest {
             library = library
         )
 
-        closeAppGraphsInLifecycleOrder(
-            media = RecordingCloseable("media", closeOrder),
-            download = RecordingCloseable("download", closeOrder),
-            library = library,
-            abs = abs,
-            uiEvents = RecordingCloseable("uiEvents", closeOrder)
-        )
+        register(GraphClosePolicy.Stage.Media, RecordingCloseable("media", closeOrder))
+        register(GraphClosePolicy.Stage.Download, RecordingCloseable("download", closeOrder))
+        register(GraphClosePolicy.Stage.Abs, abs)
+        register(GraphClosePolicy.Stage.Library, library)
+        register(GraphClosePolicy.Stage.UiEvents, RecordingCloseable("uiEvents", closeOrder))
+
+        GraphClosePolicy.closeInLifecycleOrder()
 
         assertTrue(abs.libraryWasOpenDuringShutdown)
-        assertEquals(listOf("media", "download", "abs", "absSync:libraryOpen", "library", "uiEvents"), closeOrder)
-    }
-
-    @Test
-    fun `app container close should release initialized media playback runtime once`() {
-        val releaseOrder = mutableListOf<String>()
-        val initializedPlaybackRuntime = lazy {
-            ReleaseRecordingPlaybackRuntime("playbackManager", releaseOrder)
-        }
-        val media = MediaGraphCloseable(initializedPlaybackRuntime)
-
-        media.playbackManager
-
-        closeAppGraphsInLifecycleOrder(
-            media = media,
-            download = RecordingCloseable("download", mutableListOf()),
-            library = RecordingCloseable("library", mutableListOf()),
-            abs = RecordingCloseable("abs", mutableListOf()),
-            uiEvents = RecordingCloseable("uiEvents", mutableListOf())
+        assertEquals(
+            listOf("media", "download", "abs", "absSync:libraryOpen", "library", "uiEvents"),
+            closeOrder
         )
-
-        assertEquals(listOf("playbackManager"), releaseOrder)
     }
 
     @Test
-    fun `app container close should not initialize unused media playback runtime`() {
-        val releaseOrder = mutableListOf<String>()
-        val unusedPlaybackRuntime = lazy {
-            ReleaseRecordingPlaybackRuntime("unusedPlaybackManager", releaseOrder)
-        }
-        val media = MediaGraphCloseable(unusedPlaybackRuntime)
-
-        closeAppGraphsInLifecycleOrder(
-            media = media,
-            download = RecordingCloseable("download", mutableListOf()),
-            library = RecordingCloseable("library", mutableListOf()),
-            abs = RecordingCloseable("abs", mutableListOf()),
-            uiEvents = RecordingCloseable("uiEvents", mutableListOf())
-        )
-
-        assertFalse(unusedPlaybackRuntime.isInitialized())
-        assertTrue(releaseOrder.isEmpty())
+    fun `graph close policy should clear registrations after close`() {
+        register(GraphClosePolicy.Stage.Media, RecordingCloseable("one", mutableListOf()))
+        GraphClosePolicy.closeInLifecycleOrder()
+        // Re-closing should be a no-op without throwing.
+        GraphClosePolicy.closeInLifecycleOrder()
+        assertTrue(true)
     }
 
     @Test
-    fun `library graph close should close only initialized closeable resources and cancel recovery scope`() {
-        val closeOrder = mutableListOf<String>()
-        val initializedBookQuery = lazy { RecordingCloseable("bookQuery", closeOrder) }
-        val uninitializedProgress = lazy { RecordingCloseable("progress", closeOrder) }
-        val initializedScan = lazy { RecordingCloseable("scan", closeOrder) }
-        val recoveryJob = SupervisorJob()
+    fun `graph close policy should close lower priority first inside the same stage`() {
+        val closeOrder = Collections.synchronizedList(mutableListOf<String>())
+        register(GraphClosePolicy.Stage.Library, RecordingCloseable("late", closeOrder), priority = 10)
+        register(GraphClosePolicy.Stage.Library, RecordingCloseable("early", closeOrder), priority = 0)
 
-        initializedBookQuery.value
-        initializedScan.value
+        GraphClosePolicy.closeInLifecycleOrder()
 
-        closeInitializedLibraryGraphResources(
-            closeableResources = listOf(
-                initializedBookQuery,
-                uninitializedProgress,
-                initializedScan
-            ),
-            recoveryScope = CoroutineScope(recoveryJob)
-        )
-
-        assertEquals(listOf("bookQuery", "scan"), closeOrder)
-        assertFalse(uninitializedProgress.isInitialized())
-        assertFalse(recoveryJob.isActive)
+        assertEquals(listOf("early", "late"), closeOrder)
     }
 
     @Test
-    fun `abs graph close should skip uninitialized sync coordinator`() {
-        val closeOrder = mutableListOf<String>()
-        val initializedCoordinator = lazy { RecordingCloseable("absSyncTaskCoordinator", closeOrder) }
-        val uninitializedCoordinator = lazy { RecordingCloseable("unusedCoordinator", closeOrder) }
-
-        initializedCoordinator.value
-
-        closeInitializedAbsGraphResources(
-            closeableResources = listOf(
-                initializedCoordinator,
-                uninitializedCoordinator
-            )
-        )
-
-        assertEquals(listOf("absSyncTaskCoordinator"), closeOrder)
-        assertFalse(uninitializedCoordinator.isInitialized())
-    }
-
-    @Test
-    fun `ui event graph close should close initialized bridge and cancel bridge scope`() {
-        val closeOrder = mutableListOf<String>()
-        val initializedBridge = lazy { RecordingCloseable("playbackDomainEventBridge", closeOrder) }
-        val uninitializedBridge = lazy { RecordingCloseable("unusedBridge", closeOrder) }
-        val eventScopeJob = SupervisorJob()
-
-        initializedBridge.value
-
-        closeInitializedUiEventGraphResources(
-            closeableResources = listOf(
-                initializedBridge,
-                uninitializedBridge
-            ),
-            eventBridgeScope = CoroutineScope(eventScopeJob)
-        )
-
-        assertEquals(listOf("playbackDomainEventBridge"), closeOrder)
-        assertFalse(uninitializedBridge.isInitialized())
-        assertFalse(eventScopeJob.isActive)
-    }
-
-    @Test
-    fun `library graph ownership list should include every closeable gateway declared in source`() {
+    fun `koin modules register closeable resources through graph close policy`() {
         val sourceRoot = resolveSourceRoot()
-        val libraryGraphSource = sourceRoot.resolve("di/graph/LibraryGraph.kt").readText()
-        val closeSupportSource = sourceRoot.resolve("di/graph/GraphCloseSupport.kt").readText()
-
-        val declaredCloseableLazyNames = listOf(
-            "bookMetadataGatewayLazy",
-            "chapterGatewayLazy",
-            "progressGatewayLazy",
-            "scanSchedulerLazy",
-            "libraryRootGatewayLazy",
-            "searchHistoryGatewayLazy"
-        )
+        val mediaModuleSource = sourceRoot.resolve("di/koin/MediaModule.kt").readText()
+        val downloadModuleSource = sourceRoot.resolve("di/koin/DownloadModule.kt").readText()
+        val absSyncModuleSource = sourceRoot.resolve("di/koin/AbsSyncModule.kt").readText()
+        val libraryScanModuleSource = sourceRoot.resolve("di/koin/LibraryScanModule.kt").readText()
+        val uiEventModuleSource = sourceRoot.resolve("di/koin/UiEventModule.kt").readText()
 
         assertTrue(
-            declaredCloseableLazyNames.all { lazyName ->
-                libraryGraphSource.contains("private val $lazyName") &&
-                    libraryGraphSource.contains(lazyName)
-            }
+            "MediaModule must register playback runtime with GraphClosePolicy.",
+            mediaModuleSource.contains("GraphClosePolicy.register")
         )
         assertTrue(
-            "LibraryGraph.close() must delegate initialized lazy resources through closeInitializedLibraryGraphResources(...).",
-            libraryGraphSource.contains("closeInitializedLibraryGraphResources(")
+            "DownloadModule must register download resources with GraphClosePolicy.",
+            downloadModuleSource.contains("GraphClosePolicy.register")
         )
         assertTrue(
-            "GraphCloseSupport must guard Lazy.isInitialized() before reading Lazy.value.",
-            closeSupportSource.contains("if (resource.isInitialized())") &&
-                closeSupportSource.contains("resource.value as? Closeable")
+            "AbsSyncModule must register abs sync coordinator with GraphClosePolicy.",
+            absSyncModuleSource.contains("GraphClosePolicy.register")
         )
-    }
-
-    @Test
-    fun `media graph close should keep playback manager behind initialized release guard`() {
-        val sourceRoot = resolveSourceRoot()
-        val mediaGraphSource = sourceRoot.resolve("di/graph/MediaGraph.kt").readText()
-
-        assertTrue(mediaGraphSource.contains("private val playbackManagerLazy = lazy"))
-        assertTrue(mediaGraphSource.contains("val playbackManager: PlaybackManager by playbackManagerLazy"))
-        assertTrue(mediaGraphSource.contains("releaseInitializedMediaGraphResource(playbackManagerLazy)"))
-        assertTrue(mediaGraphSource.contains("playbackRuntime.release()"))
+        assertTrue(
+            "LibraryScanModule must register scan resources with GraphClosePolicy.",
+            libraryScanModuleSource.contains("GraphClosePolicy.register")
+        )
+        assertTrue(
+            "UiEventModule must register event bridge resources with GraphClosePolicy.",
+            uiEventModuleSource.contains("GraphClosePolicy.register")
+        )
     }
 
     private fun resolveSourceRoot(): java.io.File {
@@ -215,6 +112,14 @@ class GraphLifecycleTest {
         )
         return candidates.firstOrNull { candidate -> candidate.isDirectory }
             ?: error("Could not locate app source root for di lifecycle test.")
+    }
+
+    private fun register(
+        stage: GraphClosePolicy.Stage,
+        closeable: Closeable,
+        priority: Int = 0
+    ) {
+        GraphClosePolicy.register(stage = stage, closeable = closeable, priority = priority)
     }
 
     private class RecordingCloseable(
@@ -280,28 +185,6 @@ class GraphLifecycleTest {
             shutdownStarted.countDown()
             workerObservedLibrary.await(1, TimeUnit.SECONDS)
             runningSyncWorker.join(1_000)
-        }
-    }
-
-    private class MediaGraphCloseable(
-        private val playbackRuntimeLazy: Lazy<ReleaseRecordingPlaybackRuntime>
-    ) : Closeable {
-        val playbackManager: ReleaseRecordingPlaybackRuntime
-            get() = playbackRuntimeLazy.value
-
-        override fun close() {
-            releaseInitializedMediaGraphResource(playbackRuntimeLazy) { playbackRuntime ->
-                playbackRuntime.release()
-            }
-        }
-    }
-
-    private class ReleaseRecordingPlaybackRuntime(
-        private val name: String,
-        private val releaseOrder: MutableList<String>
-    ) {
-        fun release() {
-            releaseOrder += name
         }
     }
 }

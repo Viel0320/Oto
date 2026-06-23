@@ -1,12 +1,11 @@
 package com.viel.aplayer.ui.edit
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.application.library.edit.EditBookCommands
 import com.viel.aplayer.application.library.edit.EditBookDraft
 import com.viel.aplayer.application.library.edit.EditBookReadModel
+import com.viel.aplayer.di.dependencies.EditScreenDependencies
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -17,8 +16,9 @@ import kotlinx.coroutines.launch
  * Keeps book loading, overlay visibility, and save operations outside the overlay shell so the
  * edit route can own state while EditBookScreen remains a stateless rendering surface.
  */
-class EditBookViewModel(application: Application) : AndroidViewModel(application) {
-    private val editDependencies = APlayerApplication.getEditScreenDependencies(application)
+class EditBookViewModel(
+    private val editDependencies: EditScreenDependencies
+) : ViewModel() {
     private val editBookReadModel: EditBookReadModel = editDependencies.editBookReadModel
     private val editBookCommands: EditBookCommands = editDependencies.editBookCommands
 

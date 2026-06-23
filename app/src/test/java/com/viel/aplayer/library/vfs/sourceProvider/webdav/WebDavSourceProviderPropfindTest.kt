@@ -80,7 +80,7 @@ class WebDavSourceProviderPropfindTest {
     }
 
     private suspend fun withCleartextAllowed(block: suspend () -> Unit) {
-        val repository = AppSettingsRepository.getInstance(RuntimeEnvironment.getApplication())
+        val repository = testAppSettingsRepository("webdav-propfind")
         repository.updateCleartextTrafficAllowed(true)
         repository.awaitCleartextSetting(enabled = true)
         try {

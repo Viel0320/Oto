@@ -1,13 +1,12 @@
 package com.viel.aplayer.ui.settings.recovery
 
-import android.app.Application
 import androidx.annotation.StringRes
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryItem
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryResult
+import com.viel.aplayer.di.dependencies.SettingsScreenDependencies
 import com.viel.aplayer.event.feedback.RecoveryFeedbackFacts
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,8 +19,9 @@ import kotlinx.coroutines.launch
  * Presentation coordinator for soft-deleted book restoration.
  * Owns row-level loading, confirmation dialogs, and toast routing while delegating business rules to the recovery commands.
  */
-class DeletedBookRecoveryViewModel(application: Application) : AndroidViewModel(application) {
-    private val dependencies = APlayerApplication.getSettingsScreenDependencies(application)
+class DeletedBookRecoveryViewModel(
+    private val dependencies: SettingsScreenDependencies
+) : ViewModel() {
     private val readModel = dependencies.deletedBookRecoveryReadModel
     private val commands = dependencies.deletedBookRecoveryCommands
     private val appEventSink = dependencies.appEventSink

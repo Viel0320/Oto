@@ -216,16 +216,17 @@ ABS changes usually require tests with `MockWebServer` and local mapping asserti
 
 ### Dependency Graphs
 
-DI is intentionally manual.
+DI is provided by Koin.
 
 - Public dependency contracts live under `di/dependencies/`.
-- Graph ownership lives under `di/graph/`.
-- `AppContainer` exposes only narrow caller-facing dependency views.
-- `DefaultAppContainer` wires concrete graph implementations.
+- Koin module ownership lives under `di/koin/`.
+- `APlayerKoinApplication` starts the global Koin context with every APlayer module.
+- `DependencyViewModule` binds the narrow dependency-view interfaces to Koin-resolved implementations.
+- `GraphClosePolicy` preserves the ordered shutdown policy (media -> download -> abs -> library -> uiEvents).
 
-Do not introduce Hilt, Koin, service locators, or global singleton shortcuts unless explicitly requested. When adding a dependency, place it in the smallest relevant dependency view and graph.
+When adding a dependency, place it in the smallest relevant dependency view and the smallest relevant Koin module. Keep modules small and focused; split a module when it grows past ~80 lines.
 
-Graph shutdown order is policy. Preserve `closeAppGraphsInLifecycleOrder(...)` unless the lifecycle consequence is understood and tested.
+Graph shutdown order is policy. Preserve `GraphClosePolicy.closeInLifecycleOrder()` unless the lifecycle consequence is understood and tested.
 
 ---
 

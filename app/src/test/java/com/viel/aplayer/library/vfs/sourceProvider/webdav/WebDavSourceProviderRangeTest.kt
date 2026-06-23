@@ -70,7 +70,7 @@ class WebDavSourceProviderRangeTest {
     }
 
     private suspend fun withCleartextAllowed(block: suspend () -> Unit) {
-        val repository = AppSettingsRepository.getInstance(RuntimeEnvironment.getApplication())
+        val repository = testAppSettingsRepository("webdav-range")
         repository.updateCleartextTrafficAllowed(true)
         repository.awaitCleartextSetting(enabled = true)
         try {

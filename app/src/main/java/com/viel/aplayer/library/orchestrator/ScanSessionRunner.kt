@@ -48,11 +48,12 @@ enum class RescanType {
 @UnstableApi
 class ScanSessionRunner(
     private val context: Context,
+    private val database: AppDatabase,
     vfsFileInterface: VfsFileInterface,
     directoryListingCache: DirectoryListingCache = NoOpDirectoryListingCache,
-    private val triggerCoverRegeneration: (BookEntity) -> Unit = {}
+    private val triggerCoverRegeneration: (BookEntity) -> Unit = {},
+    private val missingRecoveryChecker: MissingBookFileRecoveryChecker
 ) {
-    private val database = AppDatabase.getInstance(context)
     private val rootDao = database.libraryRootDao()
     private val bookDao = database.bookDao()
     private val scanSessionDao = database.scanSessionDao()
@@ -63,8 +64,7 @@ class ScanSessionRunner(
 
     private val metadataResolver = MetadataResolver(vfsFileInterface)
     private val pipeline = ImportPipeline(context, metadataResolver)
-    private val importer = BookImporter(context)
-    private val missingRecoveryChecker = MissingBookFileRecoveryChecker(context)
+    private val importer = BookImporter(database)
 
     private val directoryAudioImporter = DirectoryAudioImporter(
         metadataResolver = metadataResolver,
@@ -75,6 +75,7 @@ class ScanSessionRunner(
 
     private val scopeOrchestrator = ScopeOrchestrator(
         context = context,
+        database = database,
         scanner = scanner,
         pipeline = pipeline,
         directoryAudioImporter = directoryAudioImporter,

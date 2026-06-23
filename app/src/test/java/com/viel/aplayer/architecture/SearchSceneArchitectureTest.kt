@@ -24,7 +24,7 @@ class SearchSceneArchitectureTest {
         )
         assertTrue(
             "SearchViewModel must resolve the search-specific dependency view.",
-            searchViewModelSource.contains("getSearchScreenDependencies")
+            searchViewModelSource.contains("SearchScreenDependencies")
         )
         assertTrue(
             "SearchViewModel must use the search scene read model and commands.",

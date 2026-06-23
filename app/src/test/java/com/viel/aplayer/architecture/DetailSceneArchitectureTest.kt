@@ -24,7 +24,7 @@ class DetailSceneArchitectureTest {
         )
         assertTrue(
             "DetailViewModel must resolve the detail-specific dependency view.",
-            detailViewModelSource.contains("getDetailScreenDependencies")
+            detailViewModelSource.contains("DetailScreenDependencies")
         )
         assertTrue(
             "DetailViewModel must use detail read and command scene interfaces.",

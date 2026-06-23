@@ -1,16 +1,15 @@
 package com.viel.aplayer.ui.player
 
-import android.app.Application
 import android.os.SystemClock
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.viel.aplayer.APlayerApplication
 import com.viel.aplayer.application.library.player.PlayerBookPreview
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.application.library.player.PlayerLibraryMetadata
 import com.viel.aplayer.application.library.player.PlayerRelatedData
 import com.viel.aplayer.application.library.player.PlayerRestoredProgressSnapshot
 import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
+import com.viel.aplayer.di.dependencies.PlayerScreenDependencies
 import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.event.feedback.PlaybackControlFeedbackFacts
 import com.viel.aplayer.event.feedback.RecoveryFeedbackFacts
@@ -38,9 +37,9 @@ import kotlin.time.Duration.Companion.milliseconds
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlaybackViewModel(
-    application: Application,
+    private val playerDependencies: PlayerScreenDependencies,
     rawExternalScope: CoroutineScope? = null
-) : AndroidViewModel(application) {
+) : ViewModel() {
 
     private val externalScope = rawExternalScope ?: viewModelScope
 
@@ -48,7 +47,6 @@ class PlaybackViewModel(
         private val PLAYBACK_SPEEDS = listOf(0.8f, 0.9f, 1.0f, 1.1f, 1.2f, 1.3f)
     }
 
-    private val playerDependencies = APlayerApplication.getPlayerScreenDependencies(application)
     private val playbackController = playerDependencies.playerPlaybackController
     private val playerLibraryReadModel = playerDependencies.playerLibraryReadModel
     private val buildPlaybackPlanUseCase = playerDependencies.buildPlaybackPlanUseCase

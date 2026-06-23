@@ -31,10 +31,14 @@ data class AvailabilityResult(
 
 class AvailabilityChecker(
     private val context: Context,
-    private val absCredentialStore: AbsCredentialStore = AbsCredentialStore.getInstance(context.applicationContext),
-    private val absApiClient: AbsApiClient = RealAbsApiClient(appSettingsRepository = AppSettingsRepository.getInstance(context.applicationContext))
+    private val absCredentialStore: AbsCredentialStore,
+    appSettingsRepository: AppSettingsRepository,
+    private val database: AppDatabase,
+    absApiClient: AbsApiClient = RealAbsApiClient(
+        appSettingsRepository = appSettingsRepository,
+        credentialStore = absCredentialStore
+    )
 ) {
-    private val database = AppDatabase.getInstance(context.applicationContext)
     private val libraryRootDao = database.libraryRootDao()
     private val vfs = VirtualFileSystem(LibrarySourceProviderFactory(context.applicationContext))
     private val absConnectionTester = AbsConnectionTester(absApiClient)

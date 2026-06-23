@@ -8,9 +8,9 @@ import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.usecase.AbsConnectionReuseSnapshot
 import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
 import com.viel.aplayer.application.usecase.DuplicateLibraryRootException
+import com.viel.aplayer.application.usecase.DuplicateLibraryRootSource
 import com.viel.aplayer.application.usecase.SettingsQueryUseCase
 import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
-import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.i18n.AppLocaleController
@@ -192,7 +192,7 @@ class SettingsConnectionHandler(
             }.onFailure { error ->
                 val friendlyMessage = formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
                 _webDavConnectionState.value = WebDavConnectionUiState(isTesting = false, testSucceeded = false, lastError = friendlyMessage)
-                val fact = if (error.isDuplicateRootFor(AudiobookSchema.LibrarySourceType.WEBDAV)) {
+                val fact = if (error.isDuplicateRootFor(DuplicateLibraryRootSource.WEBDAV)) {
                     LibraryAccessFeedbackFacts.webDavRootAlreadyExists(draftId = editingRootId ?: NEW_DRAFT_ID)
                 } else {
                     LibraryAccessFeedbackFacts.webDavConnectionFailed(
@@ -267,7 +267,7 @@ class SettingsConnectionHandler(
                 _absConnectionState.value = AbsConnectionUiState()
                 launchAutoAbsSync(outcome.rootId)
             }.onFailure { error ->
-                val redactedMessage = if (error.isDuplicateRootFor(AudiobookSchema.LibrarySourceType.ABS)) {
+                val redactedMessage = if (error.isDuplicateRootFor(DuplicateLibraryRootSource.ABS)) {
                     formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
                 } else {
                     formatSettingsRootUseCase.redactAbsError(
@@ -281,7 +281,7 @@ class SettingsConnectionHandler(
                     errorClass = error::class.java.simpleName,
                     message = redactedMessage
                 )
-                val fact = if (error.isDuplicateRootFor(AudiobookSchema.LibrarySourceType.ABS)) {
+                val fact = if (error.isDuplicateRootFor(DuplicateLibraryRootSource.ABS)) {
                     LibraryAccessFeedbackFacts.absRootAlreadyExists(draftId = editingRootId ?: NEW_DRAFT_ID)
                 } else {
                     LibraryAccessFeedbackFacts.absServerSaveFailed(redactedMessage)
@@ -354,7 +354,7 @@ class SettingsConnectionHandler(
                     errorClass = error::class.java.simpleName,
                     message = friendlyMessage
                 )
-                val fact = if (error.isDuplicateRootFor(AudiobookSchema.LibrarySourceType.ABS)) {
+                val fact = if (error.isDuplicateRootFor(DuplicateLibraryRootSource.ABS)) {
                     LibraryAccessFeedbackFacts.absRootAlreadyExists(draftId = editingRootId ?: NEW_DRAFT_ID)
                 } else {
                     LibraryAccessFeedbackFacts.absConnectionFailed(
@@ -382,7 +382,7 @@ class SettingsConnectionHandler(
      * Identifies duplicate-root validation failures without coupling unrelated connection errors to
      * source-specific toast facts.
      */
-    private fun Throwable.isDuplicateRootFor(sourceType: AudiobookSchema.LibrarySourceType): Boolean =
+    private fun Throwable.isDuplicateRootFor(sourceType: DuplicateLibraryRootSource): Boolean =
         this is DuplicateLibraryRootException && this.sourceType == sourceType
 
     private companion object {
