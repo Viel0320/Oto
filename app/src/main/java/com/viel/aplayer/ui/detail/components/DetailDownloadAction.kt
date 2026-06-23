@@ -1,5 +1,7 @@
 package com.viel.aplayer.ui.detail.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,15 +14,19 @@ import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.application.download.BookCacheState
@@ -32,7 +38,8 @@ import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
  * Render one compact manual-cache status control.
- * Maps the selected book's cache state to a stable icon button while leaving download commands and permission checks to the route layer.
+ * Maps the selected book's cache state to a stable icon button and keeps active download progress
+ * inside this presentation boundary, while leaving download commands and permission checks to the route layer.
  */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -82,12 +89,14 @@ fun DetailDownloadAction(
     } else {
         MaterialTheme.colorScheme.onPrimary
     }
+    val iconDescription = stringResource(description)
     val iconContent = @Composable { iconTint: Color ->
-        Icon(
-            imageVector = icon,
-            contentDescription = stringResource(description),
-            tint = iconTint,
-            modifier = Modifier.size(iconSize)
+        DownloadStatusIcon(
+            icon = icon,
+            cacheStatus = cacheStatus,
+            contentDescription = iconDescription,
+            iconTint = iconTint,
+            iconSize = iconSize
         )
     }
 
@@ -129,5 +138,57 @@ fun DetailDownloadAction(
         ) {
             iconContent(buttonTint)
         }
+    }
+}
+
+/**
+ * Renders the manual-cache glyph with process feedback for active download states.
+ *
+ * QUEUED uses an indeterminate Material progress ring because the task is accepted but does not yet
+ * expose stable byte progress. DOWNLOADING uses the same aggregate percentage as the download
+ * management list, so the detail shortcut mirrors the durable book-level cache projection without
+ * reaching into Room or Media3 download objects.
+ */
+@Composable
+private fun DownloadStatusIcon(
+    icon: ImageVector,
+    cacheStatus: BookCacheStatus,
+    contentDescription: String,
+    iconTint: Color,
+    iconSize: Dp
+) {
+    val isQueued = cacheStatus.state == BookCacheState.QUEUED
+    val isDownloading = cacheStatus.state == BookCacheState.DOWNLOADING
+    val targetProgress = cacheStatus.progressPercent.coerceIn(0, 100) / 100f
+    val animatedProgress by animateFloatAsState(
+        targetValue = targetProgress,
+        animationSpec = tween(durationMillis = 450),
+        label = "detail_download_action_progress"
+    )
+    val progressSize = iconSize + 14.dp
+
+    Box(
+        modifier = Modifier.size(progressSize),
+        contentAlignment = Alignment.Center
+    ) {
+        when {
+            isQueued -> CircularProgressIndicator(
+                modifier = Modifier.size(progressSize),
+                color = iconTint,
+                strokeWidth = 2.dp
+            )
+            isDownloading -> CircularProgressIndicator(
+                progress = { animatedProgress },
+                modifier = Modifier.size(progressSize),
+                color = iconTint,
+                strokeWidth = 2.dp
+            )
+        }
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = iconTint,
+            modifier = Modifier.size(iconSize)
+        )
     }
 }
