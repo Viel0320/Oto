@@ -1,4 +1,4 @@
-package com.viel.aplayer.di.koin
+package com.viel.aplayer.di
 
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.ui.detail.DetailViewModel
@@ -23,15 +23,15 @@ import org.koin.dsl.module
 internal object ViewModelModule {
 
     val module: Module = module {
-        viewModel { LibraryViewModel(get()) }
-        viewModel { PlaybackViewModel(get()) }
-        viewModel { BookmarkViewModel(get(), get()) }
-        viewModel { PlayerSettingsViewModel(get(), get()) }
-        viewModel { DetailViewModel(get()) }
-        viewModel { EditBookViewModel(get()) }
-        viewModel { SearchViewModel(get()) }
-        viewModel { SettingsViewModel(get(), get()) }
-        viewModel { RemoteConnectionViewModel(get(), get()) }
-        viewModel { DeletedBookRecoveryViewModel(get()) }
+        viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get()) }
+        viewModel { PlaybackViewModel(get(), get(), get(), get(), get(), get()) }
+        viewModel { BookmarkViewModel(get(), get(), get()) }
+        viewModel { PlayerSettingsViewModel(get(), get(), get(), get(), get()) }
+        viewModel { DetailViewModel(get(), get(), get(), get(), get()) }
+        viewModel { EditBookViewModel(get(), get()) }
+        viewModel { SearchViewModel(get(), get()) }
+        viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+        viewModel { RemoteConnectionViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+        viewModel { DeletedBookRecoveryViewModel(get(), get(), get()) }
     }
 }

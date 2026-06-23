@@ -4,7 +4,10 @@ import android.content.Context
 import android.media.AudioManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.viel.aplayer.di.dependencies.PlayerScreenDependencies
+import com.viel.aplayer.application.library.settings.AppSettingsCommands
+import com.viel.aplayer.application.library.settings.AppSettingsReadModel
+import com.viel.aplayer.application.playback.PlayerPlaybackController
+import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.PlaybackControlFeedbackFacts
 import com.viel.aplayer.ui.settings.FullPlayerOpenSource
 import com.viel.aplayer.ui.settings.PlayerSettingsManager
@@ -15,20 +18,20 @@ import kotlinx.coroutines.launch
 
 class PlayerSettingsViewModel(
     application: android.app.Application,
-    private val playerDependencies: PlayerScreenDependencies,
+    private val settingsReadModel: AppSettingsReadModel,
+    private val settingsCommands: AppSettingsCommands,
+    private val appEventSink: AppEventSink,
+    private val playerPlaybackController: PlayerPlaybackController,
     rawExternalScope: CoroutineScope? = null
 ) : ViewModel() {
 
     private val externalScope = rawExternalScope ?: viewModelScope
 
-    private val settingsReadModel = playerDependencies.settingsReadModel
-    private val settingsCommands = playerDependencies.settingsCommands
-    private val appEventSink = playerDependencies.appEventSink
     private val audioManager = application.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
     private val settingsManager = PlayerSettingsManager(
         scope = externalScope,
-        playbackController = { playerDependencies.playerPlaybackController },
+        playbackController = { playerPlaybackController },
         audioManager = { audioManager },
         contextProvider = { application },
         onFeedback = { fact -> emitFeedback(fact) }

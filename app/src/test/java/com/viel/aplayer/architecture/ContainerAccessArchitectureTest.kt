@@ -61,8 +61,6 @@ class ContainerAccessArchitectureTest {
         )
         val unguardedExamples = listOf(
             "APlayerApplication.kt",
-            "di/dependencies/PresentationDependencies.kt",
-            "di/koin/DependencyViewModule.kt",
             "di/koin/APlayerKoinApplication.kt"
         )
 

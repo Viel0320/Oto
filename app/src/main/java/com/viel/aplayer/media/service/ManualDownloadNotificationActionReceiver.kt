@@ -4,7 +4,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.viel.aplayer.di.dependencies.ManualDownloadNotificationActionDependencies
+import com.viel.aplayer.application.download.DownloadController
 import com.viel.aplayer.logger.SecureLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +14,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class ManualDownloadNotificationActionReceiver : BroadcastReceiver(), KoinComponent {
-    private val dependencies: ManualDownloadNotificationActionDependencies by inject()
+    private val downloadController: DownloadController by inject()
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
@@ -23,7 +23,6 @@ class ManualDownloadNotificationActionReceiver : BroadcastReceiver(), KoinCompon
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             try {
-                val downloadController = dependencies.downloadController
                 when (action) {
                     ACTION_PAUSE_DOWNLOAD -> downloadController.pauseDownload(bookId)
                     ACTION_RESUME_DOWNLOAD -> downloadController.resumeDownload(bookId)

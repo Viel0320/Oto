@@ -4,10 +4,20 @@ import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.viel.aplayer.application.download.CacheMaintenanceCommands
+import com.viel.aplayer.application.download.DownloadController
+import com.viel.aplayer.application.download.DownloadManagementReadModel
 import com.viel.aplayer.application.download.ManualDownloadTaskItem
+import com.viel.aplayer.application.library.settings.AppSettingsCommands
+import com.viel.aplayer.application.library.settings.AppSettingsReadModel
+import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.library.settings.SettingsRootItem
+import com.viel.aplayer.application.library.settings.SettingsRootReadModel
 import com.viel.aplayer.application.usecase.BackupManifest
-import com.viel.aplayer.di.dependencies.SettingsScreenDependencies
+import com.viel.aplayer.application.usecase.ExportUserDataUseCase
+import com.viel.aplayer.application.usecase.FormatSettingsRootUseCase
+import com.viel.aplayer.application.usecase.ImportUserDataUseCase
+import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.DataTransferFeedbackFacts
 import com.viel.aplayer.event.feedback.DownloadCacheFeedbackFacts
 import com.viel.aplayer.event.feedback.FeedbackFact
@@ -27,18 +37,18 @@ import kotlinx.coroutines.launch
  */
 class SettingsViewModel(
     private val application: android.app.Application,
-    private val settingsDependencies: SettingsScreenDependencies
+    private val settingsReadModel: AppSettingsReadModel,
+    private val settingsCommands: AppSettingsCommands,
+    private val formatSettingsRootUseCase: FormatSettingsRootUseCase,
+    private val settingsRootReadModel: SettingsRootReadModel,
+    private val settingsRootCommands: SettingsRootCommands,
+    private val appEventSink: AppEventSink,
+    private val exportUserDataUseCase: ExportUserDataUseCase,
+    private val importUserDataUseCase: ImportUserDataUseCase,
+    private val downloadManagementReadModel: DownloadManagementReadModel,
+    private val downloadController: DownloadController,
+    private val cacheMaintenanceCommands: CacheMaintenanceCommands
 ) : ViewModel() {
-    private val settingsReadModel = settingsDependencies.settingsReadModel
-    private val settingsCommands = settingsDependencies.settingsCommands
-    private val formatSettingsRootUseCase = settingsDependencies.formatSettingsRootUseCase
-    private val settingsRootReadModel = settingsDependencies.settingsRootReadModel
-    private val settingsRootCommands = settingsDependencies.settingsRootCommands
-    private val appEventSink = settingsDependencies.appEventSink
-    private val exportUserDataUseCase = settingsDependencies.exportUserDataUseCase
-    private val importUserDataUseCase = settingsDependencies.importUserDataUseCase
-    private val downloadManagementReadModel = settingsDependencies.downloadManagementReadModel
-    private val downloadController = settingsDependencies.downloadController
 
     val preferencesHandler = SettingsPreferencesHandler(
         settingsCommands = settingsCommands,
@@ -215,7 +225,7 @@ class SettingsViewModel(
         runDownloadCommand(
             bookId = null,
             successFact = DownloadCacheFeedbackFacts.deletedAll(),
-            action = { settingsDependencies.cacheMaintenanceCommands.deleteAllManualDownloads() }
+            action = { cacheMaintenanceCommands.deleteAllManualDownloads() }
         )
     }
 

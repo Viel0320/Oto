@@ -40,8 +40,6 @@ Task-specific maintainer instructions take precedence over this file. When the r
 - `settings.gradle.kts` - active Gradle modules and centralized repository policy.
 - `build.gradle.kts` and `app/build.gradle.kts` - Android, Kotlin, Compose, KSP, Room schema, signing, dependency, and test setup.
 - `app/src/main/AndroidManifest.xml` - services, workers, permissions, backup, network security, and entry points.
-- `app/src/main/java/com/viel/aplayer/AppContainer.kt` - public dependency surface and graph wiring boundary.
-- `app/src/main/java/com/viel/aplayer/di/graph/` - graph ownership and shutdown order.
 - `app/src/main/java/com/viel/aplayer/data/db/AudiobookSchema.kt` - canonical database status, source, and type constants.
 
 Do not duplicate or contradict these files casually. Update this file only for stable, repository-wide agent rules.
@@ -69,7 +67,7 @@ Many behaviors are source-specific. Do not assume SAF, WebDAV, ABS, cached playb
 - Keep the layered architecture intact: UI -> Application -> Data/Library/Media/ABS -> Android or network infrastructure.
 - Do not create broad facade or provider classes that centralize unrelated responsibilities.
 - Prefer deleting obsolete transition layers over adding another wrapper around them.
-- Use the existing gateway, read-model, command, graph, and dependency-view patterns before inventing new surfaces.
+- Use the existing gateway, read-model, command, and graph patterns before inventing new surfaces.
 - Keep playback centered on `BookPlaybackPlan -> VfsPlaybackUri -> VfsPlaybackDataSource -> VfsFileInterface`.
 - Keep ABS as an anti-corruption layer under `abs/`; do not leak raw ABS DTO fields into UI or general library logic.
 - Treat cleartext HTTP and insecure TLS as global runtime policy decisions controlled by settings and `UnsafeNetworkPolicy`.
@@ -96,7 +94,7 @@ Main package map:
 - `abs/` - AudiobookShelf auth, DTOs, catalog sync, progress sync, playback session sync, mapping, and ABS VFS source provider.
 - `application/` - use cases, read models, commands, download orchestration, and startup warmup.
 - `data/` - Room DAOs/entities/database, gateways, services, cache policies, and DataStore-backed stores.
-- `di/` - dependency contracts, manually wired graphs, graph lifecycle policy, and container-facing graph modules.
+- `di/` - dependency injection configuration using Koin modules and ordered shutdown lifecycle.
 - `event/` - app-level feedback and event sinks.
 - `i18n/` - app locale control.
 - `library/` - SAF/WebDAV source scanning, import pipeline, VFS, availability checks, and library-root lifecycle.
@@ -216,15 +214,13 @@ ABS changes usually require tests with `MockWebServer` and local mapping asserti
 
 ### Dependency Graphs
 
-DI is provided by Koin.
+DI is provided by Koin, which directly injects resolved implementations into target constructors.
 
-- Public dependency contracts live under `di/dependencies/`.
-- Koin module ownership lives under `di/koin/`.
+- Koin module definitions live under `di/koin/`.
 - `APlayerKoinApplication` starts the global Koin context with every APlayer module.
-- `DependencyViewModule` binds the narrow dependency-view interfaces to Koin-resolved implementations.
 - `GraphClosePolicy` preserves the ordered shutdown policy (media -> download -> abs -> library -> uiEvents -> data).
 
-When adding a dependency, place it in the smallest relevant dependency view and the smallest relevant Koin module. Keep modules small and focused; split a module when it grows past ~80 lines.
+When adding a dependency, declare it in the constructor of your target component and register the binding within the appropriate Koin module in `di/koin/`. Keep modules small and focused; split a module when it grows past ~80 lines.
 
 Graph shutdown order is policy. Preserve `GraphClosePolicy.closeInLifecycleOrder()` unless the lifecycle consequence is understood and tested.
 
@@ -240,7 +236,7 @@ Check whether the change needs:
 2. Read-model and command updates under `application/library/settings/`.
 3. Settings use case updates under `application/usecase/`.
 4. `SettingsViewModel`, settings state, screen, dialog, or sub-screen updates.
-5. Dependency-view and graph wiring updates.
+5. Koin graph wiring and dependency updates.
 6. English plus maintained localized string updates.
 7. Tests for persistence, UI state, and downstream behavior.
 

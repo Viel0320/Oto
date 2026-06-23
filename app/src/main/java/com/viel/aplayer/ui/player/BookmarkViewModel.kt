@@ -2,8 +2,9 @@ package com.viel.aplayer.ui.player
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.viel.aplayer.application.library.player.PlayerBookmarkCommands
 import com.viel.aplayer.application.library.player.PlayerBookmarkItem
-import com.viel.aplayer.di.dependencies.PlayerScreenDependencies
+import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.BookManagementFeedbackFacts
 import com.viel.aplayer.ui.player.components.bookmarks.BookmarkManager
 import kotlinx.coroutines.CoroutineScope
@@ -17,14 +18,12 @@ import kotlinx.coroutines.flow.update
  */
 class BookmarkViewModel(
     private val application: android.app.Application,
-    private val playerDependencies: PlayerScreenDependencies,
+    private val bookmarkCommands: PlayerBookmarkCommands,
+    private val appEventSink: AppEventSink,
     rawExternalScope: CoroutineScope? = null
 ) : ViewModel() {
 
     private val externalScope = rawExternalScope ?: viewModelScope
-
-    private val bookmarkCommands = playerDependencies.playerBookmarkCommands
-    private val appEventSink = playerDependencies.appEventSink
 
     private val bookmarkManager = BookmarkManager(bookmarkCommands, externalScope)
 

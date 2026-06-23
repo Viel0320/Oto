@@ -66,7 +66,14 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 @UnstableApi
 class PlaybackService : MediaSessionService(), KoinComponent {
-    private val playbackDependencies: com.viel.aplayer.di.dependencies.PlaybackRuntimeDependencies by inject()
+    private val injectedBookCatalogGateway: BookCatalogGateway by inject()
+    private val injectedChapterGateway: ChapterGateway by inject()
+    private val injectedBookmarkGateway: BookmarkGateway by inject()
+    private val injectedPlaybackPlanGateway: PlaybackPlanGateway by inject()
+    private val injectedPlaybackSourcePreflight: PlaybackSourcePreflight by inject()
+    private val injectedProgressGateway: ProgressGateway by inject()
+    private val injectedBookAvailabilityGateway: BookAvailabilityGateway by inject()
+    private val injectedPlaybackEventSink: PlaybackDomainEventSink by inject()
     private val injectedSettingsRepository: AppSettingsRepository by inject()
     private val autoRewindManager: AutoRewindManager by inject()
 
@@ -115,15 +122,15 @@ class PlaybackService : MediaSessionService(), KoinComponent {
     override fun onCreate() {
         super.onCreate()
 
-        bookCatalogGateway = playbackDependencies.bookCatalogGateway
-        chapterGateway = playbackDependencies.chapterGateway
-        bookmarkGateway = playbackDependencies.bookmarkGateway
-        playbackPlanGateway = playbackDependencies.playbackPlanGateway
-        playbackSourcePreflight = playbackDependencies.playbackSourcePreflight
-        progressGateway = playbackDependencies.progressGateway
-        bookAvailabilityGateway = playbackDependencies.bookAvailabilityGateway
+        bookCatalogGateway = injectedBookCatalogGateway
+        chapterGateway = injectedChapterGateway
+        bookmarkGateway = injectedBookmarkGateway
+        playbackPlanGateway = injectedPlaybackPlanGateway
+        playbackSourcePreflight = injectedPlaybackSourcePreflight
+        progressGateway = injectedProgressGateway
+        bookAvailabilityGateway = injectedBookAvailabilityGateway
         settingsRepository = injectedSettingsRepository
-        playbackEventSink = playbackDependencies.playbackDomainEventSink
+        playbackEventSink = injectedPlaybackEventSink
         resumptionPreflight = PlaybackResumptionPreflight(
             playbackSourcePreflight = playbackSourcePreflight,
             settingsProvider = { settingsRepository.settingsFlow.first() },

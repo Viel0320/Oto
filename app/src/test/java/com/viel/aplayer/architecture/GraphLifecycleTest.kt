@@ -1,6 +1,6 @@
 package com.viel.aplayer.architecture
 
-import com.viel.aplayer.di.koin.GraphClosePolicy
+import com.viel.aplayer.di.GraphClosePolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

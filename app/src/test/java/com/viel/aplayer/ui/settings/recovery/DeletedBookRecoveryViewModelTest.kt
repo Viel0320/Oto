@@ -5,7 +5,6 @@ import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryCommands
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryItem
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryReadModel
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryResult
-import com.viel.aplayer.di.dependencies.SettingsScreenDependencies
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.AppShellEvent
 import com.viel.aplayer.event.feedback.FeedbackCategory
@@ -26,7 +25,6 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -35,10 +33,8 @@ import org.junit.Test
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 import org.junit.runner.RunWith
-import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
-import java.lang.reflect.Proxy
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainDispatcherRule(
@@ -69,44 +65,8 @@ class DeletedBookRecoveryViewModelTest {
 
     @Before
     fun setUp() {
-        val fakeSettingsDependencies = Proxy.newProxyInstance(
-            SettingsScreenDependencies::class.java.classLoader,
-            arrayOf(SettingsScreenDependencies::class.java)
-        ) { _, method, _ ->
-            when (method.name) {
-                "getDeletedBookRecoveryReadModel" -> fakeReadModel
-                "getDeletedBookRecoveryCommands" -> fakeCommands
-                "getAppEventSink" -> fakeEventSink
-                else -> null
-            }
-        } as SettingsScreenDependencies
-
-        // Robolectric creates APlayerApplication per test class, and onTerminate may close the Koin
-        // context between tests. Ensure a Koin context is running before loading the fake module.
-        if (org.koin.core.context.GlobalContext.getOrNull() == null) {
-            org.koin.core.context.startKoin {
-                modules(
-                    module {
-                        single { fakeSettingsDependencies }
-                    }
-                )
-            }
-        } else {
-            org.koin.core.context.loadKoinModules(
-                module {
-                    single(createdAtStart = false) { fakeSettingsDependencies }
-                }
-            )
-        }
-
         application = RuntimeEnvironment.getApplication()
-
-        viewModel = DeletedBookRecoveryViewModel(fakeSettingsDependencies)
-    }
-
-    @After
-    fun tearDown() {
-        // Do not stopKoin: the production Koin context is owned by APlayerApplication for the test process.
+        viewModel = DeletedBookRecoveryViewModel(fakeReadModel, fakeCommands, fakeEventSink)
     }
 
     @Test

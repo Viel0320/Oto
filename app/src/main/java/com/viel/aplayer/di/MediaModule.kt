@@ -1,9 +1,11 @@
-package com.viel.aplayer.di.koin
+package com.viel.aplayer.di
 
+import android.content.Context
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.application.playback.PlaybackStopper
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.library.vfs.VfsFileInterface
+import com.viel.aplayer.library.vfs.cache.DirectoryListingCache
 import com.viel.aplayer.library.vfs.cache.RoomDirectoryListingCache
 import com.viel.aplayer.library.vfs.cache.VfsRangeCache
 import com.viel.aplayer.media.AutoRewindManager
@@ -34,16 +36,16 @@ internal object MediaModule {
     }
 
     val module: Module = module {
-        single { VfsRangeCache(get<android.content.Context>()) }
+        single { VfsRangeCache(get<Context>()) }
 
         single { RoomDirectoryListingCache(directoryChildCacheDao = get<AppDatabase>().directoryChildCacheDao()) }
 
-        single<com.viel.aplayer.library.vfs.cache.DirectoryListingCache> { get<RoomDirectoryListingCache>() }
+        single<DirectoryListingCache> { get<RoomDirectoryListingCache>() }
 
-        single { AutoRewindManager(get(), get(), get()) }
+        single { AutoRewindManager(get(), get(), get(), get()) }
 
         single {
-            PlaybackManager(get(), get(), get(), get()).also { playbackManager ->
+            PlaybackManager(get(), get(), get(), get(), get(), get(), get(), get(), get()).also { playbackManager ->
                 GraphClosePolicy.register(
                     stage = GraphClosePolicy.Stage.Media,
                     closeable = PlaybackRuntimeHolder(playbackManager)

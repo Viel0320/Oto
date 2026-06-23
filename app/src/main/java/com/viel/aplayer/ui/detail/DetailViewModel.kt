@@ -4,9 +4,13 @@ import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.application.download.BookCacheStatus
+import com.viel.aplayer.application.download.DownloadController
+import com.viel.aplayer.application.download.DownloadStatusReadModel
+import com.viel.aplayer.application.library.detail.DetailBookCommands
 import com.viel.aplayer.application.library.detail.DetailBookItem
+import com.viel.aplayer.application.library.detail.DetailBookReadModel
 import com.viel.aplayer.application.library.detail.DetailSnapshot
-import com.viel.aplayer.di.dependencies.DetailScreenDependencies
+import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.DownloadCacheFeedbackFacts
 import com.viel.aplayer.event.feedback.FeedbackFact
 import com.viel.aplayer.logger.AbsLogSanitizer
@@ -26,13 +30,12 @@ import kotlin.time.Duration.Companion.milliseconds
  * Separated from `LibraryViewModel` to respect single-responsibility principles and establish clean domains.
  */
 class DetailViewModel(
-    private val detailDependencies: DetailScreenDependencies
+    private val detailBookReadModel: DetailBookReadModel,
+    private val detailBookCommands: DetailBookCommands,
+    private val downloadStatusReadModel: DownloadStatusReadModel,
+    private val downloadController: DownloadController,
+    private val appEventSink: AppEventSink
 ) : ViewModel() {
-    private val detailBookReadModel = detailDependencies.detailBookReadModel
-    private val detailBookCommands = detailDependencies.detailBookCommands
-    private val downloadStatusReadModel = detailDependencies.downloadStatusReadModel
-    private val downloadController = detailDependencies.downloadController
-    private val appEventSink = detailDependencies.appEventSink
 
     private var bookObserveJob: kotlinx.coroutines.Job? = null
     private var cacheObserveJob: kotlinx.coroutines.Job? = null

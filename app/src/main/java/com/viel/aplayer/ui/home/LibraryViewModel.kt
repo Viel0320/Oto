@@ -7,8 +7,13 @@ import com.viel.aplayer.R
 import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.application.library.home.HomeBookItem
 import com.viel.aplayer.application.library.home.HomeCatalogSortPolicy
+import com.viel.aplayer.application.library.home.HomeLibraryReadModel
+import com.viel.aplayer.application.library.home.HomeLibraryUseCases
 import com.viel.aplayer.application.library.home.matchesHomeBookStatus
-import com.viel.aplayer.di.dependencies.HomeScreenDependencies
+import com.viel.aplayer.application.library.settings.AppSettingsCommands
+import com.viel.aplayer.application.library.settings.AppSettingsReadModel
+import com.viel.aplayer.application.usecase.BookManagementUseCase
+import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.BookManagementFeedbackFacts
 import com.viel.aplayer.shared.settings.AppSettings
 import com.viel.aplayer.shared.settings.HomeBookStatusFilter
@@ -27,19 +32,17 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 class LibraryViewModel(
-    private val homeDependencies: HomeScreenDependencies
-) : ViewModel() {
-    private val homeLibraryReadModel = homeDependencies.homeLibraryReadModel
-    private val homeLibraryUseCases = homeDependencies.homeLibraryUseCases
-    private val settingsReadModel = homeDependencies.settingsReadModel
-    private val settingsCommands = homeDependencies.settingsCommands
-    private val appEventSink = homeDependencies.appEventSink
-
+    private val homeLibraryReadModel: HomeLibraryReadModel,
+    private val homeLibraryUseCases: HomeLibraryUseCases,
+    private val settingsReadModel: AppSettingsReadModel,
+    private val settingsCommands: AppSettingsCommands,
+    private val appEventSink: AppEventSink,
     /**
      * Cross-domain coordinator for cleanup-first book removal.
      * Home delegates destructive book actions here so cover cache, manual downloads, and soft deletion stay in one application workflow.
      */
-    private val bookManagementUseCase = homeDependencies.bookManagementUseCase
+    private val bookManagementUseCase: BookManagementUseCase
+) : ViewModel() {
 
     private val _selectedFilter = MutableStateFlow<HomeFilter?>(null)
     private val _selectedBookStatusFilter = MutableStateFlow<HomeBookStatusFilter?>(null)

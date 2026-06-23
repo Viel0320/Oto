@@ -1,10 +1,12 @@
-package com.viel.aplayer.di.koin
+package com.viel.aplayer.di
 
 import androidx.media3.common.util.UnstableApi
+import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.net.RealAbsApiClient
 import com.viel.aplayer.abs.playback.AbsPlaybackCredentialResolver
 import com.viel.aplayer.abs.sync.AbsConnectionTester
 import com.viel.aplayer.abs.sync.AbsCoverCache
+import com.viel.aplayer.abs.sync.AbsCoverStore
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.db.AppDatabase
 import org.koin.core.module.Module
@@ -25,7 +27,7 @@ internal object AbsModule {
             )
         }
 
-        single<com.viel.aplayer.abs.net.AbsApiClient> { get<RealAbsApiClient>() }
+        single<AbsApiClient> { get<RealAbsApiClient>() }
 
         single { AbsConnectionTester(get()) }
 
@@ -37,7 +39,7 @@ internal object AbsModule {
             )
         }
 
-        single<com.viel.aplayer.abs.sync.AbsCoverStore> { get<AbsCoverCache>() as com.viel.aplayer.abs.sync.AbsCoverStore }
+        single<AbsCoverStore> { get<AbsCoverCache>() as AbsCoverStore }
 
         single {
             AbsPlaybackCredentialResolver(

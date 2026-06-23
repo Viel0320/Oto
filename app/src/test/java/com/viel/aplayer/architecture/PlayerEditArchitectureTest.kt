@@ -38,10 +38,6 @@ class PlayerEditArchitectureTest {
         vms.forEach { name ->
             val source = sourceRoot.resolve("ui/player/$name").readText()
             assertTrue(
-                "$name must resolve the player-specific dependency view.",
-                source.contains("PlayerScreenDependencies")
-            )
-            assertTrue(
                 "$name must not call the old library presentation dependency provider.",
                 !source.contains("getLibraryPresentationDependencies")
             )
@@ -56,7 +52,7 @@ class PlayerEditArchitectureTest {
         val bookmarkSource = sourceRoot.resolve("ui/player/BookmarkViewModel.kt").readText()
         assertTrue(
             "BookmarkViewModel must consume player bookmark commands.",
-            bookmarkSource.contains("playerBookmarkCommands")
+            bookmarkSource.contains("PlayerBookmarkCommands")
         )
     }
 
@@ -65,10 +61,6 @@ class PlayerEditArchitectureTest {
         val editViewModelSource = resolveSourceRoot().resolve("ui/edit/EditBookViewModel.kt").readText()
 
         assertTrue(
-            "EditBookViewModel must resolve the edit-specific dependency view.",
-            editViewModelSource.contains("EditScreenDependencies")
-        )
-        assertTrue(
             "EditBookViewModel must consume edit read and command scene interfaces.",
             editViewModelSource.contains("editBookReadModel") &&
                 editViewModelSource.contains("editBookCommands")
@@ -76,29 +68,6 @@ class PlayerEditArchitectureTest {
         assertTrue(
             "EditBookViewModel must not call the old library presentation dependency provider.",
             !editViewModelSource.contains("getLibraryPresentationDependencies")
-        )
-    }
-
-    @Test
-    fun playerAndEditDependencyViewsDoNotInheritLibraryPresentationDependencies() {
-        val dependenciesSource = resolveSourceRoot().resolve("di/dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
-        val playerInterface = dependenciesSource.substringAfter("interface PlayerScreenDependencies")
-            .substringBefore("/**\n * Edit Screen Dependencies")
-        val editInterface = dependenciesSource.substringAfter("interface EditScreenDependencies")
-
-        assertTrue(
-            "PlayerScreenDependencies must not inherit LibraryPresentationDependencies because that would re-expose LibraryFacade.",
-            !playerInterface.substringBefore("{").contains("LibraryPresentationDependencies")
-        )
-        assertTrue(
-            "PlayerScreenDependencies must expose the player read model and bookmark commands.",
-            playerInterface.contains("val playerLibraryReadModel: PlayerLibraryReadModel") &&
-                playerInterface.contains("val playerBookmarkCommands: PlayerBookmarkCommands")
-        )
-        assertTrue(
-            "EditScreenDependencies must expose edit read and command interfaces.",
-            editInterface.contains("val editBookReadModel: EditBookReadModel") &&
-                editInterface.contains("val editBookCommands: EditBookCommands")
         )
     }
 

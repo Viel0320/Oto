@@ -1,4 +1,4 @@
-package com.viel.aplayer.di.koin
+package com.viel.aplayer.di
 
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.cover.AndroidCoverUriResolver
@@ -7,6 +7,7 @@ import com.viel.aplayer.data.cover.CoverAssetGatewayImpl
 import com.viel.aplayer.data.cover.CoverRecoveryGateway
 import com.viel.aplayer.data.cover.CoverRecoveryGatewayImpl
 import com.viel.aplayer.data.cover.CoverRecoveryHelper
+import com.viel.aplayer.data.cover.CoverSelfHealer
 import com.viel.aplayer.data.cover.CoverUriResolver
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.metadata.MetadataRefreshGateway
@@ -19,6 +20,7 @@ import com.viel.aplayer.media.parser.MetadataResolver
 import com.viel.aplayer.media.subtitle.SubtitleFileResolver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -37,7 +39,7 @@ internal object LibraryCoverModule {
     ) : Closeable {
         override fun close() {
             runCatching { (helper as? Closeable)?.close() }
-            scope.coroutineContext.get(kotlinx.coroutines.Job)?.cancel()
+            scope.coroutineContext.get(Job)?.cancel()
         }
     }
 
@@ -66,14 +68,14 @@ internal object LibraryCoverModule {
             helper
         }
 
-        single<com.viel.aplayer.data.cover.CoverSelfHealer> {
+        single<CoverSelfHealer> {
             get<CoverRecoveryHelper>()
         }
 
         single<CoverRecoveryGateway> {
             CoverRecoveryGatewayImpl(
                 bookDao = get<AppDatabase>().bookDao(),
-                coverSelfHealer = get<com.viel.aplayer.data.cover.CoverSelfHealer>()
+                coverSelfHealer = get<CoverSelfHealer>()
             )
         }
 

@@ -4,9 +4,11 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.R
+import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryCommands
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryItem
+import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryReadModel
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryResult
-import com.viel.aplayer.di.dependencies.SettingsScreenDependencies
+import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.RecoveryFeedbackFacts
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,11 +22,10 @@ import kotlinx.coroutines.launch
  * Owns row-level loading, confirmation dialogs, and toast routing while delegating business rules to the recovery commands.
  */
 class DeletedBookRecoveryViewModel(
-    private val dependencies: SettingsScreenDependencies
+    private val readModel: DeletedBookRecoveryReadModel,
+    private val commands: DeletedBookRecoveryCommands,
+    private val appEventSink: AppEventSink
 ) : ViewModel() {
-    private val readModel = dependencies.deletedBookRecoveryReadModel
-    private val commands = dependencies.deletedBookRecoveryCommands
-    private val appEventSink = dependencies.appEventSink
 
     private val restoringBookIds = MutableStateFlow<Set<String>>(emptySet())
     private val dialogState = MutableStateFlow<DeletedBookRecoveryDialogState?>(null)

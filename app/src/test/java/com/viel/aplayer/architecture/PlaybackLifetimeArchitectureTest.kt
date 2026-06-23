@@ -134,10 +134,8 @@ class PlaybackLifetimeArchitectureTest {
             }
         )
 
-        val dependencies = sourceRoot.resolve("di/dependencies/PresentationDependencies.kt").readText()
         val mediaPlaybackControllerModule = sourceRoot.resolve("di/koin/MediaPlaybackControllerModule.kt").readText()
 
-        assertTrue(dependencies.contains("val playerPlaybackController: PlayerPlaybackController"))
         assertTrue(mediaPlaybackControllerModule.contains("PlayerPlaybackController"))
     }
 

@@ -1,7 +1,9 @@
-package com.viel.aplayer.di.koin
+package com.viel.aplayer.di
 
+import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.database.DatabaseProvider
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.NoOpCacheEvictor
@@ -66,11 +68,11 @@ internal object DownloadModule {
 
         single { StandaloneDatabaseProvider(get()) }
 
-        single<androidx.media3.database.DatabaseProvider> { get<StandaloneDatabaseProvider>() }
+        single<DatabaseProvider> { get<StandaloneDatabaseProvider>() }
 
         single<Cache> {
             SimpleCache(
-                get<android.content.Context>().filesDir.resolve(MANUAL_CACHE_DIRECTORY),
+                get<Context>().filesDir.resolve(MANUAL_CACHE_DIRECTORY),
                 NoOpCacheEvictor(),
                 get()
             ).also { cache ->
@@ -136,7 +138,7 @@ internal object DownloadModule {
         }
 
         single<DownloadManager> {
-            val appContext = get<android.content.Context>()
+            val appContext = get<Context>()
             val data = get<AppDatabase>()
             val settings = get<AppSettingsRepository>().cachedSettings
             val scope = get<CoroutineScope>(DownloadScopeQualifier)
@@ -180,7 +182,7 @@ internal object DownloadModule {
         }
 
         single<DownloadRuntimeGateway> {
-            val appContext = get<android.content.Context>()
+            val appContext = get<Context>()
             DefaultDownloadRuntimeGateway(
                 addDownloadCommand = { request ->
                     DownloadService.sendAddDownload(appContext, APlayerDownloadService::class.java, request, true)

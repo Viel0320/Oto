@@ -32,15 +32,8 @@ import com.viel.aplayer.data.entity.BookProgressEntity
 import com.viel.aplayer.data.entity.ChapterEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.progress.ProgressGateway
-import com.viel.aplayer.di.dependencies.AbsSyncWorkerDependencies
-import com.viel.aplayer.event.AppEventSink
-import com.viel.aplayer.event.AppShellEvent
-import com.viel.aplayer.event.feedback.FeedbackDeliveryResult
-import com.viel.aplayer.event.feedback.FeedbackFact
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -61,13 +54,11 @@ class AbsSyncWorkerCancellationTest {
             credentialStore = createCredentialStore(),
             catalogStore = FakeCatalogStore()
         )
-        val dependencies = FakeWorkerDependencies(synchronizer)
-
         try {
             AbsSyncWorker.runSync(
                 rootId = "root-1",
                 root = absRoot(),
-                workerDependencies = dependencies
+                absCatalogSynchronizer = synchronizer
             )
             fail("Expected CancellationException to propagate from ABS sync worker")
         } catch (error: CancellationException) {
@@ -90,7 +81,7 @@ class AbsSyncWorkerCancellationTest {
             AbsSyncWorker.runSync(
                 rootId = "root-1",
                 root = absRoot(),
-                workerDependencies = FakeWorkerDependencies(synchronizer)
+                absCatalogSynchronizer = synchronizer
             )
             fail("Expected CancellationException to propagate from ABS detail batch fetch")
         } catch (error: CancellationException) {
@@ -115,7 +106,7 @@ class AbsSyncWorkerCancellationTest {
             AbsSyncWorker.runSync(
                 rootId = "root-1",
                 root = absRoot(),
-                workerDependencies = FakeWorkerDependencies(synchronizer)
+                absCatalogSynchronizer = synchronizer
             )
             fail("Expected CancellationException to propagate from ABS single item retry")
         } catch (error: CancellationException) {
@@ -139,7 +130,7 @@ class AbsSyncWorkerCancellationTest {
             AbsSyncWorker.runSync(
                 rootId = "root-1",
                 root = absRoot(),
-                workerDependencies = FakeWorkerDependencies(synchronizer)
+                absCatalogSynchronizer = synchronizer
             )
             fail("Expected CancellationException to propagate from ABS item materialization")
         } catch (error: CancellationException) {
@@ -169,7 +160,7 @@ class AbsSyncWorkerCancellationTest {
             AbsSyncWorker.runSync(
                 rootId = "root-1",
                 root = absRoot(),
-                workerDependencies = FakeWorkerDependencies(synchronizer)
+                absCatalogSynchronizer = synchronizer
             )
             fail("Expected CancellationException to propagate from ABS authorized progress merge")
         } catch (error: CancellationException) {
@@ -405,18 +396,6 @@ class AbsSyncWorkerCancellationTest {
             timeListenedSec: Double,
             durationSec: Double
         ) = Unit
-    }
-
-    private class FakeWorkerDependencies(
-        override val absCatalogSynchronizer: AbsCatalogSynchronizer
-    ) : AbsSyncWorkerDependencies {
-        override val appEventSink: AppEventSink = FakeAppEventSink()
-    }
-
-    private class FakeAppEventSink : AppEventSink {
-        override val events: SharedFlow<AppShellEvent> = MutableSharedFlow()
-        override fun emitFeedback(fact: FeedbackFact): FeedbackDeliveryResult =
-            FeedbackDeliveryResult.Delivered(fact)
     }
 
     private class FakeCatalogStore(

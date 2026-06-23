@@ -1,11 +1,13 @@
-package com.viel.aplayer.di.koin
+package com.viel.aplayer.di
 
 import android.content.Context
 import androidx.media3.common.util.UnstableApi
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.core.logger.Level
+import org.koin.core.logger.PrintLogger
 
 /**
  * Entry point for the Koin GlobalContext.
@@ -21,12 +23,12 @@ internal object APlayerKoinApplication {
      * Idempotent: a no-op when the GlobalContext is already running.
      */
     fun start(context: Context) {
-        if (org.koin.core.context.GlobalContext.getOrNull() != null) {
+        if (GlobalContext.getOrNull() != null) {
             return
         }
         startKoin {
             androidContext(context.applicationContext)
-            logger(org.koin.core.logger.PrintLogger(Level.ERROR))
+            logger(PrintLogger(Level.ERROR))
             modules(
                 CoreDataModule.module,
                 CoreSettingsModule.module,
@@ -43,7 +45,6 @@ internal object APlayerKoinApplication {
                 AbsModule.module,
                 AbsSyncModule.module,
                 SettingsUseCaseModule.module,
-                DependencyViewModule.module,
                 ViewModelModule.module
             )
         }

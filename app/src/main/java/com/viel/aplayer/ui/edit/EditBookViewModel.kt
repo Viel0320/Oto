@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.application.library.edit.EditBookCommands
 import com.viel.aplayer.application.library.edit.EditBookDraft
 import com.viel.aplayer.application.library.edit.EditBookReadModel
-import com.viel.aplayer.di.dependencies.EditScreenDependencies
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -17,10 +16,9 @@ import kotlinx.coroutines.launch
  * edit route can own state while EditBookScreen remains a stateless rendering surface.
  */
 class EditBookViewModel(
-    private val editDependencies: EditScreenDependencies
+    private val editBookReadModel: EditBookReadModel,
+    private val editBookCommands: EditBookCommands
 ) : ViewModel() {
-    private val editBookReadModel: EditBookReadModel = editDependencies.editBookReadModel
-    private val editBookCommands: EditBookCommands = editDependencies.editBookCommands
 
     private val _bookState = MutableStateFlow<EditBookDraft?>(null)
     val bookState = _bookState.asStateFlow()

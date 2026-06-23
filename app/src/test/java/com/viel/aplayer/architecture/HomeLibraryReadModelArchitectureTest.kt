@@ -11,30 +11,6 @@ import java.io.File
 class HomeLibraryReadModelArchitectureTest {
 
     @Test
-    fun homeDependencyViewExposesSceneInterfacesInsteadOfLibraryFacade() {
-        val dependenciesSource = resolveSourceRoot().resolve("di/dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
-        val homeInterface = dependenciesSource.substringAfter("interface HomeScreenDependencies")
-            .substringBefore("/**\n * Settings Screen Dependencies")
-
-        assertTrue(
-            "HomeScreenDependencies must not inherit LibraryPresentationDependencies because that would re-expose LibraryFacade.",
-            !homeInterface.substringBefore("{").contains("LibraryPresentationDependencies")
-        )
-        assertTrue(
-            "HomeScreenDependencies must expose the home scene read model.",
-            homeInterface.contains("val homeLibraryReadModel: HomeLibraryReadModel")
-        )
-        assertTrue(
-            "HomeScreenDependencies must expose home scene use cases.",
-            homeInterface.contains("val homeLibraryUseCases: HomeLibraryUseCases")
-        )
-        assertTrue(
-            "HomeScreenDependencies must not expose the broad LibraryFacade property.",
-            !homeInterface.contains("LibraryFacade") && !homeInterface.contains("libraryFacade")
-        )
-    }
-
-    @Test
     fun libraryViewModelDependsOnHomeSceneInterfacesOnly() {
         val libraryViewModelSource = resolveSourceRoot().resolve("ui/home/LibraryViewModel.kt").readText()
 

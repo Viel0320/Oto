@@ -1,4 +1,4 @@
-package com.viel.aplayer.di.koin
+package com.viel.aplayer.di
 
 import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.DefaultAppEventSink

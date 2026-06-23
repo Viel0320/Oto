@@ -14,7 +14,7 @@ import com.viel.aplayer.application.library.settings.AppSettingsReadModel
 import com.viel.aplayer.application.startup.APlayerStartupWarmup
 import com.viel.aplayer.application.startup.DefaultStartupWarmupDependencies
 import com.viel.aplayer.data.db.AppDatabase
-import com.viel.aplayer.di.koin.APlayerKoinApplication
+import com.viel.aplayer.di.APlayerKoinApplication
 import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.logger.AbsSyncLogger
 import com.viel.aplayer.logger.CoverImageCoilEventListener

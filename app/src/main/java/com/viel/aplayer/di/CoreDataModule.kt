@@ -1,4 +1,4 @@
-package com.viel.aplayer.di.koin
+package com.viel.aplayer.di
 
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -12,6 +12,7 @@ import com.viel.aplayer.data.store.SearchHistoryStore
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
+import java.io.Closeable
 
 /**
  * Process-wide durable data stores: Room database, settings repository, ABS credential store,
@@ -28,15 +29,15 @@ internal object CoreDataModule {
     private val Context.absCredentialDataStore: DataStore<Preferences> by preferencesDataStore(name = "abs_credentials")
 
     val module: Module = module {
-        single(named("appSettings")) { get<android.content.Context>().applicationContext.appSettingsDataStore }
-        single(named("searchHistory")) { get<android.content.Context>().applicationContext.searchHistoryDataStore }
-        single(named("absCredentials")) { get<android.content.Context>().applicationContext.absCredentialDataStore }
+        single(named("appSettings")) { get<Context>().applicationContext.appSettingsDataStore }
+        single(named("searchHistory")) { get<Context>().applicationContext.searchHistoryDataStore }
+        single(named("absCredentials")) { get<Context>().applicationContext.absCredentialDataStore }
 
         single {
             AppDatabase.create(get()).also { db ->
                 GraphClosePolicy.register(
                     stage = GraphClosePolicy.Stage.Data,
-                    closeable = java.io.Closeable { db.close() }
+                    closeable = Closeable { db.close() }
                 )
             }
         }

@@ -5,7 +5,6 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import com.viel.aplayer.data.AppSettingsRepository
-import com.viel.aplayer.di.dependencies.PlaybackRecoveryDependencies
 import com.viel.aplayer.logger.PlaybackWorkflowLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
@@ -22,7 +21,8 @@ import kotlinx.coroutines.launch
 class AutoRewindManager internal constructor(
     context: Context,
     settingsRepository: AppSettingsRepository,
-    private val recoveryDependencies: PlaybackRecoveryDependencies
+    private val bookCatalogGateway: com.viel.aplayer.data.book.BookCatalogGateway,
+    private val progressGateway: com.viel.aplayer.data.progress.ProgressGateway
 ) {
 
     private val appContext = context.applicationContext
@@ -115,9 +115,6 @@ class AutoRewindManager internal constructor(
         try {
             val settings = settingsRepository.settingsFlow.first()
             if (settings.isLastPlaybackInterrupted && settings.autoRewindSeconds > 0) {
-                val bookCatalogGateway = recoveryDependencies.bookCatalogGateway
-                val progressGateway = recoveryDependencies.progressGateway
-
                 val lastProgress = progressGateway.getLastPlayedProgressSync()
                 if (lastProgress != null) {
                     val rewindMs = settings.autoRewindSeconds * 1000L

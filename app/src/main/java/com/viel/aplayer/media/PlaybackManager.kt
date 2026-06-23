@@ -34,7 +34,12 @@ import kotlinx.coroutines.withContext
 @OptIn(UnstableApi::class)
 class PlaybackManager internal constructor(
     context: Context,
-    playbackDependencies: com.viel.aplayer.di.dependencies.PlaybackRuntimeDependencies,
+    private val bookCatalogGateway: com.viel.aplayer.data.book.BookCatalogGateway,
+    private val progressGateway: com.viel.aplayer.data.progress.ProgressGateway,
+    private val bookAvailabilityGateway: com.viel.aplayer.data.availability.BookAvailabilityGateway,
+    private val absPlaybackSessionSyncer: com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer,
+    private val playbackSourcePreflight: com.viel.aplayer.media.PlaybackSourcePreflight,
+    private val playbackEventSink: com.viel.aplayer.media.PlaybackDomainEventSink,
     settingsRepository: AppSettingsRepository,
     autoRewindManager: AutoRewindManager
 ) {
@@ -44,13 +49,6 @@ class PlaybackManager internal constructor(
         PlaybackWorkflowLogger.error("playbackManager coroutine failure", exception)
     }
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob() + exceptionHandler)
-
-    private val bookCatalogGateway = playbackDependencies.bookCatalogGateway
-    private val progressGateway = playbackDependencies.progressGateway
-    private val bookAvailabilityGateway = playbackDependencies.bookAvailabilityGateway
-    private val absPlaybackSessionSyncer = playbackDependencies.absPlaybackSessionSyncer
-    private val playbackSourcePreflight = playbackDependencies.playbackSourcePreflight
-    private val playbackEventSink = playbackDependencies.playbackDomainEventSink
 
     private val settingsRepository = settingsRepository
     private val autoRewindManager = autoRewindManager

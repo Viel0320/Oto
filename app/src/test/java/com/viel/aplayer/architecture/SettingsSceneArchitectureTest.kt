@@ -73,26 +73,6 @@ class SettingsSceneArchitectureTest {
     }
 
     @Test
-    fun settingsDependencyViewDoesNotInheritLibraryPresentationDependencies() {
-        val dependenciesSource = resolveSourceRoot().resolve("di/dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
-        val settingsInterface = dependenciesSource.substringAfter("interface SettingsScreenDependencies")
-            .substringBefore("/**\n * Player Screen Dependencies")
-
-        assertTrue(
-            "SettingsScreenDependencies must not inherit LibraryPresentationDependencies because that would re-expose the broad root command surface.",
-            !settingsInterface.substringBefore("{").contains("LibraryPresentationDependencies")
-        )
-        assertTrue(
-            "SettingsScreenDependencies must expose the settings-root read model.",
-            settingsInterface.contains("val settingsRootReadModel: SettingsRootReadModel")
-        )
-        assertTrue(
-            "SettingsScreenDependencies must expose the settings-root command interface.",
-            settingsInterface.contains("val settingsRootCommands: SettingsRootCommands")
-        )
-    }
-
-    @Test
     fun settingsRootModuleDoesNotImportTheBroadFacade() {
         val settingsModuleSource = resolveSourceRoot()
             .resolve("application/library/settings/DefaultSettingsRootModule.kt")

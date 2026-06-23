@@ -1,4 +1,4 @@
-package com.viel.aplayer.di.koin
+package com.viel.aplayer.di
 
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.application.playback.DefaultPlayerPlaybackController

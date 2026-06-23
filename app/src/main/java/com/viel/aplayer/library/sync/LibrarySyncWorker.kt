@@ -3,6 +3,7 @@ package com.viel.aplayer.library.sync
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.viel.aplayer.data.scan.ScanScheduler
 import com.viel.aplayer.library.scan.ScanOutcomeKind
 import com.viel.aplayer.library.scan.ScanOutcomePolicy
 import com.viel.aplayer.logger.ScanWorkflowLogger
@@ -14,8 +15,7 @@ class LibrarySyncWorker(
     context: Context,
     workerParams: WorkerParameters
 ) : CoroutineWorker(context, workerParams), KoinComponent {
-    private val workerDependencies: com.viel.aplayer.di.dependencies.LibrarySyncWorkerDependencies by inject()
-
+    private val scanScheduler: ScanScheduler by inject()
 
     /**
      * Executes one WorkManager-backed library sync command.
@@ -30,8 +30,6 @@ class LibrarySyncWorker(
                 ?.filter { rootId -> rootId.isNotBlank() }
                 ?.toSet()
                 .orEmpty()
-
-            val scanScheduler = workerDependencies.scanScheduler
 
             scanScheduler.syncLibrary(trigger, rootIds = rootIds).toWorkerResult()
         } catch (e: CancellationException) {

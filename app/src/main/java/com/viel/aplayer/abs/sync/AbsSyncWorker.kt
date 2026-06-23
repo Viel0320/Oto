@@ -5,7 +5,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.viel.aplayer.data.entity.LibraryRootEntity
 import com.viel.aplayer.data.runCatchingCancellable
-import com.viel.aplayer.di.dependencies.AbsSyncWorkerDependencies
+import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.library.LibraryRootStore
 import com.viel.aplayer.library.availability.buildRootUnavailableSyncMessage
@@ -18,7 +18,8 @@ class AbsSyncWorker(
     context: Context,
     params: WorkerParameters
 ) : CoroutineWorker(context, params), KoinComponent {
-    private val workerDependencies: AbsSyncWorkerDependencies by inject()
+    private val appEventSink: AppEventSink by inject()
+    private val absCatalogSynchronizer: AbsCatalogSynchronizer by inject()
     private val libraryRootStore: LibraryRootStore by inject()
 
     override suspend fun doWork(): Result {
@@ -33,12 +34,12 @@ class AbsSyncWorker(
                 errorClass = "RootUnavailable",
                 message = "ROOT_UNAVAILABLE:${preflight.availability.status}"
             )
-            workerDependencies.appEventSink.emitFeedback(
+            appEventSink.emitFeedback(
                 LibraryAccessFeedbackFacts.syncBlocked(rootId = rootId, detailMessage = message)
             )
             return Result.failure()
         }
-        return runSync(rootId, preflight.root, workerDependencies)
+        return runSync(rootId, preflight.root, absCatalogSynchronizer)
     }
 
     companion object {
@@ -51,10 +52,10 @@ class AbsSyncWorker(
         internal suspend fun runSync(
             rootId: String,
             root: LibraryRootEntity,
-            workerDependencies: AbsSyncWorkerDependencies
+            absCatalogSynchronizer: AbsCatalogSynchronizer
         ): Result {
             return runCatchingCancellable {
-                workerDependencies.absCatalogSynchronizer.syncRoot(root)
+                absCatalogSynchronizer.syncRoot(root)
                 AbsSyncLogger.logWorkerSuccess(rootId)
                 Result.success()
             }.getOrElse { error ->

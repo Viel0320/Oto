@@ -1,4 +1,4 @@
-package com.viel.aplayer.di.koin
+package com.viel.aplayer.di
 
 import java.io.Closeable
 import java.util.concurrent.CopyOnWriteArrayList

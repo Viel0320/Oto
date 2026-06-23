@@ -1,4 +1,4 @@
-package com.viel.aplayer.di.koin
+package com.viel.aplayer.di
 
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.availability.BookAvailabilityGateway
@@ -15,6 +15,7 @@ import com.viel.aplayer.data.book.BookmarkGateway
 import com.viel.aplayer.data.book.BookmarkGatewayImpl
 import com.viel.aplayer.data.book.ChapterGateway
 import com.viel.aplayer.data.book.ChapterGatewayImpl
+import com.viel.aplayer.data.cleanup.RemotePlaybackCleanupGateway
 import com.viel.aplayer.data.cleanup.RemotePlaybackCleanupGatewayImpl
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.library.availability.AvailabilityChecker
@@ -94,7 +95,7 @@ internal object LibraryBookGatewayModule {
             )
         }
 
-        single<com.viel.aplayer.data.cleanup.RemotePlaybackCleanupGateway> { get<RemotePlaybackCleanupGatewayImpl>() as com.viel.aplayer.data.cleanup.RemotePlaybackCleanupGateway }
+        single<RemotePlaybackCleanupGateway> { get<RemotePlaybackCleanupGatewayImpl>() as RemotePlaybackCleanupGateway }
 
     }
 }

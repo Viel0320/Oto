@@ -1,6 +1,7 @@
-package com.viel.aplayer.di.koin
+package com.viel.aplayer.di
 
 import androidx.media3.common.util.UnstableApi
+import com.viel.aplayer.application.download.DownloadRuntimeGateway
 import com.viel.aplayer.application.library.settings.AppSettingsCommands
 import com.viel.aplayer.application.library.settings.AppSettingsReadModel
 import com.viel.aplayer.application.library.settings.DownloadAwareAppSettingsCommands
@@ -20,7 +21,7 @@ internal object CoreSettingsModule {
         single<AppSettingsCommands> {
             DownloadAwareAppSettingsCommands(
                 delegate = get<AppSettingsRepository>(),
-                downloadRuntimeGatewayProvider = { get<com.viel.aplayer.application.download.DownloadRuntimeGateway>() },
+                downloadRuntimeGatewayProvider = { get<DownloadRuntimeGateway>() },
                 isDownloadRuntimeInitialized = { get<DownloadRuntimeInitializedFlag>().value }
             )
         }

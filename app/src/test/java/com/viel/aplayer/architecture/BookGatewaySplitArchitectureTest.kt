@@ -48,6 +48,15 @@ class BookGatewaySplitArchitectureTest {
         )
     }
 
+    @Test
+    fun bookDaoDoesNotImportMediaRuntime() {
+        val sourceRoot = resolveSourceRoot()
+        val bookDaoSource = sourceRoot.resolve("data/dao/BookDao.kt").readText()
+
+        assertTrue(!bookDaoSource.contains("import com.viel.aplayer.media."))
+        assertTrue(bookDaoSource.contains("import com.viel.aplayer.timeline.PositionMapper"))
+    }
+
     private fun resolveSourceRoot(): File {
         val candidates = listOf(
             File("src/main/java/com/viel/aplayer"),

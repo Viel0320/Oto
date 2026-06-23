@@ -4,8 +4,15 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.application.library.settings.SettingsAbsSyncInspection
+import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.library.settings.SettingsRootItem
-import com.viel.aplayer.di.dependencies.RemoteConnectionDependencies
+import com.viel.aplayer.application.usecase.AbsSettingsConnectionUseCase
+import com.viel.aplayer.application.usecase.FormatSettingsRootUseCase
+import com.viel.aplayer.application.usecase.LibraryRootManagementUseCase
+import com.viel.aplayer.application.usecase.SettingsLibraryMaintenanceUseCase
+import com.viel.aplayer.application.usecase.SettingsQueryUseCase
+import com.viel.aplayer.application.usecase.TestWebDavConnectionUseCase
+import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.logger.AbsSettingsLogger
 import com.viel.aplayer.logger.ScanWorkflowLogger
@@ -28,17 +35,24 @@ import kotlinx.coroutines.launch
  */
 class RemoteConnectionViewModel(
     application: android.app.Application,
-    private val deps: RemoteConnectionDependencies
+    private val settingsLibraryMaintenanceUseCase: SettingsLibraryMaintenanceUseCase,
+    private val absSettingsConnectionUseCase: AbsSettingsConnectionUseCase,
+    private val testWebDavConnectionUseCase: TestWebDavConnectionUseCase,
+    private val settingsQueryUseCase: SettingsQueryUseCase,
+    private val settingsRootCommands: SettingsRootCommands,
+    private val formatSettingsRootUseCase: FormatSettingsRootUseCase,
+    private val appEventSink: AppEventSink,
+    private val libraryRootManagementUseCase: LibraryRootManagementUseCase
 ) : ViewModel() {
-    private val maintenanceUseCase = deps.settingsLibraryMaintenanceUseCase
+    private val maintenanceUseCase = settingsLibraryMaintenanceUseCase
 
     private val handler = SettingsConnectionHandler(
-        absSettingsConnectionUseCase = deps.absSettingsConnectionUseCase,
-        testWebDavConnectionUseCase = deps.testWebDavConnectionUseCase,
-        settingsQueryUseCase = deps.settingsQueryUseCase,
-        settingsRootCommands = deps.settingsRootCommands,
-        formatSettingsRootUseCase = deps.formatSettingsRootUseCase,
-        appEventSink = deps.appEventSink,
+        absSettingsConnectionUseCase = absSettingsConnectionUseCase,
+        testWebDavConnectionUseCase = testWebDavConnectionUseCase,
+        settingsQueryUseCase = settingsQueryUseCase,
+        settingsRootCommands = settingsRootCommands,
+        formatSettingsRootUseCase = formatSettingsRootUseCase,
+        appEventSink = appEventSink,
         scope = viewModelScope,
         app = application
     )
@@ -215,7 +229,7 @@ class RemoteConnectionViewModel(
     // --- SAF roots (lifted from SettingsViewModel; routed from the app-level SAF picker) ---
 
     fun onLibraryRootSelected(uri: Uri) {
-        deps.settingsRootCommands.addLocalRootAndScheduleSync(uri)
+        settingsRootCommands.addLocalRootAndScheduleSync(uri)
     }
 
     fun onSafRootRelocated(id: String, newUri: Uri) {
@@ -223,10 +237,10 @@ class RemoteConnectionViewModel(
             runCatching {
                 maintenanceUseCase.updateSafRootAndScheduleSync(id, newUri)
             }.onSuccess {
-                deps.appEventSink.emitFeedback(LibraryAccessFeedbackFacts.localLibraryRelocated(id))
+                appEventSink.emitFeedback(LibraryAccessFeedbackFacts.localLibraryRelocated(id))
             }.onFailure { error ->
                 ScanWorkflowLogger.error("onSafRootRelocated failed", error)
-                deps.appEventSink.emitFeedback(
+                appEventSink.emitFeedback(
                     LibraryAccessFeedbackFacts.localLibraryRelocationFailed(id, error.message)
                 )
             }
@@ -252,9 +266,9 @@ class RemoteConnectionViewModel(
                     basePath = basePath
                 )
             }.onSuccess {
-                deps.appEventSink.emitFeedback(LibraryAccessFeedbackFacts.webDavRootUpdated(id))
+                appEventSink.emitFeedback(LibraryAccessFeedbackFacts.webDavRootUpdated(id))
             }.onFailure { error ->
-                deps.appEventSink.emitFeedback(
+                appEventSink.emitFeedback(
                     LibraryAccessFeedbackFacts.webDavRootUpdateFailed(id, error.message)
                 )
             }
@@ -265,11 +279,11 @@ class RemoteConnectionViewModel(
 
     fun syncAbsRoot(rootId: String) {
         viewModelScope.launch {
-            when (val inspection = deps.settingsRootCommands.inspectManualAbsSync(rootId)) {
+            when (val inspection = settingsRootCommands.inspectManualAbsSync(rootId)) {
                 SettingsAbsSyncInspection.MissingRoot ->
-                    deps.appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncRootMissing())
+                    appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncRootMissing())
                 is SettingsAbsSyncInspection.Blocked ->
-                    deps.appEventSink.emitFeedback(inspection.fact)
+                    appEventSink.emitFeedback(inspection.fact)
                 is SettingsAbsSyncInspection.Ready -> {
                     val start = AbsSettingsLogger.mark()
                     AbsSettingsLogger.logManualSyncStart(rootId = inspection.rootId, displayName = inspection.displayName)
@@ -277,12 +291,12 @@ class RemoteConnectionViewModel(
                         AbsSettingsLogger.logManualSyncRequiresConfirmation(rootId = inspection.rootId, totalItems = inspection.totalItems)
                         return@launch
                     }
-                    val scheduled = deps.settingsRootCommands.startManualAbsSync(inspection.rootId)
+                    val scheduled = settingsRootCommands.startManualAbsSync(inspection.rootId)
                     if (scheduled) {
                         AbsSettingsLogger.logManualSyncFinished(rootId = inspection.rootId, costMs = AbsSettingsLogger.elapsedMs(start))
-                        deps.appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncStarted(inspection.rootId))
+                        appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncStarted(inspection.rootId))
                     } else {
-                        deps.appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncAlreadyRunning(inspection.rootId))
+                        appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncAlreadyRunning(inspection.rootId))
                     }
                 }
             }
@@ -290,15 +304,15 @@ class RemoteConnectionViewModel(
     }
 
     fun triggerRescan(rootId: String) {
-        deps.settingsRootCommands.scheduleUserSync(rootId)
+        settingsRootCommands.scheduleUserSync(rootId)
     }
 
     fun deleteLibraryRoot(root: SettingsRootItem) {
         viewModelScope.launch {
             AbsSettingsLogger.logDeleteServerStart(rootId = root.rootId, sourceType = root.sourceType)
-            val playbackWasStopped = deps.libraryRootManagementUseCase.deleteLibraryRoot(root.rootId)
+            val playbackWasStopped = libraryRootManagementUseCase.deleteLibraryRoot(root.rootId)
             AbsSettingsLogger.logDeleteServerFinished(rootId = root.rootId, playbackStopped = playbackWasStopped)
-            deps.appEventSink.emitFeedback(
+            appEventSink.emitFeedback(
                 LibraryAccessFeedbackFacts.rootRemoved(
                     rootId = root.rootId,
                     sourceType = root.sourceType,

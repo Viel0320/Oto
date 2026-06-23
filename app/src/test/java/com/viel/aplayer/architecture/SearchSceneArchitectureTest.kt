@@ -6,7 +6,7 @@ import java.io.File
 
 /**
  * Pins the stage-one search dependency migration.
- * Prevents SearchViewModel and SearchScreenDependencies from drifting back to the broad presentation facade.
+ * Prevents SearchViewModel from drifting back to the broad presentation facade.
  */
 class SearchSceneArchitectureTest {
 
@@ -23,33 +23,9 @@ class SearchSceneArchitectureTest {
             !searchViewModelSource.contains("getLibraryPresentationDependencies")
         )
         assertTrue(
-            "SearchViewModel must resolve the search-specific dependency view.",
-            searchViewModelSource.contains("SearchScreenDependencies")
-        )
-        assertTrue(
             "SearchViewModel must use the search scene read model and commands.",
             searchViewModelSource.contains("searchLibraryReadModel") &&
                 searchViewModelSource.contains("searchLibraryCommands")
-        )
-    }
-
-    @Test
-    fun searchDependencyViewDoesNotInheritLibraryPresentationDependencies() {
-        val dependenciesSource = resolveSourceRoot().resolve("di/dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
-        val searchInterface = dependenciesSource.substringAfter("interface SearchScreenDependencies")
-            .substringBefore("/**\n * Home Screen Dependencies")
-
-        assertTrue(
-            "SearchScreenDependencies must not inherit LibraryPresentationDependencies because that would re-expose the broad facade.",
-            !searchInterface.substringBefore("{").contains("LibraryPresentationDependencies")
-        )
-        assertTrue(
-            "SearchScreenDependencies must expose the search read model.",
-            searchInterface.contains("val searchLibraryReadModel: SearchLibraryReadModel")
-        )
-        assertTrue(
-            "SearchScreenDependencies must expose the search command interface.",
-            searchInterface.contains("val searchLibraryCommands: SearchLibraryCommands")
         )
     }
 

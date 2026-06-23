@@ -23,10 +23,6 @@ class DetailSceneArchitectureTest {
             !detailViewModelSource.contains("getLibraryPresentationDependencies")
         )
         assertTrue(
-            "DetailViewModel must resolve the detail-specific dependency view.",
-            detailViewModelSource.contains("DetailScreenDependencies")
-        )
-        assertTrue(
             "DetailViewModel must use detail read and command scene interfaces.",
             detailViewModelSource.contains("detailBookReadModel") &&
                 detailViewModelSource.contains("detailBookCommands")
@@ -46,26 +42,6 @@ class DetailSceneArchitectureTest {
                 "refreshDetailAvailabilityStatus",
                 "observeBookById"
             ).none { forbiddenCall -> detailViewModelSource.contains(forbiddenCall) }
-        )
-    }
-
-    @Test
-    fun detailDependencyViewDoesNotInheritLibraryPresentationDependencies() {
-        val dependenciesSource = resolveSourceRoot().resolve("di/dependencies/PresentationDependencies.kt").readText().replace("\r\n", "\n")
-        val detailInterface = dependenciesSource.substringAfter("interface DetailScreenDependencies")
-            .substringBefore("/**\n * Home Screen Dependencies")
-
-        assertTrue(
-            "DetailScreenDependencies must not inherit LibraryPresentationDependencies because that would re-expose LibraryFacade.",
-            !detailInterface.substringBefore("{").contains("LibraryPresentationDependencies")
-        )
-        assertTrue(
-            "DetailScreenDependencies must expose the detail read model.",
-            detailInterface.contains("val detailBookReadModel: DetailBookReadModel")
-        )
-        assertTrue(
-            "DetailScreenDependencies must expose the detail command interface.",
-            detailInterface.contains("val detailBookCommands: DetailBookCommands")
         )
     }
 

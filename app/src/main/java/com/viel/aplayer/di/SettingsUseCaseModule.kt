@@ -1,10 +1,12 @@
-package com.viel.aplayer.di.koin
+package com.viel.aplayer.di
 
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.net.RealAbsApiClient
 import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
+import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
 import com.viel.aplayer.abs.sync.AbsConnectionTester
+import com.viel.aplayer.abs.sync.AbsSyncTaskCoordinator
 import com.viel.aplayer.application.library.settings.DefaultSettingsRootModule
 import com.viel.aplayer.application.library.settings.SettingsRootCommands
 import com.viel.aplayer.application.library.settings.SettingsRootReadModel
@@ -86,8 +88,8 @@ internal object SettingsUseCaseModule {
                 observeRootSnapshotsSource = get<SettingsQueryUseCase>()::observeLibraryRootSnapshots,
                 libraryRootGateway = get<LibraryRootGateway>(),
                 scanScheduler = get<ScanScheduler>(),
-                inspectAbsSyncPlan = get<com.viel.aplayer.abs.sync.AbsCatalogSynchronizer>()::inspectRootSyncPlan,
-                startAbsSyncTask = get<com.viel.aplayer.abs.sync.AbsSyncTaskCoordinator>()::start
+                inspectAbsSyncPlan = get<AbsCatalogSynchronizer>()::inspectRootSyncPlan,
+                startAbsSyncTask = get<AbsSyncTaskCoordinator>()::start
             )
         }
 

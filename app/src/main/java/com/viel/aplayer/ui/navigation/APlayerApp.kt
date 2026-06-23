@@ -26,8 +26,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.savedstate.compose.LocalSavedStateRegistryOwner
 import com.viel.aplayer.application.library.home.toDetailBookItem
+import com.viel.aplayer.application.library.settings.AppSettingsReadModel
 import com.viel.aplayer.application.library.settings.SettingsRootItem
-import com.viel.aplayer.di.dependencies.AppShellDependencies
+import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.FeedbackMessage
 import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.shared.settings.ThemeMode
@@ -83,13 +84,8 @@ fun APlayerApp(
         libraryUiState.audiobooks.associate { it.id to it.toDetailBookItem() }
     }
 
-    val appShellDependencies = koinInject<AppShellDependencies>()
-    val settingsReadModel = remember(appShellDependencies) {
-        appShellDependencies.settingsReadModel
-    }
-    val appEventSink = remember(appShellDependencies) {
-        appShellDependencies.appEventSink
-    }
+    val settingsReadModel = koinInject<AppSettingsReadModel>()
+    val appEventSink = koinInject<AppEventSink>()
     val appFeedbackRenderRouter = remember {
         DefaultAppFeedbackRenderRouter
     }

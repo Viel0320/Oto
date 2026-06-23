@@ -6,10 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.viel.aplayer.application.library.player.PlayerBookPreview
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.application.library.player.PlayerLibraryMetadata
+import com.viel.aplayer.application.library.player.PlayerLibraryReadModel
 import com.viel.aplayer.application.library.player.PlayerRelatedData
 import com.viel.aplayer.application.library.player.PlayerRestoredProgressSnapshot
+import com.viel.aplayer.application.library.settings.AppSettingsReadModel
+import com.viel.aplayer.application.playback.PlayerPlaybackController
+import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.aplayer.application.usecase.ResolveProgressConflictUseCase
-import com.viel.aplayer.di.dependencies.PlayerScreenDependencies
+import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.event.feedback.PlaybackControlFeedbackFacts
 import com.viel.aplayer.event.feedback.RecoveryFeedbackFacts
@@ -37,7 +41,12 @@ import kotlin.time.Duration.Companion.milliseconds
 
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlaybackViewModel(
-    private val playerDependencies: PlayerScreenDependencies,
+    private val playbackController: PlayerPlaybackController,
+    private val playerLibraryReadModel: PlayerLibraryReadModel,
+    private val buildPlaybackPlanUseCase: BuildPlaybackPlanUseCase,
+    private val resolveProgressConflictUseCase: ResolveProgressConflictUseCase,
+    private val appEventSink: AppEventSink,
+    private val settingsReadModel: AppSettingsReadModel,
     rawExternalScope: CoroutineScope? = null
 ) : ViewModel() {
 
@@ -46,12 +55,6 @@ class PlaybackViewModel(
     companion object {
         private val PLAYBACK_SPEEDS = listOf(0.8f, 0.9f, 1.0f, 1.1f, 1.2f, 1.3f)
     }
-
-    private val playbackController = playerDependencies.playerPlaybackController
-    private val playerLibraryReadModel = playerDependencies.playerLibraryReadModel
-    private val buildPlaybackPlanUseCase = playerDependencies.buildPlaybackPlanUseCase
-    private val resolveProgressConflictUseCase = playerDependencies.resolveProgressConflictUseCase
-    private val appEventSink = playerDependencies.appEventSink
 
     private val _currentBookId = MutableStateFlow<String?>(null)
     val currentBookId: StateFlow<String?> = _currentBookId.asStateFlow()
@@ -312,7 +315,7 @@ class PlaybackViewModel(
     }
 
     private fun observeSettings() {
-        val readModel = playerDependencies.settingsReadModel
+        val readModel = settingsReadModel
         externalScope.launch {
             readModel.settingsFlow.collect { settings ->
                 if (settings.isChapterProgressMode != _isChapterProgressMode.value) {
