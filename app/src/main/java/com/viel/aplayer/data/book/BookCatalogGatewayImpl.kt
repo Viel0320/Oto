@@ -34,13 +34,34 @@ class BookCatalogGatewayImpl(
         list.map { it.toBookWithProgress() }.onEach { coverRecoveryGateway.triggerRecovery(it.book) }
     }.flowOn(Dispatchers.IO)
 
+    private fun Flow<List<HomeCatalogRow>>.checkHomeCovers(): Flow<List<HomeCatalogRow>> = this.map { list ->
+        list.onEach { row ->
+            val tempBook = BookEntity(
+                id = row.id,
+                rootId = row.rootId,
+                sourceType = row.sourceType,
+                title = row.title,
+                author = row.author,
+                narrator = row.narrator,
+                coverPath = row.coverPath,
+                thumbnailPath = row.thumbnailPath,
+                lastScannedAt = row.lastScannedAt,
+                addedAt = row.addedAt,
+                status = row.status,
+                readStatus = row.readStatus,
+                series = row.series
+            )
+            coverRecoveryGateway.triggerRecovery(tempBook)
+        }
+    }.flowOn(Dispatchers.IO)
+
     override val audiobooks: Flow<List<BookWithProgress>>
         get() = bookDao.getAllBooksWithProgress().map { list ->
             list.map { it.toBookWithProgress() }
         }.flowOn(Dispatchers.IO)
 
     override val homeCatalogRows: Flow<List<HomeCatalogRow>>
-        get() = bookDao.observeHomeCatalogRows().flowOn(Dispatchers.IO)
+        get() = bookDao.observeHomeCatalogRows().checkHomeCovers()
 
     override suspend fun getBookById(id: String): BookEntity? = withContext(Dispatchers.IO) {
         bookDao.getBookById(id)?.also { coverRecoveryGateway.triggerRecovery(it) }
