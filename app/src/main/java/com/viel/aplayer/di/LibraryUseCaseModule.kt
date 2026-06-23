@@ -1,6 +1,7 @@
 package com.viel.aplayer.di
 
 import androidx.media3.common.util.UnstableApi
+import com.viel.aplayer.application.download.DownloadStatusReadModel
 import com.viel.aplayer.application.download.ManualDownloadCleanupGateway
 import com.viel.aplayer.application.playback.PlaybackStopper
 import com.viel.aplayer.application.usecase.BookManagementUseCase
@@ -43,7 +44,12 @@ internal object LibraryUseCaseModule {
             )
         }
 
-        single { BuildPlaybackPlanUseCase(get<PlaybackPlanGateway>()) }
+        single {
+            BuildPlaybackPlanUseCase(
+                playbackPlanGateway = get<PlaybackPlanGateway>(),
+                downloadStatusReadModel = get<DownloadStatusReadModel>()
+            )
+        }
 
         single {
             ProgressGatewayImpl(get<AppDatabase>().bookDao()).also { gateway ->

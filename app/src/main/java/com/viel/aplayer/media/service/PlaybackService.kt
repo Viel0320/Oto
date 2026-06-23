@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.viel.aplayer.MainActivity
 import com.viel.aplayer.R
+import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.aplayer.data.AppSettingsRepository
 import com.viel.aplayer.data.availability.BookAvailabilityGateway
 import com.viel.aplayer.data.book.BookCatalogGateway
@@ -34,7 +35,6 @@ import com.viel.aplayer.media.NotificationProgressPlayer
 import com.viel.aplayer.media.PlaybackDomainEvent
 import com.viel.aplayer.media.PlaybackDomainEventSink
 import com.viel.aplayer.media.PlaybackMediaId
-import com.viel.aplayer.media.PlaybackPlanGateway
 import com.viel.aplayer.media.PlaybackSourcePreflight
 import com.viel.aplayer.media.SeekStepPresentation
 import com.viel.aplayer.media.session.PlaybackSessionErrorDecision
@@ -69,7 +69,7 @@ class PlaybackService : MediaSessionService(), KoinComponent {
     private val injectedBookCatalogGateway: BookCatalogGateway by inject()
     private val injectedChapterGateway: ChapterGateway by inject()
     private val injectedBookmarkGateway: BookmarkGateway by inject()
-    private val injectedPlaybackPlanGateway: PlaybackPlanGateway by inject()
+    private val injectedBuildPlaybackPlanUseCase: BuildPlaybackPlanUseCase by inject()
     private val injectedPlaybackSourcePreflight: PlaybackSourcePreflight by inject()
     private val injectedProgressGateway: ProgressGateway by inject()
     private val injectedBookAvailabilityGateway: BookAvailabilityGateway by inject()
@@ -95,7 +95,7 @@ class PlaybackService : MediaSessionService(), KoinComponent {
     private lateinit var bookCatalogGateway: BookCatalogGateway
     private lateinit var chapterGateway: ChapterGateway
     private lateinit var bookmarkGateway: BookmarkGateway
-    private lateinit var playbackPlanGateway: PlaybackPlanGateway
+    private lateinit var buildPlaybackPlanUseCase: BuildPlaybackPlanUseCase
     private lateinit var playbackSourcePreflight: PlaybackSourcePreflight
     private lateinit var progressGateway: ProgressGateway
     private lateinit var bookAvailabilityGateway: BookAvailabilityGateway
@@ -125,7 +125,7 @@ class PlaybackService : MediaSessionService(), KoinComponent {
         bookCatalogGateway = injectedBookCatalogGateway
         chapterGateway = injectedChapterGateway
         bookmarkGateway = injectedBookmarkGateway
-        playbackPlanGateway = injectedPlaybackPlanGateway
+        buildPlaybackPlanUseCase = injectedBuildPlaybackPlanUseCase
         playbackSourcePreflight = injectedPlaybackSourcePreflight
         progressGateway = injectedProgressGateway
         bookAvailabilityGateway = injectedBookAvailabilityGateway
@@ -449,7 +449,7 @@ class PlaybackService : MediaSessionService(), KoinComponent {
                         future.setException(UnsupportedOperationException("No last played book found"))
                         return@launch
                     }
-                    val plan = playbackPlanGateway.buildPlaybackPlan(lastProgress.bookId)
+                    val plan = buildPlaybackPlanUseCase(lastProgress.bookId)
                     if (plan == null || plan.files.isEmpty()) {
                         future.setException(UnsupportedOperationException("Playback plan is empty for book: ${lastProgress.bookId}"))
                         return@launch

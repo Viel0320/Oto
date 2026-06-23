@@ -13,6 +13,7 @@ import androidx.media3.datasource.cache.SimpleCache
 import com.viel.aplayer.data.db.AudiobookSchema
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.data.entity.LibraryRootEntity
+import com.viel.aplayer.media.PlaybackBufferPolicy
 import com.viel.aplayer.media.PlaybackFileLookup
 import com.viel.aplayer.media.PlaybackRootLookup
 import com.viel.aplayer.media.VfsPlaybackUri
@@ -37,6 +38,22 @@ class ManualCachePlaybackDataSourceTest {
             val bytes = source.readAll(fixture.dataSpec(length = 3L))
 
             assertEquals(listOf(1, 2, 3), bytes.toList().map { it.toInt() })
+            assertEquals(0, fixture.upstreamOpenCount.get())
+        } finally {
+            fixture.close()
+        }
+    }
+
+    @Test
+    fun `direct playback uri should still read completed manual cache without upstream`() {
+        val fixture = CacheFixture()
+        try {
+            fixture.writeManualCache(byteArrayOf(4, 5, 6))
+            val source = fixture.createSource(upstreamBytes = byteArrayOf(9), rootType = AudiobookSchema.LibrarySourceType.ABS)
+
+            val bytes = source.readAll(fixture.dataSpec(length = 3L, bufferPolicy = PlaybackBufferPolicy.Direct))
+
+            assertEquals(listOf(4, 5, 6), bytes.toList().map { it.toInt() })
             assertEquals(0, fixture.upstreamOpenCount.get())
         } finally {
             fixture.close()
@@ -122,9 +139,12 @@ class ManualCachePlaybackDataSourceTest {
             readAll(source, dataSpec(length = bytes.size.toLong()))
         }
 
-        fun dataSpec(length: Long): DataSpec =
+        fun dataSpec(
+            length: Long,
+            bufferPolicy: PlaybackBufferPolicy = PlaybackBufferPolicy.Buffered
+        ): DataSpec =
             DataSpec.Builder()
-                .setUri(VfsPlaybackUri.fromBookFile(testFile()))
+                .setUri(VfsPlaybackUri.fromBookFile(testFile(), bufferPolicy))
                 .setPosition(0L)
                 .setLength(length)
                 .build()

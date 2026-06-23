@@ -13,7 +13,8 @@ object PlaybackPlanBuilder {
     /**
      * Transforms the given BookPlaybackPlan into a list of MediaItem entities.
      * Shares identical artwork URIs across items to reduce IPC transfer overhead in cross-process sessions.
-     * Attaches internal virtual file system (VFS) playback URIs.
+     * Attaches internal virtual file system (VFS) playback URIs and applies the plan's buffer
+     * policy to the URI scheme that Media3 uses for LoadControl classification.
      *
      * @param plan The target BookPlaybackPlan model
      * @return Converted list of ExoPlayer-compatible MediaItems
@@ -29,7 +30,7 @@ object PlaybackPlanBuilder {
 
             MediaItem.Builder()
                 .setMediaId(PlaybackMediaId.compose(plan.bookId, file.id))
-                .setUri(VfsPlaybackUri.fromBookFile(file))
+                .setUri(VfsPlaybackUri.fromBookFile(file, plan.bufferPolicy))
                 .setMediaMetadata(metadata)
                 .build()
         }

@@ -38,6 +38,8 @@ object ExoPlayerFactory : KoinComponent {
     /**
      * Builds and configures an optimized ExoPlayer instance tailored for audiobook playback.
      * Keeps audio rendering on the native Media3 pipeline without exposing AudioSink internals.
+     * Streaming VFS items use the configured byte target, while direct local/cache items use
+     * Media3's local-playback branch with no intentional pre-buffer beyond decoder startup needs.
      *
      * @param context Application runtime context
      * @param listener Global playback status and exception event observer
@@ -54,13 +56,20 @@ object ExoPlayerFactory : KoinComponent {
         val settings = get<AppSettingsRepository>().cachedSettings
 
         val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
+            .setBufferDurationsMsForStreaming(
                 SIZE_ONLY_BUFFER_DURATION_MS,
                 SIZE_ONLY_BUFFER_DURATION_MS,
                 1000,
                 2000
             )
-            .setPrioritizeTimeOverSizeThresholds(false)
+            .setBufferDurationsMsForLocalPlayback(
+                DIRECT_PLAYBACK_BUFFER_DURATION_MS,
+                DIRECT_PLAYBACK_BUFFER_DURATION_MS,
+                DIRECT_PLAYBACK_BUFFER_DURATION_MS,
+                DIRECT_PLAYBACK_BUFFER_DURATION_MS
+            )
+            .setPrioritizeTimeOverSizeThresholdsForStreaming(false)
+            .setPrioritizeTimeOverSizeThresholdsForLocalPlayback(true)
             .setTargetBufferBytes(settings.playbackBufferMaxBytes.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
             .build()
 
@@ -122,4 +131,5 @@ object ExoPlayerFactory : KoinComponent {
     }
 
     private const val SIZE_ONLY_BUFFER_DURATION_MS = Int.MAX_VALUE
+    private const val DIRECT_PLAYBACK_BUFFER_DURATION_MS = 0
 }
