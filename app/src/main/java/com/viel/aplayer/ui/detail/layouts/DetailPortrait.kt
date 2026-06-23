@@ -149,6 +149,8 @@ fun DetailPortrait(
             isLandscape = false
         )
 
+        Spacer(modifier = Modifier.height(16.dp))
+
         DetailControlPanel(
             book = book,
             uiState = uiState,
