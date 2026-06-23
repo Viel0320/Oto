@@ -19,8 +19,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,12 +33,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.viel.aplayer.R
 import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.shared.settings.GlassEffectMode
@@ -57,6 +53,8 @@ import kotlinx.coroutines.launch
  *
  * Hosts the settings overlay interface inside MainActivity, completely replacing the independent SettingsActivity.
  * Controls visual presentation through fade-in and slide-in transitions, maintaining premium layout animations.
+ * Manual download retry dispatches the cache command immediately, then requests notification permission only
+ * for progress visibility so denial cannot block offline caching.
  */
 @Composable
 fun SettingsOverlay(
@@ -99,26 +97,21 @@ fun SettingsOverlay(
             }
         }
     }
-    var pendingDownloadBookId by remember { mutableStateOf<String?>(null) }
-    var showDownloadPermissionDialog by remember { mutableStateOf(false) }
     val downloadPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
-        val requestedBookId = pendingDownloadBookId
-        pendingDownloadBookId = null
-        if (granted && requestedBookId != null) {
-            settingsViewModel.downloadBook(requestedBookId)
-        } else {
+        if (!granted) {
             settingsViewModel.onDownloadNotificationPermissionDenied()
         }
     }
     val requestSettingsDownload: (String) -> Unit = { bookId ->
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        ) {
-            settingsViewModel.downloadBook(bookId)
-        } else {
-            pendingDownloadBookId = bookId
-            showDownloadPermissionDialog = true
+        val notificationPermissionGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+        settingsViewModel.downloadBook(bookId)
+        if (!notificationPermissionGranted) {
+            downloadPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
     LaunchedEffect(isVisible) {
@@ -180,7 +173,7 @@ fun SettingsOverlay(
 
         val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
         val settingsTraceState = "visible=$isVisible,page=$activeSettingsPage," +
-            "predictiveBack=$isPredictiveBackActive,downloadPermissionDialog=$showDownloadPermissionDialog"
+            "predictiveBack=$isPredictiveBackActive"
 
         Surface(
             modifier = Modifier
@@ -243,38 +236,6 @@ fun SettingsOverlay(
                             glassEffectMode = glassEffectMode,
                             downloadHazeState = if (isBlur) downloadManagementHazeState else null
                         )
-                        if (showDownloadPermissionDialog) {
-                            SettingsTemplateDialog(
-                                onDismissRequest = {
-                                    pendingDownloadBookId = null
-                                    showDownloadPermissionDialog = false
-                                },
-                                hazeState = if (isBlur) downloadManagementHazeState else null,
-                                glassEffectMode = glassEffectMode,
-                                title = { Text(stringResource(R.string.detail_download_permission_title)) },
-                                text = { Text(stringResource(R.string.detail_download_permission_body)) },
-                                confirmButton = {
-                                    TextButton(
-                                        onClick = {
-                                            showDownloadPermissionDialog = false
-                                            downloadPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                        }
-                                    ) {
-                                        Text(stringResource(R.string.detail_download_permission_confirm))
-                                    }
-                                },
-                                dismissButton = {
-                                    TextButton(
-                                        onClick = {
-                                            pendingDownloadBookId = null
-                                            showDownloadPermissionDialog = false
-                                        }
-                                    ) {
-                                        Text(stringResource(R.string.action_cancel))
-                                    }
-                                }
-                            )
-                        }
                     }
 
                     SettingsOverlayPage.Main -> {

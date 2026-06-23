@@ -5,8 +5,6 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -15,17 +13,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
 import com.materialkolor.ktx.animateColorScheme
-import com.viel.aplayer.R
 import com.viel.aplayer.application.library.LibraryReadStatus
 import com.viel.aplayer.media.parser.ImageProcessor
 import com.viel.aplayer.shared.settings.GlassEffectMode
-import com.viel.aplayer.ui.common.APlayerDialogTemplate
 import com.viel.aplayer.ui.common.theme.LocalAmoled
 import com.viel.aplayer.ui.common.theme.LocalDarkTheme
 import com.viel.aplayer.ui.common.uiPerformanceTrace
@@ -35,7 +30,9 @@ import dev.chrisbanes.haze.HazeState
  * Stateful detail page route adapter.
  *
  * Owns DetailViewModel collection, dynamic cover color state, and user-effect callbacks before handing
- * pure rendering work to DetailOverlay and DetailScreen.
+ * pure rendering work to DetailOverlay and DetailScreen. Manual download actions dispatch the cache
+ * command immediately, then request notification permission only for progress visibility so denial cannot
+ * block offline caching.
  */
 @Composable
 fun DetailRoute(
@@ -68,30 +65,25 @@ fun DetailRoute(
             dynamicColorScheme(seedColor = color, isDark = darkTheme, isAmoled = amoled, style = PaletteStyle.Content)
         }
     }
-    var pendingDownloadBookId by remember { mutableStateOf<String?>(null) }
-    var showNotificationPermissionDialog by remember { mutableStateOf(false) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        val requestedBookId = pendingDownloadBookId
-        pendingDownloadBookId = null
-        if (granted && requestedBookId != null) {
-            detailViewModel.downloadBook(requestedBookId)
-        } else {
+        if (!granted) {
             detailViewModel.onDownloadNotificationPermissionDenied()
         }
     }
     val requestManualDownload: (String) -> Unit = { bookId ->
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        ) {
-            detailViewModel.downloadBook(bookId)
-        } else {
-            pendingDownloadBookId = bookId
-            showNotificationPermissionDialog = true
+        val notificationPermissionGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+        detailViewModel.downloadBook(bookId)
+        if (!notificationPermissionGranted) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
     val detailTraceState = "visible=${detailUiState.isVisible},hasBook=${detailUiState.book != null}," +
-        "source=${detailUiState.entrySource},permissionDialog=$showNotificationPermissionDialog"
+        "source=${detailUiState.entrySource}"
 
     DetailOverlay(
         visible = detailUiState.isVisible,
@@ -132,38 +124,6 @@ fun DetailRoute(
                 coverColor = coverColor,
                 onColorExtracted = { coverColor = it }
             )
-            if (showNotificationPermissionDialog) {
-                APlayerDialogTemplate(
-                    onDismissRequest = {
-                        pendingDownloadBookId = null
-                        showNotificationPermissionDialog = false
-                    },
-                    hazeState = appHazeState,
-                    glassEffectMode = glassEffectMode,
-                    title = { Text(stringResource(R.string.detail_download_permission_title)) },
-                    body = {
-                        Text(stringResource(R.string.detail_download_permission_body))
-                    },
-                    actions = {
-                        TextButton(
-                            onClick = {
-                                pendingDownloadBookId = null
-                                showNotificationPermissionDialog = false
-                            }
-                        ) {
-                            Text(stringResource(R.string.action_cancel))
-                        }
-                        TextButton(
-                            onClick = {
-                                showNotificationPermissionDialog = false
-                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            }
-                        ) {
-                            Text(stringResource(R.string.detail_download_permission_confirm))
-                        }
-                    }
-                )
-            }
         }
 
         if (detailColorScheme != null) {
