@@ -3,8 +3,10 @@ package com.viel.aplayer.ui.player
 import android.view.RoundedCorner
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope.ResizeMode.Companion.RemeasureToBounds
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDp
@@ -222,11 +224,29 @@ fun PlayerScreen(
 
         val boundsModifier = if (sharedTransitionScope != null && mini2PlayerTargetScope != null) {
             with(sharedTransitionScope) {
-                Modifier.sharedBounds(
-                    sharedContentState = rememberSharedContentState(key = SharedElementKeys.playerBounds()),
-                    animatedVisibilityScope = mini2PlayerTargetScope,
-                    clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(animatedCornerRadius))
-                )
+                val playerBoundsState = rememberSharedContentState(key = SharedElementKeys.playerBounds())
+                if (windowClass.isWideScreen) {
+                    Modifier.sharedBounds(
+                        sharedContentState = playerBoundsState,
+                        animatedVisibilityScope = mini2PlayerTargetScope,
+                        clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(animatedCornerRadius))
+                    )
+                } else {
+                    /**
+                     * Phone compact <-> full morph: the source mini bar is full-width and bottom-flush,
+                     * so left/right/bottom already coincide with the full surface. Remeasure the content
+                     * against the animated shared bounds instead of scaling the placed layer; the shared
+                     * bounds geometry keeps the bottom edge fixed while the tween stays matched to the
+                     * corner and cross-fade timing.
+                     */
+                    Modifier.sharedBounds(
+                        sharedContentState = playerBoundsState,
+                        animatedVisibilityScope = mini2PlayerTargetScope,
+                        boundsTransform = BoundsTransform { _, _ -> tween(durationMillis = 300) },
+                        resizeMode = RemeasureToBounds,
+                        clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(animatedCornerRadius))
+                    )
+                }
             }
         } else {
             Modifier

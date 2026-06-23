@@ -25,6 +25,7 @@ class DownloadStatusReadModelTest {
 
         assertEquals(BookCacheState.NONE, status.state)
         assertEquals(0, status.progressPercent)
+        assertEquals(true, status.supportsManualCacheAction)
     }
 
     @Test
@@ -51,6 +52,7 @@ class DownloadStatusReadModelTest {
         assertEquals(4, status.totalFiles)
         assertEquals(2, status.completedFiles)
         assertEquals(25, status.progressPercent)
+        assertEquals(true, status.supportsManualCacheAction)
     }
 
     @Test
@@ -64,6 +66,7 @@ class DownloadStatusReadModelTest {
 
         assertEquals(BookCacheState.LOCAL, status.state)
         assertEquals(0, status.progressPercent)
+        assertEquals(false, status.supportsManualCacheAction)
     }
 
     private fun fakeBookDao(sourceType: AudiobookSchema.LibrarySourceType? = null): BookDao =

@@ -1,7 +1,9 @@
 package com.viel.aplayer.ui.player.miniplayer
 
+import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope.ResizeMode.Companion.RemeasureToBounds
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
@@ -96,10 +98,37 @@ fun CompactMediaPlayer(
 
     val boundsModifier = if (sharedTransitionScope != null && mini2PlayerSourceScope != null) {
         with(sharedTransitionScope) {
+            /**
+             * Mirror the full player's bottom-anchored morph so collapsing (full -> mini) keeps the
+             * same fixed bottom edge and matched tween(300) as expanding. RemeasureToBounds avoids
+             * scaling the mini player's measured content while the shared bounds continue to carry the
+             * bottom-flush source geometry. CompactPlayer is the phone variant only; the wide-screen pill
+             * keeps the default sharedBounds behavior.
+             */
             Modifier.sharedBounds(
                 sharedContentState = rememberSharedContentState(key = SharedElementKeys.playerBounds()),
                 animatedVisibilityScope = mini2PlayerSourceScope,
+                boundsTransform = BoundsTransform { _, _ -> tween(durationMillis = 300) },
+                resizeMode = RemeasureToBounds,
                 clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(animatedCornerRadius))
+            )
+        }
+    } else {
+        Modifier
+    }
+
+    /**
+     * Shares the play/pause glyph with the full player's transport button so the icon flies and
+     * scales (32dp -> 40dp) between mini and full instead of cross-fading in place. Matched against
+     * SharedElementKeys.mini2playerPlayPause() on the PlaybackControls side; tween(300) keeps it in
+     * lockstep with the surface bounds morph.
+     */
+    val playPauseSharedModifier = if (sharedTransitionScope != null && mini2PlayerSourceScope != null) {
+        with(sharedTransitionScope) {
+            Modifier.sharedElement(
+                rememberSharedContentState(key = SharedElementKeys.mini2playerPlayPause()),
+                animatedVisibilityScope = mini2PlayerSourceScope,
+                boundsTransform = { _, _ -> tween(durationMillis = 300) }
             )
         }
     } else {
@@ -240,7 +269,9 @@ fun CompactMediaPlayer(
                         Image(
                             painter = playPausePainter,
                             contentDescription = playPauseContentDescription,
-                            modifier = Modifier.size(32.dp),
+                            modifier = Modifier
+                                .size(32.dp)
+                                .then(playPauseSharedModifier),
                             colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface)
                         )
                     }

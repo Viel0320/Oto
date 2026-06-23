@@ -96,7 +96,8 @@ class DetailViewModel(
                 progressPercent = snapshot.progressPercent,
                 displayProgressPercent = snapshot.progressPercent,
                 fullSourcePath = "",
-                bookCacheStatus = BookCacheStatus.none()
+                bookCacheStatus = BookCacheStatus.none(),
+                shouldShowDownloadAction = false
             )
 
             viewModelScope.launch {
@@ -156,7 +157,10 @@ class DetailViewModel(
                     _uiState.update { state ->
                         val currentSnapshot = state.book ?: return@update state
                         if (currentSnapshot.bookId == selectedBookId) {
-                            state.copy(bookCacheStatus = cacheStatus)
+                            state.copy(
+                                bookCacheStatus = cacheStatus,
+                                shouldShowDownloadAction = cacheStatus.supportsManualCacheAction
+                            )
                         } else {
                             state
                         }
@@ -170,7 +174,8 @@ class DetailViewModel(
                     isVisible = false,
                     entrySource = DetailEntrySource.None,
                     fullSourcePath = "",
-                    bookCacheStatus = BookCacheStatus.none()
+                    bookCacheStatus = BookCacheStatus.none(),
+                    shouldShowDownloadAction = false
                 )
             }
         }
@@ -199,6 +204,7 @@ class DetailViewModel(
                     isVisible = false,
                     book = null,
                     bookCacheStatus = BookCacheStatus.none(),
+                    shouldShowDownloadAction = false,
                     entrySource = DetailEntrySource.None
                 )
             }

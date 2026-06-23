@@ -42,6 +42,8 @@ import dev.chrisbanes.haze.HazeState
  * Places the playback controls at the top of the right-hand column.
  * Uses scaffold padding only for top-bar spacing and safe-drawing padding for the
  * physical horizontal and bottom edges that can contain navigation or cutout areas.
+ * Keeps the compact cache shortcut inside the control panel so the transparent top
+ * bar does not reserve extra landscape content space.
  */
 @Composable
 fun DetailLandscapePhone(
@@ -53,6 +55,7 @@ fun DetailLandscapePhone(
     detailHazeState: HazeState,
     onPlayPressed: () -> Unit,
     onPlayClick: () -> Unit,
+    onDownloadActionClick: () -> Unit,
     onSearchClick: (String) -> Unit,
     onShowInfo: (String, String) -> Unit,
     modifier: Modifier = Modifier
@@ -174,6 +177,7 @@ fun DetailLandscapePhone(
                 hazeState = detailHazeState,
                 onPlayPressed = onPlayPressed,
                 onPlayClick = onPlayClick,
+                onDownloadActionClick = onDownloadActionClick,
                 isLandscape = true,
             )
 

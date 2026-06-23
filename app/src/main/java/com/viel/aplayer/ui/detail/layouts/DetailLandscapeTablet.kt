@@ -42,6 +42,8 @@ import dev.chrisbanes.haze.HazeState
  * Right column displays the scrollable synopsis details.
  * Uses scaffold padding only for top-bar spacing and safe-drawing padding for the
  * physical horizontal and bottom edges that can contain navigation or cutout areas.
+ * Keeps the compact cache shortcut with playback controls rather than the transparent
+ * top bar, preserving the large-screen dual-pane composition.
  */
 @Composable
 fun DetailLandscapeTablet(
@@ -53,6 +55,7 @@ fun DetailLandscapeTablet(
     detailHazeState: HazeState,
     onPlayPressed: () -> Unit,
     onPlayClick: () -> Unit,
+    onDownloadActionClick: () -> Unit,
     onSearchClick: (String) -> Unit,
     onShowInfo: (String, String) -> Unit,
     modifier: Modifier = Modifier
@@ -165,6 +168,7 @@ fun DetailLandscapeTablet(
                 hazeState = detailHazeState,
                 onPlayPressed = onPlayPressed,
                 onPlayClick = onPlayClick,
+                onDownloadActionClick = onDownloadActionClick,
                 isLandscape = true,
             )
             Spacer(modifier = Modifier.height(safeDrawingPadding.calculateBottomPadding()))

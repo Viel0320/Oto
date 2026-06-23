@@ -105,6 +105,24 @@ fun PillCompactMediaPlayer(
         Modifier
     }
 
+    /**
+     * Shares the play/pause glyph with the full player's transport button, matching the compact
+     * variant via SharedElementKeys.mini2playerPlayPause(). The pill surface keeps its default
+     * sharedBounds morph; only the icon is connected so it flies and scales (28dp -> 40dp) into the
+     * full player instead of cross-fading in place.
+     */
+    val playPauseSharedModifier = if (sharedTransitionScope != null && mini2PlayerSourceScope != null) {
+        with(sharedTransitionScope) {
+            Modifier.sharedElement(
+                rememberSharedContentState(key = SharedElementKeys.mini2playerPlayPause()),
+                animatedVisibilityScope = mini2PlayerSourceScope,
+                boundsTransform = { _, _ -> tween(durationMillis = 300) }
+            )
+        }
+    } else {
+        Modifier
+    }
+
     val isBlurMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
     val pillShape = RoundedCornerShape(animatedCornerRadius)
     val coverContentDescription = stringResource(R.string.media_cover_content_description)
@@ -261,7 +279,9 @@ fun PillCompactMediaPlayer(
                     Image(
                         painter = playPausePainter,
                         contentDescription = playPauseContentDescription,
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier
+                            .size(28.dp)
+                            .then(playPauseSharedModifier),
                         colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface)
                     )
                 }

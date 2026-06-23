@@ -22,6 +22,8 @@ object SharedElementKeys {
 
     fun mini2playerCover(): String = "mini2player_cover"
 
+    fun mini2playerPlayPause(): String = "mini2player_play_pause"
+
     fun playerBounds(): String = "player_Bounds"
 
 }

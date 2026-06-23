@@ -49,7 +49,10 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
 /**
- * Renders the detail page's summary chips, primary playback action, and source path.
+ * Renders the detail page's summary chips, cache shortcut, primary playback action, and source path.
+ *
+ * The manual-cache shortcut stays beside playback because both actions operate on the selected book's
+ * immediate listening availability, while overflow actions remain focused on book management tasks.
  */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -60,6 +63,7 @@ fun DetailControlPanel(
     hazeState: HazeState?,
     onPlayPressed: () -> Unit,
     onPlayClick: () -> Unit,
+    onDownloadActionClick: () -> Unit,
     isLandscape: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -75,6 +79,7 @@ fun DetailControlPanel(
     val buttonHeight = if (isLandscape) 48.dp else 56.dp
     val cornerRadius = if (isLandscape) 12.dp else 16.dp
     val chipSpacing = if (isLandscape) 8.dp else 10.dp
+    val showDownloadAction = book != null && uiState.shouldShowDownloadAction
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -109,41 +114,86 @@ fun DetailControlPanel(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (isBlur && uiState.isAvailable) {
-            Surface(
-                onClick = {
-                    onPlayPressed()
-                    onPlayClick()
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(buttonHeight)
-                    .let {
-                        if (hazeState != null) {
-                            it
-                                .clip(RoundedCornerShape(cornerRadius))
-                                .hazeEffect(
-                                    state = hazeState,
-                                    style = HazeMaterials.ultraThin()
-                                )
-                        } else {
-                            it
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 10.dp)
+        ) {
+            if (isBlur && uiState.isAvailable) {
+                Surface(
+                    onClick = {
+                        onPlayPressed()
+                        onPlayClick()
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(buttonHeight)
+                        .let {
+                            if (hazeState != null) {
+                                it
+                                    .clip(RoundedCornerShape(cornerRadius))
+                                    .hazeEffect(
+                                        state = hazeState,
+                                        style = HazeMaterials.ultraThin()
+                                    )
+                            } else {
+                                it
+                            }
+                        },
+                    shape = RoundedCornerShape(cornerRadius),
+                    color = Color.Transparent,
+                    border = null,
+                    contentColor = MaterialTheme.colorScheme.primary
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = if (displayProgress > 0) Icons.Rounded.History else Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(if (isLandscape) 6.dp else 8.dp))
+                        Text(
+                            text = actionText,
+                            style = if (isLandscape) {
+                                MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            } else {
+                                MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            },
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            } else {
+                Button(
+                    onClick = {
+                        if (uiState.isAvailable) {
+                            onPlayPressed()
+                            onPlayClick()
                         }
                     },
-                shape = RoundedCornerShape(cornerRadius),
-                color = Color.Transparent,
-                border = null,
-                contentColor = MaterialTheme.colorScheme.primary
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(buttonHeight),
+                    shape = RoundedCornerShape(cornerRadius),
+                    colors = if (uiState.isAvailable) {
+                        ButtonDefaults.buttonColors()
+                    } else {
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
                 ) {
                     Icon(
-                        imageVector = if (displayProgress > 0) Icons.Rounded.History else Icons.Rounded.PlayArrow,
+                        imageVector = if (!uiState.isAvailable) Icons.Rounded.Storage
+                        else if (displayProgress > 0) Icons.Rounded.History
+                        else Icons.Rounded.PlayArrow,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp)
                     )
                     Spacer(modifier = Modifier.width(if (isLandscape) 6.dp else 8.dp))
@@ -153,47 +203,19 @@ fun DetailControlPanel(
                             MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         } else {
                             MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        },
-                        color = MaterialTheme.colorScheme.primary
+                        }
                     )
                 }
             }
-        } else {
-            Button(
-                onClick = {
-                    if (uiState.isAvailable) {
-                        onPlayPressed()
-                        onPlayClick()
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(buttonHeight),
-                shape = RoundedCornerShape(cornerRadius),
-                colors = if (uiState.isAvailable) {
-                    ButtonDefaults.buttonColors()
-                } else {
-                    ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
-            ) {
-                Icon(
-                    imageVector = if (!uiState.isAvailable) Icons.Rounded.Storage
-                    else if (displayProgress > 0) Icons.Rounded.History
-                    else Icons.Rounded.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp)
-                )
-                Spacer(modifier = Modifier.width(if (isLandscape) 6.dp else 8.dp))
-                Text(
-                    text = actionText,
-                    style = if (isLandscape) {
-                        MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    } else {
-                        MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    }
+
+            if (showDownloadAction) {
+                DetailDownloadAction(
+                    cacheStatus = uiState.bookCacheStatus,
+                    onClick = onDownloadActionClick,
+                    useHazeSurface = isBlur && uiState.isAvailable,
+                    hazeState = hazeState,
+                    isLandscape = isLandscape,
+                    modifier = Modifier.size(buttonHeight)
                 )
             }
         }
@@ -205,7 +227,8 @@ fun DetailControlPanel(
                 style = if (isLandscape) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
                 color = LocalContentColor.current.copy(alpha = 0.8f),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
             )
         }
     }

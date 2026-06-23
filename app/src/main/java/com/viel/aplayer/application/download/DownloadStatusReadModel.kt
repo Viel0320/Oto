@@ -33,6 +33,13 @@ data class BookCacheStatus(
     val totalBytes: Long,
     val downloadedBytes: Long
 ) {
+    /**
+     * Exposes whether screens should offer manual cache controls for this projected book state.
+     * Local filesystem books are already device-local, so manual cache commands are not meaningful.
+     */
+    val supportsManualCacheAction: Boolean
+        get() = state != BookCacheState.LOCAL
+
     val progressPercent: Int
         get() = if (totalBytes > 0L) {
             ((downloadedBytes.coerceIn(0L, totalBytes) * 100L) / totalBytes).toInt()

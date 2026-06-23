@@ -1,5 +1,7 @@
 package com.viel.aplayer.ui.player.components
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.graphics.ExperimentalAnimationGraphicsApi
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
@@ -37,6 +39,9 @@ import com.viel.aplayer.media.SeekStepPresentation
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.shared.settings.PlaybackSeekStepConfig
 import com.viel.aplayer.ui.common.theme.APlayerTheme
+import com.viel.aplayer.ui.motion.LocalMini2PlayerTargetScope
+import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
+import com.viel.aplayer.ui.motion.SharedElementKeys
 import com.viel.aplayer.ui.player.PlaybackControlActions
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
@@ -50,7 +55,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
  * timer commands are owned by bottom navigation, keeping hidden long-press
  * settings out of the main transport row.
  */
-@OptIn(ExperimentalHazeMaterialsApi::class)
+@OptIn(ExperimentalHazeMaterialsApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun PlaybackControls(
     isPlaying: Boolean,
@@ -70,6 +75,25 @@ fun PlaybackControls(
     val nextChapterContentDescription = stringResource(R.string.playback_next_chapter_content_description)
 
     val contentColor = if (buttonColor.luminance() > 0.5f) Color.Black else Color.White
+
+    /**
+     * Full-player side of the play/pause shared element. Matches both mini-player glyphs (compact and
+     * pill) via SharedElementKeys.mini2playerPlayPause() so the icon flies between the surfaces. Inert
+     * when the mini-origin scope is absent (direct open, previews).
+     */
+    val sharedTransitionScope = LocalSharedTransitionScope.current
+    val mini2PlayerTargetScope = LocalMini2PlayerTargetScope.current
+    val playPauseSharedModifier = if (sharedTransitionScope != null && mini2PlayerTargetScope != null) {
+        with(sharedTransitionScope) {
+            Modifier.sharedElement(
+                rememberSharedContentState(key = SharedElementKeys.mini2playerPlayPause()),
+                animatedVisibilityScope = mini2PlayerTargetScope,
+                boundsTransform = { _, _ -> tween(durationMillis = 300) }
+            )
+        }
+    } else {
+        Modifier
+    }
 
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -116,7 +140,9 @@ fun PlaybackControls(
                         isPlaying = isPlaying,
                         contentDescription = playPauseContentDescription,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier
+                            .size(40.dp)
+                            .then(playPauseSharedModifier)
                     )
                 }
             }
@@ -134,7 +160,9 @@ fun PlaybackControls(
                     isPlaying = isPlaying,
                     contentDescription = playPauseContentDescription,
                     tint = contentColor,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier
+                        .size(40.dp)
+                        .then(playPauseSharedModifier)
                 )
             }
         }

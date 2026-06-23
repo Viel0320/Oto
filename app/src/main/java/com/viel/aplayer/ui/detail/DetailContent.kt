@@ -68,7 +68,6 @@ import com.viel.aplayer.ui.common.CoverImageSourceSelector
 import com.viel.aplayer.ui.common.layout.AppWindowSizeClass
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.aplayer.ui.common.theme.APlayerTheme
-import com.viel.aplayer.ui.detail.components.DetailTopBarDownloadAction
 import com.viel.aplayer.ui.detail.components.SelectableTextView
 import com.viel.aplayer.ui.detail.layouts.DetailLandscapePhone
 import com.viel.aplayer.ui.detail.layouts.DetailLandscapeTablet
@@ -84,6 +83,8 @@ import kotlin.math.roundToInt
  * DetailContent. at the L3 level.
  * The scaffold owns the transparent top bar while each adaptive detail layout
  * consumes side and bottom safe-drawing insets so system bars are not applied twice.
+ * The top bar is limited to navigation and overflow; selected-book cache actions are rendered by the
+ * control panel beside playback so compact landscape layouts do not overlap header content.
  */
 @OptIn(
     ExperimentalMaterial3Api::class,
@@ -119,6 +120,16 @@ fun DetailContent(
     var showActionDialog by remember { mutableStateOf(false) }
     var showDownloadDialog by remember { mutableStateOf(false) }
     val okActionText = stringResource(R.string.action_ok)
+    val onDownloadActionClick: () -> Unit = {
+        val selectedBook = book
+        if (selectedBook != null) {
+            if (uiState.bookCacheStatus.state == BookCacheState.NONE) {
+                onDownloadBook(selectedBook.id)
+            } else {
+                showDownloadDialog = true
+            }
+        }
+    }
 
     val backdropCoverPath = CoverImageSourceSelector.backdrop(
         thumbnailPath = book?.thumbnailPath,
@@ -195,18 +206,6 @@ fun DetailContent(
                         },
                         actions = {
                             if (book != null) {
-                                if (uiState.bookCacheStatus.state != BookCacheState.LOCAL) {
-                                    DetailTopBarDownloadAction(
-                                        cacheStatus = uiState.bookCacheStatus,
-                                        onClick = {
-                                            if (uiState.bookCacheStatus.state == BookCacheState.NONE) {
-                                                onDownloadBook(book.id)
-                                            } else {
-                                                showDownloadDialog = true
-                                            }
-                                        }
-                                    )
-                                }
                                 IconButton(onClick = { showActionDialog = true }) {
                                     Icon(
                                         Icons.Rounded.MoreVert,
@@ -264,6 +263,7 @@ fun DetailContent(
                             detailHazeState = coverHazeState,
                             onPlayPressed = onPlayPressed,
                             onPlayClick = onPlayClick,
+                            onDownloadActionClick = onDownloadActionClick,
                             onSearchClick = onSearchClick,
                             onShowInfo = { title, text ->
                                 infoDialogTitle = title
@@ -281,6 +281,7 @@ fun DetailContent(
                             detailHazeState = coverHazeState,
                             onPlayPressed = onPlayPressed,
                             onPlayClick = onPlayClick,
+                            onDownloadActionClick = onDownloadActionClick,
                             onSearchClick = onSearchClick,
                             onShowInfo = { title, text ->
                                 infoDialogTitle = title
@@ -298,6 +299,7 @@ fun DetailContent(
                             detailHazeState = coverHazeState,
                             onPlayPressed = onPlayPressed,
                             onPlayClick = onPlayClick,
+                            onDownloadActionClick = onDownloadActionClick,
                             onSearchClick = onSearchClick,
                             onShowInfo = { title, text ->
                                 infoDialogTitle = title

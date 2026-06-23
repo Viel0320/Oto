@@ -40,6 +40,8 @@ import dev.chrisbanes.haze.HazeState
  * Implements a standard vertically scrolling list layout.
  * Uses scaffold padding only for the top app bar offset and applies safe-drawing
  * side/bottom insets locally to keep the scroll content away from system bars.
+ * Delegates the compact cache shortcut to DetailControlPanel so playback-adjacent
+ * availability actions stay with the selected book controls.
  */
 @Composable
 fun DetailPortrait(
@@ -51,6 +53,7 @@ fun DetailPortrait(
     detailHazeState: HazeState,
     onPlayPressed: () -> Unit,
     onPlayClick: () -> Unit,
+    onDownloadActionClick: () -> Unit,
     onSearchClick: (String) -> Unit,
     onShowInfo: (String, String) -> Unit,
     modifier: Modifier = Modifier
@@ -153,6 +156,7 @@ fun DetailPortrait(
             hazeState = detailHazeState,
             onPlayPressed = onPlayPressed,
             onPlayClick = onPlayClick,
+            onDownloadActionClick = onDownloadActionClick,
             isLandscape = false
         )
 

@@ -40,5 +40,10 @@ data class DetailUiState(
     val progressPercent: Int = 0,
     val displayProgressPercent: Int = 0,
     val fullSourcePath: String = "",
-    val bookCacheStatus: BookCacheStatus = BookCacheStatus.none()
+    val bookCacheStatus: BookCacheStatus = BookCacheStatus.none(),
+    /**
+     * Read-model projected visibility for the manual cache shortcut.
+     * Compose reads this flag directly so source-type eligibility stays outside the UI layer.
+     */
+    val shouldShowDownloadAction: Boolean = false
 )
