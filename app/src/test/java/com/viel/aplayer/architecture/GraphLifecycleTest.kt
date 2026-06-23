@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit
 /**
  * Protects application di ownership boundaries under the Koin-based di container.
  * Verifies that GraphClosePolicy preserves the previous close order
- * (media -> download -> abs -> library -> uiEvents) and continues through failed teardowns.
+ * (media -> download -> abs -> library -> uiEvents -> data) and continues through failed teardowns.
  */
 class GraphLifecycleTest {
 
@@ -24,10 +24,11 @@ class GraphLifecycleTest {
         register(GraphClosePolicy.Stage.Abs, RecordingCloseable("abs", closeOrder))
         register(GraphClosePolicy.Stage.Library, RecordingCloseable("library", closeOrder))
         register(GraphClosePolicy.Stage.UiEvents, RecordingCloseable("uiEvents", closeOrder))
+        register(GraphClosePolicy.Stage.Data, RecordingCloseable("data", closeOrder))
 
         GraphClosePolicy.closeInLifecycleOrder()
 
-        assertEquals(listOf("media", "download", "abs", "library", "uiEvents"), closeOrder)
+        assertEquals(listOf("media", "download", "abs", "library", "uiEvents", "data"), closeOrder)
     }
 
     @Test
@@ -44,12 +45,13 @@ class GraphLifecycleTest {
         register(GraphClosePolicy.Stage.Abs, abs)
         register(GraphClosePolicy.Stage.Library, library)
         register(GraphClosePolicy.Stage.UiEvents, RecordingCloseable("uiEvents", closeOrder))
+        register(GraphClosePolicy.Stage.Data, RecordingCloseable("data", closeOrder))
 
         GraphClosePolicy.closeInLifecycleOrder()
 
         assertTrue(abs.libraryWasOpenDuringShutdown)
         assertEquals(
-            listOf("media", "download", "abs", "absSync:libraryOpen", "library", "uiEvents"),
+            listOf("media", "download", "abs", "absSync:libraryOpen", "library", "uiEvents", "data"),
             closeOrder
         )
     }
@@ -82,6 +84,7 @@ class GraphLifecycleTest {
         val absSyncModuleSource = sourceRoot.resolve("di/koin/AbsSyncModule.kt").readText()
         val libraryScanModuleSource = sourceRoot.resolve("di/koin/LibraryScanModule.kt").readText()
         val uiEventModuleSource = sourceRoot.resolve("di/koin/UiEventModule.kt").readText()
+        val coreDataModuleSource = sourceRoot.resolve("di/koin/CoreDataModule.kt").readText()
 
         assertTrue(
             "MediaModule must register playback runtime with GraphClosePolicy.",
@@ -102,6 +105,10 @@ class GraphLifecycleTest {
         assertTrue(
             "UiEventModule must register event bridge resources with GraphClosePolicy.",
             uiEventModuleSource.contains("GraphClosePolicy.register")
+        )
+        assertTrue(
+            "CoreDataModule must register AppDatabase with GraphClosePolicy.",
+            coreDataModuleSource.contains("GraphClosePolicy.register")
         )
     }
 

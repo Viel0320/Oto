@@ -8,7 +8,9 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.viel.aplayer.abs.sync.AbsSyncWorkScheduler
+import com.viel.aplayer.application.download.DownloadRecoveryService
 import com.viel.aplayer.application.download.ManualDownloadOrphanCleanupScheduler
+import com.viel.aplayer.application.library.settings.AppSettingsReadModel
 import com.viel.aplayer.application.startup.APlayerStartupWarmup
 import com.viel.aplayer.application.startup.DefaultStartupWarmupDependencies
 import com.viel.aplayer.data.db.AppDatabase
@@ -17,6 +19,7 @@ import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.logger.AbsSyncLogger
 import com.viel.aplayer.logger.CoverImageCoilEventListener
 import com.viel.aplayer.logger.DownloadSyncLogger
+import com.viel.aplayer.logger.StartupLogger
 import com.viel.aplayer.media.AutoRewindManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,13 +27,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
-import org.koin.core.context.GlobalContext
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 
 /**
  * Application class responsible for initializing the Koin dependency container.
  */
 @UnstableApi
-class APlayerApplication : Application(), ImageLoaderFactory {
+class APlayerApplication : Application(), ImageLoaderFactory, KoinComponent {
 
     internal val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -54,14 +58,14 @@ class APlayerApplication : Application(), ImageLoaderFactory {
             supervisorScope {
                 val settingsWarmup = async {
                     runCatching {
-                        GlobalContext.get().get<com.viel.aplayer.application.library.settings.AppSettingsReadModel>()
+                        get<AppSettingsReadModel>()
                     }.onFailure { error ->
-                        DownloadSyncLogger.logRecoveryFailure(error::class.java.simpleName, error.message)
+                        StartupLogger.logWarmupFailure("settings", error::class.java.simpleName, error.message)
                     }
                 }
                 val downloadRecovery = async {
                     runCatching {
-                        GlobalContext.get().get<com.viel.aplayer.application.download.DownloadRecoveryService>().recoverIfNeeded()
+                        get<DownloadRecoveryService>().recoverIfNeeded()
                     }.onFailure { error ->
                         DownloadSyncLogger.logRecoveryFailure(error::class.java.simpleName, error.message)
                     }
@@ -76,7 +80,7 @@ class APlayerApplication : Application(), ImageLoaderFactory {
                 val startupWarmup = async {
                     runCatching { createStartupWarmup().run() }
                         .onFailure { error ->
-                            DownloadSyncLogger.logRecoveryFailure(error::class.java.simpleName, error.message)
+                            StartupLogger.logWarmupFailure("startup", error::class.java.simpleName, error.message)
                         }
                 }
                 settingsWarmup.await()
@@ -97,13 +101,12 @@ class APlayerApplication : Application(), ImageLoaderFactory {
      * Keeping construction here leaves the coordinator testable with small function seams while the Application owns Android-specific scheduler creation.
      */
     internal fun createStartupWarmup(): APlayerStartupWarmup {
-        val koin = GlobalContext.get()
-        val startupDatabase = lazy { koin.get<AppDatabase>() }
+        val startupDatabase = lazy { get<AppDatabase>() }
         val startupWarmupDependencies = DefaultStartupWarmupDependencies(
             libraryRootDaoProvider = { startupDatabase.value.libraryRootDao() },
             absCatalogStoreProvider = { startupDatabase.value.absCatalogDao() },
             coldStartSelfHealing = {
-                koin.get<AutoRewindManager>().performColdStartSelfHealing()
+                get<AutoRewindManager>().performColdStartSelfHealing()
             }
         )
 

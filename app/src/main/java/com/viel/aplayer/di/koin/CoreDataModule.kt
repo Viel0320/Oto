@@ -32,7 +32,14 @@ internal object CoreDataModule {
         single(named("searchHistory")) { get<android.content.Context>().applicationContext.searchHistoryDataStore }
         single(named("absCredentials")) { get<android.content.Context>().applicationContext.absCredentialDataStore }
 
-        single { AppDatabase.create(get()) }
+        single {
+            AppDatabase.create(get()).also { db ->
+                GraphClosePolicy.register(
+                    stage = GraphClosePolicy.Stage.Data,
+                    closeable = java.io.Closeable { db.close() }
+                )
+            }
+        }
         single { AppSettingsRepository(get(named("appSettings"))) }
         single { SearchHistoryStore(get(named("searchHistory"))) }
         single { AbsCredentialStore(get(named("absCredentials"))) }

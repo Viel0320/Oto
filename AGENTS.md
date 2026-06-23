@@ -222,7 +222,7 @@ DI is provided by Koin.
 - Koin module ownership lives under `di/koin/`.
 - `APlayerKoinApplication` starts the global Koin context with every APlayer module.
 - `DependencyViewModule` binds the narrow dependency-view interfaces to Koin-resolved implementations.
-- `GraphClosePolicy` preserves the ordered shutdown policy (media -> download -> abs -> library -> uiEvents).
+- `GraphClosePolicy` preserves the ordered shutdown policy (media -> download -> abs -> library -> uiEvents -> data).
 
 When adding a dependency, place it in the smallest relevant dependency view and the smallest relevant Koin module. Keep modules small and focused; split a module when it grows past ~80 lines.
 

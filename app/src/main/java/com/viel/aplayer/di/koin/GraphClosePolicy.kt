@@ -17,7 +17,8 @@ internal object GraphClosePolicy {
         Download,
         Abs,
         Library,
-        UiEvents
+        UiEvents,
+        Data
     }
 
     private data class Entry(
