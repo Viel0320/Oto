@@ -36,7 +36,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.application.library.settings.SettingsRootItem
 import com.viel.aplayer.i18n.AppLocaleController
 import com.viel.aplayer.shared.settings.GlassEffectMode
@@ -47,6 +46,7 @@ import com.viel.aplayer.ui.settings.recovery.DeletedBookRecoveryRoute
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
+import org.koin.androidx.compose.koinViewModel
 
 /**
  * Stateless Settings Overlay Shell.
@@ -59,7 +59,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsOverlay(
     modifier: Modifier = Modifier,
-    settingsViewModel: SettingsViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel = koinViewModel(),
     glassEffectMode: GlassEffectMode,
     openDownloadManagementRequest: Boolean = false,
     onOpenDownloadManagementConsumed: () -> Unit = {},

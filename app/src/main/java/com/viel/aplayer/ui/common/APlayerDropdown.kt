@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.common
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -31,10 +32,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -65,8 +68,12 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
@@ -82,11 +89,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
+// ==========================================
+// Public API
+// ==========================================
+
 /**
  * One dropdown option.
  *
  * [content] is the primary slot; callers fully own the row's leading/main content. [count] is an
- * pass null to omit. so the same component renders both "label + count"
+ * optional trailing slot (pass null to omit), so the same component renders both "label + count"
  * filter rows and bare action rows. [key] gives each row a stable identity used for stagger keying
  * and for mapping the currently-selected row to its in-list position during the morph.
  */
@@ -133,11 +144,16 @@ fun aPlayerTextDropdownItem(
 )
 
 /**
- * Requested open direction. [Auto] picks Down/Up from the anchor's on-screen room; [Down]/[Up] force
- * it. The resolved direction also sets the animation origin so the panel always grows from the edge
- * nearest the button.
+ * Requested expansion origin. [Auto] picks the corner with the most available room; explicit
+ * corners force the origin and diagonal direction.
  */
-enum class APlayerDropdownAlignment { Auto, Down, Up }
+enum class APlayerDropdownAlignment {
+    Auto,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight
+}
 
 /**
  * Expanded panel width strategy.
@@ -196,190 +212,11 @@ object APlayerDropdownDefaults {
     @Composable
     fun shapes(): APlayerDropdownShapes = APlayerDropdownShapes()
 }
-/**
- * Resolved expansion origin after the anchor's available room is measured.
- *
- * The vertical half controls whether rows unfold down or up. The horizontal half controls which edge
- * the expanded panel grows toward when a centered panel would cross a screen edge: `Right` anchors
- * the panel to the button's left edge, while `Left` anchors it to the button's right edge. The final
- * rectangle is still clamped by the window margins, so oversized fixed-width menus degrade to the
- * closest visible edge.
- */
-private enum class OpenDirection {
-    DownCenter,
-    DownRight,
-    DownLeft,
-    UpCenter,
-    UpRight,
-    UpLeft,
-}
 
-/** True when the option reveal should start at the panel top and travel downward. */
-private val OpenDirection.opensDown: Boolean
-    get() = when (this) {
-        OpenDirection.DownCenter,
-        OpenDirection.DownRight,
-        OpenDirection.DownLeft,
-        -> true
-        OpenDirection.UpCenter,
-        OpenDirection.UpRight,
-        OpenDirection.UpLeft,
-        -> false
-    }
+// ==========================================
+// Entry Point
+// ==========================================
 
-/**
- * Single source of truth for the collapse <-> expand morph, mirroring the player's expand state.
- *
- * [fraction] is the continuous expansion amount: 0f = collapsed button, 1f = expanded panel. Every
- * morphed property (rect, corner, colors, elevation, the flying row, per-row stagger) is a pure
- * function of this one value, so they all move on one clock.
- *
- * PERFORMANCE CONTRACT: read [fraction].value ONLY inside draw/layout-phase lambdas
- * (graphicsLayer {}, Modifier.layout {}, drawBehind {}). [provider] hands it down as a deferred read
- * so the panel subtree is not recomposed every animation frame.
- */
-@Stable
-private class DropdownMorphState(
-    initial: Float,
-    private val scope: CoroutineScope,
-) {
-    val fraction: Animatable<Float, *> = Animatable(initial)
-
-    fun provider(): () -> Float = { fraction.value }
-
-    private val _isVisible = mutableStateOf(initial > 0.0001f)
-    val isVisible: Boolean
-        get() = _isVisible.value
-
-    fun animateTo(target: Float) {
-        scope.launch {
-            if (target > 0.0001f) {
-                _isVisible.value = true
-            }
-            fraction.animateTo(
-                targetValue = target,
-                animationSpec = spring(
-                    dampingRatio = SPRING_DAMPING,
-                    stiffness = Spring.StiffnessMediumLow,
-                ),
-            )
-            if (target <= 0.0001f) {
-                _isVisible.value = false
-            }
-        }
-    }
-
-    private companion object {
-        const val SPRING_DAMPING = 0.9f
-    }
-}
-
-/** Linear scalar interpolation; Compose ships color/Dp lerp but not a bare Float one. */
-private fun lerp(start: Float, stop: Float, fraction: Float): Float =
-    start + (stop - start) * fraction
-
-/** Per-edge rectangle interpolation used for both the container and the flying selected row. */
-private fun lerpRect(start: Rect, stop: Rect, fraction: Float): Rect = Rect(
-    left = lerp(start.left, stop.left, fraction),
-    top = lerp(start.top, stop.top, fraction),
-    right = lerp(start.right, stop.right, fraction),
-    bottom = lerp(start.bottom, stop.bottom, fraction),
-)
-
-/**
- * Decides the full expansion origin from the anchor's measured room.
- *
- * Down aligns the button's top to the panel's top; Up aligns the button's bottom to the panel's
- * bottom. The centered horizontal placement remains preferred because it preserves the old visual
- * behavior on ordinary anchors. When centering would cross a window edge, the panel opens toward the
- * side with enough room; if neither side can fully fit the requested width, the larger side wins.
- */
-private fun resolveDirection(
-    anchor: Rect,
-    panelHeightPx: Float,
-    panelWidthPx: Float,
-    windowHeightPx: Float,
-    windowWidthPx: Float,
-    edgeMarginPx: Float,
-    requested: APlayerDropdownAlignment,
-): OpenDirection {
-    val spaceBelow = windowHeightPx - anchor.bottom - edgeMarginPx
-    val spaceAbove = anchor.top - edgeMarginPx
-    val opensDown = when (requested) {
-        APlayerDropdownAlignment.Down -> true
-        APlayerDropdownAlignment.Up -> false
-        APlayerDropdownAlignment.Auto -> when {
-            spaceBelow >= panelHeightPx -> true
-            spaceAbove >= panelHeightPx -> false
-            else -> spaceBelow >= spaceAbove
-        }
-    }
-
-    val maxRight = windowWidthPx - edgeMarginPx
-    val centeredLeft = anchor.center.x - panelWidthPx / 2f
-    val centeredRight = centeredLeft + panelWidthPx
-    if (centeredLeft >= edgeMarginPx && centeredRight <= maxRight) {
-        return if (opensDown) OpenDirection.DownCenter else OpenDirection.UpCenter
-    }
-
-    val spaceToRight = maxRight - anchor.left
-    val spaceToLeft = anchor.right - edgeMarginPx
-    val fitsRight = spaceToRight >= panelWidthPx
-    val fitsLeft = spaceToLeft >= panelWidthPx
-    val opensRight = when {
-        fitsRight && !fitsLeft -> true
-        fitsLeft && !fitsRight -> false
-        else -> spaceToRight >= spaceToLeft
-    }
-
-    return when {
-        opensDown && opensRight -> OpenDirection.DownRight
-        opensDown && !opensRight -> OpenDirection.DownLeft
-        !opensDown && opensRight -> OpenDirection.UpRight
-        else -> OpenDirection.UpLeft
-    }
-}
-
-/**
- * Computes the expanded panel rectangle in window coordinates from the anchor, the chosen direction,
- * the resolved panel width, and the clamped panel height.
- *
- * Horizontal placement uses the resolved growth side first, then clamps the chosen left edge inside
- * the screen margins. This keeps the morph origin close to the button on narrow screens while still
- * preserving centered menus where there is enough room.
- */
-private fun resolvePanelRect(
-    anchor: Rect,
-    direction: OpenDirection,
-    panelWidthPx: Float,
-    panelHeightPx: Float,
-    windowWidthPx: Float,
-    edgeMarginPx: Float,
-): Rect {
-    val preferredLeft = when (direction) {
-        OpenDirection.DownCenter,
-        OpenDirection.UpCenter,
-        -> anchor.center.x - panelWidthPx / 2f
-        OpenDirection.DownRight,
-        OpenDirection.UpRight,
-        -> anchor.left
-        OpenDirection.DownLeft,
-        OpenDirection.UpLeft,
-        -> anchor.right - panelWidthPx
-    }
-    val maxLeft = windowWidthPx - edgeMarginPx - panelWidthPx
-    val left = if (maxLeft >= edgeMarginPx) {
-        preferredLeft.coerceIn(edgeMarginPx, maxLeft)
-    } else {
-        edgeMarginPx
-    }
-    val right = left + panelWidthPx
-    return if (direction.opensDown) {
-        Rect(left, anchor.top, right, anchor.top + panelHeightPx)
-    } else {
-        Rect(left, anchor.bottom - panelHeightPx, right, anchor.bottom)
-    }
-}
 /**
  * A dropdown that morphs between a collapsed outlined button and an expanded floating panel.
  *
@@ -472,6 +309,10 @@ fun APlayerDropdown(
     }
 }
 
+// ==========================================
+// Composition Tree
+// ==========================================
+
 /**
  * The resting collapsed button: an outlined surface with the current selection (filter) or a custom
  * [collapsedContent] (menu), plus a chevron. This is the in-layout node whose bounds are measured;
@@ -522,6 +363,10 @@ private fun CollapsedAnchor(
         Row(
             modifier = Modifier
                 .onGloballyPositioned { onVisualBoundsMeasured(it.boundsInWindow()) }
+                // Animate the chip's footprint when the selected row changes width, so the
+                // collapsed pill (and the surrounding layout) grows/shrinks smoothly instead of
+                // snapping. Height is fixed below, so only the width is animated.
+                .animateContentSize()
                 .height(collapsedHeight)
                 .clip(shape)
                 .then(hazeModifier)
@@ -538,28 +383,14 @@ private fun CollapsedAnchor(
                 tint = contentColor,
             )
             if (collapsedContent != null) {
-                androidx.compose.runtime.CompositionLocalProvider(
-                    androidx.compose.material3.LocalContentColor provides contentColor,
-                ) {
+                CompositionLocalProvider(LocalContentColor provides contentColor) {
                     collapsedContent()
                 }
             } else {
                 val item = selectedIndex?.let(items::getOrNull)
                 if (item != null) {
-                    androidx.compose.runtime.CompositionLocalProvider(
-                        androidx.compose.material3.LocalContentColor provides contentColor,
-                    ) {
-                        ProvideTextStyle(
-                            MaterialTheme.typography.labelLarge
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(DropdownCountSpacing),
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, content = item.content)
-                                item.count?.invoke()
-                            }
-                        }
+                    ProvideTextStyle(MaterialTheme.typography.labelLarge) {
+                        DropdownRowBody(item = item, contentColor = contentColor)
                     }
                 }
             }
@@ -567,21 +398,11 @@ private fun CollapsedAnchor(
     }
 }
 
-/** Always positions the popup at the window's top-left so window coords map directly to popup coords. */
-private object TopLeftPositionProvider : PopupPositionProvider {
-    override fun calculatePosition(
-        anchorBounds: androidx.compose.ui.unit.IntRect,
-        windowSize: androidx.compose.ui.unit.IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: androidx.compose.ui.unit.IntSize,
-    ) = androidx.compose.ui.unit.IntOffset(0, 0)
-}
-
 /**
- * clipping disabled. so the morph surface can paint above or
- * below the anchor. Estimates the panel height to choose a direction on the first frame (no jump),
- * then refines from the real measured height. All morphed geometry is computed per-frame from the
- * shared fraction and read only in draw/layout lambdas.
+ * Hosts the morph surface in a full-screen [Popup] with clipping disabled, so the surface can paint
+ * above or below the anchor. Estimates the panel height to choose a direction on the first frame (no
+ * jump), then refines from the real measured height. All morphed geometry is computed per-frame from
+ * the shared fraction and read only in draw/layout lambdas.
  */
 @Composable
 private fun DropdownPopup(
@@ -756,17 +577,7 @@ private fun PanelMeasurer(
                     .padding(horizontal = DropdownRowHorizontalPadding),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                androidx.compose.runtime.CompositionLocalProvider(
-                    androidx.compose.material3.LocalContentColor provides contentColor,
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(DropdownCountSpacing),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, content = item.content)
-                        item.count?.invoke()
-                    }
-                }
+                DropdownRowBody(item = item, contentColor = contentColor)
             }
         }
     }
@@ -821,9 +632,7 @@ private fun DropdownMorphSurface(
                 val rect = lerpRect(anchor, panelRect, f)
                 val w = rect.width.roundToInt().coerceAtLeast(0)
                 val h = rect.height.roundToInt().coerceAtLeast(0)
-                val placeable = measurable.measure(
-                    androidx.compose.ui.unit.Constraints.fixed(w, h),
-                )
+                val placeable = measurable.measure(Constraints.fixed(w, h))
                 layout(w, h) {
                     placeable.place(rect.left.roundToInt(), rect.top.roundToInt())
                 }
@@ -992,9 +801,7 @@ private fun FlyingSelectedRow(
                 val surfaceTop = lerp(anchor.top, panelRect.top, f)
                 val w = rect.width.roundToInt().coerceAtLeast(0)
                 val h = rect.height.roundToInt().coerceAtLeast(0)
-                val placeable = measurable.measure(
-                    androidx.compose.ui.unit.Constraints.fixed(w, h),
-                )
+                val placeable = measurable.measure(Constraints.fixed(w, h))
                 layout(constraints.maxWidth, constraints.maxHeight) {
                     placeable.place(
                         (rect.left - surfaceLeft).roundToInt(),
@@ -1008,22 +815,27 @@ private fun FlyingSelectedRow(
     }
 }
 
-/** Shared row body: the caller's content slot plus the optional trailing count slot. */
+/**
+ * Shared row body: the caller's content slot plus the optional trailing count slot, wrapped so the
+ * content color is provided once. [modifier] sizes the outer row; [weightContent] lets the content
+ * slot consume the free space (used by the in-panel rows) versus hugging its content (used by the
+ * collapsed button and the off-surface measurer).
+ */
 @Composable
-private fun DropdownRowContent(
+private fun DropdownRowBody(
     item: APlayerDropdownItem,
     contentColor: Color,
+    modifier: Modifier = Modifier,
+    weightContent: Boolean = false,
 ) {
-    androidx.compose.runtime.CompositionLocalProvider(
-        androidx.compose.material3.LocalContentColor provides contentColor,
-    ) {
+    CompositionLocalProvider(LocalContentColor provides contentColor) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier,
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(DropdownCountSpacing),
         ) {
             Row(
-                modifier = Modifier.weight(1f, fill = false),
+                modifier = if (weightContent) Modifier.weight(1f, fill = false) else Modifier,
                 verticalAlignment = Alignment.CenterVertically,
                 content = item.content,
             )
@@ -1031,20 +843,196 @@ private fun DropdownRowContent(
         }
     }
 }
-private val DropdownUnifiedHeight = 32.dp
-private val DropdownRowVerticalSpacing = 4.dp
 
-private val DropdownSpacingBase = 8.dp
-private val DropdownPanelVerticalPadding = DropdownSpacingBase
+/** The in-panel row body: full width with the content slot taking the free space. */
+@Composable
+private fun DropdownRowContent(
+    item: APlayerDropdownItem,
+    contentColor: Color,
+) {
+    DropdownRowBody(
+        item = item,
+        contentColor = contentColor,
+        modifier = Modifier.fillMaxWidth(),
+        weightContent = true,
+    )
+}
 
-private val DropdownCollapsedHorizontalPadding = 16.dp
-private val DropdownRowHorizontalPadding = 20.dp
+// ==========================================
+// Morph State & Geometry
+// ==========================================
 
-private val DropdownCollapsedTouchTarget = 48.dp
-private val DropdownBorderWidth = 1.dp
-private val DropdownChevronSize = 18.dp
-private val DropdownCountSpacing = 12.dp
-private val DropdownRowEnterTranslation = 14.dp
+/**
+ * Single source of truth for the collapse <-> expand morph, mirroring the player's expand state.
+ *
+ * [fraction] is the continuous expansion amount: 0f = collapsed button, 1f = expanded panel. Every
+ * morphed property (rect, corner, colors, elevation, the flying row, per-row stagger) is a pure
+ * function of this one value, so they all move on one clock.
+ *
+ * PERFORMANCE CONTRACT: read [fraction].value ONLY inside draw/layout-phase lambdas
+ * (graphicsLayer {}, Modifier.layout {}, drawBehind {}). [provider] hands it down as a deferred read
+ * so the panel subtree is not recomposed every animation frame.
+ */
+@Stable
+private class DropdownMorphState(
+    initial: Float,
+    private val scope: CoroutineScope,
+) {
+    val fraction: Animatable<Float, *> = Animatable(initial)
+
+    fun provider(): () -> Float = { fraction.value }
+
+    private val _isVisible = mutableStateOf(initial > 0.0001f)
+    val isVisible: Boolean
+        get() = _isVisible.value
+
+    fun animateTo(target: Float) {
+        scope.launch {
+            if (target > 0.0001f) {
+                _isVisible.value = true
+            }
+            fraction.animateTo(
+                targetValue = target,
+                animationSpec = spring(
+                    dampingRatio = SPRING_DAMPING,
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
+            )
+            if (target <= 0.0001f) {
+                _isVisible.value = false
+            }
+        }
+    }
+
+    private companion object {
+        const val SPRING_DAMPING = 0.9f
+    }
+}
+
+/** Always positions the popup at the window's top-left so window coords map directly to popup coords. */
+private object TopLeftPositionProvider : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ) = IntOffset(0, 0)
+}
+
+/**
+ * Resolved expansion origin after the anchor's available room is measured.
+ *
+ * Each variant fixes one corner of the button as the origin for the diagonal morph.
+ */
+private enum class OpenDirection {
+    TopLeft,     // Fixed Top-Left, expands Down-Right
+    TopRight,    // Fixed Top-Right, expands Down-Left
+    BottomLeft,  // Fixed Bottom-Left, expands Up-Right
+    BottomRight, // Fixed Bottom-Right, expands Up-Left
+}
+
+/** True when the option reveal should start at the panel top and travel downward. */
+private val OpenDirection.opensDown: Boolean
+    get() = this == OpenDirection.TopLeft || this == OpenDirection.TopRight
+
+/** Linear scalar interpolation; Compose ships color/Dp lerp but not a bare Float one. */
+private fun lerp(start: Float, stop: Float, fraction: Float): Float =
+    start + (stop - start) * fraction
+
+/** Per-edge rectangle interpolation used for both the container and the flying selected row. */
+private fun lerpRect(start: Rect, stop: Rect, fraction: Float): Rect = Rect(
+    left = lerp(start.left, stop.left, fraction),
+    top = lerp(start.top, stop.top, fraction),
+    right = lerp(start.right, stop.right, fraction),
+    bottom = lerp(start.bottom, stop.bottom, fraction),
+)
+
+/**
+ * Decides the full expansion origin from the anchor's measured room.
+ *
+ * Each axis picks its origin edge (Top vs Bottom, Left vs Right) independently to maximize
+ * available room, unless a specific corner was requested. This ensures the panel always grows
+ * diagonally from one of the button's four corners.
+ */
+private fun resolveDirection(
+    anchor: Rect,
+    panelHeightPx: Float,
+    panelWidthPx: Float,
+    windowHeightPx: Float,
+    windowWidthPx: Float,
+    edgeMarginPx: Float,
+    requested: APlayerDropdownAlignment,
+): OpenDirection {
+    // 1. Vertical origin (Top vs Bottom)
+    val spaceBelow = windowHeightPx - anchor.bottom - edgeMarginPx
+    val spaceAbove = anchor.top - edgeMarginPx
+    val opensDown = when (requested) {
+        APlayerDropdownAlignment.TopLeft, APlayerDropdownAlignment.TopRight -> true
+        APlayerDropdownAlignment.BottomLeft, APlayerDropdownAlignment.BottomRight -> false
+        APlayerDropdownAlignment.Auto -> {
+            if (spaceBelow >= panelHeightPx) true
+            else if (spaceAbove >= panelHeightPx) false
+            else spaceBelow >= spaceAbove
+        }
+    }
+
+    // 2. Horizontal origin (Left vs Right)
+    val maxRight = windowWidthPx - edgeMarginPx
+    val spaceToRight = maxRight - anchor.left
+    val spaceToLeft = anchor.right - edgeMarginPx
+    val opensRight = when (requested) {
+        APlayerDropdownAlignment.TopLeft, APlayerDropdownAlignment.BottomLeft -> true
+        APlayerDropdownAlignment.TopRight, APlayerDropdownAlignment.BottomRight -> false
+        APlayerDropdownAlignment.Auto -> {
+            if (spaceToRight >= panelWidthPx) true
+            else if (spaceToLeft >= panelWidthPx) false
+            else spaceToRight >= spaceToLeft
+        }
+    }
+
+    return when {
+        opensDown && opensRight -> OpenDirection.TopLeft
+        opensDown && !opensRight -> OpenDirection.TopRight
+        !opensDown && opensRight -> OpenDirection.BottomLeft
+        else -> OpenDirection.BottomRight
+    }
+}
+
+/**
+ * Computes the expanded panel rectangle in window coordinates from the anchor, the chosen direction,
+ * the resolved panel width, and the clamped panel height.
+ *
+ * Horizontal and vertical placement align the chosen origin edges exactly, ensuring the morph
+ * starts from a stable corner.
+ */
+private fun resolvePanelRect(
+    anchor: Rect,
+    direction: OpenDirection,
+    panelWidthPx: Float,
+    panelHeightPx: Float,
+    windowWidthPx: Float,
+    edgeMarginPx: Float,
+): Rect {
+    val preferredLeft = when (direction) {
+        OpenDirection.TopLeft, OpenDirection.BottomLeft -> anchor.left
+        OpenDirection.TopRight, OpenDirection.BottomRight -> anchor.right - panelWidthPx
+    }
+
+    val maxLeft = windowWidthPx - edgeMarginPx - panelWidthPx
+    val left = if (maxLeft >= edgeMarginPx) {
+        preferredLeft.coerceIn(edgeMarginPx, maxLeft)
+    } else {
+        edgeMarginPx
+    }
+    val right = left + panelWidthPx
+
+    return if (direction.opensDown) {
+        Rect(left, anchor.top, right, anchor.top + panelHeightPx)
+    } else {
+        Rect(left, anchor.bottom - panelHeightPx, right, anchor.bottom)
+    }
+}
+
 /** Measures the chevron icon plus spacing block used by collapsed and flying rows. */
 private fun Density.chevronBlockWidth(): Float =
     (DropdownChevronSize + DropdownSpacingBase).toPx()
@@ -1057,7 +1045,52 @@ private fun Density.calculatePanelHeight(rowCount: Int): Float {
         rowCount * rowHeightPx +
         (rowCount - 1).coerceAtLeast(0) * rowSpacingPx
 }
+
+// ==========================================
+// Dimensions and Tuning Constants
+// ==========================================
+
+/** The standard height for options and rows inside the dropdown. */
+private val DropdownUnifiedHeight = 32.dp
+
+/** Vertical gap between items in the dropdown. */
+private val DropdownRowVerticalSpacing = 4.dp
+
+/** Default spacing metric used for margins, padding, and layout offsets. */
+private val DropdownSpacingBase = 8.dp
+
+/** Vertical padding inside the expanded panel. */
+private val DropdownPanelVerticalPadding = DropdownSpacingBase
+
+/** Horizontal padding at the trailing end of the collapsed button. */
+private val DropdownCollapsedHorizontalPadding = 16.dp
+
+/** Horizontal padding on the sides of each item row in the expanded panel. */
+private val DropdownRowHorizontalPadding = 20.dp
+
+/** Minimum touch target height for the collapsed button. */
+private val DropdownCollapsedTouchTarget = 48.dp
+
+/** The width of the collapsed button's outline border. */
+private val DropdownBorderWidth = 1.dp
+
+/** Size of the dropdown chevron arrow icon. */
+private val DropdownChevronSize = 18.dp
+
+/** Space between the primary text and the optional count text inside item rows. */
+private val DropdownCountSpacing = 12.dp
+
+/** Vertical translation offset for the staggered entry animation of list options. */
+private val DropdownRowEnterTranslation = 14.dp
+
+/** Maximum height of the dropdown panel relative to the window height. */
 private const val DropdownMaxHeightFraction = 0.6f
+
+/** Start fraction of the dropdown stagger reveal animation. */
 private const val DropdownStaggerBase = 0.15f
+
+/** The animation stagger step duration added per row. */
 private const val DropdownStaggerStep = 0.06f
+
+/** Upper ceiling limit for the stagger animation delay fraction. */
 private const val DropdownStaggerMax = 0.6f
