@@ -53,7 +53,7 @@ class AbsPlaybackSessionSyncer(
             token = credential.token,
             itemId = remoteItemId,
             request = AbsPlayRequestDto(
-                deviceInfo = AbsDeviceInfoDto(clientName = "APlayer", deviceId = "aplayer-local")
+                deviceInfo = AbsDeviceInfoDto(clientName = "Oto", deviceId = "Oto-local")
             )
         )
         absPlaybackSessionDao.insertOrReplace(

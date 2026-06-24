@@ -42,7 +42,7 @@
     <string name="action_cancel">Cancelar</string>
     <string name="action_confirm">Confirmar</string>
     <string name="settings_language_title">Idioma de la aplicación</string>
-    <string name="settings_language_subtitle">Elige el idioma de visualización de APlayer</string>
+    <string name="settings_language_subtitle">Elige el idioma de visualización de Oto</string>
     <string name="settings_language_dialog_title">Elegir idioma</string>
     <string name="settings_language_system_default">Predeterminado del sistema</string>
     <string name="settings_language_english">English</string>
@@ -55,7 +55,7 @@
     <string name="settings_language_russian">Русский</string>
     <string name="settings_language_spanish">Español</string>
     <string name="settings_language_portuguese">Português</string>
-    <string name="player_widget_name">Reproductor APlayer</string>
+    <string name="player_widget_name">Reproductor Oto</string>
     <string name="player_widget_description">Widget de reproductor de escritorio 2x2</string>
     <string name="player_widget_empty_subtitle">Listo para reproducir</string>
     <string name="player_widget_cover_description">Portada del audiolibro actual</string>
@@ -373,7 +373,7 @@
     <string name="settings_root_action_rescan">Volver a escanear</string>
     <string name="settings_root_action_remove">Eliminar biblioteca</string>
     <string name="about_version_text">Versión %1$s</string>
-    <string name="about_app_description">APlayer es un reproductor local de audiolibros para oyentes
+    <string name="about_app_description">Oto es un reproductor local de audiolibros para oyentes
         dedicados. Los grandes productos se apoyan en el código abierto, y agradecemos a los autores
         y organizaciones que hacen posible esta aplicación.</string>
     <string name="about_developer_credit">por %1$s</string>
@@ -384,24 +384,24 @@
         para crear interfaces Android nativas con menos código, buenas herramientas y API Kotlin
         intuitivas.</string>
     <string name="about_library_media3_description">Media3 es la pila multimedia moderna de
-        AndroidX, con ExoPlayer. APlayer la usa para cargar flujos, reanudar y reproducir con
+        AndroidX, con ExoPlayer. Oto la usa para cargar flujos, reanudar y reproducir con
         soporte de hardware.</string>
     <string name="about_library_room_description">Room abstrae SQLite y mantiene metadatos locales,
-        progreso de reproducción y puntos de reanudación de APlayer.</string>
+        progreso de reproducción y puntos de reanudación de Oto.</string>
     <string name="about_library_haze_description">Haze ofrece efectos de desenfoque de alto
-        rendimiento para Jetpack Compose. APlayer lo usa en paneles, diálogos, insignias y
+        rendimiento para Jetpack Compose. Oto lo usa en paneles, diálogos, insignias y
         superficies del reproductor.</string>
     <string name="about_library_coil_description">Coil es una biblioteca rápida de carga de imágenes
-        Android basada en Kotlin Coroutines. APlayer la usa para portadas de audiolibros.</string>
+        Android basada en Kotlin Coroutines. Oto la usa para portadas de audiolibros.</string>
     <string name="about_library_glance_description">Glance permite crear widgets con API
-        declarativas estilo Compose. APlayer lo usa para controles multimedia eficientes en el
+        declarativas estilo Compose. Oto lo usa para controles multimedia eficientes en el
         escritorio.</string>
     <string name="about_library_coroutines_description">Kotlin Coroutines proporciona ejecución
         asíncrona ligera para escaneo multimedia, análisis de red y consultas de base de datos.</string>
     <string name="about_library_datastore_description">DataStore es un reemplazo moderno de
-        SharedPreferences. APlayer lo usa para guardar ajustes globales con Flow.</string>
+        SharedPreferences. Oto lo usa para guardar ajustes globales con Flow.</string>
     <string name="about_library_workmanager_description">WorkManager programa trabajo fiable en
-        segundo plano. APlayer lo usa para sincronización y mantenimiento de la biblioteca.</string>
+        segundo plano. Oto lo usa para sincronización y mantenimiento de la biblioteca.</string>
     <string name="chapter_list_title">Capítulos</string>
     <string name="chapter_list_empty">No hay capítulos disponibles</string>
     <string name="chapter_file_unavailable_description">Archivo no disponible</string>
@@ -452,7 +452,7 @@
         Los archivos de origen del teléfono se conservan.</string>
     <string name="home_action_remove_confirm_title">¿Eliminar de la biblioteca multimedia?</string>
     <string name="home_action_remove_confirm_body">¿Eliminar «%1$s» de la biblioteca multimedia de
-        APlayer?\n\nNota: esto es una eliminación suave. El libro se elimina de la lista de
+        Oto?\n\nNota: esto es una eliminación suave. El libro se elimina de la lista de
         reproducción, pero los archivos de audio físicos del almacenamiento del teléfono no se
         eliminan.</string>
     <string name="home_action_remove_confirm_button">Confirmar eliminación</string>
@@ -533,7 +533,7 @@
     <string name="deleted_book_recovery_empty">No hay libros eliminados que se puedan recuperar</string>
     <string name="deleted_book_recovery_failure_abs_remote_deleted">Este elemento de AudiobookShelf
         fue eliminado en el servidor. Restáurelo o vuelva a agregarlo en el servidor, luego
-        sincronice APlayer nuevamente.</string>
+        sincronice Oto nuevamente.</string>
     <string name="deleted_book_recovery_failure_all_files_unavailable">Todos los archivos de audio
         de este libro no están disponibles: %1$s</string>
     <string name="deleted_book_recovery_failure_missing_book">El registro del libro ya no existe o
@@ -547,13 +547,13 @@
     <string name="deleted_book_recovery_failure_title">Error en la recuperación</string>
     <string name="deleted_book_recovery_failure_unexpected">La recuperación no pudo finalizar: %1$s</string>
     <string name="deleted_book_recovery_partial_body">Solo se pueden leer algunos archivos de audio
-        de este libro. Después de la recuperación, APlayer marcará el libro como parcialmente
+        de este libro. Después de la recuperación, Oto marcará el libro como parcialmente
         disponible y el audio faltante no se podrá reproducir.</string>
     <string name="deleted_book_recovery_partial_confirm">Confirmar recuperación</string>
     <string name="deleted_book_recovery_partial_title">Algunos archivos de audio no están
         disponibles</string>
     <string name="deleted_book_recovery_restore_action">Restaurar libro</string>
-    <string name="deleted_book_recovery_settings_subtitle">Restaurar libros eliminados de APlayer
+    <string name="deleted_book_recovery_settings_subtitle">Restaurar libros eliminados de Oto
         cuando sus archivos de audio aún estén disponibles</string>
     <string name="deleted_book_recovery_title">Recuperación de libros eliminados</string>
     <string name="feedback_deleted_book_recovery_restored_partial">Libro recuperado parcialmente</string>
@@ -659,21 +659,21 @@
     <string name="download_management_delete_all_confirm_body">¿Está seguro de que desea eliminar
         todas las descargas de caché sin conexión?</string>
     <string name="about_library_navigation3_description">Navigation 3 ofrece bloques de navegación
-        pensados para Compose. APlayer lo usa para mantener pilas de pantallas y rutas superpuestas
+        pensados para Compose. Oto lo usa para mantener pilas de pantallas y rutas superpuestas
         controladas por estado.</string>
     <string name="about_library_materialkolor_description">MaterialKolor genera esquemas Material
-        You desde colores semilla. APlayer lo usa para temas dinámicos basados en el fondo de
+        You desde colores semilla. Oto lo usa para temas dinámicos basados en el fondo de
         pantalla y las portadas.</string>
     <string name="about_library_palette_description">AndroidX Palette extrae colores representativos
-        de imágenes. APlayer lo usa para derivar acentos de portada antes de generar superficies con
+        de imágenes. Oto lo usa para derivar acentos de portada antes de generar superficies con
         tema.</string>
     <string name="about_library_documentfile_description">DocumentFile envuelve documentos del
-        Android Storage Access Framework. APlayer lo usa para inspeccionar carpetas locales de
+        Android Storage Access Framework. Oto lo usa para inspeccionar carpetas locales de
         biblioteca autorizadas por el usuario.</string>
-    <string name="about_library_okhttp_description">OkHttp es un cliente HTTP moderno. APlayer lo
+    <string name="about_library_okhttp_description">OkHttp es un cliente HTTP moderno. Oto lo
         usa para acceso de red WebDAV y AudiobookShelf, incluidos streaming y llamadas API.</string>
     <string name="about_library_moshi_description">Moshi asigna JSON a modelos Kotlin tipados.
-        APlayer lo usa para analizar respuestas estructuradas del protocolo AudiobookShelf.</string>
+        Oto lo usa para analizar respuestas estructuradas del protocolo AudiobookShelf.</string>
     <string name="settings_server_section">Servidor</string>
     <string name="settings_protocol_label">Protocolo</string>
     <string name="settings_server_address_placeholder">dominio del servidor o dirección IP</string>

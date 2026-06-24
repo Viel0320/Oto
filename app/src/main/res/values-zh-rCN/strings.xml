@@ -40,7 +40,7 @@
     <string name="action_cancel">取消</string>
     <string name="action_confirm">确定</string>
     <string name="settings_language_title">应用语言</string>
-    <string name="settings_language_subtitle">选择 APlayer 使用的显示语言</string>
+    <string name="settings_language_subtitle">选择 Oto 使用的显示语言</string>
     <string name="settings_language_dialog_title">选择语言</string>
     <string name="settings_language_system_default">跟随系统</string>
     <string name="settings_language_english">English</string>
@@ -53,7 +53,7 @@
     <string name="settings_language_russian">Русский</string>
     <string name="settings_language_spanish">Español</string>
     <string name="settings_language_portuguese">Português</string>
-    <string name="player_widget_name">APlayer 播放器</string>
+    <string name="player_widget_name">Oto</string>
     <string name="player_widget_description">2x2 桌面播放器小组件</string>
     <string name="player_widget_empty_subtitle">准备播放</string>
     <string name="player_widget_cover_description">当前有声书封面</string>
@@ -309,7 +309,7 @@
     <string name="settings_root_action_rescan">重新扫描</string>
     <string name="settings_root_action_remove">移除媒体库</string>
     <string name="about_version_text">版本 %1$s</string>
-    <string name="about_app_description">APlayer
+    <string name="about_app_description">Oto
         是一款为听书爱好者打造的本地有声书播放器。优秀产品离不开开源社区的基石贡献，谨向让本应用成为可能的库作者与组织致敬。</string>
     <string name="about_developer_credit">由 %1$s 提供</string>
     <string name="about_visit_project_homepage_content_description">访问项目主页</string>
@@ -317,20 +317,20 @@
     <string name="about_visit_project_homepage">访问项目主页 (GitHub / Maven)</string>
     <string name="about_library_compose_description">Jetpack Compose 是用于构建原生 Android
         界面的现代声明式工具包，提供更少代码、强大工具和直观 Kotlin API。</string>
-    <string name="about_library_media3_description">Media3 是新一代 AndroidX 媒体技术栈，包含 ExoPlayer。APlayer
+    <string name="about_library_media3_description">Media3 是新一代 AndroidX 媒体技术栈，包含 ExoPlayer。Oto
         使用它处理有声书流加载、断点续播和硬件播放。</string>
-    <string name="about_library_room_description">Room 在 SQLite 之上提供抽象层，支撑 APlayer
+    <string name="about_library_room_description">Room 在 SQLite 之上提供抽象层，支撑 Oto
         的本地元数据、播放进度和断点持久化。</string>
-    <string name="about_library_haze_description">Haze 为 Jetpack Compose 提供高性能模糊效果。APlayer
+    <string name="about_library_haze_description">Haze 为 Jetpack Compose 提供高性能模糊效果。Oto
         使用它呈现玻璃质感面板、弹窗、徽章和播放器界面。</string>
-    <string name="about_library_coil_description">Coil 是由 Kotlin 协程驱动的高速 Android 图片加载库。APlayer
+    <string name="about_library_coil_description">Coil 是由 Kotlin 协程驱动的高速 Android 图片加载库。Oto
         使用它加载、缓存和解码有声书封面。</string>
-    <string name="about_library_glance_description">Glance 让开发者用 Compose 风格声明式 API 构建桌面小组件。APlayer
+    <string name="about_library_glance_description">Glance 让开发者用 Compose 风格声明式 API 构建桌面小组件。Oto
         使用它提供现代高效的桌面媒体控制。</string>
     <string name="about_library_coroutines_description">Kotlin 协程为媒体扫描、网络分析和数据库查询提供轻量异步执行与并发控制。</string>
-    <string name="about_library_datastore_description">DataStore 是 SharedPreferences 的现代替代方案。APlayer
+    <string name="about_library_datastore_description">DataStore 是 SharedPreferences 的现代替代方案。Oto
         使用它通过 Flow 异步存储全局设置与偏好。</string>
-    <string name="about_library_workmanager_description">WorkManager 用于调度可靠的后台任务。APlayer
+    <string name="about_library_workmanager_description">WorkManager 用于调度可靠的后台任务。Oto
         使用它执行媒体库同步和维护任务。</string>
     <string name="edit_book_title">修改书籍信息</string>
     <string name="title_label">书名</string>
@@ -368,7 +368,7 @@
     <string name="home_action_remove_title">从媒体库移除</string>
     <string name="home_action_remove_subtitle">仅从播放列表中移出此书籍，手机源文件仍保留</string>
     <string name="home_action_remove_confirm_title">确认从媒体库移除？</string>
-    <string name="home_action_remove_confirm_body">确定要从 APlayer
+    <string name="home_action_remove_confirm_body">确定要从 Oto
         媒体库中移除《%1$s》吗？\n\n注意：此操作仅为软删除，将从播放列表中移出，但不会删除手机存储中的物理音频文件。</string>
     <string name="home_action_remove_confirm_button">确认删除</string>
     <string name="chapter_list_title">章节</string>
@@ -456,7 +456,7 @@
 
     <string name="deleted_book_recovery_empty">没有可恢复的已删除书籍</string>
     <string name="deleted_book_recovery_failure_abs_remote_deleted">此 AudiobookShelf
-        书籍已在服务器上删除。请在服务器上恢复或重新添加，然后再次同步 APlayer。</string>
+        书籍已在服务器上删除。请在服务器上恢复或重新添加，然后再次同步 Oto。</string>
     <string name="deleted_book_recovery_failure_all_files_unavailable">此书籍的所有音频文件均不可用：%1$s</string>
     <string name="deleted_book_recovery_failure_missing_book">该书籍记录已不存在或已被恢复。</string>
     <string name="deleted_book_recovery_failure_missing_root">该书籍的媒体库根目录已不存在。</string>
@@ -464,12 +464,12 @@
     <string name="deleted_book_recovery_failure_root_unavailable">媒体库根目录不可用：%1$s</string>
     <string name="deleted_book_recovery_failure_title">恢复失败</string>
     <string name="deleted_book_recovery_failure_unexpected">无法完成恢复：%1$s</string>
-    <string name="deleted_book_recovery_partial_body">此书籍仅有部分音频文件可读。恢复后，APlayer
+    <string name="deleted_book_recovery_partial_body">此书籍仅有部分音频文件可读。恢复后，Oto
         会将该书籍标记为部分可用，且缺失的音频将无法播放。</string>
     <string name="deleted_book_recovery_partial_confirm">确认恢复</string>
     <string name="deleted_book_recovery_partial_title">部分音频文件不可用</string>
     <string name="deleted_book_recovery_restore_action">恢复书籍</string>
-    <string name="deleted_book_recovery_settings_subtitle">当音频文件仍可用时，恢复从 APlayer 中移除的书籍</string>
+    <string name="deleted_book_recovery_settings_subtitle">当音频文件仍可用时，恢复从 Oto 中移除的书籍</string>
     <string name="deleted_book_recovery_title">已删除书籍恢复</string>
     <string name="feedback_deleted_book_recovery_restored_partial">书籍已部分恢复</string>
     <string name="feedback_deleted_book_recovery_restored_ready">书籍已恢复</string>
@@ -554,16 +554,16 @@
     <string name="download_management_delete_all_action">删除全部</string>
     <string name="download_management_delete_all_confirm_title">删除全部下载</string>
     <string name="download_management_delete_all_confirm_body">确定要删除所有离线缓存下载吗？</string>
-    <string name="about_library_navigation3_description">Navigation 3 提供面向 Compose 的导航构建块。APlayer
+    <string name="about_library_navigation3_description">Navigation 3 提供面向 Compose 的导航构建块。Oto
         使用它保持页面栈和浮层路由由状态驱动。</string>
     <string name="about_library_materialkolor_description">MaterialKolor 可从种子色生成 Material You
-        配色。APlayer 使用它支持壁纸和封面感知的动态主题。</string>
-    <string name="about_library_palette_description">AndroidX Palette 可从图片中提取代表性颜色。APlayer
+        配色。Oto 使用它支持壁纸和封面感知的动态主题。</string>
+    <string name="about_library_palette_description">AndroidX Palette 可从图片中提取代表性颜色。Oto
         使用它在生成主题界面前推导封面强调色。</string>
-    <string name="about_library_documentfile_description">DocumentFile 封装 Android 存储访问框架文档。APlayer
+    <string name="about_library_documentfile_description">DocumentFile 封装 Android 存储访问框架文档。Oto
         使用它检查用户授权的本地媒体库文件夹。</string>
-    <string name="about_library_okhttp_description">OkHttp 是现代 HTTP 客户端。APlayer 使用它处理 WebDAV 和
+    <string name="about_library_okhttp_description">OkHttp 是现代 HTTP 客户端。Oto 使用它处理 WebDAV 和
         AudiobookShelf 网络访问，包括流式读取和 API 调用。</string>
-    <string name="about_library_moshi_description">Moshi 将 JSON 映射为类型化 Kotlin 模型。APlayer 使用它解析结构化
+    <string name="about_library_moshi_description">Moshi 将 JSON 映射为类型化 Kotlin 模型。Oto 使用它解析结构化
         AudiobookShelf 协议响应。</string>
 </resources>

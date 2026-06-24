@@ -24,5 +24,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "APlayer"
+rootProject.name = "Oto"
 include(":app")

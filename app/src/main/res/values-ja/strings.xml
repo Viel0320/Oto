@@ -40,7 +40,7 @@
     <string name="action_cancel">キャンセル</string>
     <string name="action_confirm">確認</string>
     <string name="settings_language_title">アプリの言語</string>
-    <string name="settings_language_subtitle">APlayer の表示言語を選択します</string>
+    <string name="settings_language_subtitle">Oto の表示言語を選択します</string>
     <string name="settings_language_dialog_title">言語を選択</string>
     <string name="settings_language_system_default">システム既定</string>
     <string name="settings_language_english">English</string>
@@ -53,7 +53,7 @@
     <string name="settings_language_russian">Русский</string>
     <string name="settings_language_spanish">Español</string>
     <string name="settings_language_portuguese">Português</string>
-    <string name="player_widget_name">APlayer プレーヤー</string>
+    <string name="player_widget_name">Oto プレーヤー</string>
     <string name="player_widget_description">2x2 デスクトッププレーヤーウィジェット</string>
     <string name="player_widget_empty_subtitle">再生準備完了</string>
     <string name="player_widget_cover_description">現在のオーディオブック表紙</string>
@@ -320,7 +320,7 @@
     <string name="settings_root_action_rescan">再スキャン</string>
     <string name="settings_root_action_remove">メディアライブラリを削除</string>
     <string name="about_version_text">バージョン %1$s</string>
-    <string name="about_app_description">APlayer
+    <string name="about_app_description">Oto
         は熱心なリスナーのためのローカルオーディオブックプレーヤーです。優れた製品はオープンソースの基盤に支えられており、このアプリを可能にした作者と組織に感謝します。</string>
     <string name="about_developer_credit">%1$s 提供</string>
     <string name="about_visit_project_homepage_content_description">プロジェクトページを開く</string>
@@ -329,21 +329,21 @@
     <string name="about_library_compose_description">Jetpack Compose は、少ないコード、強力なツール、直感的な Kotlin API
         でネイティブ Android UI を構築するための宣言的ツールキットです。</string>
     <string name="about_library_media3_description">Media3 は ExoPlayer を含む最新の AndroidX
-        メディア基盤です。APlayer はストリーム読み込み、再開、ハードウェア再生に利用します。</string>
-    <string name="about_library_room_description">Room は SQLite の抽象化を提供し、APlayer
+        メディア基盤です。Oto はストリーム読み込み、再開、ハードウェア再生に利用します。</string>
+    <string name="about_library_room_description">Room は SQLite の抽象化を提供し、Oto
         のメタデータ、再生進捗、再開位置の永続化を支えます。</string>
-    <string name="about_library_haze_description">Haze は Jetpack Compose 向けの高性能なぼかし効果を提供します。APlayer
+    <string name="about_library_haze_description">Haze は Jetpack Compose 向けの高性能なぼかし効果を提供します。Oto
         はガラス風パネルやダイアログに利用します。</string>
     <string name="about_library_coil_description">Coil は Kotlin コルーチンで動作する高速な Android
-        画像読み込みライブラリです。APlayer は表紙画像の読み込みとキャッシュに利用します。</string>
+        画像読み込みライブラリです。Oto は表紙画像の読み込みとキャッシュに利用します。</string>
     <string name="about_library_glance_description">Glance は Compose 風の宣言的 API
-        でアプリウィジェットを構築できます。APlayer は効率的なデスクトップメディア操作に利用します。</string>
+        でアプリウィジェットを構築できます。Oto は効率的なデスクトップメディア操作に利用します。</string>
     <string name="about_library_coroutines_description">Kotlin Coroutines
         は、メディアスキャン、ネットワーク解析、データベース検索の軽量な非同期処理を支えます。</string>
     <string name="about_library_datastore_description">DataStore は SharedPreferences
-        の現代的な代替です。APlayer は Flow による非同期設定保存に利用します。</string>
+        の現代的な代替です。Oto は Flow による非同期設定保存に利用します。</string>
     <string name="about_library_workmanager_description">WorkManager
-        は信頼性の高いバックグラウンド処理をスケジュールします。APlayer はライブラリ同期と保守に利用します。</string>
+        は信頼性の高いバックグラウンド処理をスケジュールします。Oto はライブラリ同期と保守に利用します。</string>
     <string name="edit_book_title">本の情報を編集</string>
     <string name="title_label">本のタイトル</string>
     <string name="edit_book_title_placeholder">本のタイトルを入力</string>
@@ -380,7 +380,7 @@
     <string name="home_action_remove_title">メディアライブラリから削除</string>
     <string name="home_action_remove_subtitle">この本をプレイリストからのみ削除し、端末の元ファイルは残します。</string>
     <string name="home_action_remove_confirm_title">メディアライブラリから削除しますか？</string>
-    <string name="home_action_remove_confirm_body">「%1$s」を APlayer
+    <string name="home_action_remove_confirm_body">「%1$s」を Oto
         メディアライブラリから削除しますか？\n\n注意：これはソフト削除です。本はプレイリストから削除されますが、端末内の音声ファイルは削除されません。</string>
     <string name="home_action_remove_confirm_button">削除を確認</string>
     <string name="chapter_list_title">章</string>
@@ -468,7 +468,7 @@
 
     <string name="deleted_book_recovery_empty">復元可能な削除された本はありません</string>
     <string name="deleted_book_recovery_failure_abs_remote_deleted">
-        このAudiobookShelfアイテムはサーバー上で削除されました。サーバー上で復元または再追加し、再度APlayerを同期してください。</string>
+        このAudiobookShelfアイテムはサーバー上で削除されました。サーバー上で復元または再追加し、再度Otoを同期してください。</string>
     <string name="deleted_book_recovery_failure_all_files_unavailable">
         この本のすべてのオーディオファイルが利用できません：%1$s</string>
     <string name="deleted_book_recovery_failure_missing_book">本レコードが存在しないか、すでに復元されています。</string>
@@ -478,12 +478,12 @@
     <string name="deleted_book_recovery_failure_title">復元失敗</string>
     <string name="deleted_book_recovery_failure_unexpected">復元を完了できませんでした：%1$s</string>
     <string name="deleted_book_recovery_partial_body">
-        この本の一部のオーディオファイルのみ読み取り可能です。復元後、APlayerはこの本を「一部のみ利用可能」とマークし、見つからないオーディオは再生できないままになります。</string>
+        この本の一部のオーディオファイルのみ読み取り可能です。復元後、Otoはこの本を「一部のみ利用可能」とマークし、見つからないオーディオは再生できないままになります。</string>
     <string name="deleted_book_recovery_partial_confirm">復元を確認</string>
     <string name="deleted_book_recovery_partial_title">一部のオーディオファイルが利用できません</string>
     <string name="deleted_book_recovery_restore_action">本を復元</string>
     <string name="deleted_book_recovery_settings_subtitle">
-        オーディオファイルがまだ利用可能な場合に、APlayerから削除された本を復元します</string>
+        オーディオファイルがまだ利用可能な場合に、Otoから削除された本を復元します</string>
     <string name="deleted_book_recovery_title">削除された本の復元</string>
     <string name="feedback_deleted_book_recovery_restored_partial">本を一部復元しました</string>
     <string name="feedback_deleted_book_recovery_restored_ready">本を復元しました</string>
@@ -571,16 +571,16 @@
     <string name="download_management_delete_all_confirm_title">すべてのダウンロードを削除</string>
     <string name="download_management_delete_all_confirm_body">すべてのオフラインキャッシュダウンロードを削除してもよろしいですか？</string>
     <string name="about_library_navigation3_description">Navigation 3 は Compose
-        優先のナビゲーション部品を提供します。APlayer は画面スタックとオーバーレイルートを状態駆動で保つために利用します。</string>
+        優先のナビゲーション部品を提供します。Oto は画面スタックとオーバーレイルートを状態駆動で保つために利用します。</string>
     <string name="about_library_materialkolor_description">MaterialKolor はシードカラーから Material You
-        配色を生成します。APlayer は壁紙や表紙に応じた動的テーマに利用します。</string>
-    <string name="about_library_palette_description">AndroidX Palette は画像から代表色を抽出します。APlayer
+        配色を生成します。Oto は壁紙や表紙に応じた動的テーマに利用します。</string>
+    <string name="about_library_palette_description">AndroidX Palette は画像から代表色を抽出します。Oto
         はテーマ面を生成する前に表紙のアクセント色を導くために利用します。</string>
     <string name="about_library_documentfile_description">DocumentFile は Android Storage Access
-        Framework のドキュメントを扱います。APlayer は許可済みローカルライブラリフォルダーの確認に利用します。</string>
-    <string name="about_library_okhttp_description">OkHttp は現代的な HTTP クライアントです。APlayer は WebDAV と
+        Framework のドキュメントを扱います。Oto は許可済みローカルライブラリフォルダーの確認に利用します。</string>
+    <string name="about_library_okhttp_description">OkHttp は現代的な HTTP クライアントです。Oto は WebDAV と
         AudiobookShelf のネットワークアクセス、ストリーミング、API 呼び出しに利用します。</string>
-    <string name="about_library_moshi_description">Moshi は JSON を型付き Kotlin モデルへ変換します。APlayer
+    <string name="about_library_moshi_description">Moshi は JSON を型付き Kotlin モデルへ変換します。Oto
         は構造化された AudiobookShelf プロトコル応答の解析に利用します。</string>
     <string name="settings_server_section">サーバー</string>
     <string name="settings_protocol_label">プロトコル</string>

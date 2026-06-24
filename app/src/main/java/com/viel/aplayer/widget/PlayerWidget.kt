@@ -60,7 +60,7 @@ class PlayerWidget : GlanceAppWidget() {
             val isPlaying = prefs[PlayerWidgetStateHelper.KEY_IS_PLAYING] ?: false
 
             val title = prefs[PlayerWidgetStateHelper.KEY_TITLE].let {
-                if (it.isNullOrEmpty()) "APlayer" else it
+                if (it.isNullOrEmpty()) "Oto" else it
             }
             val author = prefs[PlayerWidgetStateHelper.KEY_AUTHOR].let {
                 if (it.isNullOrEmpty()) context.getString(R.string.player_widget_fallback_author) else it
