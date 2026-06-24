@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.settings
+package com.viel.aplayer.ui.libraryManagement
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable

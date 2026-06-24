@@ -20,6 +20,9 @@ import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.shared.settings.SeekStepSeconds
 import com.viel.aplayer.shared.settings.SleepMode
 import com.viel.aplayer.shared.settings.ThemeMode
+import com.viel.aplayer.ui.libraryManagement.AbsConnectionUiState
+import com.viel.aplayer.ui.libraryManagement.AbsLibraryOptionState
+import com.viel.aplayer.ui.libraryManagement.WebDavConnectionUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -185,13 +188,18 @@ class SettingsConnectionHandler(
                     editingRootId = editingRootId
                 )
             }.onSuccess {
-                _webDavConnectionState.value = WebDavConnectionUiState(isTesting = false, testSucceeded = true)
+                _webDavConnectionState.value =
+                    WebDavConnectionUiState(isTesting = false, testSucceeded = true)
                 appEventSink.emitFeedback(
                     LibraryAccessFeedbackFacts.webDavConnectionSucceeded(draftId = editingRootId ?: NEW_DRAFT_ID)
                 )
             }.onFailure { error ->
                 val friendlyMessage = formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
-                _webDavConnectionState.value = WebDavConnectionUiState(isTesting = false, testSucceeded = false, lastError = friendlyMessage)
+                _webDavConnectionState.value = WebDavConnectionUiState(
+                    isTesting = false,
+                    testSucceeded = false,
+                    lastError = friendlyMessage
+                )
                 val fact = if (error.isDuplicateRootFor(DuplicateLibraryRootSource.WEBDAV)) {
                     LibraryAccessFeedbackFacts.webDavRootAlreadyExists(draftId = editingRootId ?: NEW_DRAFT_ID)
                 } else {

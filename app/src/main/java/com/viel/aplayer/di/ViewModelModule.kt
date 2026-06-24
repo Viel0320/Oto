@@ -5,13 +5,13 @@ import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.edit.EditBookViewModel
 import com.viel.aplayer.ui.home.LibraryViewModel
+import com.viel.aplayer.ui.libraryManagement.RemoteConnectionViewModel
 import com.viel.aplayer.ui.player.BookmarkViewModel
 import com.viel.aplayer.ui.player.PlaybackViewModel
 import com.viel.aplayer.ui.player.PlayerSettingsViewModel
 import com.viel.aplayer.ui.search.SearchViewModel
 import com.viel.aplayer.ui.settings.SettingsViewModel
 import com.viel.aplayer.ui.settings.recovery.DeletedBookRecoveryViewModel
-import com.viel.aplayer.ui.settings.remote.RemoteConnectionViewModel
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module

@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.settings.remote
+package com.viel.aplayer.ui.libraryManagement
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -14,8 +14,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.shared.settings.GlassEffectMode
-import com.viel.aplayer.ui.settings.AbsConnectionPage
-import com.viel.aplayer.ui.settings.WebDavConnectionPage
 import dev.chrisbanes.haze.HazeState
 
 /**

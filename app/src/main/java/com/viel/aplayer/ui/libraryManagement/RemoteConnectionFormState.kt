@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.settings.remote
+package com.viel.aplayer.ui.libraryManagement
 
 /**
  * Which remote-login form the standalone connection overlay is currently showing.

@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.navigation
+package com.viel.aplayer.ui.libraryManagement
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable

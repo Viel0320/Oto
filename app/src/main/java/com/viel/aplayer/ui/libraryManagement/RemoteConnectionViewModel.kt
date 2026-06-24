@@ -1,4 +1,4 @@
-package com.viel.aplayer.ui.settings.remote
+package com.viel.aplayer.ui.libraryManagement
 
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -16,9 +16,7 @@ import com.viel.aplayer.event.AppEventSink
 import com.viel.aplayer.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.aplayer.logger.AbsSettingsLogger
 import com.viel.aplayer.logger.ScanWorkflowLogger
-import com.viel.aplayer.ui.settings.AbsConnectionUiState
 import com.viel.aplayer.ui.settings.SettingsConnectionHandler
-import com.viel.aplayer.ui.settings.WebDavConnectionUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

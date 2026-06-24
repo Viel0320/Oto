@@ -42,6 +42,8 @@ import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.edit.EditBookRoute
 import com.viel.aplayer.ui.edit.EditBookViewModel
 import com.viel.aplayer.ui.home.LibraryViewModel
+import com.viel.aplayer.ui.libraryManagement.RemoteConnectionRoute
+import com.viel.aplayer.ui.libraryManagement.RemoteConnectionViewModel
 import com.viel.aplayer.ui.motion.LocalSharedTransitionScope
 import com.viel.aplayer.ui.navigation.shell.DefaultAppFeedbackRenderRouter
 import com.viel.aplayer.ui.navigation.shell.dispatch
@@ -54,8 +56,6 @@ import com.viel.aplayer.ui.search.SearchRoute
 import com.viel.aplayer.ui.search.SearchViewModel
 import com.viel.aplayer.ui.settings.SettingsOverlay
 import com.viel.aplayer.ui.settings.SettingsViewModel
-import com.viel.aplayer.ui.settings.remote.RemoteConnectionRoute
-import com.viel.aplayer.ui.settings.remote.RemoteConnectionViewModel
 import dev.chrisbanes.haze.HazeState
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
