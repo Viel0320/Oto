@@ -1,7 +1,7 @@
 # 代码收敛审计报告（Consolidation Audit）
 
 > 目的：定位项目中散落、重复、可收敛的功能与函数。本报告只做**识别**，不改动代码。
-> 范围：`app/src/main/java/com/viel/aplayer/**`（约 440 个 Kotlin 文件，5.8 万行）
+> 范围：`app/src/main/java/com/viel/oto/**`（约 440 个 Kotlin 文件，5.8 万行）
 > 生成日期：2026-06-16
 > 验证方式：所有发现均经 grep 直接验证关键行号；逐字节相同的复制段已抽样核对。
 
@@ -276,7 +276,7 @@ themeMode = preferences[PreferencesKeys.THEME_MODE]
 ### ~~6.1 玻璃 / 模糊修饰符脚手架——已修复 🔴~~
 
 已将统一的 `Modifier.glassOverlay(hazeState, mode, shape, style)` 抽离到 `localhazematerial` 中，并应用于以下 5 个消费点：
-`ui/common/BlurDialog.kt`、`BlurDropdownMenu.kt`、`BlurModalBottomSheet.kt`、`BlurSnackbar.kt`、`APlayerGlassTopBar.kt`。
+`ui/common/BlurDialog.kt`、`BlurDropdownMenu.kt`、`BlurModalBottomSheet.kt`、`BlurSnackbar.kt`、`OtoGlassTopBar.kt`。
 
 这在保持各站点 shape、自定义 tint (如 Snackbar) 以及 borderMode (如 TopBar) 等特化样式的同时，消除了重复的判断与链式构造逻辑。
 
@@ -305,14 +305,14 @@ themeMode = preferences[PreferencesKeys.THEME_MODE]
 
 ### 6.5 顶栏颜色样板 🟢
 
-`APlayerGlassTopBar` 已被 6 个设置/主页屏复用（HomeAppBar、About、CacheSettings、DownloadManagement、DeletedBookRecovery、SettingsScreen）。但 `ui/detail/DetailContent.kt:222,254`、`ui/edit/EditBookScreen.kt:263,287`、`ui/player/components/PlayerAppBar.kt:76,149` 直接用裸 `TopAppBar` + `TopAppBarDefaults.topAppBarColors(...)`。
-**这 3 处偏离是合理的**（PlayerAppBar 要左对齐标题，Detail/Edit 要绕过 IME inset），不要硬塞进 `APlayerGlassTopBar`。只需把共享的 `topAppBarColors(...)`（haze 时 Transparent vs 背景）解析抽成 helper。
+`OtoGlassTopBar` 已被 6 个设置/主页屏复用（HomeAppBar、About、CacheSettings、DownloadManagement、DeletedBookRecovery、SettingsScreen）。但 `ui/detail/DetailContent.kt:222,254`、`ui/edit/EditBookScreen.kt:263,287`、`ui/player/components/PlayerAppBar.kt:76,149` 直接用裸 `TopAppBar` + `TopAppBarDefaults.topAppBarColors(...)`。
+**这 3 处偏离是合理的**（PlayerAppBar 要左对齐标题，Detail/Edit 要绕过 IME inset），不要硬塞进 `OtoGlassTopBar`。只需把共享的 `topAppBarColors(...)`（haze 时 Transparent vs 背景）解析抽成 helper。
 
 ---
 
 ## 七、不该动的点（避免误收敛）
 
-- **TimeUtils 时间格式化已完全收敛**：`ui/common/TimeUtils.kt` 是唯一时间格式化器，所有消费方都正确 import（DetailControlPanel、APlayerAppDialogHost、BookmarkList、ChapterList、PlaybackProgress…）。ui/ 内**无**绕过 `formatTime` 的内联 `String.format("%02d")` 或 `SimpleDateFormat`。无需任何动作。
+- **TimeUtils 时间格式化已完全收敛**：`ui/common/TimeUtils.kt` 是唯一时间格式化器，所有消费方都正确 import（DetailControlPanel、OtoAppDialogHost、BookmarkList、ChapterList、PlaybackProgress…）。ui/ 内**无**绕过 `formatTime` 的内联 `String.format("%02d")` 或 `SimpleDateFormat`。无需任何动作。
 - **`ui/motion/SharedElementKeys.kt` 键值无硬编码**：8 个构建器函数被全部 7 处消费方正确使用；grep 字面 key 前缀只命中 SharedElementKeys 自身。无需动作。
 - **状态码魔法字符串已枚举化**（见 5.5），仅剩死注释。
 - **每个类的 `private const val TAG`**（28+ 处）：这是 Android 惯用法，收敛会**降低**可 grep 性，不建议动。
