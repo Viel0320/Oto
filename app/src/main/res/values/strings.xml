@@ -381,7 +381,7 @@
         media library.</string>
     <string name="settings_server_section">Server</string>
     <string name="settings_protocol_label">Protocol</string>
-    <string name="settings_server_address_placeholder">https://server domain or IP address</string>
+    <string name="settings_server_address_placeholder">server domain or IP address</string>
     <string name="settings_port_hint">Port (default=%1$d)</string>
     <string name="settings_url_preview_label">Url:</string>
     <string name="settings_auth_section">Authentication</string>

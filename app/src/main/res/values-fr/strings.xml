@@ -682,7 +682,7 @@
         AudiobookShelf.</string>
     <string name="settings_server_section">Serveur</string>
     <string name="settings_protocol_label">Protocole</string>
-    <string name="settings_server_address_placeholder">https://domaine du serveur ou adresse IP</string>
+    <string name="settings_server_address_placeholder">domaine du serveur ou adresse IP</string>
     <string name="settings_port_hint">Port (par défaut=%1$d)</string>
     <string name="settings_url_preview_label">URL :</string>
     <string name="settings_auth_section">Authentification</string>

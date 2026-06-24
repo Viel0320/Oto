@@ -555,7 +555,7 @@
         AudiobookShelf 協定回應。</string>
     <string name="settings_server_section">伺服器</string>
     <string name="settings_protocol_label">協定</string>
-    <string name="settings_server_address_placeholder">https://伺服器網域或 IP 地址</string>
+    <string name="settings_server_address_placeholder">伺服器網域或 IP 地址</string>
     <string name="settings_port_hint">連接埠（預設=%1$d）</string>
     <string name="settings_url_preview_label">Url:</string>
     <string name="settings_auth_section">驗證</string>

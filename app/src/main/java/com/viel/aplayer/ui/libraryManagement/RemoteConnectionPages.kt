@@ -69,13 +69,20 @@ import dev.chrisbanes.haze.hazeSource
 
 /**
  * URL split into the parts the remote-connection forms edit independently.
- * [scheme] and [port] are null when the source text did not contain them, letting the host
+ * [scheme] and [port] are null when the source text did not contain them, letting the source
  * field tell a pasted full URL apart from a bare host that is still being typed.
  */
 private data class ParsedServerUrl(
     val scheme: String?,
     val host: String,
     val port: String?,
+    val path: String
+)
+
+private data class FoldedRemoteInput(
+    val protocol: String,
+    val host: String,
+    val port: String,
     val path: String
 )
 
@@ -111,30 +118,138 @@ private fun buildServerUrl(protocol: String, host: String, port: String, path: S
         port.isBlank() -> ""
         else -> ":${port.trim()}"
     }
-    return "$protocol://${trimmedHost.removeSuffix(":")}$portSuffix$path"
+    return "$protocol://${trimmedHost.removeSuffix(":")}$portSuffix${normalizePathSuffix(path)}"
 }
 
 /**
- * Folds host-field input into the (protocol, host, port) triple. Text carrying a scheme is
- * treated as a pasted full URL and split across the fields; bare text is kept verbatim so the
- * user can still type "host:port" without losing characters or fighting re-derivation.
+ * Builds the editable authority text shown in the URL field.
  */
-private fun foldHostInput(
+private fun buildAuthority(host: String, port: String): String {
+    val trimmedHost = host.trim().removeSuffix(":")
+    if (trimmedHost.isEmpty()) return ""
+    return if (port.isBlank()) trimmedHost else "$trimmedHost:${port.trim()}"
+}
+
+/**
+ * Builds the editable host/port/path text shown in the WebDAV URL field.
+ */
+private fun buildAddressWithPath(host: String, port: String, path: String): String {
+    val authority = buildAuthority(host, port)
+    if (authority.isEmpty()) return ""
+    return authority + normalizePathSuffix(path)
+}
+
+/**
+ * Normalizes a path suffix so the saved URL keeps a single leading slash when a path exists.
+ */
+private fun normalizePathSuffix(path: String): String {
+    val trimmed = path.trim()
+    if (trimmed.isBlank()) return ""
+    return if (trimmed.startsWith("/")) trimmed else "/$trimmed"
+}
+
+/**
+ * Extracts the host and trailing numeric port from an editable authority string.
+ * A dangling colon is discarded and a missing port comes back as an empty string.
+ */
+private fun splitAuthorityPort(authority: String): Pair<String, String> {
+    val trimmed = authority.trim()
+    if (trimmed.isEmpty()) return "" to ""
+    if (!HOST_WITH_PORT_REGEX.matches(trimmed)) {
+        return trimmed.removeSuffix(":") to ""
+    }
+    val separatorIndex = trimmed.lastIndexOf(':')
+    if (separatorIndex <= 0) return trimmed.removeSuffix(":") to ""
+    return trimmed.substring(0, separatorIndex) to trimmed.substring(separatorIndex + 1)
+}
+
+/**
+ * Splits a scheme-less editable input into authority and the remaining path/query/fragment part.
+ * WebDAV keeps that trailing part synchronized with its dedicated base-path field.
+ */
+private fun splitEditableAuthorityAndPath(raw: String): Pair<String, String> {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return "" to ""
+    val pathStart = trimmed.indexOfFirst { it == '/' || it == '?' || it == '#' }
+    if (pathStart < 0) return trimmed to ""
+    return trimmed.substring(0, pathStart) to trimmed.substring(pathStart)
+}
+
+/**
+ * Folds a WebDAV URL field edit into protocol, host, port, and path.
+ * Pasted full URLs update every dedicated control, while direct field edits preserve any path
+ * suffix so the URL field and base-path field remain two views over the same data.
+ */
+private fun foldWebDavInput(
     raw: String,
     currentProtocol: String,
-    currentPort: String,
     protocols: List<String>
-): Triple<String, String, String> {
-    val parts = parseServerUrl(raw)
-    return if (parts.scheme != null) {
-        Triple(
-            parts.scheme.takeIf { it in protocols } ?: currentProtocol,
-            parts.host,
-            parts.port ?: currentPort
+): FoldedRemoteInput {
+    if (raw.trim().isEmpty()) {
+        return FoldedRemoteInput(
+            protocol = currentProtocol,
+            host = "",
+            port = "",
+            path = ""
         )
-    } else {
-        Triple(currentProtocol, raw, currentPort)
     }
+
+    val parsed = parseServerUrl(raw)
+    if (parsed.scheme != null) {
+        return FoldedRemoteInput(
+            protocol = parsed.scheme.takeIf { it in protocols } ?: currentProtocol,
+            host = parsed.host,
+            port = parsed.port.orEmpty(),
+            path = parsed.path
+        )
+    }
+
+    val (authority, path) = splitEditableAuthorityAndPath(raw)
+    val (host, port) = splitAuthorityPort(authority)
+    return FoldedRemoteInput(
+        protocol = currentProtocol,
+        host = host,
+        port = port,
+        path = path
+    )
+}
+
+/**
+ * Folds an ABS base-url edit into protocol, host, and port.
+ * ABS ignores any pasted path and keeps the dedicated port field synchronized with the text field.
+ */
+private fun foldAbsInput(
+    raw: String,
+    currentProtocol: String,
+    protocols: List<String>
+): FoldedRemoteInput {
+    if (raw.trim().isEmpty()) {
+        return FoldedRemoteInput(
+            protocol = currentProtocol,
+            host = "",
+            port = "",
+            path = ""
+        )
+    }
+
+    val parsed = parseServerUrl(raw)
+    if (parsed.scheme != null) {
+        return FoldedRemoteInput(
+            protocol = parsed.scheme.takeIf { it in protocols } ?: currentProtocol,
+            host = parsed.host,
+            port = parsed.port.orEmpty(),
+            path = ""
+        )
+    }
+
+    val authority = splitEditableAuthorityAndPath(raw).first
+    val (host, port) = splitAuthorityPort(authority)
+    return FoldedRemoteInput(
+        protocol = currentProtocol,
+        host = host,
+        port = port,
+        path = ""
+    )
 }
 
 /**
@@ -172,14 +287,14 @@ fun WebDavConnectionPage(
     var host by remember(editingRootId) { mutableStateOf(initial.host) }
     var port by remember(editingRootId) { mutableStateOf(initial.port.orEmpty()) }
 
-    val rebuildUrl: () -> Unit = {
-        val pathPart = basePath.trim().takeIf { it.isNotBlank() }?.let {
-            if (it.startsWith("/")) it else "/$it"
-        }.orEmpty()
-        onUrlChange(buildServerUrl(protocol, host, port, pathPart))
+    val effectiveBasePath = basePath.ifBlank { initial.path }
+
+    val rebuildUrl: (String, String, String, String) -> Unit = { nextProtocol, nextHost, nextPort, nextPath ->
+        onUrlChange(buildServerUrl(nextProtocol, nextHost, nextPort, nextPath))
     }
 
-    val urlPreview = buildServerUrl(protocol, host, port).ifEmpty { "-" }
+    val urlPreview = buildServerUrl(protocol, host, port, effectiveBasePath).ifEmpty { "-" }
+    val serverFieldValue = buildAddressWithPath(host, port, effectiveBasePath)
 
     RemoteConnectionPageFrame(
         title = stringResource(R.string.settings_library_type_webdav),
@@ -225,18 +340,20 @@ fun WebDavConnectionPage(
             RemoteSectionTitle(text = stringResource(R.string.settings_server_section))
 
             RemoteTextField(
-                value = host,
+                value = serverFieldValue,
                 onValueChange = {
-                    val (newProtocol, newHost, newPort) = foldHostInput(it, protocol, port, protocols)
-                    protocol = newProtocol
-                    host = newHost
-                    port = newPort
-                    rebuildUrl()
+                    val folded = foldWebDavInput(it, protocol, protocols)
+                    protocol = folded.protocol
+                    host = folded.host
+                    port = folded.port
+                    onBasePathChange(folded.path)
+                    rebuildUrl(folded.protocol, folded.host, folded.port, folded.path)
                 },
                 label = stringResource(R.string.settings_server_url_label),
                 placeholder = stringResource(R.string.settings_server_address_placeholder),
                 keyboardType = KeyboardType.Uri,
-                isError = connectionState.lastError != null && host.isBlank()
+                isError = connectionState.lastError != null && host.isBlank(),
+                prefixText = "$protocol://"
             )
             connectionState.lastError?.takeIf { it.isNotBlank() && host.isBlank() }?.let { error ->
                 Text(
@@ -249,10 +366,10 @@ fun WebDavConnectionPage(
 
             Spacer(modifier = Modifier.height(10.dp))
             RemoteTextField(
-                value = basePath,
+                value = effectiveBasePath,
                 onValueChange = {
                     onBasePathChange(it)
-                    rebuildUrl()
+                    rebuildUrl(protocol, host, port, it)
                 },
                 label = stringResource(R.string.settings_library_base_path_label)
             )
@@ -267,11 +384,11 @@ fun WebDavConnectionPage(
                 onProtocolSelected = { selectedProtocol ->
                     protocol = selectedProtocol
                     protocolExpanded = false
-                    rebuildUrl()
+                    rebuildUrl(selectedProtocol, host, port, effectiveBasePath)
                 },
-                onPortChange = {
-                    port = it
-                    rebuildUrl()
+                onPortChange = { nextPort ->
+                    port = nextPort
+                    rebuildUrl(protocol, host, nextPort, effectiveBasePath)
                 }
             )
 
@@ -353,10 +470,11 @@ fun AbsConnectionPage(
     var host by remember(editingRootId) { mutableStateOf(initial.host) }
     var port by remember(editingRootId) { mutableStateOf(initial.port.orEmpty()) }
 
-    val rebuildUrl: () -> Unit = {
-        onBaseUrlChange(buildServerUrl(protocol, host, port))
+    val rebuildUrl: (String, String, String) -> Unit = { nextProtocol, nextHost, nextPort ->
+        onBaseUrlChange(buildServerUrl(nextProtocol, nextHost, nextPort))
     }
 
+    val baseUrlFieldValue = buildAuthority(host, port)
     val urlPreview = buildServerUrl(protocol, host, port).ifEmpty { "-" }
 
     RemoteConnectionPageFrame(
@@ -368,10 +486,10 @@ fun AbsConnectionPage(
             Button(
                 onClick = onConfirm,
                 enabled = baseUrl.isNotBlank() &&
-                    username.isNotBlank() &&
-                    (password.isNotBlank() || editingRootId != null) &&
-                    selectedLibraryId.isNotBlank() &&
-                    selectedLibraryName.isNotBlank(),
+                        username.isNotBlank() &&
+                        (password.isNotBlank() || editingRootId != null) &&
+                        selectedLibraryId.isNotBlank() &&
+                        selectedLibraryName.isNotBlank(),
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
@@ -387,9 +505,9 @@ fun AbsConnectionPage(
             TextButton(
                 onClick = onTestConnection,
                 enabled = baseUrl.isNotBlank() &&
-                    username.isNotBlank() &&
-                    (password.isNotBlank() || editingRootId != null) &&
-                    !connectionState.isTesting,
+                        username.isNotBlank() &&
+                        (password.isNotBlank() || editingRootId != null) &&
+                        !connectionState.isTesting,
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
@@ -405,17 +523,18 @@ fun AbsConnectionPage(
             RemoteSectionTitle(text = stringResource(R.string.settings_server_section))
 
             RemoteTextField(
-                value = host,
+                value = baseUrlFieldValue,
                 onValueChange = {
-                    val (newProtocol, newHost, newPort) = foldHostInput(it, protocol, port, protocols)
-                    protocol = newProtocol
-                    host = newHost
-                    port = newPort
-                    rebuildUrl()
+                    val folded = foldAbsInput(it, protocol, protocols)
+                    protocol = folded.protocol
+                    host = folded.host
+                    port = folded.port
+                    rebuildUrl(folded.protocol, folded.host, folded.port)
                 },
                 label = stringResource(R.string.settings_abs_base_url_label),
                 placeholder = stringResource(R.string.settings_server_address_placeholder),
-                keyboardType = KeyboardType.Uri
+                keyboardType = KeyboardType.Uri,
+                prefixText = "$protocol://"
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -428,11 +547,11 @@ fun AbsConnectionPage(
                 onProtocolSelected = { selectedProtocol ->
                     protocol = selectedProtocol
                     protocolExpanded = false
-                    rebuildUrl()
+                    rebuildUrl(selectedProtocol, host, port)
                 },
-                onPortChange = {
-                    port = it
-                    rebuildUrl()
+                onPortChange = { nextPort ->
+                    port = nextPort
+                    rebuildUrl(protocol, host, nextPort)
                 }
             )
 
@@ -648,7 +767,8 @@ private fun RemoteTextField(
     placeholder: String = "",
     keyboardType: KeyboardType = KeyboardType.Text,
     isPassword: Boolean = false,
-    isError: Boolean = false
+    isError: Boolean = false,
+    prefixText: String = ""
 ) {
     OutlinedTextField(
         value = value,
@@ -656,7 +776,14 @@ private fun RemoteTextField(
         label = { Text(label) },
         placeholder = if (placeholder.isNotBlank()) {
             { Text(placeholder, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) }
-        } else null,
+        } else {
+            null
+        },
+        prefix = if (prefixText.isNotBlank()) {
+            { Text(prefixText) }
+        } else {
+            null
+        },
         singleLine = true,
         isError = isError,
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,

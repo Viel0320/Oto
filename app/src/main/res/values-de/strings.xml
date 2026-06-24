@@ -675,7 +675,7 @@
         APlayer nutzt es zum Parsen strukturierter AudiobookShelf-Protokollantworten.</string>
     <string name="settings_server_section">Server</string>
     <string name="settings_protocol_label">Protokoll</string>
-    <string name="settings_server_address_placeholder">https://Server-Domain oder IP-Adresse</string>
+    <string name="settings_server_address_placeholder">Server-Domain oder IP-Adresse</string>
     <string name="settings_port_hint">Port (Standard=%1$d)</string>
     <string name="settings_url_preview_label">URL:</string>
     <string name="settings_auth_section">Authentifizierung</string>

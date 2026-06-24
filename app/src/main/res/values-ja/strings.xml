@@ -581,7 +581,7 @@
         は構造化された AudiobookShelf プロトコル応答の解析に利用します。</string>
     <string name="settings_server_section">サーバー</string>
     <string name="settings_protocol_label">プロトコル</string>
-    <string name="settings_server_address_placeholder">https://サーバーのドメインまたはIPアドレス</string>
+    <string name="settings_server_address_placeholder">サーバーのドメインまたはIPアドレス</string>
     <string name="settings_port_hint">ポート（デフォルト=%1$d）</string>
     <string name="settings_url_preview_label">URL:</string>
     <string name="settings_auth_section">認証</string>

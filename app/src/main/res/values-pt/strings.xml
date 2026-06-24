@@ -667,7 +667,7 @@
         APlayer usa-o para analisar respostas estruturadas do protocolo AudiobookShelf.</string>
     <string name="settings_server_section">Servidor</string>
     <string name="settings_protocol_label">Protocolo</string>
-    <string name="settings_server_address_placeholder">https://domínio do servidor ou endereço IP</string>
+    <string name="settings_server_address_placeholder">domínio do servidor ou endereço IP</string>
     <string name="settings_port_hint">Porta (padrão=%1$d)</string>
     <string name="settings_url_preview_label">URL:</string>
     <string name="settings_auth_section">Autenticação</string>
