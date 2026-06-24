@@ -33,7 +33,7 @@ google-services.json
 # Android Profiling
 *.hprof
 
-#any ide junk
+#ide & agents junk
 .DS_STORE
 /.idea/
 /.cursor/
@@ -44,5 +44,4 @@ google-services.json
 /.codex/
 /.mimocode/
 .idea/*
-.editorconfig
 /.agents/.skills
