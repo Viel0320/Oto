@@ -1,5 +1,6 @@
 package com.viel.aplayer.di
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.application.download.DownloadRuntimeGateway
 import com.viel.aplayer.application.library.settings.AppSettingsCommands
@@ -14,7 +15,7 @@ import org.koin.dsl.module
  * AppSettingsRepository binds AppSettingsReadModel from CoreDataModule so this module only owns
  * the command adapter that coordinates settings writes with the download runtime.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object CoreSettingsModule {
 
     val module: Module = module {

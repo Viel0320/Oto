@@ -2,6 +2,7 @@ package com.viel.aplayer.media.cache
 
 import android.net.Uri
 import androidx.media3.common.C
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
@@ -25,7 +26,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import java.util.concurrent.atomic.AtomicInteger
 
-@UnstableApi
+@OptIn(UnstableApi::class)
 @RunWith(RobolectricTestRunner::class)
 class ManualCachePlaybackDataSourceTest {
     @Test

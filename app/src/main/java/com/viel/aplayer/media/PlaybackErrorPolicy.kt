@@ -1,5 +1,6 @@
 package com.viel.aplayer.media
 
+import androidx.annotation.OptIn
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceException
@@ -18,7 +19,7 @@ import java.net.UnknownHostException
  * Maps VFS and remote-source failures into Media3 playback error categories.
  * Keeps DataSource I/O mechanics separate from provider availability, cancellation, and seek-range classification rules.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 object PlaybackErrorPolicy {
     /**
      * Keeps cancellation, network failure, and range overflow on separate Media3 paths.

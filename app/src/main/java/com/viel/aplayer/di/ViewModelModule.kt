@@ -1,5 +1,6 @@
 package com.viel.aplayer.di
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.ui.detail.DetailViewModel
 import com.viel.aplayer.ui.edit.EditBookViewModel
@@ -19,7 +20,7 @@ import org.koin.dsl.module
  * ViewModel definitions for every screen.
  * Each ViewModel receives its dependency-view interface through constructor injection.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object ViewModelModule {
 
     val module: Module = module {

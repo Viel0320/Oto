@@ -1,5 +1,6 @@
 package com.viel.aplayer.di
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.application.download.CacheMaintenanceCommands
 import com.viel.aplayer.application.download.CacheStatisticsProvider
@@ -17,7 +18,7 @@ import org.koin.dsl.module
  * Presentation-facing download read models and cache maintenance commands.
  * Kept separate from DownloadModule so UI-facing projections can change independently.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object DownloadReadModelModule {
 
     val module: Module = module {

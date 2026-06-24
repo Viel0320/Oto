@@ -1,5 +1,6 @@
 package com.viel.aplayer.di
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.application.playback.DefaultPlayerPlaybackController
 import com.viel.aplayer.application.playback.PlayerPlaybackController
@@ -12,7 +13,7 @@ import org.koin.dsl.module
  * Player-scene playback controller wiring.
  * Kept separate from MediaModule so the player controller can evolve without touching media runtime.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object MediaPlaybackControllerModule {
 
     val module: Module = module {

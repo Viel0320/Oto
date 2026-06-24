@@ -1,5 +1,6 @@
 package com.viel.aplayer.library.orchestrator
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.entity.BookEntity
 import com.viel.aplayer.library.FileInventory
@@ -29,7 +30,7 @@ import kotlinx.coroutines.sync.withPermit
  * By isolating this complex concurrent stream routing, the main orchestrator's complexity is reduced,
  * decoupling session lifecycle management from directory-specific import logic.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal class DirectoryAudioImporter(
     private val metadataResolver: MetadataResolver,
     private val pipeline: ImportPipeline,

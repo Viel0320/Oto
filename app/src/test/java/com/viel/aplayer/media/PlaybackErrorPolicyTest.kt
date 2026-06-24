@@ -1,6 +1,7 @@
 package com.viel.aplayer.media
 
 import androidx.media3.common.PlaybackException
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceException
 import com.viel.aplayer.abs.net.AbsApiError
@@ -11,7 +12,7 @@ import org.junit.Test
 import java.io.IOException
 import java.io.InterruptedIOException
 
-@UnstableApi
+@OptIn(UnstableApi::class)
 class PlaybackErrorPolicyTest {
     @Test
     fun `open classification preserves provider cancellation`() {

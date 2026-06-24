@@ -1,6 +1,7 @@
 package com.viel.aplayer.data.cover
 
 import android.os.SystemClock
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.abs.sync.AbsCoverStore
 import com.viel.aplayer.abs.sync.AbsItemMirrorDao
@@ -28,7 +29,7 @@ import java.io.File
  * The helper stays format-agnostic: it detects missing cache files, retries embedded and sidecar
  * artwork through shared parser boundaries, and writes recovered paths back to Room.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 class CoverRecoveryHelper(
     private val bookDao: BookDao,
     private val libraryRootDao: LibraryRootDao,

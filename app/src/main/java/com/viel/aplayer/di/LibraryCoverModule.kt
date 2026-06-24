@@ -1,5 +1,6 @@
 package com.viel.aplayer.di
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.cover.AndroidCoverUriResolver
 import com.viel.aplayer.data.cover.CoverAssetGateway
@@ -34,7 +35,7 @@ import java.io.Closeable
  * CoverRecoveryHelper owns the background repair scope and binds CoverSelfHealer from the
  * same singleton definition, avoiding release-only redirect providers after R8 optimization.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object LibraryCoverModule {
 
     /**

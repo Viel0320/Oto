@@ -1,6 +1,7 @@
 package com.viel.aplayer.library.orchestrator.steps
 
 import android.content.Context
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.library.orchestrator.ImportContext
 import com.viel.aplayer.library.orchestrator.mapWithBoundedConcurrency
@@ -10,7 +11,7 @@ import com.viel.aplayer.media.parser.MetadataResolver
 /**
  * Extracts metadata for loose audio files that were not reserved by manifests or existing claims.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal class MetadataResolveStep(
     private val context: Context,
     private val metadataResolver: MetadataResolver

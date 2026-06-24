@@ -1,5 +1,6 @@
 package com.viel.aplayer.di
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.application.library.detail.DefaultDetailBookModule
 import com.viel.aplayer.application.library.detail.DetailBookCommands
@@ -46,7 +47,7 @@ import org.koin.dsl.module
  * Scene adapters that implement both read-model and command contracts are registered once and
  * bound to both contracts so scene state stays single-instance across read and command entrypoints.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object LibrarySceneModule {
 
     val module: Module = module {

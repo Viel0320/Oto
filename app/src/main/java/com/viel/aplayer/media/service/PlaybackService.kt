@@ -64,7 +64,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * 3. Media accessibility verification and error handling are managed by [PlaybackFailureHandler].
  * Under this design, the playback service serves as a lightweight harness wrapper, reducing visual coupling.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService(), KoinComponent {
     private val injectedBookCatalogGateway: BookCatalogGateway by inject()
     private val injectedChapterGateway: ChapterGateway by inject()
@@ -362,7 +362,6 @@ class PlaybackService : MediaSessionService(), KoinComponent {
         }
     }
 
-    @UnstableApi
     private inner class CustomCallback : MediaSession.Callback {
         override fun onConnect(
             session: MediaSession,

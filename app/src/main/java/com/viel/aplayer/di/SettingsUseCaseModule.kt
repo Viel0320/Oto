@@ -1,5 +1,6 @@
 package com.viel.aplayer.di
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.net.AbsApiClient
@@ -36,7 +37,7 @@ import org.koin.dsl.module
  * Scene read and command contracts are bound from one SettingsRoot module instance so release builds
  * do not create redirect-only Koin providers for the same object.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object SettingsUseCaseModule {
 
     val module: Module = module {

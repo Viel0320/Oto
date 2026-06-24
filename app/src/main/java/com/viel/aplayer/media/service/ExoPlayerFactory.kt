@@ -2,6 +2,7 @@ package com.viel.aplayer.media.service
 
 import android.content.Context
 import android.os.Looper
+import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -32,7 +33,7 @@ import org.koin.core.component.get
  * Manages low-level configuration of renderers, extractor options, buffer strategies (LoadControl), and virtual VFS data sources.
  * Decouples complex multi-track and custom focus logic from the playback service domain, adhering to Single Responsibility Principle.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 object ExoPlayerFactory : KoinComponent {
 
     /**

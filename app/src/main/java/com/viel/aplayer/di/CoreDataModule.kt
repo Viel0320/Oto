@@ -1,6 +1,7 @@
 package com.viel.aplayer.di
 
 import android.content.Context
+import androidx.annotation.OptIn
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
@@ -25,7 +26,7 @@ import org.koin.dsl.module
  * AppSettingsRepository is registered once and bound to its read contract from the same
  * definition so release shrinking keeps a single dependency-resolution path.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object CoreDataModule {
 
     private val Context.appSettingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")

@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.offline.Download
@@ -16,7 +17,7 @@ import com.viel.aplayer.R
  * Keeping notification assembly outside APlayerDownloadService leaves the service focused on Media3
  * lifecycle callbacks and makes future management-screen deep links easier to add.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal class DownloadNotificationHelper(
     private val context: Context,
     private val channelId: String

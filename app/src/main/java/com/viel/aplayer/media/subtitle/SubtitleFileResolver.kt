@@ -2,6 +2,7 @@ package com.viel.aplayer.media.subtitle
 
 import android.content.Context
 import android.net.Uri
+import androidx.annotation.OptIn
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.dao.BookDao
@@ -20,7 +21,7 @@ import java.util.Locale
  * Handles discovery, matching, and parsing of external subtitle files such as .srt, .ass, etc.
  * Decouples subtitle discovery from the core library repository, isolating complex I/O from core database access.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 class SubtitleFileResolver(
     private val context: Context,
     private val bookDao: BookDao,

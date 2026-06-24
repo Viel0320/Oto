@@ -1,5 +1,6 @@
 package com.viel.aplayer.di
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.availability.BookAvailabilityGateway
 import com.viel.aplayer.data.availability.BookAvailabilityGatewayImpl
@@ -29,7 +30,7 @@ import org.koin.dsl.module
  * Gateway interfaces are registered directly so release dependency resolution keeps one factory
  * path per contract.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object LibraryBookGatewayModule {
 
     val module: Module = module {

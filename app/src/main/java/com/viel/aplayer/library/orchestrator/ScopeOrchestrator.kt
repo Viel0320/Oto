@@ -1,6 +1,7 @@
 package com.viel.aplayer.library.orchestrator
 
 import android.content.Context
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.entity.BookEntity
@@ -33,7 +34,7 @@ import kotlinx.coroutines.ensureActive
  * DirectoryAudioImporter. from global scope lifecycle
  * management (ScopeOrchestrator), avoiding large God-class architectures.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal class ScopeOrchestrator(
     private val context: Context,
     database: AppDatabase,

@@ -1,6 +1,7 @@
 package com.viel.aplayer.media
 
 import androidx.media3.common.PlaybackException
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceException
 import androidx.media3.datasource.DataSpec
@@ -22,7 +23,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
-@UnstableApi
+@OptIn(UnstableApi::class)
 @RunWith(RobolectricTestRunner::class)
 class VfsPlaybackDataSourceTest {
     @Test

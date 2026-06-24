@@ -1,6 +1,7 @@
 package com.viel.aplayer.library.orchestrator
 
 import android.content.Context
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.db.AppDatabase
 import com.viel.aplayer.data.db.AudiobookSchema
@@ -45,7 +46,7 @@ enum class RescanType {
  *
  * Designed to replace legacy architectures by isolating orchestration from individual folder parsing steps.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 class ScanSessionRunner(
     private val context: Context,
     private val database: AppDatabase,

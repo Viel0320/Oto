@@ -1,6 +1,7 @@
 package com.viel.aplayer.di
 
 import android.content.Context
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext
@@ -15,7 +16,7 @@ import org.koin.core.logger.PrintLogger
  * Starts Koin with androidContext and every APlayer module, and exposes an explicit shutdown
  * hook that preserves the previous graph close order before stopping Koin.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object APlayerKoinApplication {
 
     /**

@@ -1,6 +1,7 @@
 package com.viel.aplayer.di
 
 import android.content.Context
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.application.playback.PlaybackStopper
 import com.viel.aplayer.data.db.AppDatabase
@@ -28,7 +29,7 @@ import java.io.Closeable
  * DirectoryListingCache is bound from the Room implementation definition to avoid a second
  * provider whose only job is resolving the concrete cache back out of Koin.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object MediaModule {
 
     private class PlaybackRuntimeHolder(

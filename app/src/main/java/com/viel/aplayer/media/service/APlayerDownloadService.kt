@@ -1,6 +1,7 @@
 package com.viel.aplayer.media.service
 
 import android.app.Notification
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadManager
@@ -21,7 +22,7 @@ internal const val DOWNLOAD_NOTIFICATION_GROUP = "manual_downloads_group"
  * and restart commands, while APlayer keeps book-level commands inside the application download
  * module through DownloadController.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 class APlayerDownloadService : DownloadService(
     DOWNLOAD_NOTIFICATION_ID,
     DEFAULT_FOREGROUND_NOTIFICATION_UPDATE_INTERVAL,

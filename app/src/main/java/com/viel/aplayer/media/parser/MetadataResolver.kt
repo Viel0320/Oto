@@ -1,5 +1,6 @@
 package com.viel.aplayer.media.parser
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.data.entity.BookFileEntity
 import com.viel.aplayer.library.FileRef
@@ -25,7 +26,7 @@ internal data class ExtractedAudiobookMetadata(
  * Beginning with this refactor, non-MP4 formats no longer traverse MediaMetadataRetriever.
  * Instead, they are delegated to format-specific range parsers, while MetadataResolver manages routing, title fallbacks, and mojibake correction.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 class MetadataResolver(
     /**
      * The caller-owned VFS reader keeps parser execution bound to the active source snapshot instead of constructing database-backed file access internally.

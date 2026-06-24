@@ -2,6 +2,7 @@ package com.viel.aplayer
 
 import android.app.Application
 import android.os.StrictMode
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import coil.ImageLoader
 import coil.ImageLoaderFactory
@@ -33,7 +34,7 @@ import org.koin.core.component.get
 /**
  * Application class responsible for initializing the Koin dependency container.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 class APlayerApplication : Application(), ImageLoaderFactory, KoinComponent {
 
     internal val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())

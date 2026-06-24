@@ -1,5 +1,6 @@
 package com.viel.aplayer.application.download
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -7,7 +8,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-@UnstableApi
+@OptIn(UnstableApi::class)
 class DownloadSyncListenerTest {
     @Test
     fun `listener should resolve file id and reconcile parent book`() = runBlocking {

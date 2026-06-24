@@ -1,5 +1,6 @@
 package com.viel.aplayer.di
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.abs.net.AbsApiClient
@@ -23,7 +24,7 @@ import org.koin.dsl.module
  * Replaces the sync section of AbsGraph and depends on the AbsApiClient contract rather than
  * the concrete network implementation outside the ABS networking module.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object AbsSyncModule {
 
     val module: Module = module {

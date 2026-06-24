@@ -1,5 +1,6 @@
 package com.viel.aplayer.di
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.net.RealAbsApiClient
@@ -17,7 +18,7 @@ import org.koin.dsl.module
  * Replaces the credential/client section of AbsGraph. Each public ABS contract is registered
  * directly so optimized builds do not need redirect-only Koin definitions.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object AbsModule {
 
     val module: Module = module {

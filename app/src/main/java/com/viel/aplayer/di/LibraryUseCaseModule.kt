@@ -1,5 +1,6 @@
 package com.viel.aplayer.di
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.application.download.DownloadStatusReadModel
 import com.viel.aplayer.application.download.ManualDownloadCleanupGateway
@@ -32,7 +33,7 @@ import org.koin.dsl.module
  * Replaces the use-case section of LibraryGraph. Gateway contracts are registered directly so
  * release builds keep a single factory path for each contract.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object LibraryUseCaseModule {
 
     val module: Module = module {

@@ -1,5 +1,6 @@
 package com.viel.aplayer.media.service
 
+import androidx.annotation.OptIn
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -18,7 +19,7 @@ import kotlinx.coroutines.launch
  * Captures core I/O errors, halts looping reloads on error, and broadcasts unavailable track indicators to control interfaces.
  * Decouples system recovery complexity and storage validation limits from the core player service domain.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 class PlaybackFailureHandler(
     private val serviceScope: CoroutineScope,
     private val bookAvailabilityGateway: BookAvailabilityGateway,

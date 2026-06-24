@@ -1,5 +1,6 @@
 package com.viel.aplayer.di
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.abs.auth.AbsCredentialStore
 import com.viel.aplayer.data.AppSettingsRepository
@@ -31,7 +32,7 @@ import java.io.Closeable
  * Cleanup, scheduler, and root gateway contracts are exposed from their owning definitions
  * instead of through secondary Koin providers that only redirect to implementation classes.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object LibraryScanModule {
 
     val module: Module = module {
