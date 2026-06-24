@@ -1,6 +1,5 @@
 package com.viel.aplayer.data
 
-import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -9,7 +8,6 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.viel.aplayer.shared.settings.AppLanguage
 import com.viel.aplayer.shared.settings.AppSettings
 import com.viel.aplayer.shared.settings.GlassEffectMode
@@ -28,8 +26,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")
 
 /**
  * Manages persistence of user configuration via Jetpack DataStore.
