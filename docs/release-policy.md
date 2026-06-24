@@ -39,7 +39,7 @@ credentials, search history, device markers, and playback/runtime sync state sta
 - `app/src/main/res/xml/backup_rules.xml` includes only `files/datastore/app_settings.preferences_pb` for legacy Android auto-backup.
 - `app/src/main/res/xml/data_extraction_rules.xml` includes only `files/datastore/app_settings.preferences_pb` for cloud backup and device transfer.
 - Both rule files intentionally avoid out-of-scope `exclude` nodes because `sharedpref/device.xml`, `sharedpref/webdav_credentials.xml`, `files/datastore/abs_credentials.preferences_pb`, and `files/datastore/search_history.preferences_pb` are not included.
-- Both rule files intentionally avoid out-of-scope `exclude` nodes because `database/aplayer_database`, `database/aplayer_database-shm`, `database/aplayer_database-wal`, and `database/aplayer_database-journal` are not included.
+- Both rule files intentionally avoid out-of-scope `exclude` nodes because `database/oto_database`, `database/oto_database-shm`, `database/oto_database-wal`, and `database/oto_database-journal` are not included.
 
 ## Room Schema Baseline
 
@@ -47,7 +47,7 @@ Room schema version `41` is the first supported production migration baseline.
 
 <!-- Room Schema Baseline Policy (Document the point where destructive rebuilds stop being allowed)
      Version 41 is kept as the only historical schema fixture, and later schema changes must add explicit migrations plus exported schema files without reviving pre-41 upgrade paths. -->
-- `app/schemas/com.viel.aplayer.data.db.AppDatabase/41.json` is the retained baseline fixture.
+- `app/schemas/com.viel.oto.data.db.AppDatabase/41.json` is the retained baseline fixture.
 - Schema files before `41.json` are intentionally removed from source control.
 - `AppDatabase` must not call `fallbackToDestructiveMigration`, `fallbackToDestructiveMigrationFrom`, or `fallbackToDestructiveMigrationOnDowngrade`.
 - Future schema versions must add explicit forward migrations from the previous retained version and keep `exportSchema = true`.

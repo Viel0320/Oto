@@ -1,0 +1,326 @@
+package com.viel.oto.ui.detail.components
+
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.text.SpannableStringBuilder
+import android.text.style.LeadingMarginSpan
+import android.view.ActionMode
+import android.view.Gravity
+import android.view.Menu
+import android.view.MenuItem
+import android.widget.TextView
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import com.viel.oto.R
+import com.viel.oto.ui.common.theme.OtoTheme
+
+/**
+ * Detail Page Header Component.
+ *
+ * Header component of the book details page, including title, author, and narrator information.
+ * Keeps the title non-selectable so long-press can open the full-title dialog instead of the
+ * system text selection menu.
+ *
+ * @param title Book title
+ * @param author Author name
+ * @param narrator Narrator name
+ * @param onTitleLongClick Triggered on long-pressing title
+ * @param onAuthorClick Triggered on clicking author
+ * @param onAuthorLongClick Triggered on long-pressing author
+ * @param onNarratorClick Triggered on clicking narrator
+ * @param onNarratorLongClick Triggered on long-pressing narrator
+ * @param isLandscape Whether in landscape mode, used to dynamically adjust font size and spacing
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun DetailHeader(
+    title: String,
+    author: String,
+    narrator: String,
+    onTitleLongClick: () -> Unit,
+    onAuthorClick: () -> Unit,
+    onAuthorLongClick: () -> Unit,
+    onNarratorClick: () -> Unit,
+    onNarratorLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    isLandscape: Boolean = false
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        val titleInfoActionLabel = stringResource(R.string.detail_title_info_action)
+        val authorSearchActionLabel = stringResource(R.string.detail_author_search_action)
+        val authorInfoActionLabel = stringResource(R.string.detail_author_info_action)
+        val narratorSearchActionLabel = stringResource(R.string.detail_narrator_search_action)
+        val narratorInfoActionLabel = stringResource(R.string.detail_narrator_info_action)
+        val unknownText = stringResource(R.string.common_unknown)
+
+        Text(
+            text = title.takeIf { it.isNotBlank() } ?: unknownText,
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = {},
+                    onLongClickLabel = titleInfoActionLabel,
+                    onLongClick = onTitleLongClick
+                ),
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = if (isLandscape) 22.sp else 28.sp
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Clip
+        )
+
+        Spacer(modifier = Modifier.height(if (isLandscape) 12.dp else 16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val itemPadding = if (isLandscape) 2.dp else 4.dp
+            val cornerRadius = if (isLandscape) 8.dp else 12.dp
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(cornerRadius))
+                    .combinedClickable(
+                        onClickLabel = authorSearchActionLabel,
+                        onClick = onAuthorClick,
+                        onLongClickLabel = authorInfoActionLabel,
+                        onLongClick = onAuthorLongClick
+                    )
+                    .padding(vertical = itemPadding),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = stringResource(R.string.author_label),
+                    style = if (isLandscape) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = author.takeIf { it.isNotBlank() } ?: unknownText,
+                    style = if (isLandscape) MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                           else MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            VerticalDivider(
+                modifier = Modifier
+                    .height(if (isLandscape) 20.dp else 32.dp)
+                    .padding(horizontal = if (isLandscape) 4.dp else 8.dp),
+                thickness = if (isLandscape) 1.dp else 2.dp,
+                color = MaterialTheme.colorScheme.onSurface.copy(if (isLandscape) 0.3f else 0.5f)
+            )
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(cornerRadius))
+                    .combinedClickable(
+                        onClickLabel = narratorSearchActionLabel,
+                        onClick = onNarratorClick,
+                        onLongClickLabel = narratorInfoActionLabel,
+                        onLongClick = onNarratorLongClick
+                    )
+                    .padding(vertical = itemPadding),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = stringResource(R.string.narrator_label),
+                    style = if (isLandscape) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = narrator.takeIf { it.isNotBlank() } ?: unknownText,
+                    style = if (isLandscape) MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                           else MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Selectable Text Component.
+ *
+ * Custom selectable text component used internally.
+ */
+@Composable
+fun SelectableTextView(
+    text: CharSequence,
+    modifier: Modifier = Modifier,
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
+    textSizeSp: Float = 16f,
+    lineSpacingExtraSp: Float = 0f,
+    firstLineIndentEm: Float = 0f,
+    gravity: Int = Gravity.START,
+    typefaceStyle: Int = android.graphics.Typeface.NORMAL
+) {
+    val textColorInt = textColor.toArgb()
+    val density = LocalDensity.current
+    val lineSpacingExtraPx = with(density) { lineSpacingExtraSp.sp.toPx() }
+    val firstLineIndentPx = with(density) {
+        (textSizeSp * firstLineIndentEm).sp.toPx().toInt()
+    }
+    val displayText = remember(text, firstLineIndentPx) {
+        if (firstLineIndentPx > 0) {
+            SpannableStringBuilder(text).apply {
+                setSpan(
+                    LeadingMarginSpan.Standard(firstLineIndentPx, 0),
+                    0,
+                    length,
+                    0
+                )
+            }
+        } else {
+            text
+        }
+    }
+
+    AndroidView(
+        modifier = modifier,
+        factory = { context ->
+            TextView(context).apply {
+                setTextIsSelectable(true)
+                background = null
+                setPadding(0, 0, 0, 0)
+                setHorizontallyScrolling(false)
+                customSelectionActionModeCallback = ProcessTextMenuCallback(this)
+            }
+        },
+        update = { tv ->
+            if (tv.text?.toString() != displayText.toString()) {
+                tv.text = displayText
+            }
+            tv.setTextColor(textColorInt)
+            tv.textSize = textSizeSp
+            tv.gravity = gravity
+            tv.typeface = android.graphics.Typeface.create(
+                android.graphics.Typeface.DEFAULT,
+                typefaceStyle
+            )
+            tv.setLineSpacing(lineSpacingExtraPx, 1.0f)
+        }
+    )
+}
+
+private class ProcessTextMenuCallback(
+    private val textView: TextView
+) : ActionMode.Callback {
+    override fun onCreateActionMode(mode: ActionMode, menu: Menu) = true
+    override fun onDestroyActionMode(mode: ActionMode) = Unit
+
+    override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
+        val pm = textView.context.packageManager
+        val baseIntent = Intent(Intent.ACTION_PROCESS_TEXT).setType("text/plain")
+        val activities =
+            pm.queryIntentActivities(baseIntent, PackageManager.ResolveInfoFlags.of(0))
+        activities.forEachIndexed { index, ri ->
+            val label = ri.loadLabel(pm).toString()
+            if (menu.findItem(label.hashCode()) == null) {
+                menu.add(Menu.NONE, label.hashCode(), 100 + index, label)
+                    .setIntent(
+                        Intent(baseIntent)
+                            .setClassName(ri.activityInfo.packageName, ri.activityInfo.name)
+                            .putExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, true)
+                    )
+                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
+            }
+        }
+        return true
+    }
+
+    override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
+        val intent = item.intent ?: return false
+        val s = textView.selectionStart.coerceAtLeast(0)
+        val e = textView.selectionEnd.coerceAtLeast(0)
+        val text = textView.text.subSequence(minOf(s, e), maxOf(s, e)).toString()
+        if (text.isEmpty()) return false
+        intent.putExtra(Intent.EXTRA_PROCESS_TEXT, text)
+        return try {
+            textView.context.startActivity(intent)
+            mode.finish()
+            true
+        } catch (_: ActivityNotFoundException) {
+            false
+        }
+    }
+}
+
+@Preview(name = "Detail Header - Portrait", showBackground = true)
+@Composable
+fun DetailHeaderPortraitPreview() {
+    OtoTheme {
+        DetailHeader(
+            title = "In the Megachurch",
+            author = "Ryo Asai",
+            narrator = "Narrator A",
+            onTitleLongClick = {},
+            onAuthorClick = {},
+            onAuthorLongClick = {},
+            onNarratorClick = {},
+            onNarratorLongClick = {},
+            isLandscape = false,
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
+
+@Preview(name = "Detail Header - Landscape", showBackground = true, widthDp = 640)
+@Composable
+fun DetailHeaderLandscapePreview() {
+    OtoTheme {
+        DetailHeader(
+            title = "In the Megachurch",
+            author = "Ryo Asai",
+            narrator = "Narrator A",
+            onTitleLongClick = {},
+            onAuthorClick = {},
+            onAuthorLongClick = {},
+            onNarratorClick = {},
+            onNarratorLongClick = {},
+            isLandscape = true,
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}

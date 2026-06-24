@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This file defines repository-specific instructions for coding agents working on **APlayer**.
+This file defines repository-specific instructions for coding agents working on **Oto**.
 
 Use it to decide:
 
@@ -40,7 +40,7 @@ Task-specific maintainer instructions take precedence over this file. When the r
 - `settings.gradle.kts` - active Gradle modules and centralized repository policy.
 - `build.gradle.kts` and `app/build.gradle.kts` - Android, Kotlin, Compose, KSP, Room schema, signing, dependency, and test setup.
 - `app/src/main/AndroidManifest.xml` - services, workers, permissions, backup, network security, and entry points.
-- `app/src/main/java/com/viel/aplayer/data/db/AudiobookSchema.kt` - canonical database status, source, and type constants.
+- `app/src/main/java/com/viel/oto/data/db/AudiobookSchema.kt` - canonical database status, source, and type constants.
 
 Do not duplicate or contradict these files casually. Update this file only for stable, repository-wide agent rules.
 
@@ -48,7 +48,7 @@ Do not duplicate or contradict these files casually. Update this file only for s
 
 ## Repository Overview
 
-APlayer is an Android audiobook player with:
+Oto is an Android audiobook player with:
 
 - local library import through SAF,
 - CUE, M3U8, generated multi-file, and single-audio book support,
@@ -82,9 +82,9 @@ Many behaviors are source-specific. Do not assume SAF, WebDAV, ABS, cached playb
 Top-level areas:
 
 - `app/` - the single active Android application module.
-- `app/src/main/java/com/viel/aplayer/` - production Kotlin source.
-- `app/src/test/java/com/viel/aplayer/` - JVM, Robolectric, architecture, ABS, parser, mapper, and policy tests.
-- `app/src/androidTest/java/com/viel/aplayer/` - instrumentation and Compose UI tests.
+- `app/src/main/java/com/viel/oto/` - production Kotlin source.
+- `app/src/test/java/com/viel/oto/` - JVM, Robolectric, architecture, ABS, parser, mapper, and policy tests.
+- `app/src/androidTest/java/com/viel/oto/` - instrumentation and Compose UI tests.
 - `app/schemas/` - exported Room schemas used by migration tests.
 - `docs/` - maintainer-facing policy and architecture documents.
 
@@ -120,7 +120,7 @@ Use the repository Gradle Wrapper:
 
 Project facts from `app/build.gradle.kts`:
 
-- Android namespace: `com.viel.aplayer`
+- Android namespace: `com.viel.oto`
 - compile SDK: `37`
 - min SDK: `33`
 - target SDK: `36`
@@ -173,7 +173,7 @@ When summarizing work, state exactly which commands were run and whether they pa
 
 UI code belongs under `ui/` and should use the existing `Route`, `Screen`, `Overlay`, `ViewModel`, `UiState`, and `Actions` patterns.
 
-Keep page-level state private to the page unless it is genuinely shared application state. `APlayerApp` is the app shell and should not absorb feature-specific business rules. `APlayerNavHost` should remain a thin Navigation 3 host.
+Keep page-level state private to the page unless it is genuinely shared application state. `OtoApp` is the app shell and should not absorb feature-specific business rules. `OtoNavHost` should remain a thin Navigation 3 host.
 
 For adaptive layouts, use `ui/common/layout/AppWindowSizeClass.kt` and `LocalAppWindowSizeClass`. Preserve portrait phone, landscape phone, and landscape tablet variants when touching screens that already split layouts.
 
@@ -218,7 +218,7 @@ ABS changes usually require tests with `MockWebServer` and local mapping asserti
 DI is provided by Koin, which directly injects resolved implementations into target constructors.
 
 - Koin module definitions live under `di/`.
-- `APlayerKoinApplication` starts the global Koin context with every APlayer module.
+- `OtoKoinApplication` starts the global Koin context with every Oto module.
 - `GraphClosePolicy` preserves the ordered shutdown policy (media -> download -> abs -> library -> uiEvents -> data).
 - Do not create Koin alias definitions, including provider bodies that only call `get()` or `getOrNull()`, such as `single<Contract> { get<Implementation>() }`, `factory<Contract> { get() }`, or `single { get<Implementation>() as Contract }`.
 - Register the implementation directly under the public contract, or use `bind` / `binds` on the owning singleton when one object intentionally implements multiple contracts.
@@ -299,9 +299,9 @@ Check:
 
 Check:
 
-1. App-wide theme ownership under `ui/common/theme/`, especially `APlayerTheme`, `LocalDarkTheme`, and any CompositionLocal exposed from the theme boundary.
+1. App-wide theme ownership under `ui/common/theme/`, especially `OtoTheme`, `LocalDarkTheme`, and any CompositionLocal exposed from the theme boundary.
 2. Seed extraction and palette generation separately: wallpaper seed lookup may use Android platform APIs, while seed-to-`ColorScheme` generation should use MaterialKolor instead of ad-hoc HSL or color slicing.
-3. Cover-seeded themes stay scoped to the surfaces that own cover presentation, such as player, detail, and edit screens. Do not move cover-derived theme rules into `APlayerApp`.
+3. Cover-seeded themes stay scoped to the surfaces that own cover presentation, such as player, detail, and edit screens. Do not move cover-derived theme rules into `OtoApp`.
 4. Settings persistence and live preview flow when adding theme preferences: DataStore model, application settings commands, read models, Settings UI, localized strings, and tests.
 5. Static fallback schemes in `Color.kt` when dynamic color is disabled or no seed is available.
 6. Visual and compile verification for light mode, dark mode, dynamic color enabled or disabled, and cover-seeded surfaces.
@@ -395,7 +395,7 @@ For dependency changes:
 ## Common Mistakes To Avoid
 
 - Trusting the old `AGENTS.md` architecture text over current source files.
-- Treating `APlayerApp` as a convenient place for feature business logic.
+- Treating `OtoApp` as a convenient place for feature business logic.
 - Creating a broad provider or facade that duplicates existing gateways, VFS, or use cases.
 - Updating a UI switch without updating persistence, commands, read models, and tests.
 - Adding Room fields without migrations, schema exports, and migration tests.

@@ -18,11 +18,11 @@ kotlin {
 }
 
 android {
-    namespace = "com.viel.aplayer"
+    namespace = "com.viel.oto"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.viel.aplayer"
+        applicationId = "com.viel.oto"
         // SDK Level Bump (Raise minSdk to 33 to support hardware-level blur effects)
         // This targets Android 13 (API 33) to allow hardware-accelerated window blur rendering.
         minSdk = 33
@@ -47,7 +47,7 @@ android {
         create("release") {
             storeFile = file("release.jks")
             storePassword = "password"
-            keyAlias = "aplayer"
+            keyAlias = "oto"
             keyPassword = "password"
         }
     }
