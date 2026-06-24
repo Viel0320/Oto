@@ -554,6 +554,9 @@
     <string name="player_seek_undo_action">Undo</string>
     <string name="player_seek_undo_message">Jumped to a new position</string>
     <string name="subtitles_empty">No subtitles found</string>
+    <string name="subtitle_sync_delay">Delay subtitles</string>
+    <string name="subtitle_sync_advance">Advance subtitles</string>
+    <string name="subtitle_sync_reset">Reset subtitle sync</string>
     <string name="settings_slider_value_summary">%1$s: %2$s</string>
     <string name="player_chapter_counter">%1$d / %2$d</string>
     <string name="bookmark_add_title">Add Bookmark</string>

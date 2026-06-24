@@ -453,6 +453,9 @@
     <string name="player_seek_undo_action">元に戻す</string>
     <string name="player_seek_undo_message">新しい位置に移動しました</string>
     <string name="subtitles_empty">字幕が見つかりません</string>
+    <string name="subtitle_sync_delay">字幕を遅らせる</string>
+    <string name="subtitle_sync_advance">字幕を早める</string>
+    <string name="subtitle_sync_reset">字幕同期をリセット</string>
     <string name="settings_slider_value_summary">%1$s：%2$s</string>
     <string name="player_chapter_counter">%1$d / %2$d</string>
     <string name="bookmark_add_title">ブックマークを追加</string>

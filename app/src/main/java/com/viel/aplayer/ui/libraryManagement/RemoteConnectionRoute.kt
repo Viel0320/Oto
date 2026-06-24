@@ -1,17 +1,24 @@
 package com.viel.aplayer.ui.libraryManagement
 
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
@@ -34,16 +41,44 @@ fun RemoteConnectionRoute(
     val form by remoteConnectionViewModel.form.collectAsStateWithLifecycle()
     val visible = form.source != RemoteConnectionSource.None
 
+    var isPredictiveBackActive by remember { mutableStateOf(false) }
+    var predictiveBackProgress by remember { mutableFloatStateOf(0f) }
+
     AnimatedVisibility(
         visible = visible,
-        enter = slideInHorizontally(initialOffsetX = { it }, animationSpec = tween(300)) + fadeIn(tween(300)),
-        exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = tween(300)) + fadeOut(tween(300)),
+        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(300)) + fadeIn(tween(300)),
+        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(300)) + fadeOut(tween(300)),
         modifier = modifier
     ) {
         // Registered inside the visible content so it is added to the back dispatcher after the
         // settings overlay's handlers, giving the connection overlay back priority over settings.
-        BackHandler(enabled = visible) { remoteConnectionViewModel.close() }
-        Surface(modifier = Modifier.fillMaxSize()) {
+        PredictiveBackHandler(enabled = visible) { progressFlow ->
+            try {
+                progressFlow.collect { backEvent ->
+                    isPredictiveBackActive = true
+                    predictiveBackProgress = backEvent.progress
+                }
+                remoteConnectionViewModel.close()
+            } catch (_: kotlin.coroutines.cancellation.CancellationException) {
+            } finally {
+                isPredictiveBackActive = false
+                predictiveBackProgress = 0f
+            }
+        }
+
+        val density = LocalDensity.current
+        val maxPredictiveTranslationY = with(density) { 200.dp.toPx() }
+
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    if (isPredictiveBackActive) {
+                        translationY = predictiveBackProgress * maxPredictiveTranslationY
+                        alpha = 1f - predictiveBackProgress * 0.3f
+                    }
+                }
+        ) {
             when (form.source) {
                 RemoteConnectionSource.WebDav -> {
                     val state by remoteConnectionViewModel.webDavConnectionState.collectAsStateWithLifecycle()
@@ -78,8 +113,7 @@ fun RemoteConnectionRoute(
                         connectionState = state,
                         glassEffectMode = glassEffectMode,
                         hazeState = hazeState,
-                        selectedLibraryId = form.absLibraryId,
-                        selectedLibraryName = form.absLibraryName,
+                        selectedLibraries = form.absSelectedLibraries,
                         onBaseUrlChange = remoteConnectionViewModel::onAbsBaseUrlChange,
                         onUsernameChange = remoteConnectionViewModel::onAbsUsernameChange,
                         onPasswordChange = remoteConnectionViewModel::onAbsPasswordChange,

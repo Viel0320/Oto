@@ -30,6 +30,13 @@ interface AppSettingsCommands {
     suspend fun updateAutoRewindSeconds(seconds: Int)
     suspend fun updateSeekBackwardSeconds(step: SeekStepSeconds)
     suspend fun updateSeekForwardSeconds(step: SeekStepSeconds)
+    /**
+     * Persists the app-wide subtitle cue offset used by playback subtitle matching.
+     *
+     * The offset changes only presentation timing in player UI; subtitle files, playback progress,
+     * and media clock state remain owned by their existing playback and library boundaries.
+     */
+    suspend fun updateSubtitleSyncOffsetMs(offsetMs: Long)
     suspend fun updateLastPlaybackInterrupted(interrupted: Boolean)
     suspend fun updateNotificationAvoidanceEnabled(enabled: Boolean)
     suspend fun updateThemeMode(mode: ThemeMode)

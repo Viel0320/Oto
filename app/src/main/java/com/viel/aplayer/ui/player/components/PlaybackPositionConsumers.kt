@@ -27,6 +27,9 @@ import kotlinx.coroutines.flow.StateFlow
 fun PlaybackPositionSubtitlesView(
     playbackProgressState: StateFlow<PlaybackProgressViewState>,
     subtitles: List<SubtitleLine>,
+    subtitleSyncOffsetMs: Long,
+    onAdjustSubtitleSync: (Long) -> Unit,
+    onResetSubtitleSync: () -> Unit,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -34,6 +37,9 @@ fun PlaybackPositionSubtitlesView(
     SubtitlesView(
         subtitles = subtitles,
         currentPosition = progressState.elapsedMs,
+        subtitleSyncOffsetMs = subtitleSyncOffsetMs,
+        onAdjustSubtitleSync = onAdjustSubtitleSync,
+        onResetSubtitleSync = onResetSubtitleSync,
         onSeek = onSeek,
         modifier = modifier
     )

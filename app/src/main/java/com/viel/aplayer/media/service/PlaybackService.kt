@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.os.Bundle
+import androidx.annotation.OptIn
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C

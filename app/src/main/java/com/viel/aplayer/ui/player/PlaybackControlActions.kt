@@ -13,6 +13,18 @@ data class PlaybackControlActions(
     val onNextChapter: () -> Unit = {},
     val onPreviousChapter: () -> Unit = {},
     /**
+     * Shifts the global subtitle cue matching offset.
+     *
+     * Positive deltas advance the visible subtitles relative to audio, while negative deltas delay
+     * them. The owner persists this as app playback configuration so parsed subtitle files and saved
+     * progress remain untouched.
+     */
+    val onAdjustSubtitleSync: (deltaMs: Long) -> Unit = {},
+    /**
+     * Clears the global subtitle sync adjustment without rebuilding the playback plan.
+     */
+    val onResetSubtitleSync: () -> Unit = {},
+    /**
      * Reports a tapped chapter whose backing file is gone.
      *
      * Leaf chapter rows raise this intent with the book id; the command owner publishes the recovery

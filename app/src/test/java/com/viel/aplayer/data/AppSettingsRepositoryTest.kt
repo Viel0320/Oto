@@ -56,21 +56,44 @@ class AppSettingsRepositoryTest {
         val repository = AppSettingsRepository.createForTesting(dataStore)
 
         val restoredCases = listOf(
-            RestoredPlaybackSettings(speed = Float.NaN, rewindSeconds = -5, expectedSpeed = 1.0f, expectedRewindSeconds = 0),
-            RestoredPlaybackSettings(speed = -0.5f, rewindSeconds = 99, expectedSpeed = 1.0f, expectedRewindSeconds = 30),
-            RestoredPlaybackSettings(speed = 99.0f, rewindSeconds = Int.MAX_VALUE, expectedSpeed = 1.0f, expectedRewindSeconds = 30)
+            RestoredPlaybackSettings(
+                speed = Float.NaN,
+                rewindSeconds = -5,
+                subtitleOffsetMs = -45_000L,
+                expectedSpeed = 1.0f,
+                expectedRewindSeconds = 0,
+                expectedSubtitleOffsetMs = -30_000L
+            ),
+            RestoredPlaybackSettings(
+                speed = -0.5f,
+                rewindSeconds = 99,
+                subtitleOffsetMs = 45_000L,
+                expectedSpeed = 1.0f,
+                expectedRewindSeconds = 30,
+                expectedSubtitleOffsetMs = 30_000L
+            ),
+            RestoredPlaybackSettings(
+                speed = 99.0f,
+                rewindSeconds = Int.MAX_VALUE,
+                subtitleOffsetMs = 1_250L,
+                expectedSpeed = 1.0f,
+                expectedRewindSeconds = 30,
+                expectedSubtitleOffsetMs = 1_250L
+            )
         )
 
         restoredCases.forEachIndexed { index, restored ->
             dataStore.edit { preferences ->
                 preferences[globalPlaybackSpeedKey] = restored.speed
                 preferences[autoRewindSecondsKey] = restored.rewindSeconds
+                preferences[subtitleSyncOffsetMsKey] = restored.subtitleOffsetMs
             }
 
             val settings = repository.settingsFlow.first()
 
             assertEquals("case $index speed", restored.expectedSpeed, settings.globalPlaybackSpeed, 0.0f)
             assertEquals("case $index rewind", restored.expectedRewindSeconds, settings.autoRewindSeconds)
+            assertEquals("case $index subtitle offset", restored.expectedSubtitleOffsetMs, settings.subtitleSyncOffsetMs)
         }
     }
 
@@ -143,24 +166,30 @@ class AppSettingsRepositoryTest {
 
         repository.updateGlobalPlaybackSpeed(1.5f)
         repository.updateAutoRewindSeconds(12)
+        repository.updateSubtitleSyncOffsetMs(1_250L)
 
         val validPreferences = dataStore.data.first()
         assertEquals(1.5f, validPreferences[globalPlaybackSpeedKey] ?: 0.0f, 0.0f)
         assertEquals(12, validPreferences[autoRewindSecondsKey])
+        assertEquals(1_250L, validPreferences[subtitleSyncOffsetMsKey])
 
         repository.updateGlobalPlaybackSpeed(Float.NaN)
         repository.updateAutoRewindSeconds(-4)
+        repository.updateSubtitleSyncOffsetMs(-99_000L)
 
         val lowPreferences = dataStore.data.first()
         assertEquals(1.0f, lowPreferences[globalPlaybackSpeedKey] ?: 0.0f, 0.0f)
         assertEquals(0, lowPreferences[autoRewindSecondsKey])
+        assertEquals(-30_000L, lowPreferences[subtitleSyncOffsetMsKey])
 
         repository.updateGlobalPlaybackSpeed(99.0f)
         repository.updateAutoRewindSeconds(99)
+        repository.updateSubtitleSyncOffsetMs(99_000L)
 
         val highPreferences = dataStore.data.first()
         assertEquals(1.0f, highPreferences[globalPlaybackSpeedKey] ?: 0.0f, 0.0f)
         assertEquals(30, highPreferences[autoRewindSecondsKey])
+        assertEquals(30_000L, highPreferences[subtitleSyncOffsetMsKey])
     }
 
     @Test
@@ -206,14 +235,18 @@ class AppSettingsRepositoryTest {
     private data class RestoredPlaybackSettings(
         val speed: Float,
         val rewindSeconds: Int,
+        val subtitleOffsetMs: Long,
         val expectedSpeed: Float,
-        val expectedRewindSeconds: Int
+        val expectedRewindSeconds: Int,
+        val expectedSubtitleOffsetMs: Long
     )
 
     companion object {
         private val globalPlaybackSpeedKey = floatPreferencesKey("global_playback_speed")
 
         private val autoRewindSecondsKey = intPreferencesKey("auto_rewind_seconds")
+
+        private val subtitleSyncOffsetMsKey = longPreferencesKey("subtitle_sync_offset_ms")
 
         private val legacyPlaybackCacheMaxBytesKey = longPreferencesKey("playback_cache_max_bytes")
 

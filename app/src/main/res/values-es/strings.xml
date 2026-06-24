@@ -517,6 +517,9 @@
     <string name="player_seek_undo_action">Deshacer</string>
     <string name="player_seek_undo_message">Saltaste a una nueva posición</string>
     <string name="subtitles_empty">No se encontraron subtítulos</string>
+    <string name="subtitle_sync_delay">Retrasar subtítulos</string>
+    <string name="subtitle_sync_advance">Adelantar subtítulos</string>
+    <string name="subtitle_sync_reset">Restablecer sincronización de subtítulos</string>
     <string name="settings_slider_value_summary">%1$s: %2$s</string>
     <string name="player_chapter_counter">%1$d / %2$d</string>
     <string name="bookmark_add_title">Añadir marcador</string>

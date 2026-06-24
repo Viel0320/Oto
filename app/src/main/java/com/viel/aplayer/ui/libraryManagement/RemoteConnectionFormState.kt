@@ -22,7 +22,6 @@ data class RemoteConnectionFormState(
     val absBaseUrl: String = "",
     val absUsername: String = "",
     val absPassword: String = "",
-    val absLibraryId: String = "",
-    val absLibraryName: String = "",
+    val absSelectedLibraries: Map<String, String> = emptyMap(),
     val absDisplayName: String = ""
 )

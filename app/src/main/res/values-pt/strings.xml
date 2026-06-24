@@ -514,6 +514,9 @@
     <string name="player_seek_undo_action">Anular</string>
     <string name="player_seek_undo_message">Saltou para uma nova posição</string>
     <string name="subtitles_empty">Nenhuma legenda encontrada</string>
+    <string name="subtitle_sync_delay">Atrasar legendas</string>
+    <string name="subtitle_sync_advance">Adiantar legendas</string>
+    <string name="subtitle_sync_reset">Redefinir sincronização de legendas</string>
     <string name="settings_slider_value_summary">%1$s: %2$s</string>
     <string name="player_chapter_counter">%1$d / %2$d</string>
     <string name="bookmark_add_title">Adicionar marcador</string>

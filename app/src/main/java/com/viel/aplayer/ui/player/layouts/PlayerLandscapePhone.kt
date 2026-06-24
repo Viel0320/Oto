@@ -53,6 +53,7 @@ import kotlinx.coroutines.flow.StateFlow
 fun PlayerLandscapePhone(
     modifier: Modifier = Modifier,
     playbackProgressState: StateFlow<PlaybackProgressViewState>,
+    subtitleSyncOffsetMs: Long,
     currentChapter: PlayerChapterItem?,
     isPlaying: Boolean,
     playbackSpeed: Float,
@@ -138,6 +139,9 @@ fun PlayerLandscapePhone(
                                             PlaybackPositionSubtitlesView(
                                                 playbackProgressState = playbackProgressState,
                                                 subtitles = metadata.subtitles,
+                                                subtitleSyncOffsetMs = subtitleSyncOffsetMs,
+                                                onAdjustSubtitleSync = actions.playback.onAdjustSubtitleSync,
+                                                onResetSubtitleSync = actions.playback.onResetSubtitleSync,
                                                 onSeek = { actions.playback.onSeek(it, true) },
                                                 modifier = Modifier.fillMaxSize()
                                             )

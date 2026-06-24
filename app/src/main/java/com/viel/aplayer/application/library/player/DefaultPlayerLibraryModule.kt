@@ -75,23 +75,7 @@ class DefaultPlayerLibraryModule(
     override suspend fun getLastPlayedSnapshot(): PlayerRestoredProgressSnapshot? {
         return progressGateway.getLastPlayedProgressSync()?.let { progress ->
             PlayerRestoredProgressSnapshot(
-                bookId = progress.bookId,
-                positionMs = progress.globalPositionMs
-            )
-        }
-    }
-
-    override suspend fun getBookPreview(bookId: String): PlayerBookPreview? {
-        return bookCatalogGateway.getBookById(bookId)?.let { book ->
-            PlayerBookPreview(
-                bookId = book.id,
-                title = book.title,
-                author = book.author,
-                narrator = book.narrator,
-                coverPath = book.coverPath,
-                thumbnailPath = book.thumbnailPath,
-                coverLastUpdated = book.lastScannedAt,
-                durationMs = book.totalDurationMs
+                bookId = progress.bookId
             )
         }
     }

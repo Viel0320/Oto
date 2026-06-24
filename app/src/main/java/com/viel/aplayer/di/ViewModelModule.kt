@@ -25,7 +25,7 @@ internal object ViewModelModule {
 
     val module: Module = module {
         viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get()) }
-        viewModel { PlaybackViewModel(get(), get(), get(), get(), get(), get()) }
+        viewModel { PlaybackViewModel(get(), get(), get(), get(), get(), get(), get()) }
         viewModel { BookmarkViewModel(get(), get(), get()) }
         viewModel { PlayerSettingsViewModel(get(), get(), get(), get(), get()) }
         viewModel { DetailViewModel(get(), get(), get(), get(), get()) }

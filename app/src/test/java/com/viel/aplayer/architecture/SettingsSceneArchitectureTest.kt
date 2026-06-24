@@ -34,7 +34,7 @@ class SettingsSceneArchitectureTest {
             settingsViewModelSource.contains("settingsRootCommands.refreshAllRootStatuses()")
         )
         val remoteConnectionViewModelSource =
-            resolveSourceRoot().resolve("ui/settings/remote/RemoteConnectionViewModel.kt").readText()
+            resolveSourceRoot().resolve("ui/libraryManagement/RemoteConnectionViewModel.kt").readText()
         assertTrue(
             "RemoteConnectionViewModel must register local roots through the settings-root command surface.",
             remoteConnectionViewModelSource.contains("settingsRootCommands.addLocalRootAndScheduleSync(uri)")

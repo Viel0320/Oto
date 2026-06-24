@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -444,8 +445,7 @@ fun AbsConnectionPage(
     connectionState: AbsConnectionUiState,
     glassEffectMode: GlassEffectMode,
     hazeState: HazeState?,
-    selectedLibraryId: String,
-    selectedLibraryName: String,
+    selectedLibraries: Map<String, String>,
     onBaseUrlChange: (String) -> Unit,
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
@@ -488,8 +488,7 @@ fun AbsConnectionPage(
                 enabled = baseUrl.isNotBlank() &&
                         username.isNotBlank() &&
                         (password.isNotBlank() || editingRootId != null) &&
-                        selectedLibraryId.isNotBlank() &&
-                        selectedLibraryName.isNotBlank(),
+                        selectedLibraries.isNotEmpty(),
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
@@ -590,8 +589,8 @@ fun AbsConnectionPage(
             )
             AbsConnectionFeedback(
                 connectionState = connectionState,
-                selectedLibraryId = selectedLibraryId,
-                selectedLibraryName = selectedLibraryName,
+                selectedLibraries = selectedLibraries,
+                isEditMode = editingRootId != null,
                 onLibrarySelected = onLibrarySelected
             )
         }
@@ -856,8 +855,8 @@ private fun WebDavConnectionFeedback(connectionState: WebDavConnectionUiState) {
 @Composable
 private fun AbsConnectionFeedback(
     connectionState: AbsConnectionUiState,
-    selectedLibraryId: String,
-    selectedLibraryName: String,
+    selectedLibraries: Map<String, String>,
+    isEditMode: Boolean,
     onLibrarySelected: (String, String) -> Unit
 ) {
     if (connectionState.loginSucceeded) {
@@ -878,10 +877,11 @@ private fun AbsConnectionFeedback(
             modifier = Modifier.fillMaxWidth()
         )
     }
-    if (selectedLibraryName.isNotBlank()) {
+    if (selectedLibraries.isNotEmpty()) {
         Spacer(modifier = Modifier.height(8.dp))
+        val selectedNames = selectedLibraries.values.joinToString(", ")
         Text(
-            text = stringResource(R.string.settings_abs_selected_library, selectedLibraryName),
+            text = stringResource(R.string.settings_abs_selected_library, selectedNames),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.fillMaxWidth()
@@ -913,10 +913,17 @@ private fun AbsConnectionFeedback(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(PaddingValues(horizontal = 12.dp, vertical = 8.dp))
                     ) {
-                        RadioButton(
-                            selected = selectedLibraryId == library.id,
-                            onClick = { onLibrarySelected(library.id, library.name) }
-                        )
+                        if (isEditMode) {
+                            RadioButton(
+                                selected = selectedLibraries.containsKey(library.id),
+                                onClick = { onLibrarySelected(library.id, library.name) }
+                            )
+                        } else {
+                            Checkbox(
+                                checked = selectedLibraries.containsKey(library.id),
+                                onCheckedChange = { onLibrarySelected(library.id, library.name) }
+                            )
+                        }
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "${library.name} (${library.id})",

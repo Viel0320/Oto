@@ -529,6 +529,9 @@
     <string name="player_seek_undo_action">Отменить</string>
     <string name="player_seek_undo_message">Переход к новой позиции</string>
     <string name="subtitles_empty">Субтитры не найдены</string>
+    <string name="subtitle_sync_delay">Задержать субтитры</string>
+    <string name="subtitle_sync_advance">Ускорить субтитры</string>
+    <string name="subtitle_sync_reset">Сбросить синхронизацию субтитров</string>
     <string name="settings_slider_value_summary">%1$s: %2$s</string>
     <string name="player_chapter_counter">%1$d / %2$d</string>
     <string name="bookmark_add_title">Добавить закладку</string>

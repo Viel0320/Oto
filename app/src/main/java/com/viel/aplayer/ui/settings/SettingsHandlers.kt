@@ -243,58 +243,65 @@ class SettingsConnectionHandler(
         return SettingsCredential(username = cred.username ?: "", password = "")
     }
 
-    fun addAbsServerWithPassword(
+    fun addAbsServersWithPassword(
         baseUrl: String,
         username: String,
         password: String,
-        libraryId: String,
-        libraryName: String,
+        libraries: Map<String, String>,
         editingRootId: String? = null
     ) {
         scope.launch {
-            AbsSettingsLogger.logAddServerStart(baseUrl, username, libraryId, libraryName)
-            runCatching {
-                absSettingsConnectionUseCase.saveServer(
-                    baseUrl = baseUrl,
-                    username = username,
-                    password = password,
-                    libraryId = libraryId,
-                    libraryName = libraryName,
-                    editingRootId = editingRootId,
-                    reuseSnapshot = lastSuccessfulAbsConnection
-                )
-            }.onSuccess { outcome ->
-                lastSuccessfulAbsConnection = outcome.snapshot
-                AbsSettingsLogger.logAddServerSuccess(baseUrl, username, libraryId, outcome.rootId)
+            var hasError = false
+            var lastErrorMsg: String? = null
+            val savedRootIds = mutableListOf<String>()
+            for ((libraryId, libraryName) in libraries) {
+                AbsSettingsLogger.logAddServerStart(baseUrl, username, libraryId, libraryName)
+                runCatching {
+                    absSettingsConnectionUseCase.saveServer(
+                        baseUrl = baseUrl,
+                        username = username,
+                        password = password,
+                        libraryId = libraryId,
+                        libraryName = libraryName,
+                        editingRootId = editingRootId,
+                        reuseSnapshot = lastSuccessfulAbsConnection
+                    )
+                }.onSuccess { outcome ->
+                    lastSuccessfulAbsConnection = outcome.snapshot
+                    savedRootIds.add(outcome.rootId)
+                    AbsSettingsLogger.logAddServerSuccess(baseUrl, username, libraryId, outcome.rootId)
+                    launchAutoAbsSync(outcome.rootId)
+                }.onFailure { error ->
+                    hasError = true
+                    lastErrorMsg = if (error.isDuplicateRootFor(DuplicateLibraryRootSource.ABS)) {
+                        formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
+                    } else {
+                        formatSettingsRootUseCase.redactAbsError(
+                            error.message ?: app.getString(R.string.feedback_settings_abs_server_save_failed_fallback)
+                        )
+                    }
+                    AbsSettingsLogger.logAddServerFailure(
+                        baseUrl = baseUrl,
+                        username = username,
+                        libraryId = libraryId,
+                        errorClass = error::class.java.simpleName,
+                        message = lastErrorMsg
+                    )
+                }
+            }
+            if (savedRootIds.isNotEmpty()) {
                 appEventSink.emitFeedback(
                     LibraryAccessFeedbackFacts.absServerSaved(
-                        rootId = outcome.rootId,
+                        rootId = savedRootIds.first(),
                         editing = editingRootId != null
                     )
                 )
-                _absConnectionState.value = AbsConnectionUiState()
-                launchAutoAbsSync(outcome.rootId)
-            }.onFailure { error ->
-                val redactedMessage = if (error.isDuplicateRootFor(DuplicateLibraryRootSource.ABS)) {
-                    formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
-                } else {
-                    formatSettingsRootUseCase.redactAbsError(
-                        error.message ?: app.getString(R.string.feedback_settings_abs_server_save_failed_fallback)
-                    )
-                }
-                AbsSettingsLogger.logAddServerFailure(
-                    baseUrl = baseUrl,
-                    username = username,
-                    libraryId = libraryId,
-                    errorClass = error::class.java.simpleName,
-                    message = redactedMessage
-                )
-                val fact = if (error.isDuplicateRootFor(DuplicateLibraryRootSource.ABS)) {
-                    LibraryAccessFeedbackFacts.absRootAlreadyExists(draftId = editingRootId ?: NEW_DRAFT_ID)
-                } else {
-                    LibraryAccessFeedbackFacts.absServerSaveFailed(redactedMessage)
-                }
+            }
+            if (hasError) {
+                val fact = LibraryAccessFeedbackFacts.absServerSaveFailed(lastErrorMsg ?: "")
                 appEventSink.emitFeedback(fact)
+            } else {
+                _absConnectionState.value = AbsConnectionUiState()
             }
         }
     }

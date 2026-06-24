@@ -68,6 +68,7 @@ import kotlinx.coroutines.flow.StateFlow
 @Composable
 fun PlayerPortrait(
     playbackProgressState: StateFlow<PlaybackProgressViewState>,
+    subtitleSyncOffsetMs: Long,
     currentChapter: PlayerChapterItem?,
     isPlaying: Boolean,
     playbackSpeed: Float,
@@ -173,6 +174,9 @@ fun PlayerPortrait(
                                                 PlaybackPositionSubtitlesView(
                                                     playbackProgressState = playbackProgressState,
                                                     subtitles = metadata.subtitles,
+                                                    subtitleSyncOffsetMs = subtitleSyncOffsetMs,
+                                                    onAdjustSubtitleSync = actions.playback.onAdjustSubtitleSync,
+                                                    onResetSubtitleSync = actions.playback.onResetSubtitleSync,
                                                     onSeek = { actions.playback.onSeek(it, true) },
                                                     modifier = Modifier.fillMaxSize()
                                                 )

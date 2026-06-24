@@ -105,8 +105,7 @@ class RemoteConnectionViewModel(
                 absBaseUrl = root.sourceUri,
                 absUsername = cred?.username.orEmpty(),
                 absPassword = "",
-                absLibraryId = root.basePath,
-                absLibraryName = root.displayName,
+                absSelectedLibraries = mapOf(root.basePath to root.displayName),
                 absDisplayName = root.displayName
             )
         }
@@ -162,7 +161,19 @@ class RemoteConnectionViewModel(
     }
 
     fun onAbsLibrarySelected(id: String, name: String) {
-        _form.update { it.copy(absLibraryId = id, absLibraryName = name) }
+        _form.update { state ->
+            if (state.editingRootId != null) {
+                state.copy(absSelectedLibraries = mapOf(id to name))
+            } else {
+                val current = state.absSelectedLibraries
+                val next = if (current.containsKey(id)) {
+                    current - id
+                } else {
+                    current + (id to name)
+                }
+                state.copy(absSelectedLibraries = next)
+            }
+        }
     }
 
     // --- Test / confirm ---
@@ -213,12 +224,11 @@ class RemoteConnectionViewModel(
 
     fun confirmAbs() {
         val f = _form.value
-        handler.addAbsServerWithPassword(
+        handler.addAbsServersWithPassword(
             baseUrl = f.absBaseUrl.trim(),
             username = f.absUsername.trim(),
             password = f.absPassword,
-            libraryId = f.absLibraryId.trim(),
-            libraryName = f.absLibraryName.trim(),
+            libraries = f.absSelectedLibraries,
             editingRootId = f.editingRootId
         )
         close()

@@ -139,6 +139,22 @@ class PlaybackLifetimeArchitectureTest {
         assertTrue(mediaPlaybackControllerModule.contains("PlayerPlaybackController"))
     }
 
+    @Test
+    fun coldStartRestoreBuildsRealPlaybackPlanInsteadOfPreviewOnlyState() {
+        val playbackViewModel = resolveSourceRoot().resolve("ui/player/PlaybackViewModel.kt").readText()
+
+        assertTrue(
+            "Cold-start restore must load the real media source without starting playback.",
+            playbackViewModel.contains("loadBook(lastProgress.bookId, playWhenReady = false)")
+        )
+        assertTrue(
+            "Cold-start restore must not regress to preview-only mini-player state.",
+            !playbackViewModel.contains("restorePlaybackPreview(") &&
+                !playbackViewModel.contains("_restoredPlaybackPreview") &&
+                !playbackViewModel.contains("getBookPreview(lastProgress.bookId)")
+        )
+    }
+
     private fun resolveSourceRoot(): File {
         val candidates = listOf(
             File("src/main/java/com/viel/aplayer"),

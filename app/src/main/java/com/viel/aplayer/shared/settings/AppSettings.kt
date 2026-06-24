@@ -163,6 +163,14 @@ data class AppSettings(
     val glassEffectMode: GlassEffectMode = DEFAULT_GLASS_EFFECT_MODE,
     val autoRewindSeconds: Int = 0,
     val playbackSeekStepConfig: PlaybackSeekStepConfig = PlaybackSeekStepConfig(),
+    /**
+     * Global subtitle timing offset applied by the player subtitle cue matcher.
+     *
+     * Positive values advance visible subtitles relative to audio, while negative values delay them.
+     * The setting belongs to app-wide playback configuration rather than a single loaded book so
+     * listeners can keep their preferred subtitle alignment across sessions and process restarts.
+     */
+    val subtitleSyncOffsetMs: Long = 0L,
     val isLastPlaybackInterrupted: Boolean = false,
     val isNotificationAvoidanceEnabled: Boolean = false,
     val playbackBufferMaxBytes: Long = DEFAULT_PLAYBACK_BUFFER_MAX_BYTES,
@@ -174,4 +182,3 @@ data class AppSettings(
         const val DEFAULT_PLAYBACK_BUFFER_MAX_BYTES: Long = 64L * 1024L * 1024L
     }
 }
-

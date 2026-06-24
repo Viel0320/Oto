@@ -75,6 +75,7 @@ class DownloadAwareAppSettingsCommandsTest {
         override suspend fun updateAutoRewindSeconds(seconds: Int) = Unit
         override suspend fun updateSeekBackwardSeconds(step: SeekStepSeconds) = Unit
         override suspend fun updateSeekForwardSeconds(step: SeekStepSeconds) = Unit
+        override suspend fun updateSubtitleSyncOffsetMs(offsetMs: Long) = Unit
         override suspend fun updateLastPlaybackInterrupted(interrupted: Boolean) = Unit
         override suspend fun updateNotificationAvoidanceEnabled(enabled: Boolean) = Unit
         override suspend fun updateThemeMode(mode: ThemeMode) = Unit

@@ -125,6 +125,7 @@ fun PlayerScreen(
 
 
     val fullUiState = playbackViewModel.uiState.collectAsStateWithLifecycle().value
+    val subtitleSyncOffsetMs = playbackViewModel.subtitleSyncOffsetMs.collectAsStateWithLifecycle().value
 
 
     val targetMode = remember(settings.selectedContentTab) {
@@ -323,6 +324,7 @@ fun PlayerScreen(
                         isTabletLandscape -> {
                             PlayerLandscapeTablet(
                                 playbackProgressState = playbackProgressState,
+                                subtitleSyncOffsetMs = subtitleSyncOffsetMs,
                                 currentChapter = currentChapter,
                                 isPlaying = controls.isPlaying,
                                 playbackSpeed = controls.playbackSpeed,
@@ -362,6 +364,7 @@ fun PlayerScreen(
                         isLandscape -> {
                             PlayerLandscapePhone(
                                 playbackProgressState = playbackProgressState,
+                                subtitleSyncOffsetMs = subtitleSyncOffsetMs,
                                 currentChapter = currentChapter,
                                 isPlaying = controls.isPlaying,
                                 playbackSpeed = controls.playbackSpeed,
@@ -401,6 +404,7 @@ fun PlayerScreen(
                         else -> {
                             PlayerPortrait(
                                 playbackProgressState = playbackProgressState,
+                                subtitleSyncOffsetMs = subtitleSyncOffsetMs,
                                 currentChapter = currentChapter,
                                 isPlaying = controls.isPlaying,
                                 playbackSpeed = controls.playbackSpeed,

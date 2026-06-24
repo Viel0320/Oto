@@ -78,6 +78,8 @@ fun rememberActions(
                 },
                 onNextChapter = { playbackViewModel.skipToNextChapter() },
                 onPreviousChapter = { playbackViewModel.skipToPreviousChapter() },
+                onAdjustSubtitleSync = { deltaMs -> playbackViewModel.adjustSubtitleSyncOffset(deltaMs) },
+                onResetSubtitleSync = { playbackViewModel.resetSubtitleSyncOffset() },
                 onMissingChapterClick = { bookId -> playbackViewModel.reportMissingChapterFile(bookId) }
             ),
             bookmarks = BookmarkActions(

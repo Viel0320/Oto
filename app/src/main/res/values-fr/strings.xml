@@ -522,6 +522,9 @@
     <string name="player_seek_undo_action">Annuler</string>
     <string name="player_seek_undo_message">Nouvelle position atteinte</string>
     <string name="subtitles_empty">Aucun sous-titre trouvé</string>
+    <string name="subtitle_sync_delay">Retarder les sous-titres</string>
+    <string name="subtitle_sync_advance">Avancer les sous-titres</string>
+    <string name="subtitle_sync_reset">Réinitialiser la synchro</string>
     <string name="settings_slider_value_summary">%1$s : %2$s</string>
     <string name="player_chapter_counter">%1$d / %2$d</string>
     <string name="bookmark_add_title">Ajouter un signet</string>

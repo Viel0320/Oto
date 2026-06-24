@@ -143,31 +143,15 @@ data class PlayerLibraryMetadata(
 
 /**
  * Cold-start compact-player progress projection.
- * Carries only the book identity and global position needed to restore UI preview state without exposing persistence entities to PlayerViewModel.
+ * Carries only the book identity needed to restore the last playback target without exposing persistence entities to PlayerViewModel.
  */
 data class PlayerRestoredProgressSnapshot(
-    val bookId: String,
-    val positionMs: Long
-)
-
-/**
- * Cold-start compact-player projection.
- * Supplies only book-row fields that the mini-player needs before real playback preparation starts.
- */
-data class PlayerBookPreview(
-    val bookId: String,
-    val title: String,
-    val author: String,
-    val narrator: String,
-    val coverPath: String?,
-    val thumbnailPath: String?,
-    val coverLastUpdated: Long,
-    val durationMs: Long
+    val bookId: String
 )
 
 /**
  * Player-scene read and refresh surface.
- * Groups playback-page metadata, subtitle loading, cover polling, progress restoration, related reads, and current-track availability behind one narrow interface.
+ * Groups playback-page metadata, subtitle loading, cover polling, progress target restoration, related reads, and current-track availability behind one narrow interface.
  */
 interface PlayerLibraryReadModel {
     /**
@@ -194,12 +178,6 @@ interface PlayerLibraryReadModel {
      * Returns the persisted playback checkpoint needed to show the compact player after app startup.
      */
     suspend fun getLastPlayedSnapshot(): PlayerRestoredProgressSnapshot?
-
-    /**
-     * Cold-start compact-player lookup.
-     * Returns the book-row projection required to restore mini-player metadata without preparing media files.
-     */
-    suspend fun getBookPreview(bookId: String): PlayerBookPreview?
 
     /**
      * Active-file subtitle lookup.

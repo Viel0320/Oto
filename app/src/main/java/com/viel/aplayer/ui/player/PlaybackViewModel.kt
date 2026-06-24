@@ -3,12 +3,11 @@ package com.viel.aplayer.ui.player
 import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.viel.aplayer.application.library.player.PlayerBookPreview
 import com.viel.aplayer.application.library.player.PlayerChapterItem
 import com.viel.aplayer.application.library.player.PlayerLibraryMetadata
 import com.viel.aplayer.application.library.player.PlayerLibraryReadModel
 import com.viel.aplayer.application.library.player.PlayerRelatedData
-import com.viel.aplayer.application.library.player.PlayerRestoredProgressSnapshot
+import com.viel.aplayer.application.library.settings.AppSettingsCommands
 import com.viel.aplayer.application.library.settings.AppSettingsReadModel
 import com.viel.aplayer.application.playback.PlayerPlaybackController
 import com.viel.aplayer.application.usecase.BuildPlaybackPlanUseCase
@@ -47,6 +46,7 @@ class PlaybackViewModel(
     private val resolveProgressConflictUseCase: ResolveProgressConflictUseCase,
     private val appEventSink: AppEventSink,
     private val settingsReadModel: AppSettingsReadModel,
+    private val settingsCommands: AppSettingsCommands,
     rawExternalScope: CoroutineScope? = null
 ) : ViewModel() {
 
@@ -54,6 +54,7 @@ class PlaybackViewModel(
 
     companion object {
         private val PLAYBACK_SPEEDS = listOf(0.8f, 0.9f, 1.0f, 1.1f, 1.2f, 1.3f)
+        private const val MAX_SUBTITLE_SYNC_OFFSET_MS = 30_000L
     }
 
     private val _currentBookId = MutableStateFlow<String?>(null)
@@ -61,6 +62,15 @@ class PlaybackViewModel(
 
     private val _currentSubtitles = MutableStateFlow<List<com.viel.aplayer.media.subtitle.SubtitleLine>>(emptyList())
     private var subtitleLoadJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * App-wide subtitle cue offset mirrored from playback settings.
+     *
+     * The player scene keeps a StateFlow for fast UI reads, while mutation flows through
+     * AppSettingsCommands so subtitle alignment survives book changes and process restarts.
+     */
+    private val _subtitleSyncOffsetMs = MutableStateFlow(0L)
+    val subtitleSyncOffsetMs: StateFlow<Long> = _subtitleSyncOffsetMs.asStateFlow()
 
     data class TrackUnavailableDialogState(
         val show: Boolean = false,
@@ -89,25 +99,11 @@ class PlaybackViewModel(
         val requestStartMs: Long
     )
 
-    /**
-     * Cold-start mini-player state before media preparation.
-     *
-     * Keeps the startup preview separate from _currentBookId so restoring the mini-player does not
-     * imply that a playback plan, Media3 source, subtitles, chapters, or related rows are ready.
-     */
-    private data class RestoredPlaybackPreview(
-        val metadata: BookMetadataState,
-        val playback: PlaybackState
-    ) {
-        val bookId: String = metadata.id
-    }
-
     private val _absProgressConflictDialog = MutableStateFlow(AbsProgressConflictDialogState())
     val absProgressConflictDialogState: StateFlow<AbsProgressConflictDialogState> = _absProgressConflictDialog.asStateFlow()
 
     private var pendingAbsProgressConflict: ResolveProgressConflictUseCase.ConflictSnapshot? = null
     private var pendingAbsProgressLoadRequest: PendingAbsProgressLoadRequest? = null
-    private val _restoredPlaybackPreview = MutableStateFlow<RestoredPlaybackPreview?>(null)
 
     private val playbackDelegate = MediaPlaybackDelegate(
         playbackController = { playbackController },
@@ -118,18 +114,12 @@ class PlaybackViewModel(
     private var onCoverUpdateCallback: ((String?) -> Unit)? = null
 
     /**
-     * Prepared media metadata or cold-start preview metadata.
-     *
-     * Emits preview metadata while no prepared media source is selected, then switches to the live
-     * metadata stream after loadBook selects a real playback target.
+     * Prepared media metadata for the currently selected playback target.
      */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val metadataState: StateFlow<BookMetadataState> = combine(
-        _currentBookId,
-        _restoredPlaybackPreview
-    ) { id, preview -> id to preview }
-        .flatMapLatest { (id, preview) ->
-            if (id == null) return@flatMapLatest flowOf(preview?.metadata ?: BookMetadataState())
+    val metadataState: StateFlow<BookMetadataState> = _currentBookId
+        .flatMapLatest { id ->
+            if (id == null) return@flatMapLatest flowOf(BookMetadataState())
 
             playerLibraryReadModel.observeMetadata(id, _currentSubtitles)
                 .map { metadata -> metadata.toBookMetadataState() }
@@ -138,9 +128,6 @@ class PlaybackViewModel(
 
     /**
      * Prepared-media recommendation rows.
-     *
-     * Keeps recommendation queries disabled for cold-start previews because the compact player does
-     * not render those rows and startup should avoid expanding beyond the saved book projection.
      */
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private val _relatedData = combine(
@@ -171,8 +158,7 @@ class PlaybackViewModel(
     /**
      * Live Media3 playback projection.
      *
-     * Represents only the actual playback engine state so preview restoration can compose over it
-     * without pretending the controller has a prepared source.
+     * Represents only the actual playback engine state after a real media source is prepared.
      */
     private val controllerPlaybackState = combine(
         playbackController.isPlaying,
@@ -191,26 +177,8 @@ class PlaybackViewModel(
         )
     }
 
-    /**
-     * Preview progress until real media is prepared.
-     *
-     * Uses restored progress while the mini-player is preview-only, then falls back to controller
-     * state as soon as a real current book is selected.
-     */
-    val playbackState: StateFlow<PlaybackState> = combine(
-        _currentBookId,
-        _restoredPlaybackPreview,
-        controllerPlaybackState
-    ) { preparedBookId, preview, controllerState ->
-        if (preparedBookId == null && preview != null) {
-            preview.playback.copy(
-                playbackSpeed = controllerState.playbackSpeed,
-                isSpeedManualMode = controllerState.isSpeedManualMode
-            )
-        } else {
-            controllerState
-        }
-    }.stateIn(externalScope, SharingStarted.WhileSubscribed(5000), PlaybackState())
+    val playbackState: StateFlow<PlaybackState> =
+        controllerPlaybackState.stateIn(externalScope, SharingStarted.WhileSubscribed(5000), PlaybackState())
 
     private val _isChapterProgressMode = MutableStateFlow(false)
 
@@ -322,15 +290,17 @@ class PlaybackViewModel(
                     setChapterProgressMode(settings.isChapterProgressMode)
                 }
                 setPlaybackSeekStepConfig(settings.playbackSeekStepConfig)
+                _subtitleSyncOffsetMs.value = settings.subtitleSyncOffsetMs
             }
         }
     }
 
     /**
-     * Preview-only cold-start recovery.
+     * Cold-start media recovery for the last played book.
      *
-     * Rehydrates the mini-player from the persisted progress row and lightweight book row only.
-     * Real playback preparation remains deferred until the user explicitly plays or opens a book.
+     * Startup restores the persisted progress target by building the real playback plan with
+     * playWhenReady=false, so the controller owns an actual media source before the user presses
+     * play while still avoiding automatic audio output.
      */
     private fun restoreLastPlayedBookToCompactPlayer() {
         if (hasRestoredLastPlayedBook) return
@@ -339,57 +309,9 @@ class PlaybackViewModel(
         externalScope.launch {
             playbackController.performColdStartSelfHealing()
             val lastProgress = playerLibraryReadModel.getLastPlayedSnapshot() ?: return@launch
-            val preview = playerLibraryReadModel.getBookPreview(lastProgress.bookId) ?: return@launch
-            if (_currentBookId.value == null && _restoredPlaybackPreview.value == null) {
-                restorePlaybackPreview(lastProgress, preview)
+            if (_currentBookId.value == null) {
+                loadBook(lastProgress.bookId, playWhenReady = false)
             }
-        }
-    }
-
-    /**
-     * Mini-player metadata and progress projection.
-     *
-     * Stores only display metadata and saved progress so startup can show continuity without
-     * building a playback plan or opening source files.
-     */
-    private fun restorePlaybackPreview(
-        progress: PlayerRestoredProgressSnapshot,
-        preview: PlayerBookPreview
-    ) {
-        val durationMs = preview.durationMs.coerceAtLeast(0L)
-        val positionMs = if (durationMs > 0L) {
-            progress.positionMs.coerceIn(0L, durationMs)
-        } else {
-            progress.positionMs.coerceAtLeast(0L)
-        }
-        _restoredPlaybackPreview.value = RestoredPlaybackPreview(
-            metadata = BookMetadataState(
-                id = preview.bookId,
-                title = preview.title,
-                author = preview.author,
-                narrator = preview.narrator,
-                coverPath = preview.coverPath,
-                thumbnailPath = preview.thumbnailPath,
-                coverLastUpdated = preview.coverLastUpdated
-            ),
-            playback = PlaybackState(
-                currentPosition = positionMs,
-                bufferedPosition = positionMs,
-                duration = durationMs
-            )
-        )
-        onMiniPlayerHiddenChanged?.invoke(false)
-    }
-
-    /**
-     * Preview-to-real state transition.
-     *
-     * Removes stale mini-player preview state once a real media source is selected or the preview is closed.
-     */
-    private fun clearRestoredPlaybackPreview(bookId: String? = null) {
-        val preview = _restoredPlaybackPreview.value ?: return
-        if (bookId == null || preview.bookId == bookId) {
-            _restoredPlaybackPreview.value = null
         }
     }
 
@@ -403,7 +325,6 @@ class PlaybackViewModel(
                     if (mediaParts != null) {
                         val bookId = mediaParts.bookId
                         val bookFileId = mediaParts.fileId
-                        clearRestoredPlaybackPreview(bookId)
                         _currentBookId.value = bookId
                         onMiniPlayerHiddenChanged?.invoke(false)
 
@@ -485,7 +406,6 @@ class PlaybackViewModel(
         loadBookRequestStart: Long
     ) {
         subtitleLoadJob?.cancel()
-        clearRestoredPlaybackPreview(id)
         _currentBookId.value = id
         _currentSubtitles.value = emptyList()
         onUndoSeekVisibilityChanged?.invoke(false)
@@ -569,30 +489,24 @@ class PlaybackViewModel(
 
     fun closePlayback(bookId: String) {
         val closesPreparedBook = _currentBookId.value == bookId
-        val closesPreviewBook = _restoredPlaybackPreview.value?.bookId == bookId
-        if (closesPreparedBook || closesPreviewBook) {
+        if (closesPreparedBook) {
             subtitleLoadJob?.cancel()
-            if (closesPreparedBook) {
-                _currentBookId.value = null
-            }
-            clearRestoredPlaybackPreview(bookId)
+            _currentBookId.value = null
             _currentSubtitles.value = emptyList()
-            if (closesPreparedBook) {
-                playbackController.pause()
-            }
+            playbackController.pause()
             onFullPlayerMinimized?.invoke()
             onMiniPlayerHiddenChanged?.invoke(true)
         }
     }
 
     fun closeCurrentPlayback() {
-        (_currentBookId.value ?: _restoredPlaybackPreview.value?.bookId)?.let(::closePlayback)
+        _currentBookId.value?.let(::closePlayback)
     }
 
     fun togglePlayPause() = if (playbackState.value.isPlaying) pause() else play()
 
     fun play() {
-        val id = _currentBookId.value ?: _restoredPlaybackPreview.value?.bookId
+        val id = _currentBookId.value
         if (id != null && !isMediaSourceLoadedFor(id)) {
             loadBook(id, playWhenReady = true)
         } else {
@@ -621,6 +535,31 @@ class PlaybackViewModel(
             undoJob?.cancel()
         }
         playbackDelegate.seekTo(positionMs)
+    }
+
+    /**
+     * Adjusts the global subtitle cue matching offset.
+     *
+     * The clamp keeps accidental repeated taps within a small synchronization window while preserving
+     * one persisted playback preference for future books and app launches.
+     */
+    fun adjustSubtitleSyncOffset(deltaMs: Long) {
+        val nextOffset = (_subtitleSyncOffsetMs.value + deltaMs)
+            .coerceIn(-MAX_SUBTITLE_SYNC_OFFSET_MS, MAX_SUBTITLE_SYNC_OFFSET_MS)
+        _subtitleSyncOffsetMs.value = nextOffset
+        externalScope.launch {
+            settingsCommands.updateSubtitleSyncOffsetMs(nextOffset)
+        }
+    }
+
+    /**
+     * Restores the global subtitle cue offset to parsed file timestamps.
+     */
+    fun resetSubtitleSyncOffset() {
+        _subtitleSyncOffsetMs.value = 0L
+        externalScope.launch {
+            settingsCommands.updateSubtitleSyncOffsetMs(0L)
+        }
     }
 
     fun undoSeek() {
@@ -687,10 +626,6 @@ class PlaybackViewModel(
 
     fun currentBookAvailability(bookId: String): kotlinx.coroutines.flow.Flow<Boolean> = flow {
         if (bookId.isBlank()) {
-            emit(true)
-            return@flow
-        }
-        if (_currentBookId.value != bookId && _restoredPlaybackPreview.value?.bookId == bookId) {
             emit(true)
             return@flow
         }

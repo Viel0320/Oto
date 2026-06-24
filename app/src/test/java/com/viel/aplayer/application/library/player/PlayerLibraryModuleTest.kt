@@ -30,7 +30,7 @@ import org.junit.Test
 
 /**
  * Locks player-scene read delegation.
- * Verifies metadata fan-in, cold-start progress previews, active-track availability, and cover polling without touching PlayerViewModel.
+ * Verifies metadata fan-in, cold-start progress target lookup, active-track availability, and cover polling without touching PlayerViewModel.
  */
 class PlayerLibraryModuleTest {
 
@@ -59,21 +59,11 @@ class PlayerLibraryModuleTest {
     }
 
     @Test
-    fun coldStartPreviewUsesLastProgressAndBookDurationOnly() = runBlocking {
-        val queryGateway = FakeBookQueryGateway(
-            booksById = mapOf(
-                BOOK_ID to book(
-                    title = "Preview Book",
-                    totalDurationMs = 9_000L,
-                    coverPath = "cover/original.jpg",
-                    thumbnailPath = "cover/thumb.jpg"
-                )
-            )
-        )
+    fun coldStartRestoreUsesLastProgressTargetOnly() = runBlocking {
+        val queryGateway = FakeBookQueryGateway()
         val progressGateway = FakeProgressGateway(
             lastProgress = BookProgressEntity(
-                bookId = BOOK_ID,
-                globalPositionMs = 4_500L
+                bookId = BOOK_ID
             )
         )
         val module = moduleFor(
@@ -82,30 +72,16 @@ class PlayerLibraryModuleTest {
         )
 
         val progress = module.getLastPlayedSnapshot()
-        val preview = module.getBookPreview(BOOK_ID)
 
-        assertEquals(PlayerRestoredProgressSnapshot(BOOK_ID, 4_500L), progress)
-        assertEquals(
-            PlayerBookPreview(
-                bookId = BOOK_ID,
-                title = "Preview Book",
-                author = "Author",
-                narrator = "Narrator",
-                coverPath = "cover/original.jpg",
-                thumbnailPath = "cover/thumb.jpg",
-                coverLastUpdated = 123L,
-                durationMs = 9_000L
-            ),
-            preview
-        )
-        assertEquals(listOf(BOOK_ID), queryGateway.requestedBookIds)
+        assertEquals(PlayerRestoredProgressSnapshot(BOOK_ID), progress)
+        assertTrue(queryGateway.requestedBookIds.isEmpty())
         assertTrue(queryGateway.observedBookIds.isEmpty())
         assertTrue(queryGateway.chapterBookIds.isEmpty())
         assertTrue(queryGateway.bookmarkBookIds.isEmpty())
     }
 
     @Test
-    fun coverPollingQueriesOnlyBookPreviewInformation() = runBlocking {
+    fun coverPollingQueriesOnlyDisplayCoverInformation() = runBlocking {
         val queryGateway = FakeBookQueryGateway(
             booksById = mapOf(
                 BOOK_ID to book(

@@ -518,6 +518,9 @@
     <string name="player_seek_undo_action">Rückgängig</string>
     <string name="player_seek_undo_message">Zu neuer Position gesprungen</string>
     <string name="subtitles_empty">Keine Untertitel gefunden</string>
+    <string name="subtitle_sync_delay">Untertitel verzögern</string>
+    <string name="subtitle_sync_advance">Untertitel vorziehen</string>
+    <string name="subtitle_sync_reset">Untertitelsynchronisierung zurücksetzen</string>
     <string name="settings_slider_value_summary">%1$s: %2$s</string>
     <string name="player_chapter_counter">%1$d / %2$d</string>
     <string name="bookmark_add_title">Lesezeichen hinzufügen</string>

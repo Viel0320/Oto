@@ -47,6 +47,8 @@ class AppSettingsRepository internal constructor(private val dataStore: DataStor
         private const val DEFAULT_AUTO_REWIND_SECONDS = 0
         private const val MIN_AUTO_REWIND_SECONDS = 0
         private const val MAX_AUTO_REWIND_SECONDS = 30
+        private const val MIN_SUBTITLE_SYNC_OFFSET_MS = -30_000L
+        private const val MAX_SUBTITLE_SYNC_OFFSET_MS = 30_000L
         private const val MIN_PLAYBACK_BUFFER_BYTES = 8L * 1024L * 1024L
         private const val MAX_PLAYBACK_BUFFER_BYTES = 256L * 1024L * 1024L
 
@@ -57,6 +59,9 @@ class AppSettingsRepository internal constructor(private val dataStore: DataStor
         fun autoRewindSecondsOrDefault(value: Int?): Int =
             value?.coerceIn(MIN_AUTO_REWIND_SECONDS, MAX_AUTO_REWIND_SECONDS)
                 ?: DEFAULT_AUTO_REWIND_SECONDS
+
+        fun subtitleSyncOffsetMsOrDefault(value: Long?): Long =
+            value?.coerceIn(MIN_SUBTITLE_SYNC_OFFSET_MS, MAX_SUBTITLE_SYNC_OFFSET_MS) ?: 0L
 
         fun playbackBufferBytesOrDefault(value: Long?): Long =
             value?.takeIf { it in MIN_PLAYBACK_BUFFER_BYTES..MAX_PLAYBACK_BUFFER_BYTES }
@@ -91,6 +96,7 @@ class AppSettingsRepository internal constructor(private val dataStore: DataStor
         val AUTO_REWIND_SECONDS = intPreferencesKey("auto_rewind_seconds")
         val SEEK_BACKWARD_SECONDS = intPreferencesKey("seek_backward_seconds")
         val SEEK_FORWARD_SECONDS = intPreferencesKey("seek_forward_seconds")
+        val SUBTITLE_SYNC_OFFSET_MS = longPreferencesKey("subtitle_sync_offset_ms")
         val IS_LAST_PLAYBACK_INTERRUPTED = booleanPreferencesKey("is_last_playback_interrupted")
         val IS_NOTIFICATION_AVOIDANCE_ENABLED = booleanPreferencesKey("is_notification_avoidance_enabled")
         val LEGACY_PLAYBACK_CACHE_MAX_BYTES = longPreferencesKey("playback_cache_max_bytes")
@@ -149,6 +155,9 @@ class AppSettingsRepository internal constructor(private val dataStore: DataStor
             playbackSeekStepConfig = PlaybackSeekStepConfig.fromStored(
                 backwardSeconds = preferences[PreferencesKeys.SEEK_BACKWARD_SECONDS],
                 forwardSeconds = preferences[PreferencesKeys.SEEK_FORWARD_SECONDS]
+            ),
+            subtitleSyncOffsetMs = PlaybackSettingsBounds.subtitleSyncOffsetMsOrDefault(
+                preferences[PreferencesKeys.SUBTITLE_SYNC_OFFSET_MS]
             ),
             isLastPlaybackInterrupted = preferences[PreferencesKeys.IS_LAST_PLAYBACK_INTERRUPTED] ?: false,
             isNotificationAvoidanceEnabled = preferences[PreferencesKeys.IS_NOTIFICATION_AVOIDANCE_ENABLED] ?: false,
@@ -256,6 +265,10 @@ class AppSettingsRepository internal constructor(private val dataStore: DataStor
 
     override suspend fun updateSeekForwardSeconds(step: SeekStepSeconds) {
         dataStore.edit { it[PreferencesKeys.SEEK_FORWARD_SECONDS] = step.seconds }
+    }
+
+    override suspend fun updateSubtitleSyncOffsetMs(offsetMs: Long) {
+        dataStore.edit { it[PreferencesKeys.SUBTITLE_SYNC_OFFSET_MS] = PlaybackSettingsBounds.subtitleSyncOffsetMsOrDefault(offsetMs) }
     }
 
     override suspend fun updateLastPlaybackInterrupted(interrupted: Boolean) {
