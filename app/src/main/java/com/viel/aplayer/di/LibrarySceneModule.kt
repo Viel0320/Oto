@@ -36,11 +36,15 @@ import com.viel.aplayer.data.search.SearchHistoryGateway
 import com.viel.aplayer.data.subtitle.SubtitleGateway
 import com.viel.aplayer.library.availability.AvailabilityChecker
 import org.koin.core.module.Module
+import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**
  * Scene-level read models and commands for home, detail, player, edit, search, and recovery.
  * Replaces the scene-module section of LibraryGraph.
+ *
+ * Scene adapters that implement both read-model and command contracts are registered once and
+ * bound to both contracts so scene state stays single-instance across read and command entrypoints.
  */
 @UnstableApi
 internal object LibrarySceneModule {
@@ -64,30 +68,22 @@ internal object LibrarySceneModule {
             )
         }
 
-        single<SearchLibraryReadModel> {
+        single {
             DefaultSearchLibraryModule(
                 searchHistoryGateway = get<SearchHistoryGateway>(),
                 queryPlanner = SearchQueryPlanner.from(get<BookCatalogGateway>())
             )
-        }
+        } binds arrayOf(SearchLibraryReadModel::class, SearchLibraryCommands::class)
 
-        single<DefaultSearchLibraryModule> { get<SearchLibraryReadModel>() as DefaultSearchLibraryModule }
-
-        single<SearchLibraryCommands> { get<DefaultSearchLibraryModule>() }
-
-        single<DetailBookReadModel> {
+        single {
             DefaultDetailBookModule(
                 bookCatalogGateway = get<BookCatalogGateway>(),
                 bookAvailabilityGateway = get<BookAvailabilityGateway>(),
                 libraryRootGateway = get<LibraryRootGateway>()
             )
-        }
+        } binds arrayOf(DetailBookReadModel::class, DetailBookCommands::class)
 
-        single<DefaultDetailBookModule> { get<DetailBookReadModel>() as DefaultDetailBookModule }
-
-        single<DetailBookCommands> { get<DefaultDetailBookModule>() }
-
-        single<PlayerLibraryReadModel> {
+        single {
             DefaultPlayerLibraryModule(
                 bookCatalogGateway = get<BookCatalogGateway>(),
                 chapterGateway = get<ChapterGateway>(),
@@ -96,35 +92,23 @@ internal object LibrarySceneModule {
                 progressGateway = get<ProgressGateway>(),
                 subtitleGateway = get<SubtitleGateway>()
             )
-        }
+        } binds arrayOf(PlayerLibraryReadModel::class, PlayerBookmarkCommands::class)
 
-        single<DefaultPlayerLibraryModule> { get<PlayerLibraryReadModel>() as DefaultPlayerLibraryModule }
-
-        single<PlayerBookmarkCommands> { get<DefaultPlayerLibraryModule>() }
-
-        single<EditBookReadModel> {
+        single {
             DefaultEditBookModule(
                 bookCatalogGateway = get<BookCatalogGateway>(),
                 bookMetadataGateway = get<BookMetadataGateway>(),
                 coverAssetGateway = get<CoverAssetGateway>()
             )
-        }
+        } binds arrayOf(EditBookReadModel::class, EditBookCommands::class)
 
-        single<DefaultEditBookModule> { get<EditBookReadModel>() as DefaultEditBookModule }
-
-        single<EditBookCommands> { get<DefaultEditBookModule>() }
-
-        single<DeletedBookRecoveryReadModel> {
+        single {
             DefaultDeletedBookRecoveryModule(
                 bookDao = get<AppDatabase>().bookDao(),
                 libraryRootDao = get<AppDatabase>().libraryRootDao(),
                 absItemMirrorDao = get<AppDatabase>().absItemMirrorDao(),
                 availabilityChecker = get<AvailabilityChecker>()
             )
-        }
-
-        single<DefaultDeletedBookRecoveryModule> { get<DeletedBookRecoveryReadModel>() as DefaultDeletedBookRecoveryModule }
-
-        single<DeletedBookRecoveryCommands> { get<DefaultDeletedBookRecoveryModule>() }
+        } binds arrayOf(DeletedBookRecoveryReadModel::class, DeletedBookRecoveryCommands::class)
     }
 }

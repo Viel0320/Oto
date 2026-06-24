@@ -20,12 +20,16 @@ import com.viel.aplayer.library.vfs.cache.DirectoryListingCache
 import com.viel.aplayer.library.vfs.cache.VfsRangeCache
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
 import org.koin.core.module.Module
+import org.koin.dsl.bind
 import org.koin.dsl.module
 import java.io.Closeable
 
 /**
  * Library scan scheduling, cache eviction, root gateway, and cleanup seams.
  * Replaces the scan/root section of LibraryGraph.
+ *
+ * Cleanup, scheduler, and root gateway contracts are exposed from their owning definitions
+ * instead of through secondary Koin providers that only redirect to implementation classes.
  */
 @UnstableApi
 internal object LibraryScanModule {
@@ -40,11 +44,9 @@ internal object LibraryScanModule {
                 vfsRangeCache = get<VfsRangeCache>(),
                 vfsFileInterface = get<VfsFileInterface>()
             )
-        }
+        } bind LibraryResourceCleanupGateway::class
 
-        single<LibraryResourceCleanupGateway> { get<CacheEvictionCoordinator>() }
-
-        single {
+        single<ScanScheduler> {
             ScanSchedulerImpl(
                 context = get(),
                 coverRecoveryGateway = get<CoverRecoveryGateway>(),
@@ -63,10 +65,6 @@ internal object LibraryScanModule {
             }
         }
 
-        single<ScanScheduler> {
-            get<ScanSchedulerImpl>()
-        }
-
         single {
             LibraryRootStore(
                 context = get(),
@@ -78,7 +76,7 @@ internal object LibraryScanModule {
             )
         }
 
-        single {
+        single<LibraryRootGateway> {
             LibraryRootGatewayImpl(
                 context = get(),
                 libraryRootDao = get<AppDatabase>().libraryRootDao(),
@@ -96,10 +94,6 @@ internal object LibraryScanModule {
                     closeable = Closeable { gateway.close() }
                 )
             }
-        }
-
-        single<LibraryRootGateway> {
-            get<LibraryRootGatewayImpl>()
         }
     }
 }

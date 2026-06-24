@@ -82,7 +82,7 @@ private class RoomDeletedBookRecoveryStore(
 
 /**
  * Converts DAO rows to the application recovery item.
- * Keeps SQL aliases and Compose-facing field names aligned while avoiding Room annotations in the UI model.
+ * Keeps DAO projection columns and Compose-facing field names aligned without adding Room annotations to the UI model.
  */
 private fun DeletedBookRecoveryProjection.toRecoveryItem(): DeletedBookRecoveryItem =
     DeletedBookRecoveryItem(

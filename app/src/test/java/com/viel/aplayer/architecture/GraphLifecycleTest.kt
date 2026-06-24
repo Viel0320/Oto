@@ -79,12 +79,12 @@ class GraphLifecycleTest {
     @Test
     fun `koin modules register closeable resources through graph close policy`() {
         val sourceRoot = resolveSourceRoot()
-        val mediaModuleSource = sourceRoot.resolve("di/koin/MediaModule.kt").readText()
-        val downloadModuleSource = sourceRoot.resolve("di/koin/DownloadModule.kt").readText()
-        val absSyncModuleSource = sourceRoot.resolve("di/koin/AbsSyncModule.kt").readText()
-        val libraryScanModuleSource = sourceRoot.resolve("di/koin/LibraryScanModule.kt").readText()
-        val uiEventModuleSource = sourceRoot.resolve("di/koin/UiEventModule.kt").readText()
-        val coreDataModuleSource = sourceRoot.resolve("di/koin/CoreDataModule.kt").readText()
+        val mediaModuleSource = sourceRoot.resolve("di/MediaModule.kt").readText()
+        val downloadModuleSource = sourceRoot.resolve("di/DownloadModule.kt").readText()
+        val absSyncModuleSource = sourceRoot.resolve("di/AbsSyncModule.kt").readText()
+        val libraryScanModuleSource = sourceRoot.resolve("di/LibraryScanModule.kt").readText()
+        val uiEventModuleSource = sourceRoot.resolve("di/UiEventModule.kt").readText()
+        val coreDataModuleSource = sourceRoot.resolve("di/CoreDataModule.kt").readText()
 
         assertTrue(
             "MediaModule must register playback runtime with GraphClosePolicy.",

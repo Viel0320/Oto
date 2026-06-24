@@ -16,6 +16,7 @@ import com.viel.aplayer.media.PlaybackManager
 import com.viel.aplayer.media.PlaybackRootLookup
 import com.viel.aplayer.media.PlaybackSourcePreflight
 import org.koin.core.module.Module
+import org.koin.dsl.bind
 import org.koin.dsl.module
 import java.io.Closeable
 
@@ -23,6 +24,9 @@ import java.io.Closeable
  * VFS, playback runtime, and playback-file infrastructure.
  * Replaces MediaGraph with Koin-managed single definitions and registers the playback runtime for
  * ordered shutdown.
+ *
+ * DirectoryListingCache is bound from the Room implementation definition to avoid a second
+ * provider whose only job is resolving the concrete cache back out of Koin.
  */
 @UnstableApi
 internal object MediaModule {
@@ -38,9 +42,7 @@ internal object MediaModule {
     val module: Module = module {
         single { VfsRangeCache(get<Context>()) }
 
-        single { RoomDirectoryListingCache(directoryChildCacheDao = get<AppDatabase>().directoryChildCacheDao()) }
-
-        single<DirectoryListingCache> { get<RoomDirectoryListingCache>() }
+        single { RoomDirectoryListingCache(directoryChildCacheDao = get<AppDatabase>().directoryChildCacheDao()) } bind DirectoryListingCache::class
 
         single { AutoRewindManager(get(), get(), get(), get()) }
 

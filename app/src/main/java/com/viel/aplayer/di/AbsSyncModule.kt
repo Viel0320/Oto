@@ -2,7 +2,7 @@ package com.viel.aplayer.di
 
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.abs.auth.AbsCredentialStore
-import com.viel.aplayer.abs.net.RealAbsApiClient
+import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.playback.AbsPlaybackCredentialResolver
 import com.viel.aplayer.abs.playback.AbsPlaybackSessionSyncer
 import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
@@ -17,11 +17,11 @@ import com.viel.aplayer.data.root.LibraryRootGateway
 import com.viel.aplayer.event.AppEventSink
 import org.koin.core.module.Module
 import org.koin.dsl.module
-import java.io.Closeable
 
 /**
  * ABS catalog sync, playback session sync, progress conflict coordinator, and sync task coordinator.
- * Replaces the sync section of AbsGraph and registers the coordinator for ordered shutdown.
+ * Replaces the sync section of AbsGraph and depends on the AbsApiClient contract rather than
+ * the concrete network implementation outside the ABS networking module.
  */
 @UnstableApi
 internal object AbsSyncModule {
@@ -29,7 +29,7 @@ internal object AbsSyncModule {
     val module: Module = module {
         single {
             AbsProgressConflictCoordinator(
-                apiClient = get<RealAbsApiClient>(),
+                apiClient = get<AbsApiClient>(),
                 bookCatalogGateway = get<BookCatalogGateway>(),
                 bookMetadataGateway = get<BookMetadataGateway>(),
                 progressGateway = get<ProgressGateway>(),
@@ -39,7 +39,7 @@ internal object AbsSyncModule {
 
         single {
             AbsAuthorizedProgressSynchronizer(
-                apiClient = get<RealAbsApiClient>(),
+                apiClient = get<AbsApiClient>(),
                 credentialProvider = { root ->
                     val credential = root.credentialId?.let { credentialId ->
                         get<AbsCredentialStore>().get(credentialId)
@@ -59,7 +59,7 @@ internal object AbsSyncModule {
 
         single {
             AbsCatalogSynchronizer(
-                apiClient = get<RealAbsApiClient>(),
+                apiClient = get<AbsApiClient>(),
                 credentialStore = get(),
                 catalogStore = get<AppDatabase>().absCatalogDao(),
                 authorizedProgressSynchronizer = get()
@@ -68,7 +68,7 @@ internal object AbsSyncModule {
 
         single {
             AbsPlaybackSessionSyncer(
-                apiClient = get<RealAbsApiClient>(),
+                apiClient = get<AbsApiClient>(),
                 absPlaybackSessionDao = get<AppDatabase>().absPlaybackSessionDao(),
                 absPendingProgressSyncDao = get<AppDatabase>().absPendingProgressSyncDao(),
                 catalogStore = get<AppDatabase>().absCatalogDao(),
@@ -86,7 +86,7 @@ internal object AbsSyncModule {
             ).also { coordinator ->
                 GraphClosePolicy.register(
                     stage = GraphClosePolicy.Stage.Abs,
-                    closeable = Closeable { coordinator.close() }
+                    closeable = { coordinator.close() }
                 )
             }
         }

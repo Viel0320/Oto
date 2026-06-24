@@ -14,32 +14,29 @@ import org.koin.dsl.module
 
 /**
  * AudiobookShelf credentials, API client, connection tester, cover cache, and credential resolver.
- * Replaces the credential/client section of AbsGraph.
+ * Replaces the credential/client section of AbsGraph. Each public ABS contract is registered
+ * directly so optimized builds do not need redirect-only Koin definitions.
  */
 @UnstableApi
 internal object AbsModule {
 
     val module: Module = module {
-        single {
+        single<AbsApiClient> {
             RealAbsApiClient(
                 appSettingsRepository = get<AppSettingsRepository>(),
                 credentialStore = get()
             )
         }
 
-        single<AbsApiClient> { get<RealAbsApiClient>() }
-
         single { AbsConnectionTester(get()) }
 
-        single {
+        single<AbsCoverStore> {
             AbsCoverCache(
                 context = get(),
                 credentialStore = get(),
                 settingsProvider = { get<AppSettingsRepository>().cachedSettings }
             )
         }
-
-        single<AbsCoverStore> { get<AbsCoverCache>() as AbsCoverStore }
 
         single {
             AbsPlaybackCredentialResolver(

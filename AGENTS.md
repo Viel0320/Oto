@@ -73,6 +73,7 @@ Many behaviors are source-specific. Do not assume SAF, WebDAV, ABS, cached playb
 - Treat cleartext HTTP and insecure TLS as global runtime policy decisions controlled by settings and `UnsafeNetworkPolicy`.
 - Preserve Room migrations, exported schema files, and the version `41` production baseline described in `docs/release-policy.md`.
 - Keep release shrinking, backup allowlists, network security, signing, SDK levels, and dependency policy aligned with `docs/release-policy.md`.
+- Do not use source-level alias constructs, including Kotlin `typealias`, Kotlin import aliases ; resolve naming conflicts with direct imports, fully qualified names.
 
 ---
 
@@ -216,11 +217,13 @@ ABS changes usually require tests with `MockWebServer` and local mapping asserti
 
 DI is provided by Koin, which directly injects resolved implementations into target constructors.
 
-- Koin module definitions live under `di/koin/`.
+- Koin module definitions live under `di/`.
 - `APlayerKoinApplication` starts the global Koin context with every APlayer module.
 - `GraphClosePolicy` preserves the ordered shutdown policy (media -> download -> abs -> library -> uiEvents -> data).
+- Do not create Koin alias definitions, including provider bodies that only call `get()` or `getOrNull()`, such as `single<Contract> { get<Implementation>() }`, `factory<Contract> { get() }`, or `single { get<Implementation>() as Contract }`.
+- Register the implementation directly under the public contract, or use `bind` / `binds` on the owning singleton when one object intentionally implements multiple contracts.
 
-When adding a dependency, declare it in the constructor of your target component and register the binding within the appropriate Koin module in `di/koin/`. Keep modules small and focused; split a module when it grows past ~80 lines.
+When adding a dependency, declare it in the constructor of your target component and register the binding within the appropriate Koin module in `di/`. Keep modules small and focused; split a module when it grows past ~80 lines.
 
 Graph shutdown order is policy. Preserve `GraphClosePolicy.closeInLifecycleOrder()` unless the lifecycle consequence is understood and tested.
 

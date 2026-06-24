@@ -1,5 +1,6 @@
 package com.viel.aplayer.i18n
 
+import android.annotation.SuppressLint
 import android.app.LocaleConfig
 import android.app.LocaleManager
 import android.content.Context
@@ -58,6 +59,7 @@ object AppLocaleController {
         }
     }
 
+    @SuppressLint("AppBundleLocaleChanges")
     fun wrapContext(context: Context, language: AppLanguage): Context {
         if (language == AppLanguage.System) return context
         val localeList = LocaleList.forLanguageTags(language.localeTag)

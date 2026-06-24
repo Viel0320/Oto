@@ -3,21 +3,21 @@ package com.viel.aplayer.di
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.application.download.DownloadRuntimeGateway
 import com.viel.aplayer.application.library.settings.AppSettingsCommands
-import com.viel.aplayer.application.library.settings.AppSettingsReadModel
 import com.viel.aplayer.application.library.settings.DownloadAwareAppSettingsCommands
 import com.viel.aplayer.data.AppSettingsRepository
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
 /**
- * Settings read model and command surface, including the download-aware command wrapper.
- * Replaces DataGraph's settingsReadModel / settingsCommands accessors.
+ * Settings command surface, including the download-aware command wrapper.
+ *
+ * AppSettingsRepository binds AppSettingsReadModel from CoreDataModule so this module only owns
+ * the command adapter that coordinates settings writes with the download runtime.
  */
 @UnstableApi
 internal object CoreSettingsModule {
 
     val module: Module = module {
-        single<AppSettingsReadModel> { get<AppSettingsRepository>() }
         single<AppSettingsCommands> {
             DownloadAwareAppSettingsCommands(
                 delegate = get<AppSettingsRepository>(),

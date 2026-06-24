@@ -12,7 +12,7 @@ import com.viel.aplayer.data.book.BookCatalogGateway
 import com.viel.aplayer.data.book.BookDeletionGateway
 import com.viel.aplayer.data.book.BookRootInventoryGateway
 import com.viel.aplayer.data.cleanup.LibraryResourceCleanupGateway
-import com.viel.aplayer.data.cleanup.RemotePlaybackCleanupGatewayImpl
+import com.viel.aplayer.data.cleanup.RemotePlaybackCleanupGateway
 import com.viel.aplayer.data.cover.CoverRecoveryHelper
 import com.viel.aplayer.data.cover.CoverUriResolver
 import com.viel.aplayer.data.db.AppDatabase
@@ -26,11 +26,11 @@ import com.viel.aplayer.media.PlaybackPlanGateway
 import com.viel.aplayer.media.PlaybackPlanGatewayImpl
 import org.koin.core.module.Module
 import org.koin.dsl.module
-import java.io.Closeable
 
 /**
  * Playback plan, progress, metadata, subtitle, search history gateways, and management use cases.
- * Replaces the use-case section of LibraryGraph.
+ * Replaces the use-case section of LibraryGraph. Gateway contracts are registered directly so
+ * release builds keep a single factory path for each contract.
  */
 @UnstableApi
 internal object LibraryUseCaseModule {
@@ -51,16 +51,14 @@ internal object LibraryUseCaseModule {
             )
         }
 
-        single {
+        single<ProgressGateway> {
             ProgressGatewayImpl(get<AppDatabase>().bookDao()).also { gateway ->
                 GraphClosePolicy.register(
                     stage = GraphClosePolicy.Stage.Library,
-                    closeable = Closeable { gateway.close() }
+                    closeable = { gateway.close() }
                 )
             }
         }
-
-        single<ProgressGateway> { get<ProgressGatewayImpl>() }
 
         single<SearchHistoryGateway> {
             SearchHistoryGatewayImpl(searchHistoryStore = get<SearchHistoryStore>())
@@ -82,7 +80,7 @@ internal object LibraryUseCaseModule {
                 playbackStopper = get<PlaybackStopper>(),
                 bookAvailabilityGateway = get<BookAvailabilityGateway>(),
                 bookDeletionGateway = get<BookDeletionGateway>(),
-                remotePlaybackCleanupGateway = get<RemotePlaybackCleanupGatewayImpl>(),
+                remotePlaybackCleanupGateway = get<RemotePlaybackCleanupGateway>(),
                 manualDownloadCleanupGateway = get<ManualDownloadCleanupGateway>()
             )
         }

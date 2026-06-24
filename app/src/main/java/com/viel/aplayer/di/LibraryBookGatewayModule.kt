@@ -22,11 +22,12 @@ import com.viel.aplayer.library.availability.AvailabilityChecker
 import com.viel.aplayer.library.availability.MissingBookFileRecoveryChecker
 import org.koin.core.module.Module
 import org.koin.dsl.module
-import java.io.Closeable
 
 /**
  * Local library book-level gateways and availability checker.
  * Replaces the gateway section of LibraryGraph with Koin-managed single definitions.
+ * Gateway interfaces are registered directly so release dependency resolution keeps one factory
+ * path per contract.
  */
 @UnstableApi
 internal object LibraryBookGatewayModule {
@@ -43,59 +44,49 @@ internal object LibraryBookGatewayModule {
 
         single { MissingBookFileRecoveryChecker(get<AppDatabase>(), get()) }
 
-        single { BookAvailabilityGatewayImpl(get<AppDatabase>().bookDao(), get<AppDatabase>().libraryRootDao(), get()) }
+        single<BookAvailabilityGateway> {
+            BookAvailabilityGatewayImpl(get<AppDatabase>().bookDao(), get<AppDatabase>().libraryRootDao(), get())
+        }
 
-        single<BookAvailabilityGateway> { get<BookAvailabilityGatewayImpl>() }
-
-        single {
+        single<BookMetadataGateway> {
             BookMetadataGatewayImpl(get<AppDatabase>().bookDao()).also { gateway ->
                 GraphClosePolicy.register(
                     stage = GraphClosePolicy.Stage.Library,
-                    closeable = Closeable { gateway.close() }
+                    closeable = { gateway.close() }
                 )
             }
         }
-
-        single<BookMetadataGateway> { get<BookMetadataGatewayImpl>() }
 
         single<BookmarkGateway> {
             BookmarkGatewayImpl(get<AppDatabase>().bookDao(), get<AppDatabase>().bookmarkDao())
         }
 
-        single {
+        single<ChapterGateway> {
             ChapterGatewayImpl(get<AppDatabase>().bookDao(), get<AppDatabase>().chapterDao()).also { gateway ->
                 GraphClosePolicy.register(
                     stage = GraphClosePolicy.Stage.Library,
-                    closeable = Closeable { gateway.close() }
+                    closeable = { gateway.close() }
                 )
             }
-        }
-
-        single<ChapterGateway> {
-            get<ChapterGatewayImpl>()
         }
 
         single<BookDeletionGateway> { BookDeletionGatewayImpl(get<AppDatabase>().bookDao()) }
 
         single<BookRootInventoryGateway> { BookRootInventoryGatewayImpl(get<AppDatabase>().bookDao()) }
 
-        single {
+        single<BookCatalogGateway> {
             BookCatalogGatewayImpl(
                 bookDao = get<AppDatabase>().bookDao(),
                 coverRecoveryGateway = get()
             )
         }
 
-        single<BookCatalogGateway> { get<BookCatalogGatewayImpl>() }
-
-        single {
+        single<RemotePlaybackCleanupGateway> {
             RemotePlaybackCleanupGatewayImpl(
                 absPlaybackSessionDao = get<AppDatabase>().absPlaybackSessionDao(),
                 absPendingProgressSyncDao = get<AppDatabase>().absPendingProgressSyncDao()
             )
         }
-
-        single<RemotePlaybackCleanupGateway> { get<RemotePlaybackCleanupGatewayImpl>() as RemotePlaybackCleanupGateway }
 
     }
 }

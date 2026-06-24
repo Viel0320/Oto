@@ -61,7 +61,7 @@ class ContainerAccessArchitectureTest {
         )
         val unguardedExamples = listOf(
             "APlayerApplication.kt",
-            "di/koin/APlayerKoinApplication.kt"
+            "di/APlayerKoinApplication.kt"
         )
 
         assertTrue(
@@ -121,7 +121,7 @@ class ContainerAccessArchitectureTest {
     private fun File.isCompositionRoot(sourceRoot: File): Boolean {
         val relativePath = relativeTo(sourceRoot).invariantSeparatorsPath
         return relativePath == "APlayerApplication.kt" ||
-            relativePath.startsWith("di/koin/")
+            relativePath.startsWith("di/")
     }
 
     private data class ForbiddenPattern(

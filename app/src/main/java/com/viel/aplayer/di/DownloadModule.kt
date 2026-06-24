@@ -40,6 +40,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import org.koin.core.module.Module
+import org.koin.dsl.binds
 import org.koin.dsl.module
 import java.io.Closeable
 import java.util.concurrent.Executors
@@ -48,6 +49,9 @@ import java.util.concurrent.Executors
  * Manual download cache, Media3 DownloadManager, and download runtime gateways.
  * Replaces DownloadGraph with Koin-managed single definitions and registers cache/manager/scope
  * for ordered shutdown.
+ *
+ * DownloadController is exposed as ManualDownloadCleanupGateway from the same singleton definition
+ * so R8-optimized builds never resolve a redirect-only cleanup provider back into itself.
  */
 @OptIn(UnstableApi::class)
 internal object DownloadModule {
@@ -66,9 +70,7 @@ internal object DownloadModule {
             }
         }
 
-        single { StandaloneDatabaseProvider(get()) }
-
-        single<DatabaseProvider> { get<StandaloneDatabaseProvider>() }
+        single<DatabaseProvider> { StandaloneDatabaseProvider(get()) }
 
         single<Cache> {
             SimpleCache(
@@ -100,7 +102,7 @@ internal object DownloadModule {
             )
         }
 
-        single<Media3DownloadIndexSnapshotReader> {
+        single<DownloadIndexSnapshotReader> {
             Media3DownloadIndexSnapshotReader(
                 downloadIndexProvider = { get<DownloadManager>().downloadIndex },
                 activeDownloadsProvider = {
@@ -111,8 +113,6 @@ internal object DownloadModule {
                 }
             )
         }
-
-        single<DownloadIndexSnapshotReader> { get<Media3DownloadIndexSnapshotReader>() as DownloadIndexSnapshotReader }
 
         single<DownloadSyncService> {
             DownloadSyncService(
@@ -215,7 +215,7 @@ internal object DownloadModule {
 
         single { DownloadRequestRepairer(get()) }
 
-        single<DownloadController> {
+        single {
             DefaultDownloadController(
                 downloadableBookFileSelector = get(),
                 downloadMetadataDao = get<AppDatabase>().downloadMetadataDao(),
@@ -223,9 +223,7 @@ internal object DownloadModule {
                 downloadRequestRepairer = get(),
                 manualDownloadNotificationGateway = get()
             )
-        }
-
-        single<ManualDownloadCleanupGateway> { get<DownloadController>() as ManualDownloadCleanupGateway }
+        } binds arrayOf(DownloadController::class, ManualDownloadCleanupGateway::class)
 
         single {
             ManualDownloadOrphanCleaner(

@@ -46,10 +46,10 @@ import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryItem
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
+import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.settings.SettingsTemplateDialog
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
-import com.viel.aplayer.ui.home.components.ListItem as BookListItem
 
 /**
  * Connects the recovery ViewModel to the stateless screen.
@@ -203,7 +203,7 @@ private fun DeletedBookRecoveryList(
         ) {
             items(items, key = { item -> item.bookId }) { item ->
                 val isRestoring = restoringBookIds.contains(item.bookId)
-                BookListItem(
+                ListItem(
                     bookId = item.bookId,
                     title = item.title,
                     author = item.author,

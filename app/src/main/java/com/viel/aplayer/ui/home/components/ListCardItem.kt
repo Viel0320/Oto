@@ -1,5 +1,6 @@
 package com.viel.aplayer.ui.home.components
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.animateDp
@@ -58,7 +59,6 @@ import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
-import androidx.compose.animation.AnimatedVisibility as SharedSourceVisibility
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalSharedTransitionApi::class,
     ExperimentalHazeMaterialsApi::class
@@ -166,13 +166,13 @@ private fun RecentCoverSharedSource(
         ?: bookId.takeIf { it.isNotBlank() }?.let { SharedElementKeys.home2DetailCover(it) }
 
     Box(modifier = modifier) {
-        SharedSourceVisibility(
+        AnimatedVisibility(
             visible = !isDetailTargetActive,
             enter = fadeIn(animationSpec = tween(300)),
             exit = fadeOut(animationSpec = tween(300)),
             modifier = Modifier.fillMaxSize()
         ) {
-            val home2DetailSourceScope = this@SharedSourceVisibility
+            val home2DetailSourceScope = this@AnimatedVisibility
             val animatedCoverCornerRadius by home2DetailSourceScope.transition.animateDp(
                 label = "recent_cover_corner_radius",
                 transitionSpec = { tween(300) }

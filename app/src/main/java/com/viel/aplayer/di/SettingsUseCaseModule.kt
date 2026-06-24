@@ -2,7 +2,7 @@ package com.viel.aplayer.di
 
 import androidx.media3.common.util.UnstableApi
 import com.viel.aplayer.abs.auth.AbsCredentialStore
-import com.viel.aplayer.abs.net.RealAbsApiClient
+import com.viel.aplayer.abs.net.AbsApiClient
 import com.viel.aplayer.abs.playback.AbsProgressConflictCoordinator
 import com.viel.aplayer.abs.sync.AbsCatalogSynchronizer
 import com.viel.aplayer.abs.sync.AbsConnectionTester
@@ -26,12 +26,15 @@ import com.viel.aplayer.data.scan.ScanScheduler
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavConnectionTester
 import com.viel.aplayer.library.vfs.sourceProvider.webdav.WebDavCredentialStore
 import org.koin.core.module.Module
+import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**
  * Settings-scoped use cases: query, format, maintenance, ABS connection, WebDAV test, root module,
  * export/import, and progress conflict resolution.
- * Replaces the settings section of DefaultAppContainer.
+ *
+ * Scene read and command contracts are bound from one SettingsRoot module instance so release builds
+ * do not create redirect-only Koin providers for the same object.
  */
 @UnstableApi
 internal object SettingsUseCaseModule {
@@ -63,7 +66,7 @@ internal object SettingsUseCaseModule {
 
         single {
             AbsSettingsConnectionUseCase(
-                apiClient = get<RealAbsApiClient>(),
+                apiClient = get<AbsApiClient>(),
                 connectionTester = get<AbsConnectionTester>(),
                 credentialStore = get<AbsCredentialStore>(),
                 libraryRootDao = get<AppDatabase>().libraryRootDao(),
@@ -83,7 +86,7 @@ internal object SettingsUseCaseModule {
             )
         }
 
-        single<SettingsRootReadModel> {
+        single {
             DefaultSettingsRootModule(
                 observeRootSnapshotsSource = get<SettingsQueryUseCase>()::observeLibraryRootSnapshots,
                 libraryRootGateway = get<LibraryRootGateway>(),
@@ -91,11 +94,7 @@ internal object SettingsUseCaseModule {
                 inspectAbsSyncPlan = get<AbsCatalogSynchronizer>()::inspectRootSyncPlan,
                 startAbsSyncTask = get<AbsSyncTaskCoordinator>()::start
             )
-        }
-
-        single<DefaultSettingsRootModule> { get<SettingsRootReadModel>() as DefaultSettingsRootModule }
-
-        single<SettingsRootCommands> { get<DefaultSettingsRootModule>() }
+        } binds arrayOf(SettingsRootReadModel::class, SettingsRootCommands::class)
 
         single {
             ExportUserDataUseCase(
