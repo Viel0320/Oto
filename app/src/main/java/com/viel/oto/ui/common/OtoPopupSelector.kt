@@ -317,6 +317,8 @@ fun OtoPopupSelector(
  * The resting collapsed button: an outlined surface with the current selection (filter) or a custom
  * [collapsedContent] (menu), plus a chevron. This is the in-layout node whose bounds are measured;
  * during the morph it is hidden and the popup's morph surface stands in for it.
+ * The touch target is intentionally taller than the visual pill, so the pill is centered inside the
+ * tappable area instead of clinging to the top edge while collapsed.
  *
  * In [GlassEffectMode.Haze] the visual pill carries the same haze effect as the expanded morph
  * surface, so the resting state reads as glass too instead of a bare outlined chip.
@@ -359,6 +361,7 @@ private fun CollapsedAnchor(
                 onClick = onClick,
             )
             .semantics { stateDescription = expandedStateDescription },
+        contentAlignment = Alignment.CenterStart,
     ) {
         Row(
             modifier = Modifier
