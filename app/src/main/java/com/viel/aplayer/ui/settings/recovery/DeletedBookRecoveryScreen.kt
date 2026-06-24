@@ -40,7 +40,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.viel.aplayer.R
 import com.viel.aplayer.application.library.recovery.DeletedBookRecoveryItem
 import com.viel.aplayer.shared.settings.GlassEffectMode
@@ -50,6 +49,7 @@ import com.viel.aplayer.ui.home.components.ListItem
 import com.viel.aplayer.ui.settings.SettingsTemplateDialog
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import org.koin.androidx.compose.koinViewModel
 
 /**
  * Connects the recovery ViewModel to the stateless screen.
@@ -60,7 +60,7 @@ fun DeletedBookRecoveryRoute(
     onBack: () -> Unit,
     glassEffectMode: GlassEffectMode,
     recoveryHazeState: HazeState? = null,
-    viewModel: DeletedBookRecoveryViewModel = viewModel()
+    viewModel: DeletedBookRecoveryViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     DeletedBookRecoveryScreen(
