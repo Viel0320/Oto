@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.ui.common.APlayerDropdown
+import com.viel.aplayer.ui.common.APlayerDropdownWidth
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
 import com.viel.aplayer.ui.common.aPlayerTextDropdownItem
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
@@ -257,37 +258,22 @@ fun WebDavConnectionPage(
             )
 
             Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Bottom,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                APlayerDropdown(
-                    items = protocols.map { option ->
-                        aPlayerTextDropdownItem(key = option, label = option.uppercase())
-                    },
-                    expanded = protocolExpanded,
-                    onExpandedChange = { protocolExpanded = it },
-                    selectedIndex = protocols.indexOf(protocol),
-                    onSelect = { index ->
-                        protocol = protocols[index]
-                        protocolExpanded = false
-                        rebuildUrl()
-                    },
-                    modifier = Modifier.width(100.dp),
-                    collapsedHeight = 56.dp
-                )
-                RemoteTextField(
-                    value = port,
-                    onValueChange = {
-                        port = it.filter { c -> c.isDigit() }
-                        rebuildUrl()
-                    },
-                    label = stringResource(R.string.settings_port_hint, 443),
-                    keyboardType = KeyboardType.Number,
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            RemoteProtocolPortRow(
+                protocols = protocols,
+                protocol = protocol,
+                protocolExpanded = protocolExpanded,
+                port = port,
+                onProtocolExpandedChange = { protocolExpanded = it },
+                onProtocolSelected = { selectedProtocol ->
+                    protocol = selectedProtocol
+                    protocolExpanded = false
+                    rebuildUrl()
+                },
+                onPortChange = {
+                    port = it
+                    rebuildUrl()
+                }
+            )
 
             Text(
                 text = "${stringResource(R.string.settings_url_preview_label)} $urlPreview",
@@ -433,37 +419,22 @@ fun AbsConnectionPage(
             )
 
             Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Bottom,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                APlayerDropdown(
-                    items = protocols.map { option ->
-                        aPlayerTextDropdownItem(key = option, label = option.uppercase())
-                    },
-                    expanded = protocolExpanded,
-                    onExpandedChange = { protocolExpanded = it },
-                    selectedIndex = protocols.indexOf(protocol),
-                    onSelect = { index ->
-                        protocol = protocols[index]
-                        protocolExpanded = false
-                        rebuildUrl()
-                    },
-                    modifier = Modifier.width(100.dp),
-                    collapsedHeight = 56.dp
-                )
-                RemoteTextField(
-                    value = port,
-                    onValueChange = {
-                        port = it.filter { c -> c.isDigit() }
-                        rebuildUrl()
-                    },
-                    label = stringResource(R.string.settings_port_hint, 443),
-                    keyboardType = KeyboardType.Number,
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            RemoteProtocolPortRow(
+                protocols = protocols,
+                protocol = protocol,
+                protocolExpanded = protocolExpanded,
+                port = port,
+                onProtocolExpandedChange = { protocolExpanded = it },
+                onProtocolSelected = { selectedProtocol ->
+                    protocol = selectedProtocol
+                    protocolExpanded = false
+                    rebuildUrl()
+                },
+                onPortChange = {
+                    port = it
+                    rebuildUrl()
+                }
+            )
 
             Text(
                 text = "${stringResource(R.string.settings_url_preview_label)} $urlPreview",
@@ -506,6 +477,53 @@ fun AbsConnectionPage(
             )
         }
     )
+}
+
+/**
+ * Keeps the remote-source protocol selector and port input on the same form grid.
+ *
+ * The protocol control participates in row width instead of using a fixed narrow width, which prevents
+ * the dropdown's own touch target and content padding from reading as an extra outer margin beside the
+ * port field on compact add-library forms.
+ */
+@Composable
+private fun RemoteProtocolPortRow(
+    protocols: List<String>,
+    protocol: String,
+    protocolExpanded: Boolean,
+    port: String,
+    onProtocolExpandedChange: (Boolean) -> Unit,
+    onProtocolSelected: (String) -> Unit,
+    onPortChange: (String) -> Unit
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Bottom,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        APlayerDropdown(
+            items = protocols.map { option ->
+                aPlayerTextDropdownItem(key = option, label = option.uppercase())
+            },
+            expanded = protocolExpanded,
+            onExpandedChange = onProtocolExpandedChange,
+            selectedIndex = protocols.indexOf(protocol),
+            onSelect = { index ->
+                protocols.getOrNull(index)?.let(onProtocolSelected)
+            },
+            panelWidth = APlayerDropdownWidth.Wrap,
+            collapsedHeight = 56.dp
+        )
+        RemoteTextField(
+            value = port,
+            onValueChange = { rawPort ->
+                onPortChange(rawPort.filter { character -> character.isDigit() })
+            },
+            label = stringResource(R.string.settings_port_hint, 443),
+            keyboardType = KeyboardType.Number,
+            modifier = Modifier.weight(1f)
+        )
+    }
 }
 
 /**

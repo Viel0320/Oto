@@ -518,7 +518,6 @@ private fun CollapsedAnchor(
                 onClick = onClick,
             )
             .semantics { stateDescription = expandedStateDescription },
-        contentAlignment = Alignment.Center,
     ) {
         Row(
             modifier = Modifier
