@@ -94,7 +94,7 @@ import kotlin.math.roundToInt
 // ==========================================
 
 /**
- * One dropdown option.
+ * One Popup option.
  *
  * [content] is the primary slot; callers fully own the row's leading/main content. [count] is an
  * optional trailing slot (pass null to omit), so the same component renders both "label + count"
@@ -102,7 +102,7 @@ import kotlin.math.roundToInt
  * and for mapping the currently-selected row to its in-list position during the morph.
  */
 @Immutable
-class APlayerDropdownItem(
+class APlayerPopupItem(
     val key: Any,
     val enabled: Boolean = true,
     val content: @Composable RowScope.() -> Unit,
@@ -113,14 +113,14 @@ class APlayerDropdownItem(
  * Convenience builder for the common "label + optional count" row, such as "All 75".
  *
  * Keeps callers from writing a slot lambda for the dominant case while still producing a full
- * [APlayerDropdownItem] so the count slot stays optional and the row stays customizable elsewhere.
+ * [APlayerPopupItem] so the count slot stays optional and the row stays customizable elsewhere.
  */
-fun aPlayerTextDropdownItem(
+fun aPlayerTextPopupItem(
     key: Any,
     label: String,
     count: Int? = null,
     enabled: Boolean = true,
-): APlayerDropdownItem = APlayerDropdownItem(
+): APlayerPopupItem = APlayerPopupItem(
     key = key,
     enabled = enabled,
     content = {
@@ -147,7 +147,7 @@ fun aPlayerTextDropdownItem(
  * Requested expansion origin. [Auto] picks the corner with the most available room; explicit
  * corners force the origin and diagonal direction.
  */
-enum class APlayerDropdownAlignment {
+enum class APlayerPopupAlignment {
     Auto,
     TopLeft,
     TopRight,
@@ -162,10 +162,10 @@ enum class APlayerDropdownAlignment {
  * [Wrap] sizes to the widest option. [Fixed] pins an explicit width.
  */
 @Immutable
-sealed interface APlayerDropdownWidth {
-    data object MatchAnchor : APlayerDropdownWidth
-    data object Wrap : APlayerDropdownWidth
-    data class Fixed(val width: Dp) : APlayerDropdownWidth
+sealed interface APlayerPopupWidth {
+    data object MatchAnchor : APlayerPopupWidth
+    data object Wrap : APlayerPopupWidth
+    data class Fixed(val width: Dp) : APlayerPopupWidth
 }
 
 /**
@@ -174,7 +174,7 @@ sealed interface APlayerDropdownWidth {
  * surfaces swapped at a threshold.
  */
 @Immutable
-data class APlayerDropdownColors(
+data class APlayerPopupColors(
     val collapsedContainer: Color,
     val collapsedBorder: Color,
     val expandedContainer: Color,
@@ -184,7 +184,7 @@ data class APlayerDropdownColors(
 
 /** Corner radii for both morph endpoints; the live corner is lerp'd between them by the fraction. */
 @Immutable
-data class APlayerDropdownShapes(
+data class APlayerPopupShapes(
     val collapsedCorner: Dp = 8.dp,
     val expandedCorner: Dp = 8.dp,
 )
@@ -193,14 +193,14 @@ data class APlayerDropdownShapes(
  * Theme-aligned defaults. Collapsed reads as a Material outlined button (surface + 1dp outline);
  * expanded reads as a filled menu surface (surfaceContainerHigh, no border, soft elevation).
  */
-object APlayerDropdownDefaults {
+object APlayerPopupDefaults {
     val CollapsedElevation = 0.dp
     val ExpandedElevation = 6.dp
 
     @Composable
-    fun colors(): APlayerDropdownColors {
+    fun colors(): APlayerPopupColors {
         val scheme = MaterialTheme.colorScheme
-        return APlayerDropdownColors(
+        return APlayerPopupColors(
             collapsedContainer = scheme.surface,
             collapsedBorder = scheme.outline,
             expandedContainer = scheme.surfaceContainerHigh,
@@ -210,7 +210,7 @@ object APlayerDropdownDefaults {
     }
 
     @Composable
-    fun shapes(): APlayerDropdownShapes = APlayerDropdownShapes()
+    fun shapes(): APlayerPopupShapes = APlayerPopupShapes()
 }
 
 // ==========================================
@@ -218,7 +218,7 @@ object APlayerDropdownDefaults {
 // ==========================================
 
 /**
- * A dropdown that morphs between a collapsed outlined button and an expanded floating panel.
+ * A Popup that morphs between a collapsed outlined button and an expanded floating panel.
  *
  * One component serves two roles: a single-select FILTER (pass [selectedIndex]; that row shows in the
  * button and flies to its list position on expand) and an action MENU (pass selectedIndex = null and
@@ -233,26 +233,26 @@ object APlayerDropdownDefaults {
  */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
-fun APlayerDropdown(
-    items: List<APlayerDropdownItem>,
+fun APlayerPopupSelector(
+    items: List<APlayerPopupItem>,
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     onSelect: (index: Int) -> Unit,
     modifier: Modifier = Modifier,
     selectedIndex: Int? = null,
     collapsedContent: (@Composable RowScope.() -> Unit)? = null,
-    alignment: APlayerDropdownAlignment = APlayerDropdownAlignment.Auto,
-    panelWidth: APlayerDropdownWidth = APlayerDropdownWidth.MatchAnchor,
+    alignment: APlayerPopupAlignment = APlayerPopupAlignment.Auto,
+    panelWidth: APlayerPopupWidth = APlayerPopupWidth.MatchAnchor,
     panelMaxHeight: Dp = Dp.Unspecified,
     hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    colors: APlayerDropdownColors = APlayerDropdownDefaults.colors(),
-    shapes: APlayerDropdownShapes = APlayerDropdownDefaults.shapes(),
-    collapsedHeight: Dp = DropdownUnifiedHeight,
+    colors: APlayerPopupColors = APlayerPopupDefaults.colors(),
+    shapes: APlayerPopupShapes = APlayerPopupDefaults.shapes(),
+    collapsedHeight: Dp = PopupUnifiedHeight,
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-    val morph = remember { DropdownMorphState(if (expanded) 1f else 0f, scope) }
+    val morph = remember { PopupMorphState(if (expanded) 1f else 0f, scope) }
     LaunchedEffect(expanded) { morph.animateTo(if (expanded) 1f else 0f) }
 
     val safeSelectedIndex = selectedIndex?.takeIf { it in items.indices }
@@ -288,7 +288,7 @@ fun APlayerDropdown(
 
         val bounds = anchorBounds
         if (bounds != null && morph.isVisible) {
-            DropdownPopup(
+            PopupPanel(
                 anchor = bounds,
                 items = items,
                 selectedIndex = safeSelectedIndex,
@@ -324,11 +324,11 @@ fun APlayerDropdown(
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 private fun CollapsedAnchor(
-    items: List<APlayerDropdownItem>,
+    items: List<APlayerPopupItem>,
     selectedIndex: Int?,
     collapsedContent: (@Composable RowScope.() -> Unit)?,
-    colors: APlayerDropdownColors,
-    shapes: APlayerDropdownShapes,
+    colors: APlayerPopupColors,
+    shapes: APlayerPopupShapes,
     expanded: Boolean,
     hazeState: HazeState?,
     glassEffectMode: GlassEffectMode,
@@ -351,7 +351,7 @@ private fun CollapsedAnchor(
 
     Box(
         modifier = Modifier
-            .defaultMinSize(minHeight = DropdownCollapsedTouchTarget)
+            .defaultMinSize(minHeight = PopupCollapsedTouchTarget)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -371,15 +371,15 @@ private fun CollapsedAnchor(
                 .clip(shape)
                 .then(hazeModifier)
                 .background(containerColor, shape)
-                .border(DropdownBorderWidth, borderColor, shape)
-                .padding(start = DropdownSpacingBase, end = DropdownCollapsedHorizontalPadding),
+                .border(PopupBorderWidth, borderColor, shape)
+                .padding(start = PopupSpacingBase, end = PopupCollapsedHorizontalPadding),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(DropdownSpacingBase),
+            horizontalArrangement = Arrangement.spacedBy(PopupSpacingBase),
         ) {
             Icon(
                 imageVector = Icons.Rounded.KeyboardArrowDown,
                 contentDescription = null,
-                modifier = Modifier.size(DropdownChevronSize),
+                modifier = Modifier.size(PopupChevronSize),
                 tint = contentColor,
             )
             if (collapsedContent != null) {
@@ -390,7 +390,7 @@ private fun CollapsedAnchor(
                 val item = selectedIndex?.let(items::getOrNull)
                 if (item != null) {
                     ProvideTextStyle(MaterialTheme.typography.labelLarge) {
-                        DropdownRowBody(item = item, contentColor = contentColor)
+                        PopupRowBody(item = item, contentColor = contentColor)
                     }
                 }
             }
@@ -399,21 +399,21 @@ private fun CollapsedAnchor(
 }
 
 /**
- * Hosts the morph surface in a full-screen [Popup] with clipping disabled, so the surface can paint
+ * Hosts the morph surface in a full-screen [PopupPanel] with clipping disabled, so the surface can paint
  * above or below the anchor. Estimates the panel height to choose a direction on the first frame (no
  * jump), then refines from the real measured height. All morphed geometry is computed per-frame from
  * the shared fraction and read only in draw/layout lambdas.
  */
 @Composable
-private fun DropdownPopup(
+private fun PopupPanel(
     anchor: Rect,
-    items: List<APlayerDropdownItem>,
+    items: List<APlayerPopupItem>,
     selectedIndex: Int?,
-    morph: DropdownMorphState,
-    colors: APlayerDropdownColors,
-    shapes: APlayerDropdownShapes,
-    alignment: APlayerDropdownAlignment,
-    panelWidth: APlayerDropdownWidth,
+    morph: PopupMorphState,
+    colors: APlayerPopupColors,
+    shapes: APlayerPopupShapes,
+    alignment: APlayerPopupAlignment,
+    panelWidth: APlayerPopupWidth,
     panelMaxHeight: Dp,
     hazeState: HazeState?,
     glassEffectMode: GlassEffectMode,
@@ -435,16 +435,16 @@ private fun DropdownPopup(
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val winWPx = with(density) { maxWidth.toPx() }
             val winHPx = with(density) { maxHeight.toPx() }
-            val edgeMarginPx = with(density) { DropdownSpacingBase.toPx() }
-            val maxWrapWidth = maxWidth - DropdownSpacingBase * 2
+            val edgeMarginPx = with(density) { PopupSpacingBase.toPx() }
+            val maxWrapWidth = maxWidth - PopupSpacingBase * 2
 
             var measuredPanelHeightPx by remember { mutableStateOf<Float?>(null) }
             var measuredPanelWidthPx by remember { mutableStateOf<Float?>(null) }
 
             val fixedWidthDp: Dp? = when (panelWidth) {
-                APlayerDropdownWidth.MatchAnchor -> with(density) { anchor.width.toDp() }
-                is APlayerDropdownWidth.Fixed -> panelWidth.width
-                APlayerDropdownWidth.Wrap -> null
+                APlayerPopupWidth.MatchAnchor -> with(density) { anchor.width.toDp() }
+                is APlayerPopupWidth.Fixed -> panelWidth.width
+                APlayerPopupWidth.Wrap -> null
             }
 
             val hasMeasured = measuredPanelWidthPx != null && measuredPanelHeightPx != null
@@ -465,14 +465,14 @@ private fun DropdownPopup(
             val maxHeightPx = if (panelMaxHeight != Dp.Unspecified) {
                 with(density) { panelMaxHeight.toPx() }
             } else {
-                winHPx * DropdownMaxHeightFraction
+                winHPx * PopupMaxHeightFraction
             }
             val panelHeightPx = (measuredPanelHeightPx ?: estimatedHeightPx).coerceAtMost(maxHeightPx)
 
             val resolvedWidthPx = when (panelWidth) {
-                APlayerDropdownWidth.MatchAnchor -> anchor.width
-                is APlayerDropdownWidth.Fixed -> with(density) { panelWidth.width.toPx() }
-                APlayerDropdownWidth.Wrap -> {
+                APlayerPopupWidth.MatchAnchor -> anchor.width
+                is APlayerPopupWidth.Fixed -> with(density) { panelWidth.width.toPx() }
+                APlayerPopupWidth.Wrap -> {
                     val minWidthPx = anchor.width
                     (measuredPanelWidthPx ?: anchor.width)
                         .coerceIn(minWidthPx, (winWPx - edgeMarginPx * 2f).coerceAtLeast(minWidthPx))
@@ -519,7 +519,7 @@ private fun DropdownPopup(
                     )
             )
 
-            DropdownMorphSurface(
+            PopupMorphSurface(
                 anchor = anchor,
                 panelRect = panelRect,
                 direction = direction,
@@ -549,7 +549,7 @@ private fun DropdownPopup(
  */
 @Composable
 private fun PanelMeasurer(
-    items: List<APlayerDropdownItem>,
+    items: List<APlayerPopupItem>,
     contentColor: Color,
     fixedWidth: Dp?,
     maxWrapWidth: Dp,
@@ -566,18 +566,18 @@ private fun PanelMeasurer(
         modifier = widthModifier
             .alpha(0f)
             .onGloballyPositioned { onMeasured(it.size.width.toFloat(), it.size.height.toFloat()) }
-            .padding(vertical = DropdownPanelVerticalPadding),
-        verticalArrangement = Arrangement.spacedBy(DropdownRowVerticalSpacing),
+            .padding(vertical = PopupPanelVerticalPadding),
+        verticalArrangement = Arrangement.spacedBy(PopupRowVerticalSpacing),
     ) {
         items.forEach { item ->
             Box(
                 modifier = Modifier
                     .wrapContentWidth()
-                    .heightIn(min = DropdownUnifiedHeight)
-                    .padding(horizontal = DropdownRowHorizontalPadding),
+                    .heightIn(min = PopupUnifiedHeight)
+                    .padding(horizontal = PopupRowHorizontalPadding),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                DropdownRowBody(item = item, contentColor = contentColor)
+                PopupRowBody(item = item, contentColor = contentColor)
             }
         }
     }
@@ -595,15 +595,15 @@ private fun PanelMeasurer(
  */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
-private fun DropdownMorphSurface(
+private fun PopupMorphSurface(
     anchor: Rect,
     panelRect: Rect,
     direction: OpenDirection,
-    items: List<APlayerDropdownItem>,
+    items: List<APlayerPopupItem>,
     selectedIndex: Int?,
-    morph: DropdownMorphState,
-    colors: APlayerDropdownColors,
-    shapes: APlayerDropdownShapes,
+    morph: PopupMorphState,
+    colors: APlayerPopupColors,
+    shapes: APlayerPopupShapes,
     hazeState: HazeState?,
     glassEffectMode: GlassEffectMode,
     density: Density,
@@ -614,10 +614,10 @@ private fun DropdownMorphSurface(
     val fractionProvider = morph.provider()
     val collapsedCornerPx = with(density) { shapes.collapsedCorner.toPx() }
     val expandedCornerPx = with(density) { shapes.expandedCorner.toPx() }
-    val collapsedBorderPx = with(density) { DropdownBorderWidth.toPx() }
-    val collapsedElevationPx = with(density) { APlayerDropdownDefaults.CollapsedElevation.toPx() }
-    val expandedElevationPx = with(density) { APlayerDropdownDefaults.ExpandedElevation.toPx() }
-    val panelPaddingPx = with(density) { DropdownPanelVerticalPadding.toPx() }
+    val collapsedBorderPx = with(density) { PopupBorderWidth.toPx() }
+    val collapsedElevationPx = with(density) { APlayerPopupDefaults.CollapsedElevation.toPx() }
+    val expandedElevationPx = with(density) { APlayerPopupDefaults.ExpandedElevation.toPx() }
+    val panelPaddingPx = with(density) { PopupPanelVerticalPadding.toPx() }
 
     val hazeModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
         Modifier.hazeEffect(state = hazeState, style = HazeMaterials.ultraThin())
@@ -666,19 +666,19 @@ private fun DropdownMorphSurface(
                 }
             },
     ) {
-        DropdownOptionList(
+        PopupOptionList(
             items = items,
             selectedIndex = selectedIndex,
             direction = direction,
             fractionProvider = fractionProvider,
             contentColor = colors.content,
-            verticalPadding = DropdownPanelVerticalPadding,
+            verticalPadding = PopupPanelVerticalPadding,
             onSelect = onSelect,
             onDismiss = onDismiss,
         )
 
         if (selectedIndex != null) {
-            val rowHeightPx = with(density) { DropdownUnifiedHeight.toPx() }
+            val rowHeightPx = with(density) { PopupUnifiedHeight.toPx() }
             FlyingSelectedRow(
                 item = items[selectedIndex],
                 selectedIndex = selectedIndex,
@@ -700,8 +700,8 @@ private fun DropdownMorphSurface(
  * scrollable only once fully expanded so a half-open panel never scrolls.
  */
 @Composable
-private fun DropdownOptionList(
-    items: List<APlayerDropdownItem>,
+private fun PopupOptionList(
+    items: List<APlayerPopupItem>,
     selectedIndex: Int?,
     direction: OpenDirection,
     fractionProvider: () -> Float,
@@ -711,13 +711,13 @@ private fun DropdownOptionList(
     onDismiss: () -> Unit,
 ) {
     val scrollState = rememberScrollState()
-    val rowEnterTranslationPx = with(LocalDensity.current) { DropdownRowEnterTranslation.toPx() }
+    val rowEnterTranslationPx = with(LocalDensity.current) { PopupRowEnterTranslation.toPx() }
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(scrollState)
             .padding(vertical = verticalPadding),
-        verticalArrangement = Arrangement.spacedBy(DropdownRowVerticalSpacing),
+        verticalArrangement = Arrangement.spacedBy(PopupRowVerticalSpacing),
     ) {
         items.forEachIndexed { index, item ->
             val isSelected = index == selectedIndex
@@ -725,13 +725,13 @@ private fun DropdownOptionList(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = DropdownUnifiedHeight)
+                    .heightIn(min = PopupUnifiedHeight)
                     .graphicsLayer {
                         if (isSelected) {
                             alpha = if (fractionProvider() >= 0.999f) 1f else 0f
                         } else {
-                            val startAt = (DropdownStaggerBase + orderFromOrigin * DropdownStaggerStep)
-                                .coerceAtMost(DropdownStaggerMax)
+                            val startAt = (PopupStaggerBase + orderFromOrigin * PopupStaggerStep)
+                                .coerceAtMost(PopupStaggerMax)
                             val raw = ((fractionProvider() - startAt) / (1f - startAt)).coerceIn(0f, 1f)
                             val eased = FastOutSlowInEasing.transform(raw)
                             alpha = eased
@@ -750,11 +750,11 @@ private fun DropdownOptionList(
                             onDismiss()
                         },
                     )
-                    .padding(horizontal = DropdownRowHorizontalPadding),
+                    .padding(horizontal = PopupRowHorizontalPadding),
                 contentAlignment = Alignment.CenterStart,
             ) {
                 if (!isSelected) {
-                    DropdownRowContent(item = item, contentColor = contentColor)
+                    PopupRowContent(item = item, contentColor = contentColor)
                 }
             }
         }
@@ -768,7 +768,7 @@ private fun DropdownOptionList(
  */
 @Composable
 private fun FlyingSelectedRow(
-    item: APlayerDropdownItem,
+    item: APlayerPopupItem,
     selectedIndex: Int,
     anchor: Rect,
     panelRect: Rect,
@@ -779,10 +779,10 @@ private fun FlyingSelectedRow(
     panelPaddingPx: Float,
 ) {
     val density = LocalDensity.current
-    val horizontalPaddingPx = with(density) { DropdownRowHorizontalPadding.toPx() }
-    val collapsedPaddingPx = with(density) { DropdownCollapsedHorizontalPadding.toPx() }
-    val collapsedLeadingPaddingPx = with(density) { DropdownSpacingBase.toPx() }
-    val rowSpacingPx = with(density) { DropdownRowVerticalSpacing.toPx() }
+    val horizontalPaddingPx = with(density) { PopupRowHorizontalPadding.toPx() }
+    val collapsedPaddingPx = with(density) { PopupCollapsedHorizontalPadding.toPx() }
+    val collapsedLeadingPaddingPx = with(density) { PopupSpacingBase.toPx() }
+    val rowSpacingPx = with(density) { PopupRowVerticalSpacing.toPx() }
     val chevronBlockPx = with(density) { chevronBlockWidth() }
 
     Box(
@@ -811,7 +811,7 @@ private fun FlyingSelectedRow(
             },
         contentAlignment = Alignment.CenterStart,
     ) {
-        DropdownRowContent(item = item, contentColor = contentColor)
+        PopupRowContent(item = item, contentColor = contentColor)
     }
 }
 
@@ -822,8 +822,8 @@ private fun FlyingSelectedRow(
  * collapsed button and the off-surface measurer).
  */
 @Composable
-private fun DropdownRowBody(
-    item: APlayerDropdownItem,
+private fun PopupRowBody(
+    item: APlayerPopupItem,
     contentColor: Color,
     modifier: Modifier = Modifier,
     weightContent: Boolean = false,
@@ -832,7 +832,7 @@ private fun DropdownRowBody(
         Row(
             modifier = modifier,
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(DropdownCountSpacing),
+            horizontalArrangement = Arrangement.spacedBy(PopupCountSpacing),
         ) {
             Row(
                 modifier = if (weightContent) Modifier.weight(1f, fill = false) else Modifier,
@@ -846,11 +846,11 @@ private fun DropdownRowBody(
 
 /** The in-panel row body: full width with the content slot taking the free space. */
 @Composable
-private fun DropdownRowContent(
-    item: APlayerDropdownItem,
+private fun PopupRowContent(
+    item: APlayerPopupItem,
     contentColor: Color,
 ) {
-    DropdownRowBody(
+    PopupRowBody(
         item = item,
         contentColor = contentColor,
         modifier = Modifier.fillMaxWidth(),
@@ -874,7 +874,7 @@ private fun DropdownRowContent(
  * so the panel subtree is not recomposed every animation frame.
  */
 @Stable
-private class DropdownMorphState(
+private class PopupMorphState(
     initial: Float,
     private val scope: CoroutineScope,
 ) {
@@ -961,15 +961,15 @@ private fun resolveDirection(
     windowHeightPx: Float,
     windowWidthPx: Float,
     edgeMarginPx: Float,
-    requested: APlayerDropdownAlignment,
+    requested: APlayerPopupAlignment,
 ): OpenDirection {
     // 1. Vertical origin (Top vs Bottom)
     val spaceBelow = windowHeightPx - anchor.bottom - edgeMarginPx
     val spaceAbove = anchor.top - edgeMarginPx
     val opensDown = when (requested) {
-        APlayerDropdownAlignment.TopLeft, APlayerDropdownAlignment.TopRight -> true
-        APlayerDropdownAlignment.BottomLeft, APlayerDropdownAlignment.BottomRight -> false
-        APlayerDropdownAlignment.Auto -> {
+        APlayerPopupAlignment.TopLeft, APlayerPopupAlignment.TopRight -> true
+        APlayerPopupAlignment.BottomLeft, APlayerPopupAlignment.BottomRight -> false
+        APlayerPopupAlignment.Auto -> {
             if (spaceBelow >= panelHeightPx) true
             else if (spaceAbove >= panelHeightPx) false
             else spaceBelow >= spaceAbove
@@ -981,9 +981,9 @@ private fun resolveDirection(
     val spaceToRight = maxRight - anchor.left
     val spaceToLeft = anchor.right - edgeMarginPx
     val opensRight = when (requested) {
-        APlayerDropdownAlignment.TopLeft, APlayerDropdownAlignment.BottomLeft -> true
-        APlayerDropdownAlignment.TopRight, APlayerDropdownAlignment.BottomRight -> false
-        APlayerDropdownAlignment.Auto -> {
+        APlayerPopupAlignment.TopLeft, APlayerPopupAlignment.BottomLeft -> true
+        APlayerPopupAlignment.TopRight, APlayerPopupAlignment.BottomRight -> false
+        APlayerPopupAlignment.Auto -> {
             if (spaceToRight >= panelWidthPx) true
             else if (spaceToLeft >= panelWidthPx) false
             else spaceToRight >= spaceToLeft
@@ -1035,13 +1035,13 @@ private fun resolvePanelRect(
 
 /** Measures the chevron icon plus spacing block used by collapsed and flying rows. */
 private fun Density.chevronBlockWidth(): Float =
-    (DropdownChevronSize + DropdownSpacingBase).toPx()
+    (PopupChevronSize + PopupSpacingBase).toPx()
 
 /** Calculates total panel height for a fixed number of rows. */
 private fun Density.calculatePanelHeight(rowCount: Int): Float {
-    val rowHeightPx = DropdownUnifiedHeight.toPx()
-    val rowSpacingPx = DropdownRowVerticalSpacing.toPx()
-    return DropdownPanelVerticalPadding.toPx() * 2f +
+    val rowHeightPx = PopupUnifiedHeight.toPx()
+    val rowSpacingPx = PopupRowVerticalSpacing.toPx()
+    return PopupPanelVerticalPadding.toPx() * 2f +
         rowCount * rowHeightPx +
         (rowCount - 1).coerceAtLeast(0) * rowSpacingPx
 }
@@ -1050,47 +1050,47 @@ private fun Density.calculatePanelHeight(rowCount: Int): Float {
 // Dimensions and Tuning Constants
 // ==========================================
 
-/** The standard height for options and rows inside the dropdown. */
-private val DropdownUnifiedHeight = 32.dp
+/** The standard height for options and rows inside the Popup. */
+private val PopupUnifiedHeight = 32.dp
 
-/** Vertical gap between items in the dropdown. */
-private val DropdownRowVerticalSpacing = 4.dp
+/** Vertical gap between items in the Popup. */
+private val PopupRowVerticalSpacing = 4.dp
 
 /** Default spacing metric used for margins, padding, and layout offsets. */
-private val DropdownSpacingBase = 8.dp
+private val PopupSpacingBase = 8.dp
 
 /** Vertical padding inside the expanded panel. */
-private val DropdownPanelVerticalPadding = DropdownSpacingBase
+private val PopupPanelVerticalPadding = PopupSpacingBase
 
 /** Horizontal padding at the trailing end of the collapsed button. */
-private val DropdownCollapsedHorizontalPadding = 16.dp
+private val PopupCollapsedHorizontalPadding = 16.dp
 
 /** Horizontal padding on the sides of each item row in the expanded panel. */
-private val DropdownRowHorizontalPadding = 20.dp
+private val PopupRowHorizontalPadding = 20.dp
 
 /** Minimum touch target height for the collapsed button. */
-private val DropdownCollapsedTouchTarget = 48.dp
+private val PopupCollapsedTouchTarget = 48.dp
 
 /** The width of the collapsed button's outline border. */
-private val DropdownBorderWidth = 1.dp
+private val PopupBorderWidth = 1.dp
 
-/** Size of the dropdown chevron arrow icon. */
-private val DropdownChevronSize = 18.dp
+/** Size of the Popup chevron arrow icon. */
+private val PopupChevronSize = 18.dp
 
 /** Space between the primary text and the optional count text inside item rows. */
-private val DropdownCountSpacing = 12.dp
+private val PopupCountSpacing = 12.dp
 
 /** Vertical translation offset for the staggered entry animation of list options. */
-private val DropdownRowEnterTranslation = 14.dp
+private val PopupRowEnterTranslation = 14.dp
 
-/** Maximum height of the dropdown panel relative to the window height. */
-private const val DropdownMaxHeightFraction = 0.6f
+/** Maximum height of the Popup panel relative to the window height. */
+private const val PopupMaxHeightFraction = 0.6f
 
-/** Start fraction of the dropdown stagger reveal animation. */
-private const val DropdownStaggerBase = 0.15f
+/** Start fraction of the Popup stagger reveal animation. */
+private const val PopupStaggerBase = 0.15f
 
 /** The animation stagger step duration added per row. */
-private const val DropdownStaggerStep = 0.06f
+private const val PopupStaggerStep = 0.06f
 
 /** Upper ceiling limit for the stagger animation delay fraction. */
-private const val DropdownStaggerMax = 0.6f
+private const val PopupStaggerMax = 0.6f

@@ -30,9 +30,9 @@ import com.viel.aplayer.shared.settings.GlassEffectMode
 import com.viel.aplayer.shared.settings.SeekStepSeconds
 import com.viel.aplayer.shared.settings.SleepMode
 import com.viel.aplayer.shared.settings.ThemeMode
-import com.viel.aplayer.ui.common.APlayerDropdown
-import com.viel.aplayer.ui.common.APlayerDropdownWidth
-import com.viel.aplayer.ui.common.aPlayerTextDropdownItem
+import com.viel.aplayer.ui.common.APlayerPopupSelector
+import com.viel.aplayer.ui.common.APlayerPopupWidth
+import com.viel.aplayer.ui.common.aPlayerTextPopupItem
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import dev.chrisbanes.haze.HazeState
 
@@ -44,7 +44,7 @@ import dev.chrisbanes.haze.HazeState
 
 /**
  * Renders sleep countdown strategy choices through the shared dropdown.
- * Keeps the historical function boundary for Settings call sites while replacing the former segmented row with APlayerDropdown.
+ * Keeps the historical function boundary for Settings call sites while replacing the former segmented row with APlayerPopupSelector.
  * Haze parameters are passed through explicitly so the trailing dropdown samples the same settings-page backdrop as the rest of the page chrome.
  */
 @Composable
@@ -113,7 +113,7 @@ fun SettingsSegmentedSleepModeItem(
 /**
  * Renders light/dark/system theme choices through the shared dropdown.
  *
- * The control keeps the existing Settings API and delegates option rendering to APlayerDropdown so
+ * The control keeps the existing Settings API and delegates option rendering to APlayerPopupSelector so
  * appearance mode selection shares the same dropdown treatment and explicit Haze backdrop as the other Settings selectors.
  */
 @Composable
@@ -250,7 +250,7 @@ private fun playbackBufferSizeOptions(): List<PlaybackBufferSizeOption> =
 
 /**
  * SettingsSegmentedPlaybackBufferItem Composable.
- * Renders an APlayerDropdown inside the main settings layout to configure the player's max buffer capacity in memory.
+ * Renders an APlayerPopupSelector inside the main settings layout to configure the player's max buffer capacity in memory.
  * Explicit Haze parameters keep cache-capacity dropdown rendering aligned with the active Settings page visual effect mode.
  */
 @Composable
@@ -308,7 +308,7 @@ fun SettingsSegmentedPlaybackBufferItem(
 /**
  * Dropdown option projection for Settings selectors.
  * Stores the domain value next to its localized label so each settings item can keep enum or byte
- * ownership while sharing one APlayerDropdown adapter.
+ * ownership while sharing one APlayerPopupSelector adapter.
  */
 private data class SettingsDropdownOption<T : Any>(
     val value: T,
@@ -317,7 +317,7 @@ private data class SettingsDropdownOption<T : Any>(
 
 /**
  * Shared Settings dropdown adapter.
- * Bridges existing single-choice Settings values to a trailing APlayerDropdown without changing the
+ * Bridges existing single-choice Settings values to a trailing APlayerPopupSelector without changing the
  * caller-facing composable APIs or moving selection persistence out of the existing Settings actions.
  * The visual-effect parameters are kept at this boundary so every converted selector uses the same Haze contract.
  */
@@ -333,13 +333,13 @@ private fun <T : Any> SettingsDropdownControl(
     val selectedIndex = options.indexOfFirst { option -> option.value == selectedValue }
         .takeIf { index -> index >= 0 }
     val items = options.map { option ->
-        aPlayerTextDropdownItem(
+        aPlayerTextPopupItem(
             key = option.value,
             label = option.label
         )
     }
 
-    APlayerDropdown(
+    APlayerPopupSelector(
         items = items,
         expanded = expanded,
         onExpandedChange = { expanded = it },
@@ -348,7 +348,7 @@ private fun <T : Any> SettingsDropdownControl(
         // buttons to a dropdown, so TalkBack should still receive a grouped choice boundary.
         modifier = Modifier.selectableGroup(),
         selectedIndex = selectedIndex,
-        panelWidth = APlayerDropdownWidth.Wrap,
+        panelWidth = APlayerPopupWidth.Wrap,
         hazeState = hazeState,
         glassEffectMode = glassEffectMode
     )

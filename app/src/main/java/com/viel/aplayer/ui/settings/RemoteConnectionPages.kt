@@ -59,10 +59,10 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.viel.aplayer.R
 import com.viel.aplayer.shared.settings.GlassEffectMode
-import com.viel.aplayer.ui.common.APlayerDropdown
-import com.viel.aplayer.ui.common.APlayerDropdownWidth
 import com.viel.aplayer.ui.common.APlayerGlassTopBar
-import com.viel.aplayer.ui.common.aPlayerTextDropdownItem
+import com.viel.aplayer.ui.common.APlayerPopupSelector
+import com.viel.aplayer.ui.common.APlayerPopupWidth
+import com.viel.aplayer.ui.common.aPlayerTextPopupItem
 import com.viel.aplayer.ui.common.layout.LocalAppWindowSizeClass
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -501,9 +501,9 @@ private fun RemoteProtocolPortRow(
         verticalAlignment = Alignment.Bottom,
         modifier = Modifier.fillMaxWidth()
     ) {
-        APlayerDropdown(
+        APlayerPopupSelector(
             items = protocols.map { option ->
-                aPlayerTextDropdownItem(key = option, label = option.uppercase())
+                aPlayerTextPopupItem(key = option, label = option.uppercase())
             },
             expanded = protocolExpanded,
             onExpandedChange = onProtocolExpandedChange,
@@ -511,7 +511,7 @@ private fun RemoteProtocolPortRow(
             onSelect = { index ->
                 protocols.getOrNull(index)?.let(onProtocolSelected)
             },
-            panelWidth = APlayerDropdownWidth.Wrap,
+            panelWidth = APlayerPopupWidth.Wrap,
             collapsedHeight = 56.dp
         )
         RemoteTextField(
