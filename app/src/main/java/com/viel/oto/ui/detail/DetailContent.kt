@@ -108,7 +108,6 @@ fun DetailContent(
     onDeleteDownload: (String) -> Unit = {},
     glassEffectMode: GlassEffectMode,
     fullPageHazeState: HazeState? = null,
-    coverColor: Color?,
     onColorExtracted: (Color) -> Unit,
 ) {
     val book = uiState.book?.item
@@ -185,8 +184,6 @@ fun DetailContent(
             CoverBackground(
                 coverPath = backdropCoverPath,
                 lastUpdated = book?.lastScannedAt ?: 0L,
-                coverColor = coverColor,
-                glassEffectMode = glassEffectMode,
                 hazeState = coverHazeState,
                 onColorExtracted = onColorExtracted
             )
@@ -563,7 +560,6 @@ fun DetailContentPortraitPreview() {
                 ),
                 onBackClick = {},
                 glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
-                coverColor = null,
                 onColorExtracted = {}
             )
         }

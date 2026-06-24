@@ -202,8 +202,6 @@ fun EditBookScreen(
             CoverBackground(
                 coverPath = editCoverPath,
                 lastUpdated = editCoverLastUpdated,
-                coverColor = editCoverColor,
-                glassEffectMode = glassEffectMode,
                 hazeState = detailHazeState,
                 onColorExtracted = { editCoverColor = it }
             )

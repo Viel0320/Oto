@@ -309,8 +309,6 @@ fun PlayerScreen(
                     CoverBackground(
                         coverPath = playerBackdropCoverPath,
                         lastUpdated = metadata.coverLastUpdated,
-                        coverColor = coverColor,
-                        glassEffectMode = glassEffectMode,
                         hazeState = coverHazeState,
                         onColorExtracted = onColorExtracted
                     )

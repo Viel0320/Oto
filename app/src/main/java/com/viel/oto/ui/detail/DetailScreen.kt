@@ -50,7 +50,6 @@ fun DetailScreen(
         onDeleteDownload = onDeleteDownload,
         glassEffectMode = glassEffectMode,
         fullPageHazeState = fullPageHazeState,
-        coverColor = coverColor,
         onColorExtracted = onColorExtracted
     )
 }
