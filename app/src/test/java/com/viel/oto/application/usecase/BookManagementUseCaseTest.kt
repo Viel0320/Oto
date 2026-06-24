@@ -14,8 +14,8 @@ import org.junit.Test
 
 /**
  * Locks cleanup-before-soft-delete sequencing.
- * Verifies single-book deletion stops active playback, gathers feedback state, clears cover and manual-download resources,
- * and only then marks the book as deleted.
+ * Verifies single-book deletion stops active playback, gathers feedback state, clears manual-download and remote-playback
+ * resources, and only then marks the book as deleted while leaving retained cover paths outside this workflow.
  */
 class BookManagementUseCaseTest {
 
@@ -83,7 +83,7 @@ class BookManagementUseCaseTest {
     /**
      * Wire only seams needed by the destructive book workflow.
      * The fake collaborators record call order so tests protect resource cleanup from sliding behind the soft-delete command.
-     * Note: libraryResourceCleanupGateway has been removed because cover cache cleanup was refactored out to self-healing.
+     * Cover cache cleanup is intentionally absent here because recoverable deleted-book rows still use retained artwork paths.
      */
     private fun useCaseFor(
         currentBookId: String?,

@@ -10,8 +10,8 @@ import kotlinx.coroutines.withContext
 
 /**
  * Coordinates book-scoped destructive workflows.
- * Keeps single-book deletion cleanup in one application boundary so cover cache removal, manual download cleanup,
- * playback shutdown, and soft deletion cannot drift across separate UI or data-layer callers.
+ * Keeps single-book deletion cleanup in one application boundary so playback shutdown, manual download cleanup,
+ * remote playback cleanup, and soft deletion cannot drift across separate UI or data-layer callers.
  */
 class BookManagementUseCase(
     private val playbackStopper: PlaybackStopper,
@@ -22,8 +22,8 @@ class BookManagementUseCase(
 ) {
     /**
      * Clear book-owned resources before marking the row as deleted.
-     * Stops active playback first, probes whether the source file still exists for user feedback, removes derived cover
-     * and manual-download cache state, then performs the logical soft delete.
+     * Stops active playback first, probes whether the source file still exists for user feedback, clears manual-download
+     * and remote-playback state, then performs the logical soft delete while retaining cover cache paths for recovery UI.
      */
     suspend fun deleteBook(bookId: String): Boolean = withContext(Dispatchers.IO) {
         playbackStopper.stopIfPlaying(bookId)
