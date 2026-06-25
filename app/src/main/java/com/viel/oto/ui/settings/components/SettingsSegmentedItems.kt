@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,7 +23,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.oto.R
-import com.viel.oto.shared.formatFileSize
 import com.viel.oto.shared.settings.GlassEffectMode
 import com.viel.oto.shared.settings.SeekStepSeconds
 import com.viel.oto.shared.settings.SleepMode
@@ -223,87 +220,6 @@ fun SettingsSegmentedSeekStepItem(
     }
 }
 
-/**
- * Playback Buffer Size Option projection model.
- * Associates concrete byte allocations to localized readable file size descriptions.
- */
-private data class PlaybackBufferSizeOption(
-    val bytes: Long,
-    val label: String
-)
-
-/**
- * Generates options for playback buffer allocations.
- * Defines four predefined memory boundaries: 32MB, 64MB, 128MB, and 256MB.
- */
-private fun playbackBufferSizeOptions(): List<PlaybackBufferSizeOption> =
-    listOf(
-        64L * 1024L * 1024L,
-        128L * 1024L * 1024L,
-        256L * 1024L * 1024L
-    ).map { bytes ->
-        PlaybackBufferSizeOption(
-            bytes = bytes,
-            label = formatFileSize(bytes)
-        )
-    }
-
-/**
- * SettingsSegmentedPlaybackBufferItem Composable.
- * Renders an OtoPopupSelector inside the main settings layout to configure the player's max buffer capacity in memory.
- * Explicit Haze parameters keep cache-capacity dropdown rendering aligned with the active Settings page visual effect mode.
- */
-@Composable
-fun SettingsSegmentedPlaybackBufferItem(
-    selectedBytes: Long,
-    onSelected: (Long) -> Unit,
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
-    hazeState: HazeState? = null
-) {
-    val options = remember { playbackBufferSizeOptions() }
-    val resolvedSelectedBytes = options.firstOrNull { option -> option.bytes == selectedBytes }?.bytes
-        ?: com.viel.oto.shared.settings.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES
-    val rowHorizontalPadding = LocalAppWindowSizeClass.current.screenHorizontalPadding
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = rowHorizontalPadding, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = Icons.Rounded.Storage,
-            contentDescription = null,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(R.string.settings_cache_playback_capacity_title),
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                text = stringResource(R.string.settings_cache_playback_capacity_subtitle),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        SettingsDropdownControl(
-            options = options.map { option ->
-                SettingsDropdownOption(
-                    value = option.bytes,
-                    label = option.label
-                )
-            },
-            selectedValue = resolvedSelectedBytes,
-            onSelected = onSelected,
-            glassEffectMode = glassEffectMode,
-            hazeState = hazeState
-        )
-    }
-}
 
 /**
  * Dropdown option projection for Settings selectors.

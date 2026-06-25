@@ -179,6 +179,6 @@ data class AppSettings(
     companion object {
         val DEFAULT_GLASS_EFFECT_MODE: GlassEffectMode = GlassEffectMode.Material
 
-        const val DEFAULT_PLAYBACK_BUFFER_MAX_BYTES: Long = 64L * 1024L * 1024L
+        const val DEFAULT_PLAYBACK_BUFFER_MAX_BYTES: Long = 32L * 1024L * 1024L
     }
 }

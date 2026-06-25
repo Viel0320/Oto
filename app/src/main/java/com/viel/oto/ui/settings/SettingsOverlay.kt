@@ -257,8 +257,6 @@ fun SettingsOverlay(
                                 downloadTaskCount = downloadTasks.size,
                                 isDownloadWifiOnly = settingsState.isDownloadWifiOnly,
                                 onDownloadWifiOnlyChange = { settingsViewModel.preferencesHandler.toggleDownloadWifiOnly(it) },
-                                playbackBufferMaxBytes = settingsState.playbackBufferMaxBytes,
-                                onPlaybackBufferMaxBytesChange = { settingsViewModel.preferencesHandler.updatePlaybackBufferMaxBytes(it) },
                                 onDownloadManagementClick = {
                                     activeSettingsPage = SettingsOverlayPage.DownloadManagement
                                 },

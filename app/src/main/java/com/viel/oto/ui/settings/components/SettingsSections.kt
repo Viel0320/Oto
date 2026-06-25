@@ -164,8 +164,6 @@ fun DownloadCacheSection(
     downloadTaskCount: Int,
     isDownloadWifiOnly: Boolean,
     onDownloadWifiOnlyChange: (Boolean) -> Unit,
-    playbackBufferMaxBytes: Long,
-    onPlaybackBufferMaxBytesChange: (Long) -> Unit,
     onDownloadManagementClick: () -> Unit,
     glassEffectMode: GlassEffectMode,
     hazeState: HazeState?,
@@ -185,12 +183,6 @@ fun DownloadCacheSection(
             icon = Icons.Rounded.Wifi,
             checked = isDownloadWifiOnly,
             onCheckedChange = onDownloadWifiOnlyChange
-        )
-        SettingsSegmentedPlaybackBufferItem(
-            selectedBytes = playbackBufferMaxBytes,
-            onSelected = onPlaybackBufferMaxBytesChange,
-            glassEffectMode = glassEffectMode,
-            hazeState = hazeState
         )
     }
 }
