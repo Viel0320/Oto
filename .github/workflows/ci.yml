@@ -88,8 +88,8 @@ jobs:
       - name: Run Release Lint
         run: .\gradlew.bat lintRelease
 
-  release-assemble:
-    name: Release Assemble And R8
+  release-compile:
+    name: Release Kotlin Compile
     runs-on: windows-latest
     steps:
       - name: Checkout Sources
@@ -102,7 +102,7 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      # Release Build Gate (Exercises release Kotlin compilation, manifest packaging, resource shrinking, and R8)
-      # This catches release-only failures that debug unit tests cannot see, including minification and resource-shrinker regressions.
-      - name: Assemble Release
-        run: .\gradlew.bat assembleRelease
+      # Release Compile Gate (Exercises release-source Kotlin and KSP without requiring production signing secrets)
+      # Signed packaging, resource shrinking, and R8 now run in the release publishing workflow where the keystore is available.
+      - name: Compile Release Kotlin
+        run: .\gradlew.bat compileReleaseKotlin

@@ -1,0 +1,103 @@
+name: Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Git tag to publish for the dispatched commit."
+        required: true
+        type: string
+      release_name:
+        description: "Human-readable GitHub Release title."
+        required: false
+        type: string
+      prerelease:
+        description: "Mark the GitHub Release as a prerelease."
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  publish-release:
+    name: Publish Signed Release
+    runs-on: windows-latest
+    env:
+      OTO_RELEASE_STORE_FILE: ${{ github.workspace }}\app\release-ci.jks
+      OTO_RELEASE_STORE_PASSWORD: ${{ secrets.OTO_RELEASE_STORE_PASSWORD }}
+      OTO_RELEASE_KEY_ALIAS: ${{ secrets.OTO_RELEASE_KEY_ALIAS }}
+      OTO_RELEASE_KEY_PASSWORD: ${{ secrets.OTO_RELEASE_KEY_PASSWORD }}
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set Up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      # Release Keystore Restore (Materializes the CI-only keystore file from GitHub Secrets)
+      # The Gradle project receives only an ephemeral runner path, so no signing key bytes or passwords are committed.
+      - name: Restore Release Keystore
+        shell: pwsh
+        env:
+          OTO_RELEASE_KEYSTORE_BASE64: ${{ secrets.OTO_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:OTO_RELEASE_KEYSTORE_BASE64)) {
+            throw "Missing OTO_RELEASE_KEYSTORE_BASE64 secret."
+          }
+          [IO.File]::WriteAllBytes(
+            $env:OTO_RELEASE_STORE_FILE,
+            [Convert]::FromBase64String($env:OTO_RELEASE_KEYSTORE_BASE64)
+          )
+
+      # Signed Artifact Build (Runs release packaging only after all signing inputs are available)
+      # assembleRelease creates the signed APK, while bundleRelease creates the signed AAB for store upload.
+      - name: Build Signed Release Artifacts
+        run: .\gradlew.bat assembleRelease bundleRelease
+
+      # GitHub Release Publish (Creates the manually requested release and uploads signed artifacts)
+      # Manual dispatch keeps publication separate from CI validation and prevents tag pushes from releasing automatically.
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG_NAME: ${{ inputs.tag_name }}
+          RELEASE_NAME: ${{ inputs.release_name }}
+          RELEASE_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          $releaseTitle = if ([string]::IsNullOrWhiteSpace($env:RELEASE_NAME)) {
+            $env:RELEASE_TAG_NAME
+          } else {
+            $env:RELEASE_NAME
+          }
+          $artifacts = @(
+            Get-ChildItem -Path "app/build/outputs/apk/release" -Filter "*.apk" -File
+            Get-ChildItem -Path "app/build/outputs/bundle/release" -Filter "*.aab" -File
+          )
+          if ($artifacts.Count -eq 0) {
+            throw "No signed release artifacts were produced."
+          }
+          $releaseArgs = @(
+            "release",
+            "create",
+            $env:RELEASE_TAG_NAME
+          )
+          $releaseArgs += $artifacts.FullName
+          $releaseArgs += @(
+            "--title",
+            $releaseTitle,
+            "--generate-notes",
+            "--target",
+            $env:GITHUB_SHA
+          )
+          if ($env:RELEASE_PRERELEASE -eq "true") {
+            $releaseArgs += "--prerelease"
+          }
+          gh @releaseArgs

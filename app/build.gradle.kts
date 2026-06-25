@@ -17,6 +17,60 @@ kotlin {
     }
 }
 
+/**
+ * Reads release signing values from Gradle properties first and environment variables second.
+ * This keeps the keystore path and signing passwords out of source control while allowing
+ * local developer machines and CI jobs to provide the same inputs through their own secret stores.
+ */
+fun ProviderFactory.releaseSigningValue(name: String): String? =
+    gradleProperty(name)
+        .orElse(environmentVariable(name))
+        .orNull
+        ?.takeIf { it.isNotBlank() }
+
+/**
+ * Describes the complete release signing contract without storing any secret material in the repository.
+ * Missing values are tolerated for debug and test workflows, but release packaging tasks fail before
+ * Android packaging begins so unsigned artifacts are not produced accidentally.
+ */
+val releaseSigningInputs = mapOf(
+    "OTO_RELEASE_STORE_FILE" to providers.releaseSigningValue("OTO_RELEASE_STORE_FILE"),
+    "OTO_RELEASE_STORE_PASSWORD" to providers.releaseSigningValue("OTO_RELEASE_STORE_PASSWORD"),
+    "OTO_RELEASE_KEY_ALIAS" to providers.releaseSigningValue("OTO_RELEASE_KEY_ALIAS"),
+    "OTO_RELEASE_KEY_PASSWORD" to providers.releaseSigningValue("OTO_RELEASE_KEY_PASSWORD"),
+)
+val hasCompleteReleaseSigningInputs = releaseSigningInputs.values.all { it != null }
+
+/**
+ * Narrows release signing values after the completeness check has passed, keeping Android DSL assignments
+ * readable while still failing loudly if a future edit breaks the signing input contract.
+ */
+fun Map<String, String?>.requiredReleaseSigningValue(name: String): String =
+    requireNotNull(getValue(name)) { "Release signing input $name was unexpectedly missing." }
+
+/**
+ * Detects release artifact tasks from Gradle's requested task names so normal debug/test configuration
+ * remains available on machines that intentionally do not have production signing secrets.
+ */
+fun isReleasePackagingRequest(): Boolean =
+    gradle.startParameter.taskNames.any { taskName ->
+        val simpleTaskName = taskName.substringAfterLast(':').lowercase()
+        simpleTaskName == "assemblerelease" ||
+            simpleTaskName == "bundlerelease" ||
+            simpleTaskName == "packagerelease"
+    }
+
+if (isReleasePackagingRequest() && !hasCompleteReleaseSigningInputs) {
+    val missingReleaseSigningInputs = releaseSigningInputs
+        .filterValues { it == null }
+        .keys
+        .joinToString()
+    throw GradleException(
+        "Missing release signing inputs: $missingReleaseSigningInputs. " +
+            "Set them as Gradle properties or environment variables before building release artifacts."
+    )
+}
+
 android {
     namespace = "com.viel.oto"
     compileSdk = 37
@@ -45,10 +99,12 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("release.jks")
-            storePassword = "password"
-            keyAlias = "oto"
-            keyPassword = "password"
+            if (hasCompleteReleaseSigningInputs) {
+                storeFile = file(releaseSigningInputs.requiredReleaseSigningValue("OTO_RELEASE_STORE_FILE"))
+                storePassword = releaseSigningInputs.requiredReleaseSigningValue("OTO_RELEASE_STORE_PASSWORD")
+                keyAlias = releaseSigningInputs.requiredReleaseSigningValue("OTO_RELEASE_KEY_ALIAS")
+                keyPassword = releaseSigningInputs.requiredReleaseSigningValue("OTO_RELEASE_KEY_PASSWORD")
+            }
         }
     }
 
@@ -58,7 +114,9 @@ android {
             isProfileable = true
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("release")
+            if (hasCompleteReleaseSigningInputs) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
