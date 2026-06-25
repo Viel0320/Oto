@@ -4,7 +4,7 @@ import com.viel.oto.application.library.toLibraryBookSourceType
 import com.viel.oto.application.library.toLibraryReadStatus
 import com.viel.oto.data.availability.BookAvailabilityGateway
 import com.viel.oto.data.book.BookCatalogGateway
-import com.viel.oto.data.root.LibraryRootGateway
+import com.viel.oto.library.root.LibraryRootGateway
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 

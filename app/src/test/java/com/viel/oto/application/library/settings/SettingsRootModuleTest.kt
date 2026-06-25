@@ -6,7 +6,7 @@ import com.viel.oto.abs.sync.AbsSyncTaskOrigin
 import com.viel.oto.application.usecase.LibraryRootSettingsSnapshot
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
-import com.viel.oto.data.root.LibraryRootGateway
+import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.library.availability.AvailabilityResult
 import com.viel.oto.library.availability.LibraryRootAvailabilityUpdate

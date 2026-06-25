@@ -22,7 +22,7 @@ import com.viel.oto.application.usecase.TestWebDavConnectionUseCase
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.cache.CacheEvictionCoordinator
 import com.viel.oto.data.db.AppDatabase
-import com.viel.oto.data.root.LibraryRootGateway
+import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavConnectionTester
 import org.koin.core.module.Module

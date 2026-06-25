@@ -1,6 +1,6 @@
 package com.viel.oto.application.usecase
 
-import com.viel.oto.data.root.LibraryRootGateway
+import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavConnectionTester
 
 class TestWebDavConnectionUseCase(

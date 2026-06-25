@@ -9,8 +9,8 @@ import com.viel.oto.data.cache.RootSourceCacheEvictor
 import com.viel.oto.data.cleanup.LibraryResourceCleanupGateway
 import com.viel.oto.data.cover.CoverRecoveryGateway
 import com.viel.oto.data.db.AppDatabase
-import com.viel.oto.data.root.LibraryRootGateway
-import com.viel.oto.data.root.LibraryRootGatewayImpl
+import com.viel.oto.library.root.LibraryRootGateway
+import com.viel.oto.library.root.LibraryRootGatewayImpl
 import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.library.scan.ScanSchedulerImpl
 import com.viel.oto.data.webdav.WebDavCredentialStore

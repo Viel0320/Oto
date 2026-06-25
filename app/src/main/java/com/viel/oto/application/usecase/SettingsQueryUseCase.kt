@@ -6,7 +6,7 @@ import com.viel.oto.data.abs.sync.AbsSyncStateDao
 import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.db.AudiobookSchema
-import com.viel.oto.data.root.LibraryRootGateway
+import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.data.webdav.WebDavCredential
 import com.viel.oto.data.webdav.WebDavCredentialStore
 import kotlinx.coroutines.Dispatchers

@@ -179,8 +179,6 @@ class MultiModuleMigrationBaselineTest {
             "application->network",
             "application->shared",
             "data->BuildConfig",
-            "data->abs",
-            "data->library",
             "data->logger",
             "data->shared",
             "data->timeline",

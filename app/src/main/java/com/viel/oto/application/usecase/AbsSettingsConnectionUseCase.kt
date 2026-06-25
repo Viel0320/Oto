@@ -6,7 +6,7 @@ import com.viel.oto.abs.net.AbsUrlResolver
 import com.viel.oto.abs.sync.AbsConnectionTestResult
 import com.viel.oto.abs.sync.AbsConnectionTester
 import com.viel.oto.data.dao.LibraryRootDao
-import com.viel.oto.data.root.LibraryRootGateway
+import com.viel.oto.library.root.LibraryRootGateway
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID

@@ -6,7 +6,7 @@ import com.viel.oto.data.book.BookCatalogGateway
 import com.viel.oto.data.book.BookRootInventoryGateway
 import com.viel.oto.data.cleanup.LibraryResourceCleanupGateway
 import com.viel.oto.data.entity.LibraryRootEntity
-import com.viel.oto.data.root.LibraryRootGateway
+import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.logger.LibraryWorkflowLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

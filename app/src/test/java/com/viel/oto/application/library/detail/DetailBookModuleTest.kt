@@ -16,7 +16,7 @@ import com.viel.oto.data.entity.BookmarkEntity
 import com.viel.oto.data.entity.ChapterEntity
 import com.viel.oto.data.entity.ChapterWithBookFile
 import com.viel.oto.data.entity.LibraryRootEntity
-import com.viel.oto.data.root.LibraryRootGateway
+import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.library.availability.LibraryRootAvailabilityUpdate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first

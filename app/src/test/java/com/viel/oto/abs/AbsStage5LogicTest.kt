@@ -3,7 +3,7 @@ package com.viel.oto.abs
 import com.viel.oto.abs.sync.AbsSyncPlan
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
-import com.viel.oto.data.root.shouldDeleteAbsCredential
+import com.viel.oto.library.root.shouldDeleteAbsCredential
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

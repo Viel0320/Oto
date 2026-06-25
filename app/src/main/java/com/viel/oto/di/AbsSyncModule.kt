@@ -14,7 +14,7 @@ import com.viel.oto.data.book.BookCatalogGateway
 import com.viel.oto.data.book.BookMetadataGateway
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.progress.ProgressGateway
-import com.viel.oto.data.root.LibraryRootGateway
+import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.event.AppEventSink
 import org.koin.core.module.Module
 import org.koin.dsl.module

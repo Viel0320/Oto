@@ -19,7 +19,7 @@ import com.viel.oto.data.cover.CoverUriResolver
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.progress.ProgressGateway
 import com.viel.oto.data.progress.ProgressGatewayImpl
-import com.viel.oto.data.root.LibraryRootGateway
+import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.data.search.SearchHistoryGateway
 import com.viel.oto.data.search.SearchHistoryGatewayImpl
 import com.viel.oto.data.store.SearchHistoryStore

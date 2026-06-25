@@ -163,6 +163,7 @@ flowchart TD
 - 已落地：`data/subtitle` 已迁出为 `media/subtitle` gateway，sidecar 解析不再作为 data store 职责暴露。
 - 已落地：`data/cover` 已通过 `CoverImageWriter` 和 `CoverRecoveryArtworkSource` 收拢 parser/VFS 访问，Room store 不再直接依赖解析 Implementation。
 - 已落地：`data` 不再直接调用具体 logger object，只依赖 `:runtime:observability` 提供的 `DiagnosticLogSink` 和 `WorkflowLogSink`。
+- 已落地：`data/root` 已迁入 `library/root`，source root lifecycle、扫描触发、SAF/WebDAV/ABS post-commit cleanup 不再作为 data store 职责维护。
 
 验收：
 

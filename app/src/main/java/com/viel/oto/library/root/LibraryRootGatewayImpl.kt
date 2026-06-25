@@ -1,4 +1,4 @@
-package com.viel.oto.data.root
+package com.viel.oto.library.root
 
 import android.content.Context
 import android.content.Intent

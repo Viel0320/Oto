@@ -1,4 +1,4 @@
-package com.viel.oto.data.root
+package com.viel.oto.library.root
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
