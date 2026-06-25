@@ -1,0 +1,28 @@
+name: Debug Android Lint
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  lint-debug:
+    name: Debug Android Lint
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Set Up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Run Debug Lint
+        run: .\gradlew.bat lintDebug

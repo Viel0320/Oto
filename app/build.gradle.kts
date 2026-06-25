@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -17,63 +18,48 @@ kotlin {
     }
 }
 
-/**
- * Reads release signing values from Gradle properties first and environment variables second.
- * This keeps the keystore path and signing passwords out of source control while allowing
- * local developer machines and CI jobs to provide the same inputs through their own secret stores.
- */
-fun ProviderFactory.releaseSigningValue(name: String): String? =
-    gradleProperty(name)
-        .orElse(environmentVariable(name))
-        .orNull
-        ?.takeIf { it.isNotBlank() }
-
-/**
- * Describes the complete release signing contract without storing any secret material in the repository.
- * Missing values are tolerated for debug and test workflows, but release packaging tasks fail before
- * Android packaging begins so unsigned artifacts are not produced accidentally.
- */
-val releaseSigningInputs = mapOf(
-    "OTO_RELEASE_STORE_FILE" to providers.releaseSigningValue("OTO_RELEASE_STORE_FILE"),
-    "OTO_RELEASE_STORE_PASSWORD" to providers.releaseSigningValue("OTO_RELEASE_STORE_PASSWORD"),
-    "OTO_RELEASE_KEY_ALIAS" to providers.releaseSigningValue("OTO_RELEASE_KEY_ALIAS"),
-    "OTO_RELEASE_KEY_PASSWORD" to providers.releaseSigningValue("OTO_RELEASE_KEY_PASSWORD"),
-)
-val hasCompleteReleaseSigningInputs = releaseSigningInputs.values.all { it != null }
-
-/**
- * Narrows release signing values after the completeness check has passed, keeping Android DSL assignments
- * readable while still failing loudly if a future edit breaks the signing input contract.
- */
-fun Map<String, String?>.requiredReleaseSigningValue(name: String): String =
-    requireNotNull(getValue(name)) { "Release signing input $name was unexpectedly missing." }
-
-/**
- * Detects release artifact tasks from Gradle's requested task names so normal debug/test configuration
- * remains available on machines that intentionally do not have production signing secrets.
- */
-fun isReleasePackagingRequest(): Boolean =
-    gradle.startParameter.taskNames.any { taskName ->
-        val simpleTaskName = taskName.substringAfterLast(':').lowercase()
-        simpleTaskName == "assemblerelease" ||
-            simpleTaskName == "bundlerelease" ||
-            simpleTaskName == "packagerelease"
+fun getGitCommitCount(): Int {
+    return try {
+        val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
+            .start()
+        val result = process.inputStream.bufferedReader().readText().trim()
+        process.waitFor()
+        result.toIntOrNull() ?: 1
+    } catch (e: Exception) {
+        1
     }
+}
 
-if (isReleasePackagingRequest() && !hasCompleteReleaseSigningInputs) {
-    val missingReleaseSigningInputs = releaseSigningInputs
-        .filterValues { it == null }
-        .keys
-        .joinToString()
-    throw GradleException(
-        "Missing release signing inputs: $missingReleaseSigningInputs. " +
-            "Set them as Gradle properties or environment variables before building release artifacts."
-    )
+fun getGitHash(): String {
+    return try {
+        val process = ProcessBuilder("git", "rev-parse", "--short", "HEAD")
+            .start()
+        val result = process.inputStream.bufferedReader().readText().trim()
+        process.waitFor()
+        result.takeIf { it.isNotBlank() } ?: "unknown"
+    } catch (e: Exception) {
+        "unknown"
+    }
 }
 
 android {
     namespace = "com.viel.oto"
     compileSdk = 37
+
+    val properties = Properties()
+    val keystorePropertiesFile = rootProject.file("keystore.properties")
+    if (keystorePropertiesFile.exists()) {
+        try {
+            properties.load(keystorePropertiesFile.inputStream())
+        } catch (e: Exception) {
+            println("Warning: Could not load keystore.properties file: ${e.message}")
+        }
+    }
+    val storeFile = properties.getProperty("storeFile") ?: System.getenv("KEYSTORE_FILE")
+    val storePassword = properties.getProperty("storePassword") ?: System.getenv("KEYSTORE_PASSWORD")
+    val keyAlias = properties.getProperty("keyAlias") ?: System.getenv("KEY_ALIAS")
+    val keyPassword = properties.getProperty("keyPassword") ?: System.getenv("KEY_PASSWORD")
+    val hasCustomSigning = storeFile != null && storePassword != null && keyAlias != null && keyPassword != null
 
     defaultConfig {
         applicationId = "com.viel.oto"
@@ -82,7 +68,7 @@ android {
         minSdk = 33
         //noinspection OldTargetApi
         targetSdk = 36
-        versionCode = 1
+        versionCode = getGitCommitCount()
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -95,38 +81,75 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        manifestPlaceholders["appName"] = "Oto"
     }
 
     signingConfigs {
-        create("release") {
-            if (hasCompleteReleaseSigningInputs) {
-                storeFile = file(releaseSigningInputs.requiredReleaseSigningValue("OTO_RELEASE_STORE_FILE"))
-                storePassword = releaseSigningInputs.requiredReleaseSigningValue("OTO_RELEASE_STORE_PASSWORD")
-                keyAlias = releaseSigningInputs.requiredReleaseSigningValue("OTO_RELEASE_KEY_ALIAS")
-                keyPassword = releaseSigningInputs.requiredReleaseSigningValue("OTO_RELEASE_KEY_PASSWORD")
+        if (hasCustomSigning) {
+            register("releaseCustom") {
+                this.storeFile = rootProject.file(storeFile!!)
+                this.storePassword = storePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
             }
         }
     }
 
     buildTypes {
+        debug {
+            signingConfig = if (hasCustomSigning) {
+                signingConfigs.getByName("releaseCustom")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug.${getGitHash()}"
+            buildConfigField("Boolean", "LOG_ENABLED", "true")
+            buildConfigField("int", "BUILD_LEVEL", "0")
+            manifestPlaceholders["appName"] = "Oto (Debug)"
+        }
+
         release {
-            // Allows shell-based profiling on optimized release builds without making the APK debuggable.
             isProfileable = true
             isMinifyEnabled = true
             isShrinkResources = true
-            if (hasCompleteReleaseSigningInputs) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            signingConfig = if (hasCustomSigning) signingConfigs.getByName("releaseCustom") else signingConfigs.getByName("debug")
+            buildConfigField("Boolean", "LOG_ENABLED", "false")
+            buildConfigField("int", "BUILD_LEVEL", "2")
+            manifestPlaceholders["appName"] = "Oto"
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
+
+        create("nonMinifiedRelease") {
+            signingConfig = if (hasCustomSigning) signingConfigs.getByName("releaseCustom") else signingConfigs.getByName("debug")
+            buildConfigField("Boolean", "LOG_ENABLED", "false")
+            buildConfigField("int", "BUILD_LEVEL", "2")
+            manifestPlaceholders["appName"] = "Oto (NonMinified)"
+            matchingFallbacks += listOf("release")
+        }
+
+        create("benchmarkRelease") {
+            isDebuggable = true
+            signingConfig = if (hasCustomSigning) signingConfigs.getByName("releaseCustom") else signingConfigs.getByName("debug")
+            buildConfigField("Boolean", "LOG_ENABLED", "true")
+            buildConfigField("int", "BUILD_LEVEL", "1")
+            manifestPlaceholders["appName"] = "Oto (Benchmark)"
+            matchingFallbacks += listOf("release")
+        }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
+
     buildFeatures {
         // Runtime Version Source (Expose Gradle-owned version metadata to UI code)
         // AboutScreen reads BuildConfig.VERSION_NAME so translated resources only keep the localized display template.

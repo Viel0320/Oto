@@ -1,4 +1,4 @@
-name: Android Release
+name: Android Release Publish
 
 on:
   workflow_dispatch:
@@ -25,10 +25,10 @@ jobs:
     name: Publish Signed Release
     runs-on: windows-latest
     env:
-      OTO_RELEASE_STORE_FILE: ${{ github.workspace }}\app\release-ci.jks
-      OTO_RELEASE_STORE_PASSWORD: ${{ secrets.OTO_RELEASE_STORE_PASSWORD }}
-      OTO_RELEASE_KEY_ALIAS: ${{ secrets.OTO_RELEASE_KEY_ALIAS }}
-      OTO_RELEASE_KEY_PASSWORD: ${{ secrets.OTO_RELEASE_KEY_PASSWORD }}
+      KEYSTORE_FILE: ${{ github.workspace }}\app\release-ci.jks
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
@@ -47,14 +47,14 @@ jobs:
       - name: Restore Release Keystore
         shell: pwsh
         env:
-          OTO_RELEASE_KEYSTORE_BASE64: ${{ secrets.OTO_RELEASE_KEYSTORE_BASE64 }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:OTO_RELEASE_KEYSTORE_BASE64)) {
-            throw "Missing OTO_RELEASE_KEYSTORE_BASE64 secret."
+          if ([string]::IsNullOrWhiteSpace($env:KEYSTORE_BASE64)) {
+            throw "Missing KEYSTORE_BASE64 secret."
           }
           [IO.File]::WriteAllBytes(
-            $env:OTO_RELEASE_STORE_FILE,
-            [Convert]::FromBase64String($env:OTO_RELEASE_KEYSTORE_BASE64)
+            $env:KEYSTORE_FILE,
+            [Convert]::FromBase64String($env:KEYSTORE_BASE64)
           )
 
       # Signed Artifact Build (Runs release packaging only after all signing inputs are available)

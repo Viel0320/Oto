@@ -1,0 +1,28 @@
+name: Release Android Lint
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  lint-release:
+    name: Release Android Lint
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+
+      - name: Set Up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Run Release Lint
+        run: .\gradlew.bat lintRelease

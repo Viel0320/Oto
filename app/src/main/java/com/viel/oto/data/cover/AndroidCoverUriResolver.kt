@@ -2,6 +2,7 @@ package com.viel.oto.data.cover
 
 import android.content.Context
 import androidx.core.content.FileProvider
+import com.viel.oto.BuildConfig
 import java.io.File
 
 /**
@@ -23,7 +24,7 @@ class AndroidCoverUriResolver(
     override fun toContentUri(absolutePath: String): String? {
         val file = File(absolutePath)
         return if (file.exists()) {
-            FileProvider.getUriForFile(context, "com.viel.oto.fileprovider", file).toString()
+            FileProvider.getUriForFile(context, "${BuildConfig.APPLICATION_ID}.fileprovider", file).toString()
         } else {
             null
         }

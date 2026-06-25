@@ -171,19 +171,19 @@ class ReleasePolicyTest {
 
     @Test
     fun ciWorkflowRunsDebugLintReleaseLintAndReleaseR8AsSeparateGates() {
-        val workflow = repoFile(".github/workflows/ci.yml").readText()
-
-        listOf(
-            "name: Debug Kotlin Compile" to ".\\gradlew.bat compileDebugKotlin",
-            "name: Debug Unit Tests" to ".\\gradlew.bat testDebugUnitTest",
-            "name: Debug Android Lint" to ".\\gradlew.bat lintDebug",
-            "name: Release Android Lint" to ".\\gradlew.bat lintRelease",
-            "name: Release Assemble And R8" to ".\\gradlew.bat assembleRelease"
-        ).forEach { (jobName, command) ->
-            assertTrue("ci.yml must contain $jobName.", workflow.contains(jobName))
-            assertTrue("ci.yml must run $command.", workflow.contains(command))
+        val gates = listOf(
+            ".github/workflows/debug-build.yml" to ".\\gradlew.bat assembleDebug",
+            ".github/workflows/full-unit-tests.yml" to ".\\gradlew.bat testDebugUnitTest",
+            ".github/workflows/lint-debug.yml" to ".\\gradlew.bat lintDebug",
+            ".github/workflows/lint-release.yml" to ".\\gradlew.bat lintRelease",
+            ".github/workflows/release-compile.yml" to ".\\gradlew.bat compileReleaseKotlin"
+        )
+        gates.forEach { (filePath, command) ->
+            val content = repoFile(filePath).readText()
+            assertTrue("$filePath must run $command.", content.contains(command))
         }
-        assertTrue("ci.yml must allow manual release verification.", workflow.contains("workflow_dispatch:"))
+        val releaseWorkflow = repoFile(".github/workflows/release.yml").readText()
+        assertTrue("release.yml must allow manual release verification.", releaseWorkflow.contains("workflow_dispatch:"))
     }
 
     @Test
