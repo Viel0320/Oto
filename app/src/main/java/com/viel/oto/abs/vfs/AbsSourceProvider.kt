@@ -20,6 +20,12 @@ import com.viel.oto.library.vfs.sourceProvider.LibrarySourceProvider
 import com.viel.oto.library.vfs.sourceProvider.SourceCapabilities
 import com.viel.oto.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.oto.library.vfs.sourceProvider.SourceNode
+import com.viel.oto.library.vfs.sourceProvider.remote.RemoteContentRange
+import com.viel.oto.library.vfs.sourceProvider.remote.RemoteHttpRangeReadStrategy
+import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangeBodyReadResult
+import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangeEndPolicy
+import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangePlan
+import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangeStrategyLogSink
 import com.viel.oto.logger.AbsAuthLogger
 import com.viel.oto.logger.AbsStreamLogger
 import com.viel.oto.network.UnsafeNetworkPolicy
@@ -172,16 +178,23 @@ class AbsSourceProvider(
         }
     }
 
+    /**
+     * Reads a bounded ABS byte range without trusting the server to honor the requested body size.
+     *
+     * The provider validates `Content-Range` for 206 responses and reads only enough bytes to detect
+     * an oversized body. A response that continues past `length` is surfaced as a typed protocol
+     * failure so callers and logs can distinguish it from ordinary transport or HTTP failures.
+     */
     override suspend fun readRange(file: SourceNode, offset: Long, length: Int): ByteArray? =
         withContext(Dispatchers.IO) {
             if (offset < 0L || length <= 0) return@withContext ByteArray(0)
             val rangeStart = AbsStreamLogger.mark()
             AbsStreamLogger.logRangeReadStart(rootId = file.root.id, sourcePath = file.metadata.sourcePath, offset = offset, length = length)
-            val requestRangeEnd = boundedRangeEnd(offset, length) ?: return@withContext ByteArray(0)
+            val rangePlan = RemoteHttpRangeReadStrategy.plan(offset = offset, length = length) ?: return@withContext ByteArray(0)
             val response = executeRequest(
                 file = file,
                 method = "GET",
-                extraHeaders = mapOf("Range" to "bytes=$offset-$requestRangeEnd")
+                extraHeaders = mapOf("Range" to rangePlan.headerValue)
             )
             response.use { httpResponse ->
                 when {
@@ -226,7 +239,44 @@ class AbsSourceProvider(
                         throw error
                     }
                 }
-                val bytes = httpResponse.body.bytes()
+                val strategyLogSink = absRangeStrategyLogSink(
+                    file = file,
+                    offset = offset,
+                    length = length,
+                    httpCode = httpResponse.code,
+                    rangeStart = rangeStart
+                )
+                val contentRange = RemoteHttpRangeReadStrategy.parseContentRange(httpResponse.header("Content-Range"))
+                if (!RemoteHttpRangeReadStrategy.validateContentRange(
+                        contentRange = contentRange,
+                        plan = rangePlan,
+                        endPolicy = RemoteRangeEndPolicy.WithinRequestedEnd,
+                        logSink = strategyLogSink
+                    )
+                ) {
+                    throw AbsApiError(
+                        code = "RANGE_CONTENT_MISMATCH",
+                        httpStatus = httpResponse.code,
+                        availabilityStatus = AudiobookSchema.AvailabilityStatus.SERVER_ERROR,
+                        message = "ABS media GET Range returned mismatched Content-Range"
+                    )
+                }
+                val bytes = when (
+                    val readResult = httpResponse.body.byteStream().use { stream ->
+                        RemoteHttpRangeReadStrategy.readBodyWithLimit(
+                            stream = stream,
+                            expectedLength = rangePlan.expectedBodyLength,
+                            logSink = strategyLogSink
+                        )
+                    }
+                ) {
+                    is RemoteRangeBodyReadResult.Success -> readResult.bytes
+                    is RemoteRangeBodyReadResult.TooLarge -> throw AbsRangeBodyTooLargeException(
+                        requestedLength = readResult.requestedLength,
+                        observedBytes = readResult.observedBytes,
+                        httpStatus = httpResponse.code
+                    )
+                }
                 AbsStreamLogger.logRangeReadSuccess(
                     rootId = file.root.id,
                     sourcePath = file.metadata.sourcePath,
@@ -356,15 +406,50 @@ class AbsSourceProvider(
 
     private fun Response.isTrustedOffsetResponse(offset: Long): Boolean {
         if (code == HTTP_PARTIAL_CONTENT) return true
-        val contentRange = header("Content-Range") ?: return false
-        return contentRange.startsWith("bytes $offset-")
+        val contentRange = RemoteHttpRangeReadStrategy.parseContentRange(header("Content-Range"))
+        return RemoteHttpRangeReadStrategy.validateContentRangeStart(contentRange, offset)
     }
 
-    private fun boundedRangeEnd(offset: Long, length: Int): Long? {
-        if (offset < 0L || length <= 0) return null
-        val delta = length.toLong() - 1L
-        return if (offset > Long.MAX_VALUE - delta) Long.MAX_VALUE else offset + delta
-    }
+    /**
+     * Adapts shared HTTP range strategy diagnostics to the ABS stream logger.
+     *
+     * The strategy invokes this sink at the decision point, while this provider supplies only ABS
+     * source context and the ABS-specific failure class names used in stream diagnostics.
+     */
+    private fun absRangeStrategyLogSink(file: SourceNode, offset: Long, length: Int, httpCode: Int, rangeStart: Long): RemoteRangeStrategyLogSink =
+        object : RemoteRangeStrategyLogSink {
+            override fun onContentRangeMismatch(
+                plan: RemoteRangePlan,
+                contentRange: RemoteContentRange?,
+                endPolicy: RemoteRangeEndPolicy
+            ) {
+                AbsStreamLogger.logRangeReadFailure(
+                    rootId = file.root.id,
+                    sourcePath = file.metadata.sourcePath,
+                    offset = offset,
+                    length = length,
+                    httpCode = httpCode,
+                    costMs = AbsStreamLogger.elapsedMs(rangeStart),
+                    errorClass = "AbsApiError",
+                    message = "RANGE_CONTENT_MISMATCH: expected=${plan.headerValue}, actual=${contentRange?.toLogValue() ?: "null"}, policy=$endPolicy"
+                )
+            }
+
+            override fun onBodyTooLarge(result: RemoteRangeBodyReadResult.TooLarge) {
+                AbsStreamLogger.logRangeReadFailure(
+                    rootId = file.root.id,
+                    sourcePath = file.metadata.sourcePath,
+                    offset = offset,
+                    length = length,
+                    httpCode = httpCode,
+                    costMs = AbsStreamLogger.elapsedMs(rangeStart),
+                    errorClass = AbsRangeBodyTooLargeException::class.java.simpleName,
+                    message = "RANGE_BODY_TOO_LARGE: requested=${result.requestedLength}, observedAtLeast=${result.observedBytes}"
+                )
+            }
+        }
+
+    private fun RemoteContentRange.toLogValue(): String = "bytes $start-$end"
 
     private fun Response.toAbsApiError(method: String): AbsApiError {
         val availabilityStatus = RemoteAvailabilityMappingPolicy.fromHttpStatus(

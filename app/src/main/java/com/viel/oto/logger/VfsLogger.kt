@@ -114,6 +114,21 @@ internal object VfsLogger {
     }
 
     /**
+     * Record a WebDAV range read failure with the provider-level failure message.
+     *
+     * Range failures need a separate log shape from successful short reads because protocol-size
+     * violations can otherwise look like valid EOF truncation in diagnostics. The warning is routed
+     * through SecureLog because release builds retain warning logs for field diagnostics.
+     */
+    fun logWebDavRangeFailure(sourcePath: String, offset: Long, requestedLength: Int, costMs: Long, errorClass: String, message: String?) {
+        SecureLog.warn(
+            TAG,
+            "WebDAV Range failure(path=${compact(sourcePath)}, offset=$offset, len=$requestedLength) " +
+                "cost=${costMs}ms, errorClass=$errorClass, message=${message?.let(::compact) ?: "null"}"
+        )
+    }
+
+    /**
      * Record remote network request exceptions.
      *
      * Traces timeouts, socket errors, and maps them to a unified availability status.

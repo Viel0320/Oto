@@ -47,6 +47,34 @@ class WebDavSourceProviderRangeTest {
     }
 
     @Test
+    fun `readRange should throw typed failure when response body exceeds requested length`() = runBlocking {
+        withCleartextAllowed {
+            MockWebServer().use { server ->
+                server.enqueue(
+                    MockResponse()
+                        .setResponseCode(206)
+                        .setHeader("Content-Range", "bytes 5-8/100")
+                        .setBody("56789")
+                )
+                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val node = sourceNodeFor(server)
+
+                val error = runCatching {
+                    provider.readRange(node, offset = 5L, length = 4)
+                }.exceptionOrNull()
+
+                assertTrue(error is WebDavRangeBodyTooLargeException)
+                val typedError = error as WebDavRangeBodyTooLargeException
+                assertEquals(WebDavRangeBodyTooLargeException.CODE, typedError.code)
+                assertEquals(4, typedError.requestedLength)
+                assertEquals(5L, typedError.observedBytes)
+                assertEquals(AudiobookSchema.AvailabilityStatus.SERVER_ERROR, typedError.availabilityStatus)
+                assertEquals("bytes=5-8", server.takeRequest().getHeader("Range"))
+            }
+        }
+    }
+
+    @Test
     fun `openInputStream should reject partial content without content range`() = runBlocking {
         withCleartextAllowed {
             MockWebServer().use { server ->

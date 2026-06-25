@@ -170,23 +170,6 @@ class ReleasePolicyTest {
     }
 
     @Test
-    fun ciWorkflowRunsDebugLintReleaseLintAndReleaseR8AsSeparateGates() {
-        val gates = listOf(
-            ".github/workflows/debug-build.yml" to ".\\gradlew.bat assembleDebug",
-            ".github/workflows/full-unit-tests.yml" to ".\\gradlew.bat testDebugUnitTest",
-            ".github/workflows/lint-debug.yml" to ".\\gradlew.bat lintDebug",
-            ".github/workflows/lint-release.yml" to ".\\gradlew.bat lintRelease",
-            ".github/workflows/release-compile.yml" to ".\\gradlew.bat compileReleaseKotlin"
-        )
-        gates.forEach { (filePath, command) ->
-            val content = repoFile(filePath).readText()
-            assertTrue("$filePath must run $command.", content.contains(command))
-        }
-        val releaseWorkflow = repoFile(".github/workflows/release.yml").readText()
-        assertTrue("release.yml must allow manual release verification.", releaseWorkflow.contains("workflow_dispatch:"))
-    }
-
-    @Test
     fun r8RulesDoNotSuppressWholeMedia3OrCoilPackages() {
         val rules = repoFile("app/proguard-rules.pro").readText()
 

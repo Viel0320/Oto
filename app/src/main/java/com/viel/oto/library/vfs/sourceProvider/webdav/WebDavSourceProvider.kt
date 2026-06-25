@@ -16,6 +16,12 @@ import com.viel.oto.library.vfs.sourceProvider.LibrarySourceProvider
 import com.viel.oto.library.vfs.sourceProvider.SourceCapabilities
 import com.viel.oto.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.oto.library.vfs.sourceProvider.SourceNode
+import com.viel.oto.library.vfs.sourceProvider.remote.RemoteContentRange
+import com.viel.oto.library.vfs.sourceProvider.remote.RemoteHttpRangeReadStrategy
+import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangeBodyReadResult
+import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangeEndPolicy
+import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangePlan
+import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangeStrategyLogSink
 import com.viel.oto.network.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -43,7 +49,7 @@ import javax.xml.parsers.DocumentBuilderFactory
 /**
  * Maps WebDAV HTTP and network failures to standardized availability statuses.
  */
-class WebDavException(
+open class WebDavException(
     val availabilityStatus: AudiobookSchema.AvailabilityStatus,
     message: String,
     cause: Throwable? = null
@@ -62,17 +68,6 @@ private data class WebDavResource(
     val lastModified: Long,
     val etag: String?,
     val mimeType: String?
-)
-
-/**
- * Stores the parsed byte interval returned by a WebDAV partial response.
- *
- * The provider validates only the start and inclusive end offsets because VFS callers already
- * know the requested byte window and do not need total-size coupling here.
- */
-private data class ContentRangeWindow(
-    val start: Long,
-    val end: Long
 )
 
 /**
@@ -206,12 +201,16 @@ class WebDavSourceProvider(
     override suspend fun readRange(file: SourceNode, offset: Long, length: Int): ByteArray? =
         withContext(Dispatchers.IO) {
             if (file.metadata.isDirectory || offset < 0L || length <= 0) return@withContext ByteArray(0)
-            val rangeEnd = boundedRangeEnd(file, offset, length) ?: return@withContext null
+            val rangePlan = RemoteHttpRangeReadStrategy.plan(
+                offset = offset,
+                length = length,
+                knownFileSize = file.metadata.fileSize.takeIf { it > 0L }
+            ) ?: return@withContext null
             val rangeStart = com.viel.oto.logger.VfsLogger.mark()
             val request = Request.Builder()
                 .url(urlFor(file.root, file.metadata.sourcePath, directory = false))
                 .get()
-                .header("Range", "bytes=$offset-$rangeEnd")
+                .header("Range", rangePlan.headerValue)
                 .applyAuth(file.root)
                 .build()
             executeRequestBlocking(file.root, request).use { response ->
@@ -238,9 +237,41 @@ class WebDavSourceProvider(
                     }
                     !response.isSuccessful -> throw response.toWebDavException("GET Range")
                 }
-                response.requireMatchingContentRange(start = offset, end = rangeEnd, operation = "GET Range")
+                val strategyLogSink = webDavRangeStrategyLogSink(
+                    file = file,
+                    offset = offset,
+                    length = length,
+                    rangeStart = rangeStart
+                )
+                val contentRange = RemoteHttpRangeReadStrategy.parseContentRange(response.header("Content-Range"))
+                if (!RemoteHttpRangeReadStrategy.validateContentRange(
+                        contentRange = contentRange,
+                        plan = rangePlan,
+                        endPolicy = RemoteRangeEndPolicy.ExactEnd,
+                        logSink = strategyLogSink
+                    )
+                ) {
+                    throw WebDavException(
+                        availabilityStatus = AudiobookSchema.AvailabilityStatus.SERVER_ERROR,
+                        message = "WebDAV GET Range returned mismatched Content-Range"
+                    )
+                }
                 val body = response.body
-                val result = body.byteStream().use { stream -> stream.readAtMost(length) }
+                val result = when (
+                    val readResult = body.byteStream().use { stream ->
+                        RemoteHttpRangeReadStrategy.readBodyWithLimit(
+                            stream = stream,
+                            expectedLength = rangePlan.expectedBodyLength,
+                            logSink = strategyLogSink
+                        )
+                    }
+                ) {
+                    is RemoteRangeBodyReadResult.Success -> readResult.bytes
+                    is RemoteRangeBodyReadResult.TooLarge -> throw WebDavRangeBodyTooLargeException(
+                        requestedLength = readResult.requestedLength,
+                        observedBytes = readResult.observedBytes
+                    )
+                }
                 com.viel.oto.logger.VfsLogger.logWebDavRange(
                     sourcePath = file.metadata.sourcePath,
                     offset = offset,
@@ -440,22 +471,18 @@ class WebDavSourceProvider(
 
     private fun Response.requireMatchingContentRange(start: Long, end: Long?, operation: String) {
         if (code != HTTP_PARTIAL_CONTENT) return
-        val parsed = header("Content-Range")?.parseContentRangeWindow()
-        val endMatches = end == null || parsed?.end == end
-        if (parsed?.start != start || !endMatches) {
+        val parsed = RemoteHttpRangeReadStrategy.parseContentRange(header("Content-Range"))
+        val matches = if (end == null) {
+            RemoteHttpRangeReadStrategy.validateContentRangeStart(parsed, start)
+        } else {
+            parsed?.start == start && parsed.end == end
+        }
+        if (!matches) {
             throw WebDavException(
                 availabilityStatus = AudiobookSchema.AvailabilityStatus.SERVER_ERROR,
                 message = "WebDAV $operation returned mismatched Content-Range"
             )
         }
-    }
-
-    private fun String.parseContentRangeWindow(): ContentRangeWindow? {
-        val match = CONTENT_RANGE_PATTERN.matchEntire(trim()) ?: return null
-        val start = match.groupValues[1].toLongOrNull() ?: return null
-        val end = match.groupValues[2].toLongOrNull() ?: return null
-        if (start > end) return null
-        return ContentRangeWindow(start = start, end = end)
     }
 
     private fun urlFor(root: LibraryRootEntity, sourcePath: String, directory: Boolean): HttpUrl {
@@ -567,29 +594,42 @@ class WebDavSourceProvider(
         }
     }
 
-    private fun boundedRangeEnd(file: SourceNode, offset: Long, length: Int): Long? {
-        val knownSize = file.metadata.fileSize
-        if (knownSize in 1..offset) return null
-        val rawEnd = offset.saturatingAdd(length.toLong() - 1L)
-        return if (knownSize > 0L) minOf(rawEnd, knownSize - 1L) else rawEnd
-    }
+    /**
+     * Adapts shared HTTP range strategy diagnostics to the WebDAV VFS logger.
+     *
+     * The strategy owns the decision to emit these diagnostics; this provider supplies only the
+     * WebDAV source path, elapsed timing, and WebDAV-specific failure class names.
+     */
+    private fun webDavRangeStrategyLogSink(file: SourceNode, offset: Long, length: Int, rangeStart: Long): RemoteRangeStrategyLogSink =
+        object : RemoteRangeStrategyLogSink {
+            override fun onContentRangeMismatch(
+                plan: RemoteRangePlan,
+                contentRange: RemoteContentRange?,
+                endPolicy: RemoteRangeEndPolicy
+            ) {
+                com.viel.oto.logger.VfsLogger.logWebDavRangeFailure(
+                    sourcePath = file.metadata.sourcePath,
+                    offset = offset,
+                    requestedLength = length,
+                    costMs = com.viel.oto.logger.VfsLogger.elapsedMs(rangeStart),
+                    errorClass = WebDavException::class.java.simpleName,
+                    message = "RANGE_CONTENT_MISMATCH: expected=${plan.headerValue}, actual=${contentRange?.toLogValue() ?: "null"}, policy=$endPolicy"
+                )
+            }
 
-    private fun Long.saturatingAdd(value: Long): Long =
-        if (this > Long.MAX_VALUE - value) Long.MAX_VALUE else this + value
-
-    private fun InputStream.readAtMost(length: Int): ByteArray {
-        if (length <= 0) return ByteArray(0)
-        val output = ByteArrayOutputStream(length.coerceAtMost(DEFAULT_RANGE_BUFFER_SIZE))
-        val buffer = ByteArray(DEFAULT_RANGE_BUFFER_SIZE)
-        var remaining = length
-        while (remaining > 0) {
-            val read = read(buffer, 0, minOf(buffer.size, remaining))
-            if (read <= 0) break
-            output.write(buffer, 0, read)
-            remaining -= read
+            override fun onBodyTooLarge(result: RemoteRangeBodyReadResult.TooLarge) {
+                com.viel.oto.logger.VfsLogger.logWebDavRangeFailure(
+                    sourcePath = file.metadata.sourcePath,
+                    offset = offset,
+                    requestedLength = length,
+                    costMs = com.viel.oto.logger.VfsLogger.elapsedMs(rangeStart),
+                    errorClass = WebDavRangeBodyTooLargeException::class.java.simpleName,
+                    message = "RANGE_BODY_TOO_LARGE: requested=${result.requestedLength}, observedAtLeast=${result.observedBytes}"
+                )
+            }
         }
-        return output.toByteArray()
-    }
+
+    private fun RemoteContentRange.toLogValue(): String = "bytes $start-$end"
 
     private fun Element.elementsByLocalName(localName: String): List<Element> {
         val namespaced = getElementsByTagNameNS("*", localName).toElements()
@@ -626,9 +666,7 @@ class WebDavSourceProvider(
         private const val HTTP_MULTI_STATUS = 207
         private const val HTTP_NOT_FOUND = 404
         private const val HTTP_RANGE_NOT_SATISFIABLE = 416
-        private const val DEFAULT_RANGE_BUFFER_SIZE = 16 * 1024
         private const val MAX_PROPFIND_RESPONSE_SIZE = 8 * 1024 * 1024
-        private val CONTENT_RANGE_PATTERN = Regex("""^bytes\s+(\d+)-(\d+)/(?:\d+|\*)$""")
         private val HTTP_STATUS_LINE_PATTERN = Regex("""^HTTP/\S+\s+(\d{3})(?:\s+.*)?$""")
 
         private val WEB_DAV_DATE_FORMAT = ThreadLocal.withInitial {

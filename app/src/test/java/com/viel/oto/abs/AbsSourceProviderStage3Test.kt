@@ -13,6 +13,7 @@ import com.viel.oto.abs.sync.AbsCoverStore
 import com.viel.oto.abs.sync.AbsItemMirrorEntity
 import com.viel.oto.abs.sync.AbsSyncStateEntity
 import com.viel.oto.abs.vfs.AbsAuthExpiredException
+import com.viel.oto.abs.vfs.AbsRangeBodyTooLargeException
 import com.viel.oto.abs.vfs.AbsSourceProvider
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.BookEntity
@@ -174,6 +175,120 @@ class AbsSourceProviderStage3Test {
 
             val request = server.takeRequest()
             assertEquals("bytes=${Long.MAX_VALUE - 1L}-${Long.MAX_VALUE}", request.getHeader("Range"))
+        }
+    }
+
+    @Test
+    fun `readRange should throw typed failure when response body exceeds requested length`() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Type", "audio/mpeg")
+                    .setHeader("Content-Range", "bytes 5-9/100")
+                    .setBody("567890")
+            )
+            val credentialStore = createCredentialStore(server.url("/AudiobookShelf/").toString(), "token-1")
+            val provider = AbsSourceProvider(
+                context = null,
+                credentialStore = credentialStore,
+                settingsProvider = ::allowCleartextSettings
+            )
+            val root = LibraryRootEntity(
+                id = "root-1",
+                sourceType = AudiobookSchema.LibrarySourceType.ABS,
+                sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
+                basePath = "lib-1",
+                credentialId = "cred-1",
+                displayName = "Audiobooks"
+            )
+            val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
+
+            try {
+                provider.readRange(node, offset = 5L, length = 5)
+                fail("Expected oversized ABS range response body to fail")
+            } catch (error: AbsRangeBodyTooLargeException) {
+                assertEquals(AbsRangeBodyTooLargeException.CODE, error.code)
+                assertEquals(5, error.requestedLength)
+                assertEquals(6L, error.observedBytes)
+                assertEquals(AudiobookSchema.AvailabilityStatus.SERVER_ERROR, error.availabilityStatus)
+            }
+
+            val request = server.takeRequest()
+            assertEquals("bytes=5-9", request.getHeader("Range"))
+        }
+    }
+
+    @Test
+    fun `readRange should reject mismatched content range before accepting bytes`() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Type", "audio/mpeg")
+                    .setHeader("Content-Range", "bytes 0-4/100")
+                    .setBody("56789")
+            )
+            val credentialStore = createCredentialStore(server.url("/AudiobookShelf/").toString(), "token-1")
+            val provider = AbsSourceProvider(
+                context = null,
+                credentialStore = credentialStore,
+                settingsProvider = ::allowCleartextSettings
+            )
+            val root = LibraryRootEntity(
+                id = "root-1",
+                sourceType = AudiobookSchema.LibrarySourceType.ABS,
+                sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
+                basePath = "lib-1",
+                credentialId = "cred-1",
+                displayName = "Audiobooks"
+            )
+            val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
+
+            try {
+                provider.readRange(node, offset = 5L, length = 5)
+                fail("Expected mismatched ABS Content-Range to fail")
+            } catch (error: AbsApiError) {
+                assertEquals("RANGE_CONTENT_MISMATCH", error.code)
+                assertEquals(AudiobookSchema.AvailabilityStatus.SERVER_ERROR, error.availabilityStatus)
+            }
+
+            val request = server.takeRequest()
+            assertEquals("bytes=5-9", request.getHeader("Range"))
+        }
+    }
+
+    @Test
+    fun `readRange should accept shorter tail content range within requested window`() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Type", "audio/mpeg")
+                    .setHeader("Content-Range", "bytes 7-9/10")
+                    .setBody("789")
+            )
+            val credentialStore = createCredentialStore(server.url("/AudiobookShelf/").toString(), "token-1")
+            val provider = AbsSourceProvider(
+                context = null,
+                credentialStore = credentialStore,
+                settingsProvider = ::allowCleartextSettings
+            )
+            val root = LibraryRootEntity(
+                id = "root-1",
+                sourceType = AudiobookSchema.LibrarySourceType.ABS,
+                sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
+                basePath = "lib-1",
+                credentialId = "cred-1",
+                displayName = "Audiobooks"
+            )
+            val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
+
+            val data = provider.readRange(node, offset = 7L, length = 10)
+
+            assertEquals("789", data?.toString(Charsets.UTF_8))
+            val request = server.takeRequest()
+            assertEquals("bytes=7-16", request.getHeader("Range"))
         }
     }
 
