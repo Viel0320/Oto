@@ -65,14 +65,14 @@ fun rememberActions(
                 onResetPlaybackSpeed = { playbackViewModel.resetPlaybackSpeed() },
                 onCycleSleepTimer = {
                     settingsViewModel.cycleSleepTimer(
-                        currentPlayback = { playbackViewModel.playbackState.value },
+                        currentPlayback = { playbackViewModel.currentPlaybackSnapshot() },
                         currentMetadata = { playbackViewModel.metadataState.value }
                     )
                 },
                 onCancelSleepTimer = {
                     settingsViewModel.setSleepTimer(
                         minutes = 0,
-                        currentPlayback = { playbackViewModel.playbackState.value },
+                        currentPlayback = { playbackViewModel.currentPlaybackSnapshot() },
                         currentMetadata = { playbackViewModel.metadataState.value }
                     )
                 },
@@ -90,7 +90,7 @@ fun rememberActions(
                 onTitleChange = { settingsViewModel.updateBookmarkTitle(it) },
                 onSave = {
                     val bookId = playbackViewModel.currentBookId.value ?: return@BookmarkActions
-                    val position = playbackViewModel.playbackState.value.currentPosition
+                    val position = playbackViewModel.currentPlaybackSnapshot().currentPosition
                     val title = settingsViewModel.settingsState.value.bookmarkTitle
                     bookmarkViewModel.saveBookmarkFromDialog(bookId, position, title)
                     settingsViewModel.dismissBookmarkDialog()
