@@ -4,6 +4,7 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.oto.data.availability.BookAvailabilityGateway
 import com.viel.oto.data.availability.BookAvailabilityGatewayImpl
+import com.viel.oto.data.availability.FileAvailabilityProbe
 import com.viel.oto.data.book.BookCatalogGateway
 import com.viel.oto.data.book.BookCatalogGatewayImpl
 import com.viel.oto.data.book.BookDeletionGateway
@@ -20,6 +21,7 @@ import com.viel.oto.data.cleanup.RemotePlaybackCleanupGateway
 import com.viel.oto.data.cleanup.RemotePlaybackCleanupGatewayImpl
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.library.availability.AvailabilityChecker
+import com.viel.oto.library.availability.LibraryFileAvailabilityProbe
 import com.viel.oto.library.availability.MissingBookFileRecoveryChecker
 import com.viel.oto.logger.SecureDiagnosticLogSink
 import org.koin.core.module.Module
@@ -46,8 +48,16 @@ internal object LibraryBookGatewayModule {
 
         single { MissingBookFileRecoveryChecker(get<AppDatabase>(), get()) }
 
+        single<FileAvailabilityProbe> {
+            LibraryFileAvailabilityProbe(availabilityChecker = get())
+        }
+
         single<BookAvailabilityGateway> {
-            BookAvailabilityGatewayImpl(get<AppDatabase>().bookDao(), get<AppDatabase>().libraryRootDao(), get())
+            BookAvailabilityGatewayImpl(
+                bookDao = get<AppDatabase>().bookDao(),
+                libraryRootDao = get<AppDatabase>().libraryRootDao(),
+                availabilityProbe = get<FileAvailabilityProbe>()
+            )
         }
 
         single<BookMetadataGateway> {

@@ -1,7 +1,6 @@
 package com.viel.oto.data.availability
 
 import com.viel.oto.data.db.AudiobookSchema
-import com.viel.oto.library.availability.AvailabilityResult
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -20,7 +19,7 @@ class AvailabilityPersistencePolicyTest {
                 AudiobookSchema.FileStatus.READY,
                 AvailabilityPersistencePolicy.nextFileStatus(
                     previousStatus = AudiobookSchema.FileStatus.READY,
-                    result = AvailabilityResult(status = status)
+                    result = FileAvailabilityResult(status = status)
                 )
             )
         }
@@ -32,14 +31,14 @@ class AvailabilityPersistencePolicyTest {
             AudiobookSchema.FileStatus.READY,
             AvailabilityPersistencePolicy.nextFileStatus(
                 previousStatus = AudiobookSchema.FileStatus.MISSING,
-                result = AvailabilityResult(status = AudiobookSchema.AvailabilityStatus.AVAILABLE)
+                result = FileAvailabilityResult(status = AudiobookSchema.AvailabilityStatus.AVAILABLE)
             )
         )
         assertEquals(
             AudiobookSchema.FileStatus.MISSING,
             AvailabilityPersistencePolicy.nextFileStatus(
                 previousStatus = AudiobookSchema.FileStatus.READY,
-                result = AvailabilityResult(status = AudiobookSchema.AvailabilityStatus.NOT_FOUND)
+                result = FileAvailabilityResult(status = AudiobookSchema.AvailabilityStatus.NOT_FOUND)
             )
         )
     }

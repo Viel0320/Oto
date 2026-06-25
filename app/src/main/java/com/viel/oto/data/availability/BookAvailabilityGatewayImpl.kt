@@ -5,8 +5,6 @@ import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.BookFileEntity
 import com.viel.oto.data.entity.BookProgressEntity
-import com.viel.oto.library.availability.AvailabilityChecker
-import com.viel.oto.library.availability.AvailabilityResult
 import com.viel.oto.timeline.PositionMapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -22,7 +20,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class BookAvailabilityGatewayImpl(
     private val bookDao: BookDao,
     private val libraryRootDao: LibraryRootDao,
-    private val availabilityChecker: AvailabilityChecker
+    private val availabilityProbe: FileAvailabilityProbe
 ) : BookAvailabilityGateway {
     /**
      * Checks reachability without mutating stored status.
@@ -31,7 +29,7 @@ class BookAvailabilityGatewayImpl(
      */
     override suspend fun checkPrimaryAudioFileExistsWithoutStatusRefresh(bookId: String): Boolean = withContext(Dispatchers.IO) {
         val primaryFile = bookDao.getFilesForBookList(bookId).firstOrNull() ?: return@withContext false
-        availabilityChecker.checkBookFile(primaryFile).isAvailable
+        availabilityProbe.checkBookFile(primaryFile).isAvailable
     }
 
     /**
@@ -60,7 +58,7 @@ class BookAvailabilityGatewayImpl(
             )
         }
 
-        val availabilityByFileId = availabilityChecker.checkBookFiles(files)
+        val availabilityByFileId = availabilityProbe.checkBookFiles(files)
         val readyFileIds = mutableListOf<String>()
         val missingFileIds = mutableListOf<String>()
         val nextFileStatuses = files.associate { file ->
@@ -146,7 +144,7 @@ class BookAvailabilityGatewayImpl(
             return@withContext findNextAvailableRemoteAwareAndRefreshStatus(bookId, afterQueueIndex, files)
         }
 
-        val availabilityByFileId = availabilityChecker.checkBookFiles(candidateFiles)
+        val availabilityByFileId = availabilityProbe.checkBookFiles(candidateFiles)
         val readyFileIds = mutableListOf<String>()
         val missingFileIds = mutableListOf<String>()
         var nextAvailable: Pair<Int, BookFileEntity>? = null
@@ -169,20 +167,20 @@ class BookAvailabilityGatewayImpl(
         nextAvailable
     }
 
-    private suspend fun checkFileAvailability(file: BookFileEntity): AvailabilityResult {
+    private suspend fun checkFileAvailability(file: BookFileEntity): FileAvailabilityResult {
         val root = libraryRootDao.getRootById(file.rootId) ?: return notFoundResult()
         val isLocal = root.sourceType == AudiobookSchema.LibrarySourceType.SAF
         return if (isLocal) {
-            availabilityChecker.checkBookFile(file)
+            availabilityProbe.checkBookFile(file)
         } else {
             checkRemoteFileAvailabilityWithGrace(file)
         }
     }
 
-    private suspend fun checkRemoteFileAvailabilityWithGrace(file: BookFileEntity): AvailabilityResult {
-        var lastResult: AvailabilityResult = transientUnknownResult()
+    private suspend fun checkRemoteFileAvailabilityWithGrace(file: BookFileEntity): FileAvailabilityResult {
+        var lastResult: FileAvailabilityResult = transientUnknownResult()
         REMOTE_REACHABILITY_RETRY_DELAYS_MS.forEachIndexed { attempt, delayMs ->
-            val result = availabilityChecker.checkBookFile(file)
+            val result = availabilityProbe.checkBookFile(file)
             lastResult = result
             if (result.isAvailable || AvailabilityPersistencePolicy.isDefiniteMissing(result)) return result
             if (attempt < REMOTE_REACHABILITY_RETRY_DELAYS_MS.lastIndex) delay(delayMs.milliseconds)
@@ -231,7 +229,7 @@ class BookAvailabilityGatewayImpl(
         }
     }
 
-    private suspend fun refreshPlaybackFileStatus(file: BookFileEntity, result: AvailabilityResult) {
+    private suspend fun refreshPlaybackFileStatus(file: BookFileEntity, result: FileAvailabilityResult) {
         val status = AvailabilityPersistencePolicy.nextFileStatus(
             previousStatus = file.status,
             result = result
@@ -259,14 +257,14 @@ class BookAvailabilityGatewayImpl(
         return bookStatusFromCounts(fileCount = files.size, readyCount = readyCount, missingCount = missingCount)
     }
 
-    private fun notFoundResult(): AvailabilityResult =
-        AvailabilityResult(
+    private fun notFoundResult(): FileAvailabilityResult =
+        FileAvailabilityResult(
             status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
             errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND.name
         )
 
-    private fun transientUnknownResult(): AvailabilityResult =
-        AvailabilityResult(
+    private fun transientUnknownResult(): FileAvailabilityResult =
+        FileAvailabilityResult(
             status = AudiobookSchema.AvailabilityStatus.UNKNOWN,
             errorCode = AudiobookSchema.AvailabilityStatus.UNKNOWN.name
         )
@@ -285,7 +283,7 @@ internal object AvailabilityPersistencePolicy {
      * Maps a probe result to the durable file status that should remain in Room.
      * AVAILABLE always restores READY, NOT_FOUND confirms MISSING, and transient or credential failures keep the previous persisted status.
      */
-    fun nextFileStatus(previousStatus: AudiobookSchema.FileStatus, result: AvailabilityResult): AudiobookSchema.FileStatus =
+    fun nextFileStatus(previousStatus: AudiobookSchema.FileStatus, result: FileAvailabilityResult): AudiobookSchema.FileStatus =
         when {
             result.isAvailable -> AudiobookSchema.FileStatus.READY
             isDefiniteMissing(result) -> AudiobookSchema.FileStatus.MISSING
@@ -296,7 +294,7 @@ internal object AvailabilityPersistencePolicy {
      * Identifies probe results that truly mean the physical file is absent.
      * Network, timeout, server, authentication, and permission failures are intentionally excluded because they describe access state, not file existence.
      */
-    fun isDefiniteMissing(result: AvailabilityResult): Boolean =
+    fun isDefiniteMissing(result: FileAvailabilityResult): Boolean =
         result.status == AudiobookSchema.AvailabilityStatus.NOT_FOUND
 }
 
