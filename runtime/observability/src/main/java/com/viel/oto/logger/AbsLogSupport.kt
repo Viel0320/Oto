@@ -21,7 +21,7 @@ internal object AbsLogClock {
  *
  * Uses pure string operations without relying on Android runtime classes to facilitate standard JVM unit testing for credential leaks.
  */
-internal object AbsLogSanitizer {
+object AbsLogSanitizer {
     private val bearerRegex = Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE)
     private val tokenJsonRegex = Regex("\"token\"\\s*:\\s*\"[^\"]*\"", RegexOption.IGNORE_CASE)
     private val passwordJsonRegex = Regex("\"password\"\\s*:\\s*\"[^\"]*\"", RegexOption.IGNORE_CASE)

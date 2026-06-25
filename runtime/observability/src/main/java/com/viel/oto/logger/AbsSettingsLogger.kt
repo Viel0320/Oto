@@ -1,7 +1,5 @@
 package com.viel.oto.logger
 
-import com.viel.oto.data.db.AudiobookSchema
-
 /**
  * User actions and settings interface logging.
  *
@@ -10,7 +8,7 @@ import com.viel.oto.data.db.AudiobookSchema
  * 2. Does not directly log low-level REST requests, mirror synchronizer updates, or playback stream events.
  * 3. Bridges user operations to low-level sync engines for general troubleshooting.
  */
-internal object AbsSettingsLogger {
+object AbsSettingsLogger {
     private const val TAG = "AbsSettings"
 
     fun mark(): Long = AbsLogClock.mark()
@@ -94,10 +92,16 @@ internal object AbsSettingsLogger {
         )
     }
 
-    fun logDeleteServerStart(rootId: String, sourceType: AudiobookSchema.LibrarySourceType) {
+    /**
+     * Logs remote-root deletion without depending on the app data schema module.
+     *
+     * The caller owns the typed source model and passes only the stable display name needed for
+     * diagnostics, keeping this observability module independent from Room and source entities.
+     */
+    fun logDeleteServerStart(rootId: String, sourceTypeName: String) {
         AbsLogEmitter.debug(
             TAG,
-            "deleteServer start: rootId=${AbsLogSanitizer.shortId(rootId)}, sourceType=${AbsLogSanitizer.compact(sourceType.name, 24)}"
+            "deleteServer start: rootId=${AbsLogSanitizer.shortId(rootId)}, sourceType=${AbsLogSanitizer.compact(sourceTypeName, 24)}"
         )
     }
 

@@ -8,7 +8,7 @@ package com.viel.oto.logger
  * 2. Does not log authentication checks, user settings view actions, playback sessions, or low-level HTTP stream details.
  * 3. Designed to trace library synchronization cycles, batch failure hotspots, and deletions reconciliation.
  */
-internal object AbsSyncLogger {
+object AbsSyncLogger {
     private const val TAG = "AbsSync"
 
     fun mark(): Long = AbsLogClock.mark()

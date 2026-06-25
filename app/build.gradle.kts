@@ -181,6 +181,7 @@ dependencies {
     implementation(project(":settings:model"))
     implementation(project(":network:policy"))
     implementation(project(":runtime:lifecycle"))
+    implementation(project(":runtime:observability"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

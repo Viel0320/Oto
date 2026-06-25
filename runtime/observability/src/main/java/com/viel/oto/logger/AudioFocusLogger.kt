@@ -8,7 +8,7 @@ import android.util.Log
  * transient focus losses requiring pause avoidance, and automatic playback resumption when focus is regained.
  * Uses the tag "AudioFocus" to easily filter focus-related states in Logcat.
  */
-internal object AudioFocusLogger {
+object AudioFocusLogger {
 
     private const val TAG = "AudioFocus"
 

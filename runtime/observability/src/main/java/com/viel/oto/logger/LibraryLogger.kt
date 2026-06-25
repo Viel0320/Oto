@@ -10,7 +10,7 @@ import android.util.Log
  * (such as cover and thumbnail cache deletions) within the library repository layer.
  * Uses a unified tag "Library" to simplify diagnosis in Logcat.
  */
-internal object LibraryLogger {
+object LibraryLogger {
 
     private const val TAG = "Library"
 

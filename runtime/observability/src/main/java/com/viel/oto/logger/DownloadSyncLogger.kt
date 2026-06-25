@@ -1,6 +1,12 @@
 package com.viel.oto.logger
 
-internal object DownloadSyncLogger {
+/**
+ * Emits diagnostics for manual-download recovery and cleanup workflows.
+ *
+ * Download state remains owned by application download services; this logger only records sanitized
+ * progress, reconciliation, and orphan-cleanup facts that callers can emit across module boundaries.
+ */
+object DownloadSyncLogger {
     private const val TAG = "DownloadSync"
 
     fun mark(): Long = AbsLogClock.mark()

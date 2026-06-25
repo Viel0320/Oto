@@ -10,7 +10,7 @@ import android.util.Log
  * filters can compare root and page-level recomposition, layout, and continuous draw activity
  * without coupling UI diagnostics to feature ViewModels or rendering internals.
  */
-internal object UiPerformanceLogger {
+object UiPerformanceLogger {
     private const val TAG = "UiPerformance"
 
     /**

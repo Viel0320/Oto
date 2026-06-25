@@ -159,11 +159,13 @@ class ReleasePolicyTest {
 
     @Test
     fun releaseRetainedWarningAndErrorLogsUseSecureLogBoundary() {
-        val sourceRoot = repoFile("app/src/main/java/com/viel/oto")
-        val violations = sourceRoot.walkTopDown()
-            .filter { file -> file.isFile && file.extension == "kt" }
-            .filterNot { file -> file.relativeTo(sourceRoot).invariantSeparatorsPath in releaseRetainedLogAllowlist }
-            .flatMap { file -> findDirectReleaseRetainedLogCalls(sourceRoot, file).asSequence() }
+        val violations = resolveProductionSourceRoots()
+            .flatMap { sourceRoot ->
+                sourceRoot.walkTopDown()
+                    .filter { file -> file.isFile && file.extension == "kt" }
+                    .filterNot { file -> file.relativeTo(sourceRoot).invariantSeparatorsPath in releaseRetainedLogAllowlist }
+                    .flatMap { file -> findDirectReleaseRetainedLogCalls(sourceRoot, file).asSequence() }
+            }
             .toList()
 
         assertTrue(
@@ -209,6 +211,27 @@ class ReleasePolicyTest {
         root.walkTopDown()
             .filter { file -> file.isFile && file.extension == "kt" }
             .toList()
+
+    /**
+     * Resolves app and extracted runtime sources for release policy scans.
+     *
+     * Logging code now lives in an Android library module, so release-retained Log.w/e checks must
+     * cover both the app source root and observability module root while the migration proceeds.
+     */
+    private fun resolveProductionSourceRoots(): List<File> {
+        val candidates = listOf(
+            "app/src/main/java/com/viel/oto",
+            "runtime/observability/src/main/java/com/viel/oto"
+        ).flatMap { path -> listOf(File(path), File("../$path")) }
+        return candidates
+            .filter { file -> file.isDirectory }
+            .distinctBy { file -> file.canonicalFile }
+            .also { roots ->
+                check(roots.isNotEmpty()) {
+                    "Could not locate production source roots for release retained log scan."
+                }
+            }
+    }
 
     private fun File.repoRelativePath(): String =
         invariantSeparatorsPath.removePrefix("./").removePrefix("../")

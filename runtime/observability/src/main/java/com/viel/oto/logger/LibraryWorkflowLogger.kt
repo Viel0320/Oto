@@ -10,7 +10,7 @@ import android.util.Log
  * 2. Examples include emergency playback suspension when deleting a library root, WorkManager retries, and overall flow failures.
  * 3. Does not capture details specific to protocol providers (such as ABS, SAF, or WebDAV), which are handled by their own dedicated loggers.
  */
-internal object LibraryWorkflowLogger {
+object LibraryWorkflowLogger {
     private const val TAG = "LibraryFlow"
 
     fun info(message: String) {

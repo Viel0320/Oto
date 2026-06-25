@@ -10,7 +10,7 @@ import android.util.Log
  * 2. Bypasses file-system protocol details (ABS, SAF, WebDAV), which are routed to their respective dedicated loggers instead.
  * 3. Focuses on diagnosing which phase of the lifecycle failed (e.g., dispatching, directory walk, DB cleanup, or data restoration).
  */
-internal object ScanWorkflowLogger {
+object ScanWorkflowLogger {
     private const val TAG = "ScanFlow"
 
     fun info(message: String) {

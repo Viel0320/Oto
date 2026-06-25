@@ -8,7 +8,7 @@ package com.viel.oto.logger
  * 2. Does not log local playback plan construction or low-level byte stream reads.
  * 3. Focuses on whether local progress successfully syncs with the ABS server or falls back to pending queue states upon failure.
  */
-internal object AbsPlaybackLogger {
+object AbsPlaybackLogger {
     private const val TAG = "AbsPlayback"
 
     fun mark(): Long = AbsLogClock.mark()

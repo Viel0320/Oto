@@ -9,7 +9,7 @@ import java.security.MessageDigest
  * Release R8 rules intentionally keep Log.w and Log.e for field triage, so this boundary removes filesystem paths,
  * VFS coordinates, URL userinfo, bearer tokens, and password-like fields before the message or throwable reaches Logcat.
  */
-internal object SecureLog {
+object SecureLog {
     private val windowsAbsolutePathRegex = Regex("[A-Za-z]:\\\\[^\\s,;)\"']+")
     private val androidAbsolutePathRegex =
         Regex("(?<![A-Za-z0-9:])/(?:storage|sdcard|mnt|data|cache|Android|Download|Documents|Pictures|Music|Movies)[^\\s,;)\"']*")

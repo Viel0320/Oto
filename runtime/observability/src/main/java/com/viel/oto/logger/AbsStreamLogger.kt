@@ -8,7 +8,7 @@ package com.viel.oto.logger
  * 2. Focuses on diagnosing streaming issues: contentUrl parsing, HEAD check latency, GET/Range response codes (e.g. 416, 401, 403, 404, 5xx).
  * 3. Does not log catalog syncs, playback session events, or settings view actions.
  */
-internal object AbsStreamLogger {
+object AbsStreamLogger {
     private const val TAG = "AbsStream"
 
     fun mark(): Long = AbsLogClock.mark()

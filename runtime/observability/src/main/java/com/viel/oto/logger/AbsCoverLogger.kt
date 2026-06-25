@@ -8,7 +8,7 @@ package com.viel.oto.logger
  * 2. Does not log catalog upsert or common cover self-healing processes, which belong to the public workflow.
  * 3. Designed to diagnose cover loading issues, slow sync, or physical file write failures.
  */
-internal object AbsCoverLogger {
+object AbsCoverLogger {
     private const val TAG = "AbsCover"
 
     fun mark(): Long = AbsLogClock.mark()

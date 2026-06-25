@@ -99,7 +99,9 @@ class MultiModuleMigrationBaselineTest {
             File("../network/policy/src/main/kotlin/com/viel/oto"),
             File("network/policy/src/main/kotlin/com/viel/oto"),
             File("../runtime/lifecycle/src/main/kotlin/com/viel/oto"),
-            File("runtime/lifecycle/src/main/kotlin/com/viel/oto")
+            File("runtime/lifecycle/src/main/kotlin/com/viel/oto"),
+            File("../runtime/observability/src/main/java/com/viel/oto"),
+            File("runtime/observability/src/main/java/com/viel/oto")
         )
         return candidates
             .filter { candidate -> candidate.isDirectory }
@@ -205,7 +207,6 @@ class MultiModuleMigrationBaselineTest {
             "library->media",
             "library->network",
             "library->timeline",
-            "logger->data",
             "media->MainActivity",
             "media->R",
             "media->abs",

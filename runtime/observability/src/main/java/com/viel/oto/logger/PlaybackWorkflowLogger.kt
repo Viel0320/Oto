@@ -10,7 +10,7 @@ import android.util.Log
  * 2. Does not duplicate events managed by dedicated loggers (e.g., audio focus, VFS operations, or ABS sessions).
  * 3. Focuses on diagnosing why the core playback failed, controller connection errors, and when fallback routes were triggered.
  */
-internal object PlaybackWorkflowLogger {
+object PlaybackWorkflowLogger {
     private const val TAG = "PlaybackFlow"
 
     fun info(message: String) {

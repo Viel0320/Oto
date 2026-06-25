@@ -8,7 +8,7 @@ package com.viel.oto.logger
  * 2. Does not log settings interactions, catalog mirroring, or playback sessions.
  * 3. All log values must be sanitized via AbsLogSanitizer to avoid leaking sensitive information like tokens, passwords, or signed URLs.
  */
-internal object AbsAuthLogger {
+object AbsAuthLogger {
     private const val TAG = "AbsAuth"
 
     fun mark(): Long = AbsLogClock.mark()

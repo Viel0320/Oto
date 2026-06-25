@@ -12,7 +12,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
  * logging file opens, seek operations, range queries, PROPFIND folder walking, and network errors.
  * Uses a unified tag "VfsIO" to streamline VFS diagnosing in Logcat.
  */
-internal object VfsLogger {
+object VfsLogger {
 
     private const val TAG = "VfsIO"
     private const val MAX_PATH_LENGTH = 120

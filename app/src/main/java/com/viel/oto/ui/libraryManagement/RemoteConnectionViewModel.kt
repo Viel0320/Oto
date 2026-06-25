@@ -319,7 +319,7 @@ class RemoteConnectionViewModel(
 
     fun deleteLibraryRoot(root: SettingsRootItem) {
         viewModelScope.launch {
-            AbsSettingsLogger.logDeleteServerStart(rootId = root.rootId, sourceType = root.sourceType)
+            AbsSettingsLogger.logDeleteServerStart(rootId = root.rootId, sourceTypeName = root.sourceType.name)
             val playbackWasStopped = libraryRootManagementUseCase.deleteLibraryRoot(root.rootId)
             AbsSettingsLogger.logDeleteServerFinished(rootId = root.rootId, playbackStopped = playbackWasStopped)
             appEventSink.emitFeedback(

@@ -11,7 +11,7 @@ import android.util.Log
  * autoplay handling, and data source open operations.
  * Uses a unified tag "PlaybackTiming" to isolate playback performance in Logcat.
  */
-internal object PlaybackTimingLogger {
+object PlaybackTimingLogger {
 
     private const val TAG = "PlaybackTiming"
 

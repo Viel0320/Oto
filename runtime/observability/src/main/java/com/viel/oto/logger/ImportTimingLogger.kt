@@ -3,7 +3,14 @@ package com.viel.oto.logger
 import android.os.SystemClock
 import android.util.Log
 
-internal object ImportTimingLogger {
+/**
+ * Measures import pipeline stage timing without owning import decisions.
+ *
+ * Import orchestration stays in the library layer; this logger only standardizes elapsed-time
+ * markers and compact detail output so scan, draft, and directory import stages can be compared
+ * after the observability code moves into its own Gradle module.
+ */
+object ImportTimingLogger {
     private const val TAG = "ImportTiming"
     private const val MAX_VALUE_LENGTH = 180
 

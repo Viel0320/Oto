@@ -8,7 +8,7 @@ import android.util.Log
  * Consolidates logs from SubtitleParser regarding input ingestion, parse metrics, and file extensions.
  * Uses a unified tag "Subtitle" to simplify diagnosis in Logcat.
  */
-internal object SubtitleLogger {
+object SubtitleLogger {
 
     private const val TAG = "Subtitle"
 

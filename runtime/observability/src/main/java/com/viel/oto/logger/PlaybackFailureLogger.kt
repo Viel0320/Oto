@@ -9,7 +9,7 @@ import android.util.Log
  * and successful failover redirects to alternative tracks.
  * Uses a unified tag "PlaybackFailure" to simplify tracing in Logcat.
  */
-internal object PlaybackFailureLogger {
+object PlaybackFailureLogger {
 
     private const val TAG = "PlaybackFailure"
 

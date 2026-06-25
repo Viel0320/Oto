@@ -8,7 +8,7 @@ import android.util.Log
  * and auto-rewind progress healing operations.
  * Uses the tag "AutoRewind" to trace the auto-rewind execution flow in Logcat.
  */
-internal object AutoRewindLogger {
+object AutoRewindLogger {
 
     private const val TAG = "AutoRewind"
 
