@@ -327,6 +327,13 @@ object Mp4MetadataFrameReader {
             }
     }
 
+    /**
+     * Copies the MP4 data-atom image payload into a caller-owned cover buffer.
+     *
+     * The copy is intentional because the surrounding atom payload may include the MP4 data header and may be
+     * backed by a coalesced range window. Import callers must persist or discard this returned buffer promptly
+     * instead of retaining it in directory-level metadata summaries.
+     */
     private fun parseCoverData(payload: ByteArray): EmbeddedCover? {
         if (payload.size <= DATA_HEADER_SIZE) return null
         val dataType = ByteBuffer.wrap(payload, 0, 4).order(ByteOrder.BIG_ENDIAN).int and 0x00ffffff

@@ -44,9 +44,21 @@ class MetadataResolver(
     suspend fun extract(file: BookFileEntity): AudiobookMetadata =
         extractInternal(file, includeEmbeddedCover = false).metadata
 
+    /**
+     * Extracts metadata plus a transient embedded cover payload for import-time cover persistence.
+     *
+     * Callers that aggregate scan results should persist or hand off embeddedCover promptly, then clear it from
+     * long-lived metadata references so large image byte arrays do not survive beyond the cover-binding boundary.
+     */
     internal suspend fun extractWithEmbeddedCover(file: FileRef): ExtractedAudiobookMetadata =
         extractInternal(file, includeEmbeddedCover = true)
 
+    /**
+     * Extracts metadata plus a transient embedded cover payload for database-backed recovery paths.
+     *
+     * The returned byte array is caller-owned and should not be cached inside broad scan summaries after the
+     * cover image has been written or rejected.
+     */
     internal suspend fun extractWithEmbeddedCover(file: BookFileEntity): ExtractedAudiobookMetadata =
         extractInternal(file, includeEmbeddedCover = true)
 

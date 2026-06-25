@@ -18,8 +18,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 
 /**
  * DirectoryAudioImporter.
@@ -44,7 +42,8 @@ internal class DirectoryAudioImporter(
 
     /**
      * Concurrent routing entry.
-     * Reads metadata concurrently for all unclaimed audio files in the directory, then distributes them:
+     * Reads metadata in bounded batches so embedded cover bytes from resolved chaptered files are handed to
+     * cover persistence quickly instead of being retained by a directory-wide awaitAll result list.
      * 1. Chaptered audio files are prioritized and imported immediately in small batches.
      * 2. Chapterless tracks are accumulated and imported together as a single heuristically aggregated audiobook.
      */
@@ -62,32 +61,20 @@ internal class DirectoryAudioImporter(
         val metadataStartedAt = ImportTimingLogger.mark()
 
         coroutineScope {
-            val metadataSemaphore = Semaphore(DEFAULT_SCOPE_IO_CONCURRENCY)
-            val metadataJobs = candidateAudios.map { audio ->
-                async {
-                    metadataSemaphore.withPermit {
+            val metadataBatches = candidateAudios.chunked(directoryAudioMetadataBatchSize)
+            var resolvedCount = 0
+            var chapteredCount = 0
+            metadataBatches.forEachIndexed { index, batchAudios ->
+                ensureActive()
+                val batchMetadataStartedAt = ImportTimingLogger.mark()
+                val batchRefs = batchAudios.map { audio ->
+                    async {
                         ensureActive()
                         val extracted = metadataResolver.extractWithEmbeddedCover(audio)
                         AudioMetadataRef(audio, extracted.metadata, extracted.embeddedCover)
                     }
-                }
-            }
-            val metadataSummaryJob = async {
-                val allRefs = metadataJobs.awaitAll()
-                val chapteredCount = allRefs.count { it.metadata.chapters.isNotEmpty() }
-                ImportTimingLogger.logDuration(
-                    scopeId = timingScopeId,
-                    stage = "directoryAudio.metadataResolve",
-                    elapsedMs = ImportTimingLogger.elapsedMs(metadataStartedAt),
-                    detail = "input=${scope.inventory.audioFiles.size} resolved=${allRefs.size} chaptered=$chapteredCount heuristic=${allRefs.size - chapteredCount} batches=${metadataJobs.chunked(directoryAudioMetadataBatchSize).size}"
-                )
-            }
-
-            val metadataBatches = metadataJobs.chunked(directoryAudioMetadataBatchSize)
-            metadataBatches.forEachIndexed { index, batchJobs ->
-                ensureActive()
-                val batchMetadataStartedAt = ImportTimingLogger.mark()
-                val batchRefs = batchJobs.awaitAll()
+                }.awaitAll()
+                val batchChapteredCount = batchRefs.count { it.metadata.chapters.isNotEmpty() }
                 val chapteredRefs = mutableListOf<AudioMetadataRef>()
                 batchRefs.forEach { audioRef ->
                     if (existingClaimIndex.has(audioRef.file.identity)) return@forEach
@@ -97,11 +84,13 @@ internal class DirectoryAudioImporter(
                         heuristicRefs.add(audioRef)
                     }
                 }
+                resolvedCount += batchRefs.size
+                chapteredCount += batchChapteredCount
                 ImportTimingLogger.logDuration(
                     scopeId = timingScopeId,
                     stage = "directoryAudio.metadataResolveBatch",
                     elapsedMs = ImportTimingLogger.elapsedMs(batchMetadataStartedAt),
-                    detail = "batch=${index + 1}/${metadataBatches.size} input=${batchJobs.size} resolved=${batchRefs.size} chaptered=${chapteredRefs.size} heuristic=${batchRefs.size - chapteredRefs.size}"
+                    detail = "batch=${index + 1}/${metadataBatches.size} input=${batchAudios.size} resolved=${batchRefs.size} chaptered=${chapteredRefs.size} heuristic=${batchRefs.size - chapteredRefs.size}"
                 )
 
                 chapteredRefs.chunked(chapterdAudioImportBatchSize).forEachIndexed { chunkIndex, batchRefs ->
@@ -117,7 +106,12 @@ internal class DirectoryAudioImporter(
                     scopeResults.add(result)
                 }
             }
-            metadataSummaryJob.await()
+            ImportTimingLogger.logDuration(
+                scopeId = timingScopeId,
+                stage = "directoryAudio.metadataResolve",
+                elapsedMs = ImportTimingLogger.elapsedMs(metadataStartedAt),
+                detail = "input=${scope.inventory.audioFiles.size} resolved=$resolvedCount chaptered=$chapteredCount heuristic=${resolvedCount - chapteredCount} batches=${metadataBatches.size}"
+            )
         }
 
         currentCoroutineContext().ensureActive()

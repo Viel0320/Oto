@@ -21,6 +21,7 @@ import com.viel.oto.library.orchestrator.steps.ResolvedMetadataDrafts
 import com.viel.oto.library.vfs.VfsFileInterface
 import com.viel.oto.logger.ImportTimingLogger
 import com.viel.oto.media.manifest.AudioMetadataRef
+import com.viel.oto.media.manifest.HeuristicAggregationPlan
 import com.viel.oto.media.parser.CoverExtractor
 import com.viel.oto.media.parser.MetadataResolver
 import kotlinx.coroutines.Dispatchers
@@ -158,6 +159,13 @@ class ImportPipeline(
     private fun FileInventory.timingCountDetail(): String =
         "cue=${cueFiles.size} m3u8=${m3u8Files.size} audio=${audioFiles.size} imageParents=${imageFilesByParent.size}"
 
+    /**
+     * Persists cover candidates before ownership decisions while keeping downstream draft inputs lightweight.
+     *
+     * Embedded cover bytes are only needed by this cover-binding boundary. After a cover is saved or rejected,
+     * later ownership and draft mapping stages receive copied metadata references with embeddedCover cleared so
+     * large image byte arrays do not remain attached to scan aggregation objects.
+     */
     private suspend fun GroupedBookDrafts.toDeferredCoverResult(
         inventory: FileInventory,
         fileReader: VfsFileInterface
@@ -195,12 +203,12 @@ class ImportPipeline(
                 val coverResult = plan.sidecarCoverFile?.let { sidecarFile ->
                     saveExternalSidecarCover(sidecarFile, fileReader)
                 } ?: savePreReadEmbeddedCover(plan.chapters.map { it.audio })
-                CoverExtractedAggregated(bookId, plan, coverResult)
+                CoverExtractedAggregated(bookId, plan.withoutEmbeddedCovers(), coverResult)
             },
             singleBooks = singleAudios.map { audioRef ->
                 val bookId = UUID.randomUUID().toString()
                 val coverResult = savePreReadEmbeddedCover(listOf(audioRef))
-                CoverExtractedSingle(bookId, audioRef, coverResult)
+                CoverExtractedSingle(bookId, audioRef.withoutEmbeddedCover(), coverResult)
             }
         )
     }
@@ -218,6 +226,18 @@ class ImportPipeline(
         }
         return null
     }
+
+    /**
+     * Drops transient embedded-cover ownership after cover binding has consumed the byte payload.
+     */
+    private fun AudioMetadataRef.withoutEmbeddedCover(): AudioMetadataRef =
+        if (embeddedCover == null) this else copy(embeddedCover = null)
+
+    /**
+     * Preserves heuristic ordering and metadata while stripping image byte arrays from chapter references.
+     */
+    private fun HeuristicAggregationPlan.withoutEmbeddedCovers(): HeuristicAggregationPlan =
+        copy(chapters = chapters.map { chapter -> chapter.copy(audio = chapter.audio.withoutEmbeddedCover()) })
 
     private fun CoverExtractor.CoverResult.hasImage(): Boolean =
         originalPath != null || thumbnailPath != null
