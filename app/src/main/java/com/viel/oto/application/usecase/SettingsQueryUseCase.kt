@@ -2,7 +2,7 @@ package com.viel.oto.application.usecase
 
 import com.viel.oto.abs.auth.AbsCredential
 import com.viel.oto.abs.auth.AbsCredentialStore
-import com.viel.oto.abs.sync.AbsSyncStateDao
+import com.viel.oto.data.abs.sync.AbsSyncStateDao
 import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.db.AudiobookSchema

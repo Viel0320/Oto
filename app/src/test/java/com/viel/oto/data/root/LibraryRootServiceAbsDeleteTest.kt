@@ -3,10 +3,10 @@ package com.viel.oto.data.root
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
 import com.viel.oto.abs.auth.AbsCredentialStore
-import com.viel.oto.abs.playback.AbsPendingProgressSyncEntity
-import com.viel.oto.abs.playback.AbsPlaybackSessionEntity
-import com.viel.oto.abs.sync.AbsItemMirrorEntity
-import com.viel.oto.abs.sync.AbsSyncStateEntity
+import com.viel.oto.data.abs.playback.AbsPendingProgressSyncEntity
+import com.viel.oto.data.abs.playback.AbsPlaybackSessionEntity
+import com.viel.oto.data.abs.sync.AbsItemMirrorEntity
+import com.viel.oto.data.abs.sync.AbsSyncStateEntity
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.cache.CacheEvictionCoordinator
 import com.viel.oto.data.db.AppDatabase

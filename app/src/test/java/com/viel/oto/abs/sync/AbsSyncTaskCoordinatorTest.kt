@@ -11,6 +11,9 @@ import com.viel.oto.abs.net.dto.AbsLoginResponseDto
 import com.viel.oto.abs.net.dto.AbsPlayRequestDto
 import com.viel.oto.abs.net.dto.AbsPlaybackSessionDto
 import com.viel.oto.abs.net.dto.AbsStatusDto
+import com.viel.oto.data.abs.sync.AbsCatalogStore
+import com.viel.oto.data.abs.sync.AbsItemMirrorEntity
+import com.viel.oto.data.abs.sync.AbsSyncStateEntity
 import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.BookEntity

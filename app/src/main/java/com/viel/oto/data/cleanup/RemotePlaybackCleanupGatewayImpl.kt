@@ -1,7 +1,7 @@
 package com.viel.oto.data.cleanup
 
-import com.viel.oto.abs.playback.AbsPendingProgressSyncDao
-import com.viel.oto.abs.playback.AbsPlaybackSessionDao
+import com.viel.oto.data.abs.playback.AbsPendingProgressSyncDao
+import com.viel.oto.data.abs.playback.AbsPlaybackSessionDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

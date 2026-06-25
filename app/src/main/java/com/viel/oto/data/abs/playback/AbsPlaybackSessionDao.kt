@@ -1,10 +1,16 @@
-package com.viel.oto.abs.playback
+package com.viel.oto.data.abs.playback
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 
+/**
+ * Persists the locally restored ABS playback session cache.
+ *
+ * This DAO lives with Room storage so ABS playback sync can depend on a narrow persistence
+ * contract instead of owning database tables inside the remote protocol package.
+ */
 @Dao
 interface AbsPlaybackSessionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)

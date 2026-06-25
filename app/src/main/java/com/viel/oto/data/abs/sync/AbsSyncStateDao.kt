@@ -1,4 +1,4 @@
-package com.viel.oto.abs.sync
+package com.viel.oto.data.abs.sync
 
 import androidx.room.Dao
 import androidx.room.Insert
@@ -6,6 +6,12 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Persists per-root ABS catalog synchronization checkpoints.
+ *
+ * The DAO exposes only root-scoped state operations so settings and sync schedulers can observe
+ * local progress without reading ABS network objects.
+ */
 @Dao
 interface AbsSyncStateDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)

@@ -1,9 +1,9 @@
 package com.viel.oto.data.cleanup
 
-import com.viel.oto.abs.playback.AbsPendingProgressSyncDao
-import com.viel.oto.abs.playback.AbsPendingProgressSyncEntity
-import com.viel.oto.abs.playback.AbsPlaybackSessionDao
-import com.viel.oto.abs.playback.AbsPlaybackSessionEntity
+import com.viel.oto.data.abs.playback.AbsPendingProgressSyncDao
+import com.viel.oto.data.abs.playback.AbsPendingProgressSyncEntity
+import com.viel.oto.data.abs.playback.AbsPlaybackSessionDao
+import com.viel.oto.data.abs.playback.AbsPlaybackSessionEntity
 import com.viel.oto.data.db.AudiobookSchema
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertNull

@@ -1,10 +1,16 @@
-package com.viel.oto.abs.playback
+package com.viel.oto.data.abs.playback
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 
+/**
+ * Stores pending ABS progress writes that could not be acknowledged by the server.
+ *
+ * Keeping this DAO in data makes retry and cleanup code share one Room-backed queue while ABS
+ * playback code continues to decide when an item should be retried.
+ */
 @Dao
 interface AbsPendingProgressSyncDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)

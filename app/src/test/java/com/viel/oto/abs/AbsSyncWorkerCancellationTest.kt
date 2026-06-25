@@ -18,10 +18,10 @@ import com.viel.oto.abs.net.dto.AbsTrackDto
 import com.viel.oto.abs.net.dto.AbsTrackMetadataDto
 import com.viel.oto.abs.net.dto.AbsUserProgressDto
 import com.viel.oto.abs.sync.AbsAuthorizedProgressSynchronizer
-import com.viel.oto.abs.sync.AbsCatalogStore
+import com.viel.oto.data.abs.sync.AbsCatalogStore
 import com.viel.oto.abs.sync.AbsCatalogSynchronizer
-import com.viel.oto.abs.sync.AbsItemMirrorEntity
-import com.viel.oto.abs.sync.AbsSyncStateEntity
+import com.viel.oto.data.abs.sync.AbsItemMirrorEntity
+import com.viel.oto.data.abs.sync.AbsSyncStateEntity
 import com.viel.oto.abs.sync.AbsSyncWorker
 import com.viel.oto.data.book.BookCatalogGateway
 import com.viel.oto.data.book.BookMetadataGateway

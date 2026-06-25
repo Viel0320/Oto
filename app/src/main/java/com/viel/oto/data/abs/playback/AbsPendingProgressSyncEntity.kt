@@ -1,9 +1,15 @@
-package com.viel.oto.abs.playback
+package com.viel.oto.data.abs.playback
 
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
+/**
+ * Durable pending progress payload for an ABS book.
+ *
+ * The entity stores normalized playback progress values, not transport DTOs, so retry workers can
+ * survive process death without coupling Room rows to remote response shapes.
+ */
 @Entity(
     tableName = "abs_pending_progress_sync",
     indices = [Index("bookId"), Index("remoteItemId")]

@@ -1,6 +1,6 @@
 package com.viel.oto.application.startup
 
-import com.viel.oto.abs.sync.AbsCatalogStore
+import com.viel.oto.data.abs.sync.AbsCatalogStore
 import com.viel.oto.abs.sync.isAbsAuthorizedProgressRefreshDue
 import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.entity.LibraryRootEntity

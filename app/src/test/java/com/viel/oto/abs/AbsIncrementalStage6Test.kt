@@ -18,11 +18,11 @@ import com.viel.oto.abs.net.dto.AbsMediaMetadataDto
 import com.viel.oto.abs.net.dto.AbsPlayRequestDto
 import com.viel.oto.abs.net.dto.AbsPlaybackSessionDto
 import com.viel.oto.abs.net.dto.AbsStatusDto
-import com.viel.oto.abs.sync.AbsCatalogStore
+import com.viel.oto.data.abs.sync.AbsCatalogStore
 import com.viel.oto.abs.sync.AbsCatalogSynchronizer
 import com.viel.oto.abs.sync.AbsCoverStore
-import com.viel.oto.abs.sync.AbsItemMirrorEntity
-import com.viel.oto.abs.sync.AbsSyncStateEntity
+import com.viel.oto.data.abs.sync.AbsItemMirrorEntity
+import com.viel.oto.data.abs.sync.AbsSyncStateEntity
 import com.viel.oto.abs.sync.buildAbsIncrementalErrorSummary
 import com.viel.oto.abs.sync.selectAbsDetailCandidateIds
 import com.viel.oto.data.cache.OnlineSourceCachePolicy

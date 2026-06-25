@@ -1,8 +1,14 @@
-package com.viel.oto.abs.sync
+package com.viel.oto.data.abs.sync
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+/**
+ * Durable synchronization checkpoint for one ABS library root.
+ *
+ * The row tracks local scheduling and error metadata for catalog sync; server protocol fields are
+ * reduced to stable identifiers before reaching Room.
+ */
 @Entity(tableName = "abs_sync_state")
 data class AbsSyncStateEntity(
     @PrimaryKey

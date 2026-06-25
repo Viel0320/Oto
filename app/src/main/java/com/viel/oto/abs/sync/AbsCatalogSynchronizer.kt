@@ -5,6 +5,9 @@ import com.viel.oto.abs.mapping.AbsCatalogMapper
 import com.viel.oto.abs.mapping.AbsRemoteIdMapper
 import com.viel.oto.abs.net.AbsApiClient
 import com.viel.oto.abs.net.dto.AbsLibraryItemDto
+import com.viel.oto.data.abs.sync.AbsCatalogStore
+import com.viel.oto.data.abs.sync.AbsItemMirrorEntity
+import com.viel.oto.data.abs.sync.AbsSyncStateEntity
 import com.viel.oto.data.cache.OnlineSourceCachePolicy
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity

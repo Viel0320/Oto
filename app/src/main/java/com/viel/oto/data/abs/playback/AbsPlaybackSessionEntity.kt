@@ -1,10 +1,16 @@
-package com.viel.oto.abs.playback
+package com.viel.oto.data.abs.playback
 
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.viel.oto.data.db.AudiobookSchema
 
+/**
+ * Local cache row for an AudiobookShelf playback session.
+ *
+ * The row mirrors only the session state needed to resume or close server sessions; raw ABS DTOs
+ * remain in the ABS network layer and are not persisted directly.
+ */
 @Entity(
     tableName = "abs_playback_session",
     indices = [Index("bookId"), Index("remoteItemId"), Index("state")]

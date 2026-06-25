@@ -1,4 +1,4 @@
-package com.viel.oto.abs.sync
+package com.viel.oto.data.abs.sync
 
 import androidx.room.Dao
 import androidx.room.Insert
@@ -10,6 +10,12 @@ import com.viel.oto.data.entity.BookEntity
 import com.viel.oto.data.entity.BookFileEntity
 import com.viel.oto.data.entity.ChapterEntity
 
+/**
+ * Data-layer contract used by ABS catalog synchronization.
+ *
+ * The interface is intentionally close to catalog persistence: ABS code supplies already-mapped
+ * local book, file, chapter, mirror, and sync-state rows while Room owns the transaction details.
+ */
 interface AbsCatalogStore {
     suspend fun getBookById(bookId: String): BookEntity?
     suspend fun getMirrorsByRootId(rootId: String): List<AbsItemMirrorEntity>
@@ -30,6 +36,12 @@ interface AbsCatalogStore {
     suspend fun updateBookStatus(bookId: String, status: AudiobookSchema.BookStatus)
 }
 
+/**
+ * Room implementation of the ABS catalog persistence contract.
+ *
+ * This DAO stays in data because it writes several local tables in one transaction; the ABS layer
+ * remains responsible for protocol mapping and sync policy before calling into this store.
+ */
 @Dao
 abstract class AbsCatalogDao : AbsCatalogStore {
     @Query("SELECT * FROM books WHERE id = :bookId")

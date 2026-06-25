@@ -2,15 +2,17 @@
 
 ## 当前事实
 
-- `settings.gradle.kts` 当前只包含 `:app`。
+- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`。
 - `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 `abs`、`application`、`data`、`library`、`media`、`ui`、`widget`、`work`。
-- 本次静态扫描的 Kotlin 文件数量：`ui` 128、`application` 72、`data` 67、`media` 57、`library` 49、`abs` 41、`logger` 25、`di` 19。
+- 本次静态扫描的 app Kotlin 文件数量：`ui` 128、`data` 76、`application` 72、`media` 57、`library` 49、`abs` 32、`di` 18、`event` 15、`widget` 6、`i18n` 1、`shared` 1、`timeline` 1、`work` 1。
+- `settings/model`、`network/policy`、`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability` 已是 Android library Module，继续保留 `com.viel.oto.logger` 包名供现有调用点使用。
+- ABS Room 持久化文件当前位于 `data/abs/playback` 和 `data/abs/sync`，`AppDatabase` 已从 `data.abs.*` 导入这些 DAO/Entity。
 - Koin 入口集中在 `OtoKoinApplication`，关闭顺序由 `GraphClosePolicy` 固定为 `media -> download -> abs -> library -> uiEvents -> data`。
 - 现有导入图存在阻碍直接拆模块的循环：
   - `data` 直接引用 `abs`、`library`、`media`、`work`。
   - `library` 直接引用 `abs`、`data`、`media`。
   - `media` 直接引用 `application`、`data`、`library`、`widget`、`MainActivity`、`R`。
-  - `logger` 与 `data` 互相引用。
+  - `logger` 已物理迁出 app，但多数领域仍直接依赖具体 logger，后续需要保持为窄 observability Interface。
   - `event` 直接引用 `application`、`data`、`media`、`R`。
 
 本计划先清理这些反向依赖，再把现有包提升为 Gradle Module。迁移目标不是增加一个总控 Module，而是让每个领域 Module 持有自己的 Interface、Implementation、测试和 Koin Adapter。
@@ -64,7 +66,6 @@ flowchart TD
     abs --> mediaMetadata
     abs --> network
     network --> settings
-    observability --> lifecycle
 ```
 
 ## 目标模块职责
@@ -90,14 +91,14 @@ flowchart TD
 
 不建立 `:core`、`:common-all`、`:di` 这类宽 Module。Koin 定义跟随所属领域 Module，`:app` 只收集模块列表。
 
-## 阶段 0 - 基线冻结和依赖图守卫
+## 阶段 0 - 基线冻结和依赖图守卫（已落地，后续维护）
 
-目标：把当前单模块行为固定下来，给后续移动文件提供回归基线。
+目标：把当前已拆出基础 Module 后的运行行为固定下来，给后续移动文件提供回归基线。
 
 改动范围：
 
-- 保留 `:app` 单模块。
-- 增加或更新架构测试，输出并校验顶层包导入方向。
+- 保留当前 `:app` 加 Stage 1 基础 Module 的组合，不在本阶段新增业务领域 Module。
+- 维护架构测试，输出并校验顶层包导入方向。
 - 记录当前 `OtoKoinApplication` 模块列表和 `GraphClosePolicy` 顺序。
 - 确认 Room schema 版本 `41` 基线仍由 `docs/release-policy.md` 描述。
 
@@ -107,18 +108,18 @@ flowchart TD
 - `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.architecture.*"`
 - `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.architecture.ReleasePolicyTest"`
 
-回滚点：只回退新增测试和文档，业务代码保持不变。
+回滚点：只回退测试基线和文档，业务代码保持不变。
 
-## 阶段 1A - 抽出纯 Kotlin 设置、网络策略和生命周期
+## 阶段 1A - 抽出纯 Kotlin 设置、网络策略和生命周期（已落地，后续维护）
 
 目标：先拆不依赖 Android runtime 的低耦合 Module，给后续领域 Module 提供稳定 Interface。
 
 改动范围：
 
-- 新增 `:settings:model`，移动 `shared/settings/AppSettings.kt`。
-- 新增 `:network:policy`，移动 `network/UnsafeNetworkPolicy.kt`，依赖 `:settings:model`。
-- 新增 `:runtime:lifecycle`，移动 `GraphClosePolicy`。
-- `:runtime:observability` 单独进入阶段 1B，因为当前 logger Implementation 依赖 Android `Log`，不和纯 Kotlin 基础模块糅在一起。
+- 保持 `:settings:model` 管理 `shared/settings/AppSettings.kt` 和设置枚举。
+- 保持 `:network:policy` 管理 `UnsafeNetworkPolicy`，并只依赖 `:settings:model`。
+- 保持 `:runtime:lifecycle` 管理 `GraphClosePolicy`。
+- `:runtime:observability` 继续单独维护，因为 logger Implementation 依赖 Android `Log`，不和纯 Kotlin 基础模块糅在一起。
 - `work/WorkSchedulingPolicy.kt` 暂不进入基础 Module，因为它仍依赖 `AudiobookSchema.ScanTrigger` 和 AndroidX WorkManager 类型。
 
 验收：
@@ -129,16 +130,16 @@ flowchart TD
 - `.\gradlew.bat compileDebugKotlin`
 - `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.architecture.GraphLifecycleTest"`
 
-回滚点：回退新增 Module include、build 文件和移动的三类基础文件，不影响领域代码。
+回滚点：回退这些基础 Module 的 include、build 文件和移动文件，不影响领域代码。
 
-## 阶段 1B - 抽出运行时观测 Module
+## 阶段 1B - 抽出运行时观测 Module（已落地，后续维护）
 
 目标：把 release 保留日志、专用 workflow logger 和安全日志清洗器从 `:app` 中分离出来。
 
 改动范围：
 
-- 新增 `:runtime:observability` Android library Module。
-- 移动 `logger/` 下的 `SecureLog`、ABS logger、playback logger、scan logger、cache logger 和 UI performance logger。
+- 保持 `:runtime:observability` Android library Module。
+- `SecureLog`、ABS logger、playback logger、scan logger、cache logger 和 UI performance logger 继续位于 `runtime/observability/src/main/java/com/viel/oto/logger`。
 - 保持日志包名稳定，让现有调用点先通过 Gradle dependency 解析。
 - 后续领域 Module 拆分时，各领域只依赖观测 Module，不反向依赖 `:app`。
 
@@ -157,7 +158,7 @@ flowchart TD
 
 改动范围：
 
-- 把 ABS Room Entity/DAO 从 `abs` 移到 `data` 的 ABS 持久化包，`AppDatabase` 不再依赖 `abs` 包。
+- 收尾 ABS Room Entity/DAO 从 `abs` 到 `data` ABS 持久化包的移动，确保 `AppDatabase` 不再依赖 `abs` 包。
 - 把 `data/scan/ScanSchedulerImpl.kt` 移到 `library:import` 所属包；`data` 只保留扫描状态持久化 gateway。
 - 把 `data/subtitle` 对 `media.subtitle.SubtitleLine` 的依赖改为 metadata 模型或 catalog 模型。
 - 把 `data/cover` 对 `media.parser` 和 `library.vfs` 的直接依赖收拢到 cover recovery gateway 的 Adapter，不让 Room store 了解解析 Implementation。
@@ -247,7 +248,7 @@ flowchart TD
 
 - 新增 `:abs` Android library Module。
 - 移动 ABS auth、DTO、Moshi client、sync、mapping、cover cache、progress sync、ABS VFS Adapter。
-- ABS Room Entity/DAO 已在阶段 2 归入 `:data:store`，`:abs` 通过 gateway/DAO Interface 访问持久化。
+- ABS Room Entity/DAO 已在阶段 2 归入 `data` 持久化包，并随阶段 3 进入 `:data:store`；`:abs` 通过 gateway/DAO Interface 访问持久化。
 - `AbsSourceProvider` 实现 `:library:vfs` 的 source provider Interface，由 ABS Koin Module 注册。
 - `AbsCatalogMapper` 继续做 DTO 到本地 catalog 的 anti-corruption 转换，原始 DTO 不穿透到 `application` 或 `ui`。
 
@@ -319,11 +320,17 @@ flowchart TD
 
 ## 首批建议提交顺序
 
-1. 基线架构测试和导入图守卫。
-2. `:settings:model`、`:network:policy`、`:runtime:lifecycle`。
-3. `:runtime:observability`。
-4. `data` 外向依赖清理。
-5. `:data:store` 提升。
-6. `:library:vfs` 和 `:library:import` 提升。
+已落地的前置提交：基线架构测试和导入图守卫、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`。
 
-这五步完成后，项目已经从单 `:app` 进入可持续多模块状态，后续 ABS、media、UI、widget 可以按领域独立推进。
+后续建议提交顺序：
+
+1. 完成 `data` 外向依赖清理，先收尾 ABS Room 持久化包移动，再处理 scan、subtitle、cover、logger 依赖。
+2. 提升 `:data:store`，保持 Room schema export 和 release policy 不变。
+3. 提升 `:library:vfs`，拆掉 `library -> abs` 的直接 Adapter 引用。
+4. 提升 `:library:import`，把 scan/import/root lifecycle/availability 从 app 中移出。
+5. 拆 `:media:metadata`、`:media:playback`、`:media:service`，先去除 `MainActivity`、`R`、Widget 反向依赖。
+6. 提升 `:abs`，保持 ABS DTO 只停留在 anti-corruption Module 内。
+7. 提升 `:application`、`:event`、`:ui`、`:widget`。
+8. 收口 `:app` 为 manifest、application shell、Koin 聚合和发布策略所有者。
+
+完成前四个后续提交后，项目会进入可持续多模块状态；后续 ABS、media、UI、widget 可以按领域独立推进。

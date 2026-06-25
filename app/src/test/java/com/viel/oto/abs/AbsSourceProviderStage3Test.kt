@@ -7,11 +7,11 @@ import com.viel.oto.abs.net.AbsTokenRefreshClient
 import com.viel.oto.abs.net.AbsTokenRefreshResult
 import com.viel.oto.abs.net.dto.AbsPlayRequestDto
 import com.viel.oto.abs.net.dto.AbsPlaybackSessionDto
-import com.viel.oto.abs.sync.AbsCatalogStore
+import com.viel.oto.data.abs.sync.AbsCatalogStore
 import com.viel.oto.abs.sync.AbsCatalogSynchronizer
 import com.viel.oto.abs.sync.AbsCoverStore
-import com.viel.oto.abs.sync.AbsItemMirrorEntity
-import com.viel.oto.abs.sync.AbsSyncStateEntity
+import com.viel.oto.data.abs.sync.AbsItemMirrorEntity
+import com.viel.oto.data.abs.sync.AbsSyncStateEntity
 import com.viel.oto.abs.vfs.AbsAuthExpiredException
 import com.viel.oto.abs.vfs.AbsRangeBodyTooLargeException
 import com.viel.oto.abs.vfs.AbsSourceProvider

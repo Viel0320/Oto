@@ -1,7 +1,7 @@
 package com.viel.oto.application.library.recovery
 
-import com.viel.oto.abs.sync.AbsItemMirrorDao
-import com.viel.oto.abs.sync.AbsItemMirrorEntity
+import com.viel.oto.data.abs.sync.AbsItemMirrorDao
+import com.viel.oto.data.abs.sync.AbsItemMirrorEntity
 import com.viel.oto.application.usecase.DeletedBookRecoveryStore
 import com.viel.oto.application.usecase.DeletedBookRecoveryUseCase
 import com.viel.oto.data.dao.BookDao

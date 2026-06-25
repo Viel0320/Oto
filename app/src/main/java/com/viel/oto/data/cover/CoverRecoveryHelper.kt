@@ -4,7 +4,7 @@ import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.oto.abs.sync.AbsCoverStore
-import com.viel.oto.abs.sync.AbsItemMirrorDao
+import com.viel.oto.data.abs.sync.AbsItemMirrorDao
 import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.db.AudiobookSchema

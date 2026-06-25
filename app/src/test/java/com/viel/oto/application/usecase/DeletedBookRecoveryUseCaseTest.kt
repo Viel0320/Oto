@@ -1,6 +1,6 @@
 package com.viel.oto.application.usecase
 
-import com.viel.oto.abs.sync.AbsItemMirrorEntity
+import com.viel.oto.data.abs.sync.AbsItemMirrorEntity
 import com.viel.oto.application.library.recovery.DeletedBookRecoveryItem
 import com.viel.oto.application.library.recovery.DeletedBookRecoveryResult
 import com.viel.oto.data.db.AudiobookSchema

@@ -3,7 +3,11 @@ package com.viel.oto.abs.playback
 import com.viel.oto.abs.net.AbsApiClient
 import com.viel.oto.abs.net.dto.AbsDeviceInfoDto
 import com.viel.oto.abs.net.dto.AbsPlayRequestDto
-import com.viel.oto.abs.sync.AbsCatalogStore
+import com.viel.oto.data.abs.playback.AbsPendingProgressSyncDao
+import com.viel.oto.data.abs.playback.AbsPendingProgressSyncEntity
+import com.viel.oto.data.abs.playback.AbsPlaybackSessionDao
+import com.viel.oto.data.abs.playback.AbsPlaybackSessionEntity
+import com.viel.oto.data.abs.sync.AbsCatalogStore
 import com.viel.oto.data.cache.OnlineSourceCachePolicy
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.BookEntity
