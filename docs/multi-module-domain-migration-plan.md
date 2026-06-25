@@ -159,7 +159,7 @@ flowchart TD
 改动范围：
 
 - 收尾 ABS Room Entity/DAO 从 `abs` 到 `data` ABS 持久化包的移动，确保 `AppDatabase` 不再依赖 `abs` 包。
-- 把 `data/scan/ScanSchedulerImpl.kt` 移到 `library:import` 所属包；`data` 只保留扫描状态持久化 gateway。
+- 已落地：`data/scan/ScanSchedulerImpl.kt` 已移到 `library/scan` 所属包；`data` 只保留扫描状态持久化 gateway，后续随阶段 4 提升进 `:library:import`。
 - 把 `data/subtitle` 对 `media.subtitle.SubtitleLine` 的依赖改为 metadata 模型或 catalog 模型。
 - 把 `data/cover` 对 `media.parser` 和 `library.vfs` 的直接依赖收拢到 cover recovery gateway 的 Adapter，不让 Room store 了解解析 Implementation。
 - 移除 `data <-> logger` 循环，`data` 只依赖 `:runtime:observability` 的日志 Interface。

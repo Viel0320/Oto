@@ -1,4 +1,4 @@
-package com.viel.oto.data.scan
+package com.viel.oto.library.scan
 
 import com.viel.oto.library.scan.ScanOutcome
 

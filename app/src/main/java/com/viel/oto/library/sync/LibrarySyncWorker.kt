@@ -3,7 +3,7 @@ package com.viel.oto.library.sync
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.viel.oto.data.scan.ScanScheduler
+import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.library.scan.ScanOutcomeKind
 import com.viel.oto.library.scan.ScanOutcomePolicy
 import com.viel.oto.logger.ScanWorkflowLogger

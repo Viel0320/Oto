@@ -12,7 +12,7 @@ import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
-import com.viel.oto.data.scan.ScanScheduler
+import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.data.webdav.WebDavCredentialStore
 import com.viel.oto.library.LibraryRootStore
 import com.viel.oto.library.vfs.sourceProvider.LibrarySourceKind

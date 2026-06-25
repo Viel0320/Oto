@@ -32,7 +32,7 @@ import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.metadata.MetadataRefreshGateway
 import com.viel.oto.data.progress.ProgressGateway
 import com.viel.oto.data.root.LibraryRootGateway
-import com.viel.oto.data.scan.ScanScheduler
+import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.data.search.SearchHistoryGateway
 import com.viel.oto.data.subtitle.SubtitleGateway
 import com.viel.oto.library.availability.AvailabilityChecker

@@ -16,7 +16,7 @@ import com.viel.oto.data.cover.CoverRecoveryGateway
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.metadata.MetadataRefreshGateway
 import com.viel.oto.data.root.LibraryRootGateway
-import com.viel.oto.data.scan.ScanScheduler
+import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.data.search.SearchHistoryGateway
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map

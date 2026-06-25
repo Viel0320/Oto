@@ -1,4 +1,4 @@
-package com.viel.oto.data.scan
+package com.viel.oto.library.scan
 
 import android.content.Context
 import androidx.annotation.OptIn

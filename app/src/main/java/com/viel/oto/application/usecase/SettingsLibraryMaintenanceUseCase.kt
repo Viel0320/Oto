@@ -3,7 +3,7 @@ package com.viel.oto.application.usecase
 import android.net.Uri
 import com.viel.oto.data.cache.CacheEvictionCoordinator
 import com.viel.oto.data.root.LibraryRootGateway
-import com.viel.oto.data.scan.ScanScheduler
+import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.library.availability.MissingBookFileRecoveryChecker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

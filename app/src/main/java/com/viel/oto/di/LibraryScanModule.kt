@@ -10,8 +10,8 @@ import com.viel.oto.data.cover.CoverRecoveryGateway
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.root.LibraryRootGateway
 import com.viel.oto.data.root.LibraryRootGatewayImpl
-import com.viel.oto.data.scan.ScanScheduler
-import com.viel.oto.data.scan.ScanSchedulerImpl
+import com.viel.oto.library.scan.ScanScheduler
+import com.viel.oto.library.scan.ScanSchedulerImpl
 import com.viel.oto.data.webdav.WebDavCredentialStore
 import com.viel.oto.event.AppEventSink
 import com.viel.oto.library.LibraryRootStore

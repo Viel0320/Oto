@@ -23,7 +23,7 @@ import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.cache.CacheEvictionCoordinator
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.root.LibraryRootGateway
-import com.viel.oto.data.scan.ScanScheduler
+import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavConnectionTester
 import org.koin.core.module.Module
 import org.koin.dsl.binds

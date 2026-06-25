@@ -6,7 +6,7 @@ import com.viel.oto.abs.sync.AbsSyncTaskOrigin
 import com.viel.oto.application.usecase.LibraryRootSettingsSnapshot
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.data.root.LibraryRootGateway
-import com.viel.oto.data.scan.ScanScheduler
+import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.oto.library.availability.buildRootUnavailableSyncMessage
 import com.viel.oto.library.availability.isSyncAvailable
