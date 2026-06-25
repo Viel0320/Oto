@@ -4,6 +4,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import com.squareup.moshi.Moshi
 import com.viel.oto.data.db.AppDatabase
+import com.viel.oto.data.webdav.WebDavCredentialStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -15,7 +16,8 @@ import java.util.zip.ZipOutputStream
 
 class ExportUserDataUseCase(
     private val context: Context,
-    private val checkpointDatabaseForBackup: () -> Unit = {}
+    private val checkpointDatabaseForBackup: () -> Unit = {},
+    private val webDavCredentialStore: WebDavCredentialStore? = null
 ) {
     private val manifestAdapter = Moshi.Builder().build().adapter(BackupManifest::class.java)
     private val exportedAtFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
@@ -83,25 +85,30 @@ class ExportUserDataUseCase(
                     }
                 }
 
-                val datastoreDir = File(context.filesDir, "datastore")
-                if (datastoreDir.exists()) {
-                    val settingsFile = File(datastoreDir, "app_settings.preferences_pb")
-                    if (settingsFile.exists()) {
-                        writeToZip(zos, settingsFile, "datastore/app_settings.preferences_pb")
-                    }
-                    val absCredentialsFile = File(datastoreDir, "abs_credentials.preferences_pb")
-                    if (absCredentialsFile.exists()) {
-                        writeToZip(zos, absCredentialsFile, "datastore/abs_credentials.preferences_pb")
-                    }
-                }
+                writeDataStoreFiles(zos)
+            }
+        }
+    }
 
-                val sharedPrefsDir = File(context.filesDir.parentFile, "shared_prefs")
-                if (sharedPrefsDir.exists()) {
-                    val webdavPrefs = File(sharedPrefsDir, "webdav_credentials.xml")
-                    if (webdavPrefs.exists()) {
-                        writeToZip(zos, webdavPrefs, "shared_prefs/webdav_credentials.xml")
-                    }
-                }
+    /**
+     * Copies DataStore-backed manual-backup files after forcing the WebDAV legacy migration to finish.
+     *
+     * This keeps old installations from exporting only the pre-migration SharedPreferences file while
+     * preserving the existing manual-backup behavior that carries source credentials with the database.
+     */
+    private suspend fun writeDataStoreFiles(zos: ZipOutputStream) {
+        webDavCredentialStore?.ensureMigrated()
+        val datastoreDir = File(context.filesDir, "datastore")
+        if (!datastoreDir.exists()) return
+
+        listOf(
+            "app_settings.preferences_pb",
+            "abs_credentials.preferences_pb",
+            "webdav_credentials.preferences_pb"
+        ).forEach { fileName ->
+            val file = File(datastoreDir, fileName)
+            if (file.exists()) {
+                writeToZip(zos, file, "datastore/$fileName")
             }
         }
     }

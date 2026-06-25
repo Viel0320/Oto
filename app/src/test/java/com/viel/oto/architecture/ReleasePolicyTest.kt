@@ -330,7 +330,7 @@ class ReleasePolicyTest {
 
         private val NON_PORTABLE_BACKUP_PATHS = listOf(
             BackupPath("sharedpref", "device.xml"),
-            BackupPath("sharedpref", "webdav_credentials.xml"),
+            BackupPath("file", "datastore/webdav_credentials.preferences_pb"),
             BackupPath("file", "datastore/abs_credentials.preferences_pb"),
             BackupPath("file", "datastore/search_history.preferences_pb")
         ) + ROOM_DATABASE_PATHS.map { path -> BackupPath("database", path) }

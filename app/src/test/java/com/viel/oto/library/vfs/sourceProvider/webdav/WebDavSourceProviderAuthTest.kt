@@ -1,11 +1,13 @@
 package com.viel.oto.library.vfs.sourceProvider.webdav
 
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
+import com.viel.oto.data.webdav.WebDavCredentialStore
 import com.viel.oto.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.oto.library.vfs.sourceProvider.SourceNode
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
@@ -18,6 +20,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
@@ -25,12 +29,17 @@ class WebDavSourceProviderAuthTest {
 
     @Test
     fun `openInputStream should include auth header when credentials exist`() = runBlocking {
-        withCleartextAllowed {
+        withCleartextAllowed { repository ->
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(200).setBody("content"))
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val credentialStore = testCredentialStore("webdav-auth-header")
+                val provider = WebDavSourceProvider(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = repository,
+                    webDavCredentialStore = credentialStore
+                )
                 val root = rootFor(server, credentialId = "cred-1")
-                storeCredentials("cred-1", "testuser", "testpass")
+                credentialStore.save("testuser", "testpass", "cred-1")
 
                 provider.openInputStream(fileNode(root))?.close()
 
@@ -43,10 +52,13 @@ class WebDavSourceProviderAuthTest {
 
     @Test
     fun `readRange should map 401 to AUTH_REQUIRED status`() = runBlocking {
-        withCleartextAllowed {
+        withCleartextAllowed { repository ->
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(401))
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = WebDavSourceProvider(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = repository
+                )
 
                 val error = assertThrows(WebDavException::class.java) {
                     runBlocking {
@@ -61,10 +73,13 @@ class WebDavSourceProviderAuthTest {
 
     @Test
     fun `listChildren should map 403 to ACCESS_DENIED status`() = runBlocking {
-        withCleartextAllowed {
+        withCleartextAllowed { repository ->
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(403))
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = WebDavSourceProvider(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = repository
+                )
 
                 val error = assertThrows(WebDavException::class.java) {
                     runBlocking {
@@ -77,28 +92,33 @@ class WebDavSourceProviderAuthTest {
         }
     }
 
-    private fun storeCredentials(credentialId: String, username: String, password: String) {
-        val store = WebDavCredentialStore(RuntimeEnvironment.getApplication())
-        store.save(username, password, credentialId)
-    }
-
-    private suspend fun withCleartextAllowed(block: suspend () -> Unit) {
+    private suspend fun withCleartextAllowed(block: suspend (AppSettingsRepository) -> Unit) {
         val repository = testAppSettingsRepository("webdav-auth")
         repository.updateCleartextTrafficAllowed(true)
         repository.awaitCleartextSetting(true)
         try {
-            block()
+            block(repository)
         } finally {
             repository.updateCleartextTrafficAllowed(false)
             repository.awaitCleartextSetting(false)
         }
     }
 
+    /**
+     * Creates an isolated credential DataStore for auth-header assertions.
+     */
+    private fun testCredentialStore(testName: String): WebDavCredentialStore {
+        val tempDir = createTempDirectory(testName).toFile()
+        return WebDavCredentialStore.createForTesting(
+            PreferenceDataStoreFactory.create(
+                produceFile = { File(tempDir, "webdav_credentials.preferences_pb") }
+            )
+        )
+    }
+
     private suspend fun AppSettingsRepository.awaitCleartextSetting(enabled: Boolean) {
         withTimeout(2_000L) {
-            while (cachedSettings.isCleartextTrafficAllowed != enabled) {
-                delay(10L)
-            }
+            settingsFlow.first { settings -> settings.isCleartextTrafficAllowed == enabled }
         }
     }
 

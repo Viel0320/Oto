@@ -5,7 +5,7 @@ import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
-import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavCredentialStore
+import com.viel.oto.data.webdav.WebDavCredentialStore
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavEndpointValidationException
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavEndpointValidationReason
 import kotlinx.coroutines.flow.Flow
@@ -33,7 +33,7 @@ class LibraryRootStoreTest {
 
     @Test
     fun `webdav endpoint normalization should reject userinfo credentials`() = runBlocking {
-        val credentialStore = WebDavCredentialStore(RuntimeEnvironment.getApplication())
+        val credentialStore = testCredentialStore("webdav-userinfo")
         val rootDao = RecordingLibraryRootDao(initialRoots = emptyList())
         val store = storeFor("webdav-userinfo", rootDao, credentialStore)
 
@@ -55,7 +55,7 @@ class LibraryRootStoreTest {
 
     @Test
     fun `new webdav add failure should delete staged credential`() = runBlocking {
-        val credentialStore = WebDavCredentialStore(RuntimeEnvironment.getApplication())
+        val credentialStore = testCredentialStore("webdav-new-failure")
         val rootDao = FailingInsertLibraryRootDao(initialRoots = emptyList())
         val store = storeFor("webdav-new-failure", rootDao, credentialStore)
 
@@ -79,7 +79,7 @@ class LibraryRootStoreTest {
 
     @Test
     fun `webdav update success should bind staged credential and delete previous credential`() = runBlocking {
-        val credentialStore = WebDavCredentialStore(RuntimeEnvironment.getApplication())
+        val credentialStore = testCredentialStore("webdav-update-success")
         val oldCredential = credentialStore.save(
             username = "old-success-user",
             password = "old-success-password",
@@ -115,7 +115,7 @@ class LibraryRootStoreTest {
 
     @Test
     fun `webdav update failure should preserve old credential and delete staged credential`() = runBlocking {
-        val credentialStore = WebDavCredentialStore(RuntimeEnvironment.getApplication())
+        val credentialStore = testCredentialStore("webdav-update-failure")
         val oldCredential = credentialStore.save(
             username = "old-user",
             password = "old-password",
@@ -153,7 +153,7 @@ class LibraryRootStoreTest {
 
     @Test
     fun `deduplicated webdav add failure should preserve old credential and delete staged credential`() = runBlocking {
-        val credentialStore = WebDavCredentialStore(RuntimeEnvironment.getApplication())
+        val credentialStore = testCredentialStore("webdav-add-dedupe-failure")
         val oldCredential = credentialStore.save(
             username = "existing-user",
             password = "existing-password",
@@ -271,6 +271,18 @@ class LibraryRootStoreTest {
             return AppSettingsRepository.createForTesting(
                 PreferenceDataStoreFactory.create(
                     produceFile = { File(tempDir, "settings.preferences_pb") }
+                )
+            )
+        }
+
+        /**
+         * Creates a per-test WebDAV credential DataStore so staged credentials cannot leak across root-store cases.
+         */
+        fun testCredentialStore(testName: String): WebDavCredentialStore {
+            val tempDir = createTempDirectory("$testName-credentials").toFile()
+            return WebDavCredentialStore.createForTesting(
+                PreferenceDataStoreFactory.create(
+                    produceFile = { File(tempDir, "webdav_credentials.preferences_pb") }
                 )
             )
         }

@@ -7,6 +7,8 @@ import androidx.core.net.toUri
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
+import com.viel.oto.data.webdav.WebDavCredentialStore
+import com.viel.oto.data.webdav.webDavCredentialDataStore
 import com.viel.oto.library.availability.RemoteAvailabilityMappingPolicy
 import com.viel.oto.library.availability.RemoteAvailabilityProtocol
 import com.viel.oto.library.vfs.sourceProvider.LibrarySourceKind
@@ -75,10 +77,14 @@ private data class ContentRangeWindow(
 
 /**
  * OkHttp-powered WebDAV source provider for PROPFIND, GET, and byte-range reads.
+ *
+ * Credential lookup is injected as a narrow DataStore-backed dependency so this provider owns only
+ * HTTP authentication application, while credential persistence stays in the data layer.
  */
 class WebDavSourceProvider(
     context: Context,
-    appSettingsRepository: AppSettingsRepository? = null
+    appSettingsRepository: AppSettingsRepository? = null,
+    webDavCredentialStore: WebDavCredentialStore = WebDavCredentialStore(context.applicationContext.webDavCredentialDataStore)
 ) : LibrarySourceProvider, KoinComponent {
     override val kind: LibrarySourceKind = LibrarySourceKind.WEBDAV
     override val capabilities: SourceCapabilities = SourceCapabilities(
@@ -97,7 +103,7 @@ class WebDavSourceProvider(
         callTimeoutSeconds = 60
     )
 
-    private val credentialStore = WebDavCredentialStore(context.applicationContext)
+    private val credentialStore = webDavCredentialStore
 
     private fun getClient(): OkHttpClient =
         clientFactory.clientFor(UnsafeNetworkPolicy.isInsecureTlsAllowed(appSettingsRepository.cachedSettings))
@@ -413,11 +419,12 @@ class WebDavSourceProvider(
         return statusCode in 200..299
     }
 
-    private fun Request.Builder.applyAuth(root: LibraryRootEntity): Request.Builder = apply {
+    private suspend fun Request.Builder.applyAuth(root: LibraryRootEntity): Request.Builder {
         val credential = credentialStore.get(root.credentialId)
         if (credential != null && (credential.username.isNotBlank() || credential.password.isNotBlank())) {
             header("Authorization", Credentials.basic(credential.username, credential.password, Charsets.UTF_8))
         }
+        return this
     }
 
     private fun Response.toWebDavException(method: String): WebDavException {

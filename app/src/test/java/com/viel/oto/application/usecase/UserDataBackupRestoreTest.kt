@@ -2,7 +2,6 @@ package com.viel.oto.application.usecase
 
 import android.content.Context
 import android.content.ContextWrapper
-import android.content.SharedPreferences
 import com.viel.oto.data.db.AppDatabase
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -45,10 +44,8 @@ class UserDataBackupRestoreTest {
             val absCredsFile = File(datastoreDir, "abs_credentials.preferences_pb")
             absCredsFile.writeText("abs-credentials-content")
 
-            val sharedPrefsDir = File(context.filesDir.parentFile, "shared_prefs")
-            sharedPrefsDir.mkdirs()
-            val webdavPrefs = File(sharedPrefsDir, "webdav_credentials.xml")
-            webdavPrefs.writeText("webdav-credentials-content")
+            val webdavCredsFile = File(datastoreDir, "webdav_credentials.preferences_pb")
+            webdavCredsFile.writeText("webdav-credentials-content")
 
             val exportUseCase = ExportUserDataUseCase(context)
             val outputStream = ByteArrayOutputStream()
@@ -71,7 +68,7 @@ class UserDataBackupRestoreTest {
             shmFile.writeText("stale-shm")
             settingsFile.writeText("stale-settings")
             absCredsFile.writeText("stale-abs")
-            webdavPrefs.writeText("stale-webdav")
+            webdavCredsFile.writeText("stale-webdav")
 
             val inputStream = ByteArrayInputStream(zipBytes)
             val importResult = importUseCase.execute(inputStream)
@@ -82,7 +79,7 @@ class UserDataBackupRestoreTest {
             assertEquals("shm-content", shmFile.readText())
             assertEquals("settings-content", settingsFile.readText())
             assertEquals("abs-credentials-content", absCredsFile.readText())
-            assertEquals("webdav-credentials-content", webdavPrefs.readText())
+            assertEquals("webdav-credentials-content", webdavCredsFile.readText())
         } catch (e: Throwable) {
             val sw = java.io.StringWriter()
             val pw = java.io.PrintWriter(sw)
@@ -170,7 +167,5 @@ class UserDataBackupRestoreTest {
         override fun getDatabasePath(name: String): File =
             File(dataDir, "databases/$name").also { file -> file.parentFile?.mkdirs() }
 
-        override fun getSharedPreferences(name: String, mode: Int): SharedPreferences =
-            baseContext.getSharedPreferences("${root.name}-$name", mode)
     }
 }

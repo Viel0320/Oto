@@ -30,7 +30,6 @@ fun DetailScreen(
     onDeleteDownload: (String) -> Unit = {},
     glassEffectMode: GlassEffectMode,
     fullPageHazeState: HazeState? = null,
-    coverColor: androidx.compose.ui.graphics.Color?,
     onColorExtracted: (androidx.compose.ui.graphics.Color) -> Unit,
 ) {
     DetailContent(

@@ -83,16 +83,18 @@ class RemoteConnectionViewModel(
 
     fun openWebDavForEdit(root: SettingsRootItem) {
         handler.resetWebDavConnectionState()
-        val cred = handler.getWebDavCredentials(root.credentialId)
-        _form.value = RemoteConnectionFormState(
-            source = RemoteConnectionSource.WebDav,
-            editingRootId = root.rootId,
-            webDavUrl = root.sourceUri,
-            webDavUsername = cred?.username.orEmpty(),
-            webDavPassword = cred?.password.orEmpty(),
-            webDavDisplayName = root.displayName,
-            webDavBasePath = root.basePath
-        )
+        viewModelScope.launch {
+            val cred = handler.getWebDavCredentials(root.credentialId)
+            _form.value = RemoteConnectionFormState(
+                source = RemoteConnectionSource.WebDav,
+                editingRootId = root.rootId,
+                webDavUrl = root.sourceUri,
+                webDavUsername = cred?.username.orEmpty(),
+                webDavPassword = cred?.password.orEmpty(),
+                webDavDisplayName = root.displayName,
+                webDavBasePath = root.basePath
+            )
+        }
     }
 
     fun openAbsForEdit(root: SettingsRootItem) {

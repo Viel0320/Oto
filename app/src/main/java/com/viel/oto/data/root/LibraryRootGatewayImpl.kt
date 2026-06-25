@@ -13,9 +13,9 @@ import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.data.scan.ScanScheduler
+import com.viel.oto.data.webdav.WebDavCredentialStore
 import com.viel.oto.library.LibraryRootStore
 import com.viel.oto.library.vfs.sourceProvider.LibrarySourceKind
-import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavCredentialStore
 import com.viel.oto.logger.ScanWorkflowLogger
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -297,10 +297,10 @@ internal fun shouldDeleteAbsCredential(
     root: LibraryRootEntity,
     allRoots: List<LibraryRootEntity>
 ): Boolean {
-    if (root.sourceType != com.viel.oto.data.db.AudiobookSchema.LibrarySourceType.ABS) return false
+    if (root.sourceType != AudiobookSchema.LibrarySourceType.ABS) return false
     return allRoots.none { otherRoot ->
         otherRoot.id != root.id &&
-            otherRoot.sourceType == com.viel.oto.data.db.AudiobookSchema.LibrarySourceType.ABS &&
+            otherRoot.sourceType == AudiobookSchema.LibrarySourceType.ABS &&
             otherRoot.credentialId == root.credentialId
     }
 }

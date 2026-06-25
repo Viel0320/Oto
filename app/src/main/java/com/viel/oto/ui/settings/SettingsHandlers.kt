@@ -233,7 +233,7 @@ class SettingsConnectionHandler(
         )
     }
 
-    fun getWebDavCredentials(credentialId: String?): SettingsCredential? {
+    suspend fun getWebDavCredentials(credentialId: String?): SettingsCredential? {
         val cred = settingsQueryUseCase.getWebDavCredential(credentialId) ?: return null
         return SettingsCredential(username = cred.username, password = cred.password)
     }

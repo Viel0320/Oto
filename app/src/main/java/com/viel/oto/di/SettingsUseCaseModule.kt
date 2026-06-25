@@ -25,7 +25,6 @@ import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.root.LibraryRootGateway
 import com.viel.oto.data.scan.ScanScheduler
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavConnectionTester
-import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavCredentialStore
 import org.koin.core.module.Module
 import org.koin.dsl.binds
 import org.koin.dsl.module
@@ -41,8 +40,6 @@ import org.koin.dsl.module
 internal object SettingsUseCaseModule {
 
     val module: Module = module {
-        single { WebDavCredentialStore(get()) }
-
         single {
             SettingsQueryUseCase(
                 libraryRootGateway = get<LibraryRootGateway>(),
@@ -100,6 +97,7 @@ internal object SettingsUseCaseModule {
         single {
             ExportUserDataUseCase(
                 context = get(),
+                webDavCredentialStore = get(),
                 checkpointDatabaseForBackup = {
                     get<AppDatabase>().openHelper.writableDatabase.query("PRAGMA wal_checkpoint(FULL)").use { cursor ->
                         cursor.moveToFirst()

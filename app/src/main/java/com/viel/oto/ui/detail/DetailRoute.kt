@@ -121,7 +121,6 @@ fun DetailRoute(
                 onDeleteDownload = detailViewModel::deleteDownload,
                 glassEffectMode = glassEffectMode,
                 fullPageHazeState = appHazeState,
-                coverColor = coverColor,
                 onColorExtracted = { coverColor = it }
             )
         }

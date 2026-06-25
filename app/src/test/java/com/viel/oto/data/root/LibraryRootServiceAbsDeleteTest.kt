@@ -14,9 +14,9 @@ import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.BookEntity
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.data.scan.ScanScheduler
+import com.viel.oto.data.webdav.WebDavCredentialStore
 import com.viel.oto.library.scan.ScanOutcome
 import com.viel.oto.library.scan.ScanOutcomeKind
-import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavCredentialStore
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -201,7 +201,7 @@ class LibraryRootServiceAbsDeleteTest {
                 directoryChildCacheDao = database.directoryChildCacheDao()
             ),
             rootStore = rootStore,
-            webDavCredentialStore = WebDavCredentialStore(context),
+            webDavCredentialStore = testWebDavCredentialStore("abs-root-webdav-placeholder"),
             absCredentialStore = credentialStore,
             database = database
         )
@@ -212,6 +212,18 @@ class LibraryRootServiceAbsDeleteTest {
         return AppSettingsRepository.createForTesting(
             PreferenceDataStoreFactory.create(
                 produceFile = { File(tempDir, "settings.preferences_pb") }
+            )
+        )
+    }
+
+    /**
+     * Supplies the gateway's WebDAV cleanup dependency without sharing credential files with other tests.
+     */
+    private fun testWebDavCredentialStore(testName: String): WebDavCredentialStore {
+        val tempDir = createTempDirectory(testName).toFile()
+        return WebDavCredentialStore.createForTesting(
+            PreferenceDataStoreFactory.create(
+                produceFile = { File(tempDir, "webdav_credentials.preferences_pb") }
             )
         )
     }

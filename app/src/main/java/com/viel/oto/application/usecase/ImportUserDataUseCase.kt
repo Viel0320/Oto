@@ -1,7 +1,6 @@
 package com.viel.oto.application.usecase
 
 import android.content.Context
-import androidx.core.content.edit
 import com.squareup.moshi.Moshi
 import com.viel.oto.data.db.AppDatabase
 import kotlinx.coroutines.Dispatchers
@@ -60,7 +59,7 @@ class ImportUserDataUseCase(
         runCatching {
             closeDatabaseForRestore()
 
-            context.getSharedPreferences("webdav_credentials", Context.MODE_PRIVATE).edit(commit = true) { clear() }
+            deleteWebDavCredentialRestoreTargets()
 
             ZipInputStream(inputStream).use { zis ->
                 var entry = zis.nextEntry
@@ -100,5 +99,16 @@ class ImportUserDataUseCase(
                 }
             }
         }
+    }
+
+    /**
+     * Removes both the migrated DataStore file and the legacy WebDAV preferences file before restore.
+     *
+     * The subsequent ZIP extraction can then restore either the new DataStore payload or an older
+     * shared_prefs payload, which will be migrated by WebDavCredentialStore on the next app start.
+     */
+    private fun deleteWebDavCredentialRestoreTargets() {
+        File(context.filesDir, "datastore/webdav_credentials.preferences_pb").delete()
+        File(context.filesDir.parentFile, "shared_prefs/webdav_credentials.xml").delete()
     }
 }

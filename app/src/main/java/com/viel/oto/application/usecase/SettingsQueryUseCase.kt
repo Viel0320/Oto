@@ -7,8 +7,8 @@ import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.root.LibraryRootGateway
-import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavCredential
-import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavCredentialStore
+import com.viel.oto.data.webdav.WebDavCredential
+import com.viel.oto.data.webdav.WebDavCredentialStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -72,8 +72,10 @@ class SettingsQueryUseCase(
         }
     }
 
-    fun getWebDavCredential(credentialId: String?): WebDavCredential? =
-        credentialId?.takeIf { id -> id.isNotBlank() }?.let(webDavCredentialStore::get)
+    suspend fun getWebDavCredential(credentialId: String?): WebDavCredential? =
+        withContext(Dispatchers.IO) {
+            credentialId?.takeIf { id -> id.isNotBlank() }?.let { id -> webDavCredentialStore.get(id) }
+        }
 
     suspend fun getAbsCredential(credentialId: String?): AbsCredential? =
         withContext(Dispatchers.IO) {
@@ -90,7 +92,7 @@ class SettingsQueryUseCase(
         }
         val existingCredential = libraryRootDao.getRootById(editingRootId)
             ?.credentialId
-            ?.let(webDavCredentialStore::get)
+            ?.let { credentialId -> webDavCredentialStore.get(credentialId) }
         WebDavResolvedCredentials(
             username = username.ifBlank { existingCredential?.username.orEmpty() },
             password = password.ifBlank { existingCredential?.password.orEmpty() }

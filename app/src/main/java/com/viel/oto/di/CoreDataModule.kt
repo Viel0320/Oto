@@ -11,6 +11,8 @@ import com.viel.oto.application.library.settings.AppSettingsReadModel
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.store.SearchHistoryStore
+import com.viel.oto.data.webdav.WebDavCredentialStore
+import com.viel.oto.data.webdav.webDavCredentialDataStore
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
@@ -18,7 +20,7 @@ import org.koin.dsl.module
 
 /**
  * Process-wide durable data stores: Room database, settings repository, ABS credential store,
- * and search history store.
+ * WebDAV credential store, and search history store.
  *
  * Each DataStore is registered with a named qualifier because they all share the
  * [DataStore]<[Preferences]> type but differ by preferencesDataStore name.
@@ -37,6 +39,7 @@ internal object CoreDataModule {
         single(named("appSettings")) { get<Context>().applicationContext.appSettingsDataStore }
         single(named("searchHistory")) { get<Context>().applicationContext.searchHistoryDataStore }
         single(named("absCredentials")) { get<Context>().applicationContext.absCredentialDataStore }
+        single(named("webDavCredentials")) { get<Context>().applicationContext.webDavCredentialDataStore }
 
         single {
             AppDatabase.create(get()).also { db ->
@@ -49,5 +52,6 @@ internal object CoreDataModule {
         single { AppSettingsRepository(get(named("appSettings"))) } bind AppSettingsReadModel::class
         single { SearchHistoryStore(get(named("searchHistory"))) }
         single { AbsCredentialStore(get(named("absCredentials"))) }
+        single { WebDavCredentialStore(get(named("webDavCredentials"))) }
     }
 }

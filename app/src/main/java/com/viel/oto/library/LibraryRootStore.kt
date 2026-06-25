@@ -9,9 +9,10 @@ import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
+import com.viel.oto.data.webdav.WebDavCredentialStore
+import com.viel.oto.data.webdav.webDavCredentialDataStore
 import com.viel.oto.library.availability.AvailabilityChecker
 import com.viel.oto.library.availability.LibraryRootAvailabilityUpdate
-import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavCredentialStore
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavEndpointValidationException
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavEndpointValidationReason
 import com.viel.oto.logger.SecureLog
@@ -27,7 +28,8 @@ class LibraryRootStore(
     private val context: Context,
     private val rootDao: LibraryRootDao,
     private val availabilityChecker: AvailabilityChecker? = null,
-    private val webDavCredentialStore: WebDavCredentialStore = WebDavCredentialStore(context.applicationContext),
+    private val webDavCredentialStore: WebDavCredentialStore =
+        WebDavCredentialStore(context.applicationContext.webDavCredentialDataStore),
     private val absCredentialStore: AbsCredentialStore? = null,
     private val appSettingsRepository: AppSettingsRepository
 ) {

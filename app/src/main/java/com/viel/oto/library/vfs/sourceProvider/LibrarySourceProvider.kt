@@ -5,6 +5,8 @@ import android.os.ParcelFileDescriptor
 import com.viel.oto.abs.vfs.AbsSourceProvider
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
+import com.viel.oto.data.webdav.WebDavCredentialStore
+import com.viel.oto.data.webdav.webDavCredentialDataStore
 import com.viel.oto.library.vfs.sourceProvider.saf.SafSourceProvider
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavSourceProvider
 import java.io.InputStream
@@ -61,9 +63,22 @@ interface LibrarySourceProvider {
     suspend fun exists(node: SourceNode): Boolean
 }
 
-class LibrarySourceProviderFactory(private val context: Context) {
+/**
+ * Creates one provider per source kind while keeping source-specific persistence dependencies narrow.
+ *
+ * WebDAV receives only its credential store, so the provider factory does not become a general
+ * settings or storage facade for unrelated source behaviors.
+ */
+class LibrarySourceProviderFactory(
+    private val context: Context,
+    webDavCredentialStore: WebDavCredentialStore =
+        WebDavCredentialStore(context.applicationContext.webDavCredentialDataStore)
+) {
     private val safProvider = SafSourceProvider(context)
-    private val webDavProvider = WebDavSourceProvider(context.applicationContext)
+    private val webDavProvider = WebDavSourceProvider(
+        context = context.applicationContext,
+        webDavCredentialStore = webDavCredentialStore
+    )
     private val absProvider = AbsSourceProvider(context.applicationContext)
 
     fun providerFor(root: LibraryRootEntity): LibrarySourceProvider =
