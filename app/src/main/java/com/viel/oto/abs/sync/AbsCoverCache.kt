@@ -5,10 +5,12 @@ import com.viel.oto.abs.auth.AbsCredentialStore
 import com.viel.oto.abs.net.AbsAuth
 import com.viel.oto.abs.net.AbsAuthInterceptor
 import com.viel.oto.abs.net.AbsUrlResolver
+import com.viel.oto.data.cover.CoverImageResult
 import com.viel.oto.logger.AbsAuthLogger
 import com.viel.oto.logger.AbsCoverLogger
 import com.viel.oto.logger.CoverImageCacheLogger
 import com.viel.oto.media.parser.CoverExtractor
+import com.viel.oto.media.parser.toCoverImageResult
 import com.viel.oto.network.UnsafeNetworkPolicy
 import com.viel.oto.shared.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +23,7 @@ import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 
 interface AbsCoverStore {
-    suspend fun downloadCover(root: com.viel.oto.data.entity.LibraryRootEntity, remoteItemId: String): CoverExtractor.CoverResult
+    suspend fun downloadCover(root: com.viel.oto.data.entity.LibraryRootEntity, remoteItemId: String): CoverImageResult
 }
 
 class AbsCoverCache(
@@ -36,7 +38,7 @@ class AbsCoverCache(
         .build(),
     private val settingsProvider: () -> AppSettings
 ) : AbsCoverStore {
-    override suspend fun downloadCover(root: com.viel.oto.data.entity.LibraryRootEntity, remoteItemId: String): CoverExtractor.CoverResult =
+    override suspend fun downloadCover(root: com.viel.oto.data.entity.LibraryRootEntity, remoteItemId: String): CoverImageResult =
         withContext(Dispatchers.IO) {
             val start = AbsCoverLogger.mark()
             AbsCoverLogger.logDownloadStart(rootId = root.id, remoteItemId = remoteItemId)
@@ -97,7 +99,7 @@ class AbsCoverCache(
                 return@withContext runCatching {
                     coverExtractor.processExternalImage(sourceId) {
                         httpResponse.body.byteStream()
-                    }
+                    }.toCoverImageResult()
                 }.onSuccess { result ->
                     CoverImageCacheLogger.logAbsCoverStreamReady(
                         rootId = root.id,

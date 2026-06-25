@@ -1,8 +1,6 @@
 package com.viel.oto.data.cover
 
 import android.os.SystemClock
-import androidx.annotation.OptIn
-import androidx.media3.common.util.UnstableApi
 import com.viel.oto.abs.sync.AbsCoverStore
 import com.viel.oto.data.abs.sync.AbsItemMirrorDao
 import com.viel.oto.data.dao.BookDao
@@ -10,12 +8,7 @@ import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.BookEntity
 import com.viel.oto.data.entity.BookFileEntity
-import com.viel.oto.library.FileRef
-import com.viel.oto.library.vfs.VfsFileInterface
 import com.viel.oto.logger.ScanWorkflowLogger
-import com.viel.oto.media.manifest.ManifestSidecarSupport
-import com.viel.oto.media.parser.CoverExtractor
-import com.viel.oto.media.parser.MetadataResolver
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,13 +22,11 @@ import java.io.File
  * The helper stays format-agnostic: it detects missing cache files, retries embedded and sidecar
  * artwork through shared parser boundaries, and writes recovered paths back to Room.
  */
-@OptIn(UnstableApi::class)
 class CoverRecoveryHelper(
     private val bookDao: BookDao,
     private val libraryRootDao: LibraryRootDao,
-    private val coverExtractor: CoverExtractor,
     private val scope: CoroutineScope,
-    private val fileReader: VfsFileInterface,
+    private val coverArtworkSource: CoverRecoveryArtworkSource,
     private val absItemMirrorDao: AbsItemMirrorDao,
     private val absCoverStoreProvider: () -> AbsCoverStore?
 ) : CoverSelfHealer {
@@ -43,11 +34,6 @@ class CoverRecoveryHelper(
      * Limits cover repair concurrency because each job may read VFS streams, decode bitmaps, and sample colors.
      */
     private val regenerationSemaphore = Semaphore(MAX_CONCURRENT_COVER_REGENERATIONS)
-
-    /**
-     * Reuses the injected runtime VFS when asking format parsers for embedded artwork bytes.
-     */
-    private val metadataResolver = MetadataResolver(fileReader)
 
     private val pendingRegenerations = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     /**
@@ -172,63 +158,21 @@ class CoverRecoveryHelper(
     private suspend fun tryExtractEmbeddedCover(
         bookId: String,
         file: BookFileEntity
-    ): CoverExtractor.CoverResult =
+    ): CoverImageResult =
         try {
-            val embeddedCover = metadataResolver.extractWithEmbeddedCover(file).embeddedCover
-            if (embeddedCover == null || embeddedCover.bytes.isEmpty()) {
-                CoverExtractor.CoverResult(null, null)
-            } else {
-                coverExtractor.saveEmbeddedImage(
-                    "$bookId:${file.rootId}:${file.sourcePath}:embedded",
-                    embeddedCover.bytes
-                )
-            }
+            coverArtworkSource.extractEmbeddedCover(bookId, file)
         } catch (error: Exception) {
             ScanWorkflowLogger.error("coverRecovery embedded cover parse failed: bookId=$bookId", error)
-            CoverExtractor.CoverResult(null, null)
+            CoverImageResult.Empty
         }
 
-    private suspend fun tryExtractSidecarCover(primaryFile: BookFileEntity): CoverExtractor.CoverResult =
+    private suspend fun tryExtractSidecarCover(primaryFile: BookFileEntity): CoverImageResult =
         try {
-            val sidecar = findSidecarImage(primaryFile) ?: return CoverExtractor.CoverResult(null, null)
-            coverExtractor.processExternalImage("${sidecar.root.id}:${sidecar.metadata.sourcePath}") {
-                fileReader.open(sidecar)
-            }
+            coverArtworkSource.extractSidecarCover(primaryFile)
         } catch (error: Exception) {
             ScanWorkflowLogger.error("coverRecovery sidecar parse failed: sourcePath=${primaryFile.sourcePath}", error)
-            CoverExtractor.CoverResult(null, null)
+            CoverImageResult.Empty
         }
-
-    private fun CoverExtractor.CoverResult.hasImage(): Boolean =
-        originalPath != null || thumbnailPath != null
-
-    private suspend fun findSidecarImage(file: BookFileEntity): com.viel.oto.library.vfs.VfsNode? {
-        val parentPath = file.sourcePath.substringBeforeLast('/', missingDelimiterValue = "")
-        val files = fileReader.listChildren(file.rootId, parentPath)
-            .filter { node -> !node.metadata.isDirectory && isImage(node.metadata.displayName) }
-        val selectedRef = ManifestSidecarSupport.findDirectoryCover(
-            files.map { node ->
-                FileRef(
-                    rootId = node.root.id,
-                    sourcePath = node.metadata.sourcePath,
-                    sourceIdentity = node.metadata.identity,
-                    etag = node.metadata.etag,
-                    parentSourcePath = node.metadata.parentSourcePath,
-                    parentSourceKey = "${node.root.id}:${node.metadata.parentSourcePath}",
-                    parentSourceIdentity = node.metadata.parentIdentity,
-                    displayName = node.metadata.displayName,
-                    fileSize = node.metadata.fileSize,
-                    lastModified = node.metadata.lastModified
-                )
-            }
-        ) ?: return null
-        return files.firstOrNull { node -> node.metadata.sourcePath == selectedRef.sourcePath }
-    }
-
-    private fun isImage(name: String): Boolean {
-        val ext = name.substringAfterLast('.', missingDelimiterValue = "").lowercase()
-        return ext in setOf("jpg", "jpeg", "png", "webp")
-    }
 
     /**
      * Reuses the latest physical cover presence check within a short time window.
@@ -338,4 +282,3 @@ class CoverRecoveryHelper(
         private const val MAX_ALREADY_ATTEMPTED_SIZE = 1024
     }
 }
-

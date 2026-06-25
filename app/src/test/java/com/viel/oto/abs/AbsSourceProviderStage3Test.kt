@@ -15,6 +15,7 @@ import com.viel.oto.data.abs.sync.AbsSyncStateEntity
 import com.viel.oto.abs.vfs.AbsAuthExpiredException
 import com.viel.oto.abs.vfs.AbsRangeBodyTooLargeException
 import com.viel.oto.abs.vfs.AbsSourceProvider
+import com.viel.oto.data.cover.CoverImageResult
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.BookEntity
 import com.viel.oto.data.entity.BookFileEntity
@@ -401,7 +402,7 @@ class AbsSourceProviderStage3Test {
         override suspend fun downloadCover(
             root: LibraryRootEntity,
             remoteItemId: String
-        ) = com.viel.oto.media.parser.CoverExtractor.CoverResult(coverPath, thumbPath, 123)
+        ) = CoverImageResult(coverPath, thumbPath, 123)
     }
 
     private class FakeCatalogApi : com.viel.oto.abs.net.AbsApiClient {

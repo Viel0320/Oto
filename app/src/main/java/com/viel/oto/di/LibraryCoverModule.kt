@@ -5,8 +5,10 @@ import androidx.media3.common.util.UnstableApi
 import com.viel.oto.data.cover.AndroidCoverUriResolver
 import com.viel.oto.data.cover.CoverAssetGateway
 import com.viel.oto.data.cover.CoverAssetGatewayImpl
+import com.viel.oto.data.cover.CoverImageWriter
 import com.viel.oto.data.cover.CoverRecoveryGateway
 import com.viel.oto.data.cover.CoverRecoveryGatewayImpl
+import com.viel.oto.data.cover.CoverRecoveryArtworkSource
 import com.viel.oto.data.cover.CoverRecoveryHelper
 import com.viel.oto.data.cover.CoverSelfHealer
 import com.viel.oto.data.cover.CoverUriResolver
@@ -15,6 +17,8 @@ import com.viel.oto.data.metadata.MetadataRefreshGateway
 import com.viel.oto.data.metadata.MetadataRefreshGatewayImpl
 import com.viel.oto.library.vfs.VfsFileInterface
 import com.viel.oto.media.parser.CoverExtractor
+import com.viel.oto.media.parser.MediaCoverImageWriter
+import com.viel.oto.media.parser.MediaCoverRecoveryArtworkSource
 import com.viel.oto.media.parser.MetadataResolver
 import com.viel.oto.media.subtitle.SubtitleFileResolver
 import com.viel.oto.media.subtitle.SubtitleGateway
@@ -52,6 +56,17 @@ internal object LibraryCoverModule {
     val module: Module = module {
         single { CoverExtractor(get()) }
 
+        single<CoverImageWriter> {
+            MediaCoverImageWriter(coverExtractor = get())
+        }
+
+        single<CoverRecoveryArtworkSource> {
+            MediaCoverRecoveryArtworkSource(
+                fileReader = get<VfsFileInterface>(),
+                coverImageWriter = get<CoverImageWriter>()
+            )
+        }
+
         single { MetadataResolver(get<VfsFileInterface>()) }
 
         single<CoverUriResolver> { AndroidCoverUriResolver(get()) }
@@ -61,9 +76,8 @@ internal object LibraryCoverModule {
             val helper = CoverRecoveryHelper(
                 bookDao = get<AppDatabase>().bookDao(),
                 libraryRootDao = get<AppDatabase>().libraryRootDao(),
-                coverExtractor = get(),
                 scope = scope,
-                fileReader = get<VfsFileInterface>(),
+                coverArtworkSource = get<CoverRecoveryArtworkSource>(),
                 absItemMirrorDao = get<AppDatabase>().absItemMirrorDao(),
                 absCoverStoreProvider = { getOrNull() }
             )
@@ -84,7 +98,7 @@ internal object LibraryCoverModule {
         single<CoverAssetGateway> {
             CoverAssetGatewayImpl(
                 bookDao = get<AppDatabase>().bookDao(),
-                coverExtractor = get()
+                coverImageWriter = get<CoverImageWriter>()
             )
         }
 

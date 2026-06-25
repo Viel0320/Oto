@@ -26,12 +26,12 @@ import com.viel.oto.data.abs.sync.AbsSyncStateEntity
 import com.viel.oto.abs.sync.buildAbsIncrementalErrorSummary
 import com.viel.oto.abs.sync.selectAbsDetailCandidateIds
 import com.viel.oto.data.cache.OnlineSourceCachePolicy
+import com.viel.oto.data.cover.CoverImageResult
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.BookEntity
 import com.viel.oto.data.entity.BookFileEntity
 import com.viel.oto.data.entity.ChapterEntity
 import com.viel.oto.data.entity.LibraryRootEntity
-import com.viel.oto.media.parser.CoverExtractor
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -308,7 +308,7 @@ class AbsIncrementalStage6Test {
             )
         )
         val coverStore = FakeCoverStore(
-            result = CoverExtractor.CoverResult(
+            result = CoverImageResult(
                 originalPath = "/cache/refreshed-cover.jpg",
                 thumbnailPath = "/cache/refreshed-thumb.jpg"
             )
@@ -647,11 +647,11 @@ class AbsIncrementalStage6Test {
     }
 
     private class FakeCoverStore(
-        private val result: CoverExtractor.CoverResult
+        private val result: CoverImageResult
     ) : AbsCoverStore {
         val downloadedItemIds = mutableListOf<String>()
 
-        override suspend fun downloadCover(root: LibraryRootEntity, remoteItemId: String): CoverExtractor.CoverResult {
+        override suspend fun downloadCover(root: LibraryRootEntity, remoteItemId: String): CoverImageResult {
             downloadedItemIds += remoteItemId
             return result
         }

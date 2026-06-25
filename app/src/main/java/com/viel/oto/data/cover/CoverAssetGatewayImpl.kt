@@ -1,7 +1,6 @@
 package com.viel.oto.data.cover
 
 import com.viel.oto.data.dao.BookDao
-import com.viel.oto.media.parser.CoverExtractor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -14,7 +13,7 @@ import java.io.File
  */
 class CoverAssetGatewayImpl(
     private val bookDao: BookDao,
-    private val coverExtractor: CoverExtractor
+    private val coverImageWriter: CoverImageWriter
 ) : CoverAssetGateway {
     override suspend fun saveCustomCover(bookId: String, coverUri: String) = withContext(Dispatchers.IO) {
         val book = bookDao.getBookById(bookId) ?: return@withContext
@@ -23,7 +22,7 @@ class CoverAssetGatewayImpl(
         } else {
             coverUri
         }
-        val result = coverExtractor.saveCustomCoverFromUri(bookId, normalizedUri)
+        val result = coverImageWriter.saveCustomCoverFromUri(bookId, normalizedUri)
         if (result.originalPath != null) {
             book.coverPath?.let { oldPath ->
                 val oldFile = File(oldPath)
