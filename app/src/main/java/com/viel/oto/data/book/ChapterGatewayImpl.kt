@@ -1,7 +1,5 @@
 package com.viel.oto.data.book
 
-import androidx.annotation.OptIn
-import androidx.media3.common.util.UnstableApi
 import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.dao.ChapterDao
 import com.viel.oto.data.db.AudiobookSchema
@@ -31,7 +29,6 @@ import java.util.UUID
  * database has no parsed chapters (see [projectChaptersWithTrackFallback]). [saveChapters] is fire-and-forget
  * on a private IO scope, so this service is [Closeable] and must be torn down by the graph.
  */
-@OptIn(UnstableApi::class)
 class ChapterGatewayImpl(
     private val bookDao: BookDao,
     private val chapterDao: ChapterDao,
