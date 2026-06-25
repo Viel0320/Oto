@@ -78,7 +78,7 @@ fun PlayerOverlay(
     val isMiniPlayerMotionSource = !isFullPlayerVisible || settings.fullPlayerOpenSource == FullPlayerOpenSource.MiniPlayer
 
     val metadata by playbackViewModel.metadataState.collectAsStateWithLifecycle()
-    val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
+    val playbackControls by playbackViewModel.playbackControlState.collectAsStateWithLifecycle()
 
     val isMediaAvailable by remember(playbackViewModel, metadata.id) {
         playbackViewModel.currentBookAvailability(metadata.id)
@@ -206,7 +206,7 @@ fun PlayerOverlay(
                         ) {
                             MiniPlayerContent(
                                 metadata = metadata,
-                                playback = playbackState,
+                                isPlaying = playbackControls.isPlaying,
                                 miniPlayerProgress = playbackViewModel.miniPlayerProgress,
                                 isMediaAvailable = isMediaAvailable,
                                 actions = miniPlayerActions,
@@ -291,7 +291,7 @@ private enum class PlayerOverlayState {
 @Composable
 private fun MiniPlayerContent(
     metadata: BookMetadataState,
-    playback: PlaybackState,
+    isPlaying: Boolean,
     miniPlayerProgress: StateFlow<Float>,
     isMediaAvailable: Boolean,
     actions: MiniPlayerActions,
@@ -318,7 +318,7 @@ private fun MiniPlayerContent(
             if (usePillPlayer) {
                 PillCompactMediaPlayer(
                     bookId = metadata.id,
-                    isPlaying = playback.isPlaying,
+                    isPlaying = isPlaying,
                     coverPath = miniPlayerCoverPath,
                     coverLastUpdated = metadata.coverLastUpdated,
                     actions = actions,
@@ -330,7 +330,7 @@ private fun MiniPlayerContent(
                 val displayProgress by miniPlayerProgress.collectAsStateWithLifecycle()
                 CompactMediaPlayer(
                     bookId = metadata.id,
-                    isPlaying = playback.isPlaying,
+                    isPlaying = isPlaying,
                     title = metadata.title,
                     author = metadata.author,
                     narrator = metadata.narrator,

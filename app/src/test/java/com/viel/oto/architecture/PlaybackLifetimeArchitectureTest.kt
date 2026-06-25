@@ -155,6 +155,24 @@ class PlaybackLifetimeArchitectureTest {
         )
     }
 
+    @Test
+    fun playerOverlayDoesNotCollectFullPlaybackStateForProgressTicks() {
+        val sourceRoot = resolveSourceRoot()
+        val playerOverlay = sourceRoot.resolve("ui/player/PlayerOverlay.kt").readText()
+        val playbackViewModel = sourceRoot.resolve("ui/player/PlaybackViewModel.kt").readText()
+
+        assertTrue(
+            "PlayerOverlay must subscribe to low-frequency controls instead of full playback ticks.",
+            !playerOverlay.contains("playbackViewModel.playbackState.collectAsStateWithLifecycle") &&
+                playerOverlay.contains("playbackViewModel.playbackControlState.collectAsStateWithLifecycle")
+        )
+        assertTrue(
+            "Playback progress projections must not be derived from full PlaybackState ticks.",
+            !playbackViewModel.contains("playbackState.map { it.currentPosition }") &&
+                playbackViewModel.contains("private val playbackPositionState")
+        )
+    }
+
     private fun resolveSourceRoot(): File {
         val candidates = listOf(
             File("src/main/java/com/viel/oto"),

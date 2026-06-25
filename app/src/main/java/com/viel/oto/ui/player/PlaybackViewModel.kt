@@ -156,29 +156,46 @@ class PlaybackViewModel(
         )
 
     /**
-     * Live Media3 playback projection.
+     * High-frequency playback coordinates for progress-only UI consumers.
      *
-     * Represents only the actual playback engine state after a real media source is prepared.
+     * Position, buffer, and duration are isolated from the full PlaybackState object so 500ms
+     * progress ticks do not force parent player surfaces to rebuild low-frequency control state.
      */
+    private val playbackPositionState: StateFlow<PlaybackProgressViewState> = combine(
+        playbackController.currentPosition.distinctUntilChanged(),
+        playbackController.bufferedPosition.distinctUntilChanged(),
+        playbackController.duration.distinctUntilChanged()
+    ) { pos, bufferedPos, dur ->
+        PlaybackProgressViewState(
+            elapsedMs = pos,
+            bufferedMs = bufferedPos.coerceIn(pos, dur.coerceAtLeast(pos)),
+            durationMs = dur
+        )
+    }.stateIn(externalScope, SharingStarted.WhileSubscribed(5000), PlaybackProgressViewState())
+
     private val controllerPlaybackState = combine(
-        playbackController.isPlaying,
-        playbackController.currentPosition,
-        playbackController.bufferedPosition,
-        playbackController.duration,
-        playbackController.playbackSpeed
-    ) { isPlaying, pos, bufferedPos, dur, speed ->
+        playbackController.isPlaying.distinctUntilChanged(),
+        playbackPositionState,
+        playbackController.playbackSpeed.distinctUntilChanged()
+    ) { isPlaying, progress, speed ->
         PlaybackState(
             isPlaying = isPlaying,
-            currentPosition = pos,
-            bufferedPosition = bufferedPos,
-            duration = dur,
+            currentPosition = progress.elapsedMs,
+            bufferedPosition = progress.bufferedMs,
+            duration = progress.durationMs,
             playbackSpeed = speed,
             playWhenReady = isPlaying
         )
     }
 
-    val playbackState: StateFlow<PlaybackState> =
-        controllerPlaybackState.stateIn(externalScope, SharingStarted.WhileSubscribed(5000), PlaybackState())
+    /**
+     * Full playback projection retained for callers that need the aggregate engine snapshot.
+     *
+     * Progress-rendering Compose surfaces should use playbackProgressState instead, and control
+     * hosts should use playbackControlState, so this aggregate flow only runs when explicitly needed.
+     */
+    val playbackState: StateFlow<PlaybackState> = controllerPlaybackState
+        .stateIn(externalScope, SharingStarted.WhileSubscribed(5000), PlaybackState())
 
     private val _isChapterProgressMode = MutableStateFlow(false)
 
@@ -187,16 +204,14 @@ class PlaybackViewModel(
     }
 
     val playbackProgressState: StateFlow<PlaybackProgressViewState> = combine(
-        playbackState.map { it.currentPosition }.distinctUntilChanged(),
-        playbackState.map { it.bufferedPosition }.distinctUntilChanged(),
-        playbackState.map { it.duration }.distinctUntilChanged(),
-        _isChapterProgressMode
-    ) { pos, bufferedPos, dur, mode ->
-        PlaybackProgressViewState(pos, bufferedPos.coerceIn(pos, dur.coerceAtLeast(pos)), dur, mode)
+        playbackPositionState,
+        _isChapterProgressMode.distinctUntilChanged()
+    ) { progress, mode ->
+        progress.copy(isChapterProgressMode = mode)
     }.stateIn(externalScope, SharingStarted.WhileSubscribed(5000), PlaybackProgressViewState())
 
     val currentChapterState: StateFlow<PlayerChapterItem?> = combine(
-        playbackState.map { it.currentPosition }.distinctUntilChanged(),
+        playbackPositionState.map { it.elapsedMs }.distinctUntilChanged(),
         metadataState.map { it.chapters }.distinctUntilChanged()
     ) { pos, chapters ->
         PlaybackStateMapper.currentChapter(chapters, pos)
@@ -210,31 +225,43 @@ class PlaybackViewModel(
         val isSpeedManualMode: Boolean
     )
 
-    val playbackControlState: StateFlow<PlaybackControlState> = playbackState
-        .map {
-            PlaybackControlState(it.isPlaying, it.playbackSpeed, it.isSpeedManualMode)
-        }
+    /**
+     * Low-frequency transport state for parent surfaces and button rows.
+     *
+     * This intentionally avoids playbackPositionState so overlay hosts only recompose on actual
+     * control changes such as play/pause or speed updates, not on progress polling ticks.
+     */
+    val playbackControlState: StateFlow<PlaybackControlState> = combine(
+        playbackController.isPlaying.distinctUntilChanged(),
+        playbackController.playbackSpeed.distinctUntilChanged()
+    ) { isPlaying, speed ->
+        PlaybackControlState(isPlaying, speed, false)
+    }
         .distinctUntilChanged()
         .stateIn(externalScope, SharingStarted.WhileSubscribed(5000), PlaybackControlState(false, 1.0f, false))
 
-    val currentPlaybackProgressPercent: StateFlow<Int> = playbackState
+    val currentPlaybackProgressPercent: StateFlow<Int> = playbackPositionState
         .map { state ->
-            PlaybackStateMapper.calculateProgressPercent(state.currentPosition, state.duration)
+            PlaybackStateMapper.calculateProgressPercent(state.elapsedMs, state.durationMs)
         }
         .distinctUntilChanged()
         .stateIn(externalScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val miniPlayerProgress: StateFlow<Float> = combine(
-        playbackState,
+        playbackPositionState,
         metadataState.map { it.chapters }.distinctUntilChanged(),
         _isChapterProgressMode
-    ) { state, chapters, isChapterMode ->
+    ) { progress, chapters, isChapterMode ->
         PlaybackStateMapper.calculateMiniPlayerProgress(
-            currentPosition = state.currentPosition,
-            duration = state.duration,
+            currentPosition = progress.elapsedMs,
+            duration = progress.durationMs,
             chapters = chapters,
             isChapterMode = isChapterMode,
-            fallbackProgress = state.progress
+            fallbackProgress = if (progress.durationMs > 0L) {
+                progress.elapsedMs.toFloat() / progress.durationMs.toFloat()
+            } else {
+                0f
+            }
         )
     }
     .distinctUntilChanged()
@@ -293,6 +320,29 @@ class PlaybackViewModel(
                 _subtitleSyncOffsetMs.value = settings.subtitleSyncOffsetMs
             }
         }
+    }
+
+    /**
+     * Reads the latest playback engine snapshot without keeping full PlaybackState subscribed.
+     *
+     * Commands, sleep timers, and bookmark creation need an immediate value even when no UI surface
+     * is collecting the aggregate state; reading the controller StateFlows preserves those command
+     * semantics while letting Compose subscribe only to narrower projections.
+     */
+    fun currentPlaybackSnapshot(): PlaybackState {
+        val currentPosition = playbackController.currentPosition.value
+        val duration = playbackController.duration.value
+        val isPlaying = playbackController.isPlaying.value
+        return PlaybackState(
+            isPlaying = isPlaying,
+            playWhenReady = isPlaying,
+            currentPosition = currentPosition,
+            bufferedPosition = playbackController.bufferedPosition.value
+                .coerceIn(currentPosition, duration.coerceAtLeast(currentPosition)),
+            duration = duration,
+            playbackSpeed = playbackController.playbackSpeed.value,
+            isSpeedManualMode = false
+        )
     }
 
     /**
@@ -365,7 +415,7 @@ class PlaybackViewModel(
     fun loadBook(id: String, playWhenReady: Boolean = true) {
         val loadBookRequestStart = SystemClock.elapsedRealtime()
         if (_currentBookId.value == id && isMediaSourceLoadedFor(id)) {
-            if (playWhenReady && !playbackState.value.isPlaying) {
+            if (playWhenReady && !currentPlaybackSnapshot().isPlaying) {
                 play()
             }
             return
@@ -503,7 +553,7 @@ class PlaybackViewModel(
         _currentBookId.value?.let(::closePlayback)
     }
 
-    fun togglePlayPause() = if (playbackState.value.isPlaying) pause() else play()
+    fun togglePlayPause() = if (currentPlaybackSnapshot().isPlaying) pause() else play()
 
     fun play() {
         val id = _currentBookId.value
@@ -523,7 +573,7 @@ class PlaybackViewModel(
 
     fun seekTo(positionMs: Long, allowUndo: Boolean = false) {
         if (allowUndo) {
-            lastSeekPosition = playbackState.value.currentPosition
+            lastSeekPosition = currentPlaybackSnapshot().currentPosition
             onUndoSeekVisibilityChanged?.invoke(true)
             undoJob?.cancel()
             undoJob = externalScope.launch {
@@ -568,7 +618,7 @@ class PlaybackViewModel(
     }
 
     fun skipForward() {
-        val state = playbackState.value
+        val state = currentPlaybackSnapshot()
         seekTo(
             PlaybackSeekStepPolicy.forwardTarget(
                 currentPositionMs = state.currentPosition,
@@ -579,7 +629,7 @@ class PlaybackViewModel(
     }
 
     fun skipBackward() {
-        val state = playbackState.value
+        val state = currentPlaybackSnapshot()
         seekTo(
             PlaybackSeekStepPolicy.backwardTarget(
                 currentPositionMs = state.currentPosition,
@@ -594,7 +644,7 @@ class PlaybackViewModel(
     }
 
     fun cyclePlaybackSpeed() {
-        val speed = playbackState.value.playbackSpeed
+        val speed = playbackController.playbackSpeed.value
         val nextIndex = (PLAYBACK_SPEEDS.indexOf(speed).coerceAtLeast(0) + 1) % PLAYBACK_SPEEDS.size
         setPlaybackSpeed(PLAYBACK_SPEEDS[nextIndex])
     }
@@ -632,8 +682,15 @@ class PlaybackViewModel(
         emit(playerLibraryReadModel.refreshCurrentPlaybackAvailability(bookId))
     }
 
-    fun skipToNextChapter() = playbackDelegate.skipToNextChapter(metadataState.value.chapters, playbackState.value.currentPosition)
-    fun skipToPreviousChapter() = playbackDelegate.skipToPreviousChapter(metadataState.value.chapters, playbackState.value.currentPosition)
+    fun skipToNextChapter() = playbackDelegate.skipToNextChapter(
+        metadataState.value.chapters,
+        currentPlaybackSnapshot().currentPosition
+    )
+
+    fun skipToPreviousChapter() = playbackDelegate.skipToPreviousChapter(
+        metadataState.value.chapters,
+        currentPlaybackSnapshot().currentPosition
+    )
 
     fun skipToNextAvailableTrack(bookId: String, queueIndex: Int) {
         playbackController.skipToNextAvailableTrack(bookId, queueIndex)
