@@ -26,3 +26,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "oto"
 include(":app")
+// Stage 1 Foundation Modules (Extract pure settings, network policy, and lifecycle policy before heavier domains)
+include(":settings:model")
+include(":network:policy")
+include(":runtime:lifecycle")

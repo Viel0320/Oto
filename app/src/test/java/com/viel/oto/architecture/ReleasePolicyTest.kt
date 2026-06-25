@@ -119,7 +119,10 @@ class ReleasePolicyTest {
     fun cleartextPlatformAllowanceIsPairedWithUnsafeNetworkRuntimePolicy() {
         val networkConfig = repoFile("app/src/main/res/xml/network_security_config.xml").readText()
         val defaults = AppSettings()
-        val policy = repoFile("app/src/main/java/com/viel/oto/network/UnsafeNetworkPolicy.kt").readText()
+        val policy = repoFile(
+            "network/policy/src/main/kotlin/com/viel/oto/network/UnsafeNetworkPolicy.kt",
+            "app/src/main/java/com/viel/oto/network/UnsafeNetworkPolicy.kt"
+        ).readText()
         val runtimeGates = listOf(
             repoFile("app/src/main/java/com/viel/oto/library/LibraryRootStore.kt"),
             repoFile("app/src/main/java/com/viel/oto/library/vfs/sourceProvider/webdav/WebDavConnectionTester.kt"),
@@ -177,10 +180,19 @@ class ReleasePolicyTest {
         assertTrue(!rules.contains("-dontwarn coil.**"))
     }
 
-    private fun repoFile(path: String): File {
-        val candidates = listOf(File(path), File("../$path"))
+    /**
+     * Resolves files from both repository-root and app-module Gradle test working directories.
+     *
+     * Migration phases can move source files into new Gradle modules, so callers may pass fallback
+     * paths that keep release-policy assertions alive while ownership changes one module at a time.
+     */
+    private fun repoFile(path: String, vararg fallbackPaths: String): File {
+        val paths = listOf(path) + fallbackPaths
+        val candidates = paths.flatMap { candidatePath ->
+            listOf(File(candidatePath), File("../$candidatePath"))
+        }
         return candidates.firstOrNull { file -> file.exists() }
-            ?: error("Could not locate $path from ${File(".").absolutePath}")
+            ?: error("Could not locate any of ${paths.joinToString()} from ${File(".").absolutePath}")
     }
 
     private fun findDirectReleaseRetainedLogCalls(sourceRoot: File, file: File): List<String> =

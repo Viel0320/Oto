@@ -177,6 +177,11 @@ android {
 }
 
 dependencies {
+    // Stage 1 Foundation Modules (Resolve extracted settings, network policy, and lifecycle policy from Gradle modules)
+    implementation(project(":settings:model"))
+    implementation(project(":network:policy"))
+    implementation(project(":runtime:lifecycle"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)

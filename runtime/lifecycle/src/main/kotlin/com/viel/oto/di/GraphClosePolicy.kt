@@ -9,8 +9,9 @@ import java.util.concurrent.CopyOnWriteArrayList
  * Koin's GlobalContext.close() does not guarantee a deterministic close order, so closeable
  * resources register themselves when they are actually created and are released explicitly before stopKoin().
  * The stage and priority model preserves the old graph order without constructing lazy resources during shutdown.
+ * The object is public because app-owned Koin modules now call into this extracted lifecycle module.
  */
-internal object GraphClosePolicy {
+object GraphClosePolicy {
 
     enum class Stage {
         Media,

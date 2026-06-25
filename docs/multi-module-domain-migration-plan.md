@@ -109,26 +109,47 @@ flowchart TD
 
 回滚点：只回退新增测试和文档，业务代码保持不变。
 
-## 阶段 1 - 抽出设置、网络策略、生命周期和日志 Interface
+## 阶段 1A - 抽出纯 Kotlin 设置、网络策略和生命周期
 
-目标：先拆低耦合、高复用的 Module，给后续领域 Module 提供稳定 Interface。
+目标：先拆不依赖 Android runtime 的低耦合 Module，给后续领域 Module 提供稳定 Interface。
 
 改动范围：
 
 - 新增 `:settings:model`，移动 `shared/settings/AppSettings.kt`。
 - 新增 `:network:policy`，移动 `network/UnsafeNetworkPolicy.kt`，依赖 `:settings:model`。
 - 新增 `:runtime:lifecycle`，移动 `GraphClosePolicy`。
-- 新增 `:runtime:observability`，先放日志 Interface，再逐步迁移 logger Implementation。
+- `:runtime:observability` 单独进入阶段 1B，因为当前 logger Implementation 依赖 Android `Log`，不和纯 Kotlin 基础模块糅在一起。
 - `work/WorkSchedulingPolicy.kt` 暂不进入基础 Module，因为它仍依赖 `AudiobookSchema.ScanTrigger` 和 AndroidX WorkManager 类型。
 
 验收：
 
-- `.\gradlew.bat :settings:model:compileDebugKotlin`
-- `.\gradlew.bat :network:policy:testDebugUnitTest`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.network.UnsafeNetworkPolicyTest"`
+- `.\gradlew.bat :settings:model:test`
+- `.\gradlew.bat :network:policy:test`
+- `.\gradlew.bat :runtime:lifecycle:test`
+- `.\gradlew.bat compileDebugKotlin`
 - `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.architecture.GraphLifecycleTest"`
 
-回滚点：回退新增 Module include、build 文件和移动的四类基础文件，不影响领域代码。
+回滚点：回退新增 Module include、build 文件和移动的三类基础文件，不影响领域代码。
+
+## 阶段 1B - 抽出运行时观测 Module
+
+目标：把 release 保留日志、专用 workflow logger 和安全日志清洗器从 `:app` 中分离出来。
+
+改动范围：
+
+- 新增 `:runtime:observability` Android library Module。
+- 移动 `logger/` 下的 `SecureLog`、ABS logger、playback logger、scan logger、cache logger 和 UI performance logger。
+- 保持日志包名稳定，让现有调用点先通过 Gradle dependency 解析。
+- 后续领域 Module 拆分时，各领域只依赖观测 Module，不反向依赖 `:app`。
+
+验收：
+
+- `.\gradlew.bat :runtime:observability:testDebugUnitTest`
+- `.\gradlew.bat compileDebugKotlin`
+- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.logger.*"`
+- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.architecture.*"`
+
+回滚点：只回退 logger 文件移动和 `:runtime:observability` build/include，不影响已抽出的纯 Kotlin 基础模块。
 
 ## 阶段 2 - 清理 data 的外向领域依赖
 
@@ -300,8 +321,9 @@ flowchart TD
 
 1. 基线架构测试和导入图守卫。
 2. `:settings:model`、`:network:policy`、`:runtime:lifecycle`。
-3. `data` 外向依赖清理。
-4. `:data:store` 提升。
-5. `:library:vfs` 和 `:library:import` 提升。
+3. `:runtime:observability`。
+4. `data` 外向依赖清理。
+5. `:data:store` 提升。
+6. `:library:vfs` 和 `:library:import` 提升。
 
 这五步完成后，项目已经从单 `:app` 进入可持续多模块状态，后续 ABS、media、UI、widget 可以按领域独立推进。

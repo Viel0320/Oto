@@ -7,7 +7,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Captures the current single-module dependency graph before Gradle module extraction begins.
+ * Captures the current package dependency graph while Gradle module extraction proceeds.
  *
  * The migration uses this allow-list as a regression baseline: each phase must either preserve the
  * known graph or intentionally tighten it while updating this test in the same reviewed change.
@@ -16,9 +16,12 @@ class MultiModuleMigrationBaselineTest {
 
     @Test
     fun topLevelPackageImportsStayOnTheMigrationBaseline() {
-        val sourceRoot = resolveMainSourceRoot()
-        val actualEdges = sourceRoot.walkKotlinFiles()
-            .flatMap { file -> file.topLevelImportEdges(sourceRoot) }
+        val sourceRoots = resolveMigrationSourceRoots()
+        val actualEdges = sourceRoots
+            .flatMap { sourceRoot ->
+                sourceRoot.walkKotlinFiles()
+                    .flatMap { file -> file.topLevelImportEdges(sourceRoot) }
+            }
             .toSortedSet()
 
         assertTrue(
@@ -43,7 +46,7 @@ class MultiModuleMigrationBaselineTest {
 
     @Test
     fun koinCompositionRootKeepsTheStageZeroModuleOrder() {
-        val source = resolveMainSourceRoot()
+        val source = resolveAppSourceRoot()
             .resolve("di/OtoKoinApplication.kt")
             .readText()
         val actualModules = koinModuleReferenceRegex.findAll(source)
@@ -87,7 +90,27 @@ class MultiModuleMigrationBaselineTest {
         }
     }
 
-    private fun resolveMainSourceRoot(): File {
+    private fun resolveMigrationSourceRoots(): List<File> {
+        val candidates = listOf(
+            File("src/main/java/com/viel/oto"),
+            File("app/src/main/java/com/viel/oto"),
+            File("../settings/model/src/main/kotlin/com/viel/oto"),
+            File("settings/model/src/main/kotlin/com/viel/oto"),
+            File("../network/policy/src/main/kotlin/com/viel/oto"),
+            File("network/policy/src/main/kotlin/com/viel/oto"),
+            File("../runtime/lifecycle/src/main/kotlin/com/viel/oto"),
+            File("runtime/lifecycle/src/main/kotlin/com/viel/oto")
+        )
+        return candidates
+            .filter { candidate -> candidate.isDirectory }
+            .also { roots ->
+                check(roots.isNotEmpty()) {
+                    "Could not locate any production source roots for multi-module migration baseline test."
+                }
+            }
+    }
+
+    private fun resolveAppSourceRoot(): File {
         val candidates = listOf(
             File("src/main/java/com/viel/oto"),
             File("app/src/main/java/com/viel/oto")
