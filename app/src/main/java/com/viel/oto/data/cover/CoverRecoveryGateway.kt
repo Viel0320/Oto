@@ -17,6 +17,18 @@ interface CoverRecoveryGateway {
     fun triggerRecovery(book: BookEntity)
 
     /**
+     * Allocation-free single-book self-heal entry.
+     * Lets high-frequency catalog flows schedule recovery from a lightweight projection without building a
+     * full BookEntity per row; only the cover-presence fields are needed because the rebuild re-reads by id.
+     */
+    fun triggerRecovery(
+        bookId: String,
+        coverPath: String?,
+        thumbnailPath: String?,
+        lastScannedAt: Long
+    )
+
+    /**
      * Bypass the failed-attempt cache and rebuild now.
      * Used after a metadata rescan that may expose embedded artwork the presence cache had already written off.
      */

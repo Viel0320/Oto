@@ -29,6 +29,21 @@ class CoverRecoveryGatewayImplTest {
     }
 
     @Test
+    fun `lightweight triggerRecovery forwards the id to the self healer`() {
+        val healer = RecordingCoverSelfHealer()
+        val gateway = CoverRecoveryGatewayImpl(fakeBookDao(emptyList()), healer)
+
+        gateway.triggerRecovery(
+            bookId = "b2",
+            coverPath = null,
+            thumbnailPath = null,
+            lastScannedAt = 0L
+        )
+
+        assertEquals(listOf("b2"), healer.triggeredBookIds)
+    }
+
+    @Test
     fun `forceRegenerate forwards the id and returns the healer result`() = runBlocking {
         val healer = RecordingCoverSelfHealer().apply { forceResult = true }
         val gateway = CoverRecoveryGatewayImpl(fakeBookDao(emptyList()), healer)
@@ -90,6 +105,15 @@ class CoverRecoveryGatewayImplTest {
 
         override fun checkAndTriggerCoverRegeneration(book: BookEntity) {
             triggeredBookIds += book.id
+        }
+
+        override fun checkAndTriggerCoverRegeneration(
+            bookId: String,
+            coverPath: String?,
+            thumbnailPath: String?,
+            lastScannedAt: Long
+        ) {
+            triggeredBookIds += bookId
         }
 
         override suspend fun forceRegenerateCover(bookId: String): Boolean {

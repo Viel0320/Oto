@@ -16,6 +16,18 @@ interface CoverSelfHealer {
     fun checkAndTriggerCoverRegeneration(book: BookEntity)
 
     /**
+     * Allocation-free single-book self-heal entry.
+     * Accepts only the cover-presence fields the trigger path reads so high-frequency catalog flows do not
+     * materialize a full BookEntity per row just to schedule recovery; the rebuild path re-reads the entity by id.
+     */
+    fun checkAndTriggerCoverRegeneration(
+        bookId: String,
+        coverPath: String?,
+        thumbnailPath: String?,
+        lastScannedAt: Long
+    )
+
+    /**
      * Rebuild now, bypassing the failed-attempt cache.
      * Returns whether artwork was rebuilt. Used after a metadata rescan that may expose new embedded covers.
      */

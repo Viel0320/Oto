@@ -60,12 +60,24 @@ class CoverRecoveryHelper(
      */
     private val coverPresenceCache = java.util.concurrent.ConcurrentHashMap<String, CoverPresenceSnapshot>()
 
-    override fun checkAndTriggerCoverRegeneration(book: BookEntity) {
-        val bookId = book.id
+    override fun checkAndTriggerCoverRegeneration(book: BookEntity) =
+        checkAndTriggerCoverRegeneration(
+            bookId = book.id,
+            coverPath = book.coverPath,
+            thumbnailPath = book.thumbnailPath,
+            lastScannedAt = book.lastScannedAt
+        )
+
+    override fun checkAndTriggerCoverRegeneration(
+        bookId: String,
+        coverPath: String?,
+        thumbnailPath: String?,
+        lastScannedAt: Long
+    ) {
         if (alreadyAttempted.containsKey(bookId)) return
         if (pendingRegenerations.contains(bookId)) return
 
-        val presence = resolveCoverPresence(book)
+        val presence = resolveCoverPresence(bookId, coverPath, thumbnailPath, lastScannedAt)
         if (!presence.isCoverLost && !presence.isThumbnailLost) return
 
         if (pendingRegenerations.add(bookId)) {
@@ -221,11 +233,16 @@ class CoverRecoveryHelper(
     /**
      * Reuses the latest physical cover presence check within a short time window.
      *
-     * The key includes [BookEntity.lastScannedAt], so successful recovery or manual cover replacement
+     * The key includes [lastScannedAt], so successful recovery or manual cover replacement
      * naturally invalidates the cached result.
      */
-    private fun resolveCoverPresence(book: BookEntity): CoverPresenceState {
-        val cacheKey = buildCoverPresenceCacheKey(book)
+    private fun resolveCoverPresence(
+        bookId: String,
+        coverPath: String?,
+        thumbnailPath: String?,
+        lastScannedAt: Long
+    ): CoverPresenceState {
+        val cacheKey = buildCoverPresenceCacheKey(bookId, coverPath, thumbnailPath, lastScannedAt)
         val nowElapsedMs = SystemClock.elapsedRealtime()
         val cachedSnapshot = coverPresenceCache[cacheKey]
         if (cachedSnapshot != null && nowElapsedMs - cachedSnapshot.checkedAtElapsedMs <= COVER_PRESENCE_CACHE_TTL_MS) {
@@ -236,8 +253,8 @@ class CoverRecoveryHelper(
         }
 
         val presence = CoverPresenceState(
-            isCoverLost = book.coverPath == null || !File(book.coverPath).exists(),
-            isThumbnailLost = book.thumbnailPath == null || !File(book.thumbnailPath).exists()
+            isCoverLost = coverPath == null || !File(coverPath).exists(),
+            isThumbnailLost = thumbnailPath == null || !File(thumbnailPath).exists()
         )
         coverPresenceCache[cacheKey] = CoverPresenceSnapshot(
             checkedAtElapsedMs = nowElapsedMs,
@@ -251,8 +268,13 @@ class CoverRecoveryHelper(
     /**
      * Binds the cache key to the current cover path, thumbnail path, and scan timestamp snapshot.
      */
-    private fun buildCoverPresenceCacheKey(book: BookEntity): String =
-        "${book.id}|${book.coverPath.orEmpty()}|${book.thumbnailPath.orEmpty()}|${book.lastScannedAt}"
+    private fun buildCoverPresenceCacheKey(
+        bookId: String,
+        coverPath: String?,
+        thumbnailPath: String?,
+        lastScannedAt: Long
+    ): String =
+        "$bookId|${coverPath.orEmpty()}|${thumbnailPath.orEmpty()}|$lastScannedAt"
 
     /**
      * Cap Cover Presence Cache: Evicts expired presence entries first.

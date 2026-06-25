@@ -25,6 +25,13 @@ class CoverRecoveryGatewayImpl(
     override fun triggerRecovery(book: BookEntity) =
         coverSelfHealer.checkAndTriggerCoverRegeneration(book)
 
+    override fun triggerRecovery(
+        bookId: String,
+        coverPath: String?,
+        thumbnailPath: String?,
+        lastScannedAt: Long
+    ) = coverSelfHealer.checkAndTriggerCoverRegeneration(bookId, coverPath, thumbnailPath, lastScannedAt)
+
     override suspend fun forceRegenerate(bookId: String): Boolean =
         coverSelfHealer.forceRegenerateCover(bookId)
 

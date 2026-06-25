@@ -36,22 +36,12 @@ class BookCatalogGatewayImpl(
 
     private fun Flow<List<HomeCatalogRow>>.checkHomeCovers(): Flow<List<HomeCatalogRow>> = this.map { list ->
         list.onEach { row ->
-            val tempBook = BookEntity(
-                id = row.id,
-                rootId = row.rootId,
-                sourceType = row.sourceType,
-                title = row.title,
-                author = row.author,
-                narrator = row.narrator,
+            coverRecoveryGateway.triggerRecovery(
+                bookId = row.id,
                 coverPath = row.coverPath,
                 thumbnailPath = row.thumbnailPath,
-                lastScannedAt = row.lastScannedAt,
-                addedAt = row.addedAt,
-                status = row.status,
-                readStatus = row.readStatus,
-                series = row.series
+                lastScannedAt = row.lastScannedAt
             )
-            coverRecoveryGateway.triggerRecovery(tempBook)
         }
     }.flowOn(Dispatchers.IO)
 

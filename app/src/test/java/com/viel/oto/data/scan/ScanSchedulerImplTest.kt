@@ -187,6 +187,12 @@ class ScanSchedulerImplTest {
 
     private object NoOpCoverRecoveryGateway : CoverRecoveryGateway {
         override fun triggerRecovery(book: BookEntity) = Unit
+        override fun triggerRecovery(
+            bookId: String,
+            coverPath: String?,
+            thumbnailPath: String?,
+            lastScannedAt: Long
+        ) = Unit
         override suspend fun forceRegenerate(bookId: String): Boolean = false
         override suspend fun recoverMissingCovers() = Unit
     }
