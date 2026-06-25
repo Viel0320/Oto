@@ -1,7 +1,6 @@
 package com.viel.oto.data.cover
 
 import android.os.SystemClock
-import com.viel.oto.abs.sync.AbsCoverStore
 import com.viel.oto.data.abs.sync.AbsItemMirrorDao
 import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.dao.LibraryRootDao
@@ -28,7 +27,7 @@ class CoverRecoveryHelper(
     private val scope: CoroutineScope,
     private val coverArtworkSource: CoverRecoveryArtworkSource,
     private val absItemMirrorDao: AbsItemMirrorDao,
-    private val absCoverStoreProvider: () -> AbsCoverStore?,
+    private val remoteCoverStoreProvider: () -> RemoteCoverStore?,
     private val workflowLogSink: WorkflowLogSink
 ) : CoverSelfHealer {
     /**
@@ -108,7 +107,7 @@ class CoverRecoveryHelper(
      *
      * This function supports two main flows based on the book's source type:
      * 1. For [AudiobookSchema.SourceType.ABS_REMOTE], it downloads the cover artwork directly
-     *    from the remote AudiobookShelf server using the lazy [AbsCoverStore].
+     *    from the remote source using the lazy [RemoteCoverStore].
      * 2. For local books, it attempts to extract embedded cover artwork from the audio files,
      *    falling back to sidecar images if it is a multi-file book.
      */
@@ -117,7 +116,7 @@ class CoverRecoveryHelper(
         if (book.sourceType == AudiobookSchema.SourceType.ABS_REMOTE) {
             val root = libraryRootDao.getRootById(book.rootId) ?: return false
             val mirror = absItemMirrorDao.getByLocalBookId(bookId) ?: return false
-            val coverStore = absCoverStoreProvider() ?: return false
+            val coverStore = remoteCoverStoreProvider() ?: return false
             val finalCoverResult = coverStore.downloadCover(root, mirror.remoteItemId)
             if (!finalCoverResult.hasImage()) return false
             bookDao.updateCoverPaths(

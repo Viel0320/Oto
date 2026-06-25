@@ -12,6 +12,7 @@ import com.viel.oto.data.cover.CoverRecoveryArtworkSource
 import com.viel.oto.data.cover.CoverRecoveryHelper
 import com.viel.oto.data.cover.CoverSelfHealer
 import com.viel.oto.data.cover.CoverUriResolver
+import com.viel.oto.data.cover.RemoteCoverStore
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.metadata.MetadataRefreshGateway
 import com.viel.oto.data.metadata.MetadataRefreshGatewayImpl
@@ -87,7 +88,7 @@ internal object LibraryCoverModule {
                 scope = scope,
                 coverArtworkSource = get<CoverRecoveryArtworkSource>(),
                 absItemMirrorDao = get<AppDatabase>().absItemMirrorDao(),
-                absCoverStoreProvider = { getOrNull() },
+                remoteCoverStoreProvider = { getOrNull<RemoteCoverStore>() },
                 workflowLogSink = ScanWorkflowLogSink
             )
             GraphClosePolicy.register(

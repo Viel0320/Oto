@@ -6,6 +6,8 @@ import com.viel.oto.abs.net.AbsAuth
 import com.viel.oto.abs.net.AbsAuthInterceptor
 import com.viel.oto.abs.net.AbsUrlResolver
 import com.viel.oto.data.cover.CoverImageResult
+import com.viel.oto.data.cover.RemoteCoverStore
+import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.logger.AbsAuthLogger
 import com.viel.oto.logger.AbsCoverLogger
 import com.viel.oto.logger.CoverImageCacheLogger
@@ -22,9 +24,13 @@ import java.io.IOException
 import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 
-interface AbsCoverStore {
-    suspend fun downloadCover(root: com.viel.oto.data.entity.LibraryRootEntity, remoteItemId: String): CoverImageResult
-}
+/**
+ * ABS-specific marker for the remote cover cache adapter.
+ *
+ * The shared RemoteCoverStore contract is what data cover recovery consumes; ABS keeps this narrower source-facing
+ * name for tests and module wiring that intentionally target the AudiobookShelf implementation.
+ */
+interface AbsCoverStore : RemoteCoverStore
 
 class AbsCoverCache(
     context: Context,
@@ -38,7 +44,7 @@ class AbsCoverCache(
         .build(),
     private val settingsProvider: () -> AppSettings
 ) : AbsCoverStore {
-    override suspend fun downloadCover(root: com.viel.oto.data.entity.LibraryRootEntity, remoteItemId: String): CoverImageResult =
+    override suspend fun downloadCover(root: LibraryRootEntity, remoteItemId: String): CoverImageResult =
         withContext(Dispatchers.IO) {
             val start = AbsCoverLogger.mark()
             AbsCoverLogger.logDownloadStart(rootId = root.id, remoteItemId = remoteItemId)

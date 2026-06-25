@@ -9,8 +9,10 @@ import com.viel.oto.abs.sync.AbsConnectionTester
 import com.viel.oto.abs.sync.AbsCoverCache
 import com.viel.oto.abs.sync.AbsCoverStore
 import com.viel.oto.data.AppSettingsRepository
+import com.viel.oto.data.cover.RemoteCoverStore
 import com.viel.oto.data.db.AppDatabase
 import org.koin.core.module.Module
+import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**
@@ -31,13 +33,13 @@ internal object AbsModule {
 
         single { AbsConnectionTester(get()) }
 
-        single<AbsCoverStore> {
+        single {
             AbsCoverCache(
                 context = get(),
                 credentialStore = get(),
                 settingsProvider = { get<AppSettingsRepository>().cachedSettings }
             )
-        }
+        } binds arrayOf(AbsCoverStore::class, RemoteCoverStore::class)
 
         single {
             AbsPlaybackCredentialResolver(
