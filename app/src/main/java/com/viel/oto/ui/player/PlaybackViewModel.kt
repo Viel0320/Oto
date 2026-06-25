@@ -160,11 +160,13 @@ class PlaybackViewModel(
      *
      * Position, buffer, and duration are isolated from the full PlaybackState object so 500ms
      * progress ticks do not force parent player surfaces to rebuild low-frequency control state.
+     * The controller already exposes StateFlow sources, so they are combined directly instead of
+     * applying a redundant distinctUntilChanged operator that StateFlow ignores.
      */
     private val playbackPositionState: StateFlow<PlaybackProgressViewState> = combine(
-        playbackController.currentPosition.distinctUntilChanged(),
-        playbackController.bufferedPosition.distinctUntilChanged(),
-        playbackController.duration.distinctUntilChanged()
+        playbackController.currentPosition,
+        playbackController.bufferedPosition,
+        playbackController.duration
     ) { pos, bufferedPos, dur ->
         PlaybackProgressViewState(
             elapsedMs = pos,
@@ -174,9 +176,9 @@ class PlaybackViewModel(
     }.stateIn(externalScope, SharingStarted.WhileSubscribed(5000), PlaybackProgressViewState())
 
     private val controllerPlaybackState = combine(
-        playbackController.isPlaying.distinctUntilChanged(),
+        playbackController.isPlaying,
         playbackPositionState,
-        playbackController.playbackSpeed.distinctUntilChanged()
+        playbackController.playbackSpeed
     ) { isPlaying, progress, speed ->
         PlaybackState(
             isPlaying = isPlaying,
@@ -205,7 +207,7 @@ class PlaybackViewModel(
 
     val playbackProgressState: StateFlow<PlaybackProgressViewState> = combine(
         playbackPositionState,
-        _isChapterProgressMode.distinctUntilChanged()
+        _isChapterProgressMode
     ) { progress, mode ->
         progress.copy(isChapterProgressMode = mode)
     }.stateIn(externalScope, SharingStarted.WhileSubscribed(5000), PlaybackProgressViewState())
@@ -230,10 +232,12 @@ class PlaybackViewModel(
      *
      * This intentionally avoids playbackPositionState so overlay hosts only recompose on actual
      * control changes such as play/pause or speed updates, not on progress polling ticks.
+     * The controller StateFlow inputs are already equality-aware, so only the combined projection
+     * needs distinctUntilChanged after the data class is created.
      */
     val playbackControlState: StateFlow<PlaybackControlState> = combine(
-        playbackController.isPlaying.distinctUntilChanged(),
-        playbackController.playbackSpeed.distinctUntilChanged()
+        playbackController.isPlaying,
+        playbackController.playbackSpeed
     ) { isPlaying, speed ->
         PlaybackControlState(isPlaying, speed, false)
     }
