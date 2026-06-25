@@ -6,9 +6,6 @@ import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.dao.DirectoryCacheDao
 import com.viel.oto.data.dao.DirectoryChildCacheDao
 import com.viel.oto.data.entity.LibraryRootEntity
-import com.viel.oto.library.vfs.VfsFileInterface
-import com.viel.oto.library.vfs.cache.VfsRangeCache
-import com.viel.oto.library.vfs.cache.VfsRangeCacheKey
 import java.io.File
 
 /**
@@ -21,23 +18,20 @@ class CacheEvictionCoordinator internal constructor(
     private val bookDao: BookDao,
     private val directoryCacheDao: DirectoryCacheDao,
     private val directoryChildCacheDao: DirectoryChildCacheDao,
-    private val vfsRangeCache: VfsRangeCache? = null,
-    private val vfsFileInterface: VfsFileInterface? = null
+    private val rootSourceCacheEvictor: RootSourceCacheEvictor = NoOpRootSourceCacheEvictor
 ) : LibraryResourceCleanupGateway {
     constructor(
         context: Context,
         bookDao: BookDao,
         directoryCacheDao: DirectoryCacheDao,
         directoryChildCacheDao: DirectoryChildCacheDao,
-        vfsRangeCache: VfsRangeCache? = null,
-        vfsFileInterface: VfsFileInterface? = null
+        rootSourceCacheEvictor: RootSourceCacheEvictor = NoOpRootSourceCacheEvictor
     ) : this(
         appCacheDir = context.applicationContext.cacheDir,
         bookDao = bookDao,
         directoryCacheDao = directoryCacheDao,
         directoryChildCacheDao = directoryChildCacheDao,
-        vfsRangeCache = vfsRangeCache,
-        vfsFileInterface = vfsFileInterface
+        rootSourceCacheEvictor = rootSourceCacheEvictor
     )
 
     /**
@@ -75,12 +69,7 @@ class CacheEvictionCoordinator internal constructor(
         val coverFilesDeleted = deleteRootCoverFiles(rootId)
         directoryCacheDao.deleteByRootId(rootId)
         directoryChildCacheDao.deleteByRootId(rootId)
-        val rangeFilesDeleted = vfsRangeCache?.evictRoot(VfsRangeCacheKey.hashIdentifier(rootId)) ?: 0
-        /**
-         * Evict VfsFileInterface Root Cache: Clears the in-memory cached LibraryRootEntity for the rootId.
-         * Ensures VFS operations pick up updated connection properties without requiring a process restart.
-         */
-        vfsFileInterface?.evictRoot(rootId)
+        val rangeFilesDeleted = rootSourceCacheEvictor.evictRoot(rootId)
         return CacheEvictionSummary(
             rootId = rootId,
             coverFilesDeleted = coverFilesDeleted,

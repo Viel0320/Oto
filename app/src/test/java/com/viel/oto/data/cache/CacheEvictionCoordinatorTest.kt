@@ -8,8 +8,6 @@ import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.DirectoryCacheEntity
 import com.viel.oto.data.entity.DirectoryChildCacheEntity
 import com.viel.oto.data.entity.LibraryRootEntity
-import com.viel.oto.library.vfs.cache.VfsRangeCache
-import com.viel.oto.library.vfs.cache.VfsRangeCacheKey
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -22,7 +20,7 @@ import kotlin.io.path.createTempDirectory
 class CacheEvictionCoordinatorTest {
 
     @Test
-    fun `root eviction should delete owned cover files directory rows and range blocks`() = runBlocking {
+    fun `root eviction should delete owned cover files directory rows and source caches`() = runBlocking {
         val appCacheDir = createTempDirectory("cache-eviction").toFile()
         val coversDir = File(appCacheDir, "covers").apply { mkdirs() }
         val cover = File(coversDir, "cover.jpg").apply { writeText("cover") }
@@ -36,19 +34,13 @@ class CacheEvictionCoordinatorTest {
         )
         val directoryCacheDao = FakeDirectoryCacheDao()
         val directoryChildCacheDao = FakeDirectoryChildCacheDao()
-        val rangeCache = VfsRangeCache(cacheDir = File(appCacheDir, "vfs_range_cache"))
-        val rootHash = VfsRangeCacheKey.hashIdentifier("root-1")
-        val otherRootHash = VfsRangeCacheKey.hashIdentifier("root-2")
-        val ownedRangeKey = sampleRangeKey(rootHash, "book-1")
-        val otherRangeKey = sampleRangeKey(otherRootHash, "book-2")
-        rangeCache.write(ownedRangeKey, byteArrayOf(1))
-        rangeCache.write(otherRangeKey, byteArrayOf(2))
+        val sourceCacheEvictor = RecordingRootSourceCacheEvictor(rangeFilesDeleted = 1)
         val coordinator = CacheEvictionCoordinator(
             appCacheDir = appCacheDir,
             bookDao = bookDao,
             directoryCacheDao = directoryCacheDao,
             directoryChildCacheDao = directoryChildCacheDao,
-            vfsRangeCache = rangeCache
+            rootSourceCacheEvictor = sourceCacheEvictor
         )
 
         val summary = coordinator.evictBeforeRootDelete(sampleRoot("root-1"))
@@ -63,8 +55,7 @@ class CacheEvictionCoordinatorTest {
         assertTrue(outside.exists())
         assertEquals("root-1", directoryCacheDao.deletedRootId)
         assertEquals("root-1", directoryChildCacheDao.deletedRootId)
-        assertEquals(null, rangeCache.read(ownedRangeKey))
-        assertEquals(listOf(2), rangeCache.read(otherRangeKey)?.map { byte -> byte.toInt() })
+        assertEquals(listOf("root-1"), sourceCacheEvictor.evictedRootIds)
     }
 
     @Test
@@ -108,19 +99,17 @@ class CacheEvictionCoordinatorTest {
     }
 
     @Test
-    fun `root edit eviction should clear child directories and range blocks`() = runBlocking {
+    fun `root edit eviction should clear child directories and source caches`() = runBlocking {
         val appCacheDir = createTempDirectory("cache-edit-eviction").toFile()
         val directoryCacheDao = FakeDirectoryCacheDao()
         val directoryChildCacheDao = FakeDirectoryChildCacheDao()
-        val rangeCache = VfsRangeCache(cacheDir = File(appCacheDir, "vfs_range_cache"))
-        val ownedRangeKey = sampleRangeKey(VfsRangeCacheKey.hashIdentifier("root-1"), "book-1")
-        rangeCache.write(ownedRangeKey, byteArrayOf(7))
+        val sourceCacheEvictor = RecordingRootSourceCacheEvictor(rangeFilesDeleted = 1)
         val coordinator = CacheEvictionCoordinator(
             appCacheDir = appCacheDir,
             bookDao = fakeBookDao(emptyList()),
             directoryCacheDao = directoryCacheDao,
             directoryChildCacheDao = directoryChildCacheDao,
-            vfsRangeCache = rangeCache
+            rootSourceCacheEvictor = sourceCacheEvictor
         )
 
         val summary = coordinator.evictRootCaches("root-1")
@@ -129,7 +118,7 @@ class CacheEvictionCoordinatorTest {
         assertEquals("root-1", directoryCacheDao.deletedRootId)
         assertEquals("root-1", directoryChildCacheDao.deletedRootId)
         assertEquals(1, summary.rangeFilesDeleted)
-        assertEquals(null, rangeCache.read(ownedRangeKey))
+        assertEquals(listOf("root-1"), sourceCacheEvictor.evictedRootIds)
     }
 
     private fun fakeBookDao(
@@ -181,15 +170,16 @@ class CacheEvictionCoordinatorTest {
         }
     }
 
-    private fun sampleRangeKey(rootHash: String, source: String) =
-        VfsRangeCacheKey(
-            rootIdHash = rootHash,
-            sourcePathHash = VfsRangeCacheKey.hashIdentifier(source),
-            version = VfsRangeCacheKey.hashIdentifier("etag-$source"),
-            hasProviderVersion = true,
-            offset = 0L,
-            length = 1
-        )
+    private class RecordingRootSourceCacheEvictor(
+        private val rangeFilesDeleted: Int
+    ) : RootSourceCacheEvictor {
+        val evictedRootIds = mutableListOf<String>()
+
+        override suspend fun evictRoot(rootId: String): Int {
+            evictedRootIds += rootId
+            return rangeFilesDeleted
+        }
+    }
 
     private fun sampleRoot(rootId: String) =
         LibraryRootEntity(

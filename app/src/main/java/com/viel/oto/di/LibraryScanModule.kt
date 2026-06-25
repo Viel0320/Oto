@@ -5,6 +5,7 @@ import androidx.media3.common.util.UnstableApi
 import com.viel.oto.abs.auth.AbsCredentialStore
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.cache.CacheEvictionCoordinator
+import com.viel.oto.data.cache.RootSourceCacheEvictor
 import com.viel.oto.data.cleanup.LibraryResourceCleanupGateway
 import com.viel.oto.data.cover.CoverRecoveryGateway
 import com.viel.oto.data.db.AppDatabase
@@ -20,6 +21,7 @@ import com.viel.oto.library.availability.MissingBookFileRecoveryChecker
 import com.viel.oto.library.vfs.VfsFileInterface
 import com.viel.oto.library.vfs.cache.DirectoryListingCache
 import com.viel.oto.library.vfs.cache.VfsRangeCache
+import com.viel.oto.library.vfs.cache.VfsRootSourceCacheEvictor
 import com.viel.oto.logger.ScanWorkflowLogSink
 import org.koin.core.module.Module
 import org.koin.dsl.bind
@@ -37,14 +39,20 @@ import java.io.Closeable
 internal object LibraryScanModule {
 
     val module: Module = module {
+        single<RootSourceCacheEvictor> {
+            VfsRootSourceCacheEvictor(
+                rangeCache = get<VfsRangeCache>(),
+                fileInterface = get<VfsFileInterface>()
+            )
+        }
+
         single {
             CacheEvictionCoordinator(
                 context = get(),
                 bookDao = get<AppDatabase>().bookDao(),
                 directoryCacheDao = get<AppDatabase>().directoryCacheDao(),
                 directoryChildCacheDao = get<AppDatabase>().directoryChildCacheDao(),
-                vfsRangeCache = get<VfsRangeCache>(),
-                vfsFileInterface = get<VfsFileInterface>()
+                rootSourceCacheEvictor = get<RootSourceCacheEvictor>()
             )
         } bind LibraryResourceCleanupGateway::class
 
