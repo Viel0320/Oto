@@ -1,7 +1,5 @@
 package com.viel.oto.data.metadata
 
-import androidx.annotation.OptIn
-import androidx.media3.common.util.UnstableApi
 import androidx.room.withTransaction
 import com.viel.oto.data.cover.CoverRecoveryGateway
 import com.viel.oto.data.dao.BookDao
@@ -9,7 +7,6 @@ import com.viel.oto.data.dao.ChapterDao
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.logger.DiagnosticLogSink
-import com.viel.oto.media.parser.MetadataResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -17,14 +14,13 @@ import kotlinx.coroutines.withContext
  * Dedicated audio tag and chapter rescan implementation.
  *
  * Owns the physical metadata recovery workflow, leaving cover asset replacement and subtitle loading
- * behind separate interfaces.
+ * behind separate interfaces and media parser routing behind MetadataRefreshSource.
  */
-@OptIn(UnstableApi::class)
 class MetadataRefreshGatewayImpl (
     private val bookDao: BookDao,
     private val chapterDao: ChapterDao,
     private val coverRecoveryGateway: CoverRecoveryGateway,
-    private val metadataResolver: MetadataResolver,
+    private val metadataRefreshSource: MetadataRefreshSource,
     private val database: AppDatabase,
     private val diagnosticLogSink: DiagnosticLogSink
 ) : MetadataRefreshGateway {
@@ -35,7 +31,7 @@ class MetadataRefreshGatewayImpl (
             if (files.isEmpty()) return@withContext
 
             val primaryFile = files.firstOrNull { it.status == AudiobookSchema.FileStatus.READY } ?: files.first()
-            val metadata = metadataResolver.extract(primaryFile)
+            val metadata = metadataRefreshSource.extract(primaryFile)
 
             database.withTransaction {
                 bookDao.updateMetadata(

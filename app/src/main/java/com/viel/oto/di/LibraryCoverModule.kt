@@ -15,10 +15,12 @@ import com.viel.oto.data.cover.CoverUriResolver
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.metadata.MetadataRefreshGateway
 import com.viel.oto.data.metadata.MetadataRefreshGatewayImpl
+import com.viel.oto.data.metadata.MetadataRefreshSource
 import com.viel.oto.library.vfs.VfsFileInterface
 import com.viel.oto.media.parser.CoverExtractor
 import com.viel.oto.media.parser.MediaCoverImageWriter
 import com.viel.oto.media.parser.MediaCoverRecoveryArtworkSource
+import com.viel.oto.media.parser.MediaMetadataRefreshSource
 import com.viel.oto.media.parser.MetadataResolver
 import com.viel.oto.media.subtitle.SubtitleFileResolver
 import com.viel.oto.media.subtitle.SubtitleGateway
@@ -71,6 +73,10 @@ internal object LibraryCoverModule {
 
         single { MetadataResolver(get<VfsFileInterface>()) }
 
+        single<MetadataRefreshSource> {
+            MediaMetadataRefreshSource(metadataResolver = get())
+        }
+
         single<CoverUriResolver> { AndroidCoverUriResolver(get()) }
 
         single<CoverRecoveryHelper> {
@@ -111,7 +117,7 @@ internal object LibraryCoverModule {
                 bookDao = get<AppDatabase>().bookDao(),
                 chapterDao = get<AppDatabase>().chapterDao(),
                 coverRecoveryGateway = get(),
-                metadataResolver = get(),
+                metadataRefreshSource = get<MetadataRefreshSource>(),
                 database = get(),
                 diagnosticLogSink = SecureDiagnosticLogSink
             )
