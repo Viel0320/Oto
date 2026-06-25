@@ -8,7 +8,7 @@ import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.dao.ChapterDao
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.db.AudiobookSchema
-import com.viel.oto.logger.SecureLog
+import com.viel.oto.logger.DiagnosticLogSink
 import com.viel.oto.media.parser.MetadataResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -25,7 +25,8 @@ class MetadataRefreshGatewayImpl (
     private val chapterDao: ChapterDao,
     private val coverRecoveryGateway: CoverRecoveryGateway,
     private val metadataResolver: MetadataResolver,
-    private val database: AppDatabase
+    private val database: AppDatabase,
+    private val diagnosticLogSink: DiagnosticLogSink
 ) : MetadataRefreshGateway {
     override suspend fun forceRegenerateCoverAndMetadata(bookId: String) = withContext(Dispatchers.IO) {
         try {
@@ -64,7 +65,7 @@ class MetadataRefreshGatewayImpl (
 
             coverRecoveryGateway.forceRegenerate(bookId)
         } catch (e: Exception) {
-            SecureLog.error("MetadataRefreshGatewayImpl", "物理强制重建有声书 $bookId 的封面与元数据发生异常", e)
+            diagnosticLogSink.error("MetadataRefreshGatewayImpl", "物理强制重建有声书 $bookId 的封面与元数据发生异常", e)
         }
     }
 }

@@ -162,7 +162,7 @@ flowchart TD
 - 已落地：`data/scan/ScanSchedulerImpl.kt` 已移到 `library/scan` 所属包；`data` 只保留扫描状态持久化 gateway，后续随阶段 4 提升进 `:library:import`。
 - 已落地：`data/subtitle` 已迁出为 `media/subtitle` gateway，sidecar 解析不再作为 data store 职责暴露。
 - 已落地：`data/cover` 已通过 `CoverImageWriter` 和 `CoverRecoveryArtworkSource` 收拢 parser/VFS 访问，Room store 不再直接依赖解析 Implementation。
-- 移除 `data <-> logger` 循环，`data` 只依赖 `:runtime:observability` 的日志 Interface。
+- 已落地：`data` 不再直接调用具体 logger object，只依赖 `:runtime:observability` 提供的 `DiagnosticLogSink` 和 `WorkflowLogSink`。
 
 验收：
 

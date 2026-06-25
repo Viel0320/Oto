@@ -23,6 +23,8 @@ import com.viel.oto.media.parser.MetadataResolver
 import com.viel.oto.media.subtitle.SubtitleFileResolver
 import com.viel.oto.media.subtitle.SubtitleGateway
 import com.viel.oto.media.subtitle.SubtitleGatewayImpl
+import com.viel.oto.logger.ScanWorkflowLogSink
+import com.viel.oto.logger.SecureDiagnosticLogSink
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -79,7 +81,8 @@ internal object LibraryCoverModule {
                 scope = scope,
                 coverArtworkSource = get<CoverRecoveryArtworkSource>(),
                 absItemMirrorDao = get<AppDatabase>().absItemMirrorDao(),
-                absCoverStoreProvider = { getOrNull() }
+                absCoverStoreProvider = { getOrNull() },
+                workflowLogSink = ScanWorkflowLogSink
             )
             GraphClosePolicy.register(
                 stage = GraphClosePolicy.Stage.Library,
@@ -91,7 +94,8 @@ internal object LibraryCoverModule {
         single<CoverRecoveryGateway> {
             CoverRecoveryGatewayImpl(
                 bookDao = get<AppDatabase>().bookDao(),
-                coverSelfHealer = get<CoverSelfHealer>()
+                coverSelfHealer = get<CoverSelfHealer>(),
+                workflowLogSink = ScanWorkflowLogSink
             )
         }
 
@@ -108,7 +112,8 @@ internal object LibraryCoverModule {
                 chapterDao = get<AppDatabase>().chapterDao(),
                 coverRecoveryGateway = get(),
                 metadataResolver = get(),
-                database = get()
+                database = get(),
+                diagnosticLogSink = SecureDiagnosticLogSink
             )
         }
 

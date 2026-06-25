@@ -25,6 +25,7 @@ import com.viel.oto.data.search.SearchHistoryGatewayImpl
 import com.viel.oto.data.store.SearchHistoryStore
 import com.viel.oto.media.PlaybackPlanGateway
 import com.viel.oto.media.PlaybackPlanGatewayImpl
+import com.viel.oto.logger.PlaybackWorkflowLogSink
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -53,7 +54,10 @@ internal object LibraryUseCaseModule {
         }
 
         single<ProgressGateway> {
-            ProgressGatewayImpl(get<AppDatabase>().bookDao()).also { gateway ->
+            ProgressGatewayImpl(
+                bookDao = get<AppDatabase>().bookDao(),
+                workflowLogSink = PlaybackWorkflowLogSink
+            ).also { gateway ->
                 GraphClosePolicy.register(
                     stage = GraphClosePolicy.Stage.Library,
                     closeable = { gateway.close() }

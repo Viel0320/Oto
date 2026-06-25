@@ -21,6 +21,7 @@ import com.viel.oto.data.cleanup.RemotePlaybackCleanupGatewayImpl
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.library.availability.AvailabilityChecker
 import com.viel.oto.library.availability.MissingBookFileRecoveryChecker
+import com.viel.oto.logger.SecureDiagnosticLogSink
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -50,7 +51,10 @@ internal object LibraryBookGatewayModule {
         }
 
         single<BookMetadataGateway> {
-            BookMetadataGatewayImpl(get<AppDatabase>().bookDao()).also { gateway ->
+            BookMetadataGatewayImpl(
+                bookDao = get<AppDatabase>().bookDao(),
+                diagnosticLogSink = SecureDiagnosticLogSink
+            ).also { gateway ->
                 GraphClosePolicy.register(
                     stage = GraphClosePolicy.Stage.Library,
                     closeable = { gateway.close() }
@@ -63,7 +67,11 @@ internal object LibraryBookGatewayModule {
         }
 
         single<ChapterGateway> {
-            ChapterGatewayImpl(get<AppDatabase>().bookDao(), get<AppDatabase>().chapterDao()).also { gateway ->
+            ChapterGatewayImpl(
+                bookDao = get<AppDatabase>().bookDao(),
+                chapterDao = get<AppDatabase>().chapterDao(),
+                diagnosticLogSink = SecureDiagnosticLogSink
+            ).also { gateway ->
                 GraphClosePolicy.register(
                     stage = GraphClosePolicy.Stage.Library,
                     closeable = { gateway.close() }

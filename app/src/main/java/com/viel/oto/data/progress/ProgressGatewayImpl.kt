@@ -2,7 +2,7 @@ package com.viel.oto.data.progress
 
 import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.entity.BookProgressEntity
-import com.viel.oto.logger.PlaybackWorkflowLogger
+import com.viel.oto.logger.WorkflowLogSink
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,11 +20,12 @@ import java.util.concurrent.atomic.AtomicLong
  * 2. Bounded Concurrency Progress Synchronization: Manages a private coroutine scope to process high-frequency position writes.
  */
 class ProgressGatewayImpl(
-    private val bookDao: BookDao
+    private val bookDao: BookDao,
+    private val workflowLogSink: WorkflowLogSink
 ) : ProgressGateway, java.io.Closeable {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
-        PlaybackWorkflowLogger.error("progressService coroutine failure", exception)
+        workflowLogSink.error("progressService coroutine failure", exception)
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)

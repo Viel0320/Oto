@@ -2,7 +2,7 @@ package com.viel.oto.data.cover
 
 import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.entity.BookEntity
-import com.viel.oto.logger.ScanWorkflowLogger
+import com.viel.oto.logger.WorkflowLogSink
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -20,7 +20,8 @@ import kotlin.time.Duration.Companion.milliseconds
 class CoverRecoveryGatewayImpl(
     private val bookDao: BookDao,
     private val coverSelfHealer: CoverSelfHealer,
-    private val sweepPolicy: CoverRecoverySweepPolicy = CoverRecoverySweepPolicy()
+    private val sweepPolicy: CoverRecoverySweepPolicy = CoverRecoverySweepPolicy(),
+    private val workflowLogSink: WorkflowLogSink
 ) : CoverRecoveryGateway {
     override fun triggerRecovery(book: BookEntity) =
         coverSelfHealer.checkAndTriggerCoverRegeneration(book)
@@ -40,7 +41,7 @@ class CoverRecoveryGatewayImpl(
         if (candidateLimit == 0) return@withContext
         val batchSize = sweepPolicy.batchSize.coerceAtLeast(1)
         val books = bookDao.getCoverRecoveryCandidates(candidateLimit)
-        ScanWorkflowLogger.debug(
+        workflowLogSink.debug(
             "coverRecovery sweep start: candidates=${books.size}, limit=$candidateLimit, batchSize=$batchSize"
         )
         books.forEachIndexed { index, book ->
@@ -52,7 +53,7 @@ class CoverRecoveryGatewayImpl(
             }
             triggerRecovery(book)
         }
-        ScanWorkflowLogger.debug("coverRecovery sweep complete: checked=${books.size}")
+        workflowLogSink.debug("coverRecovery sweep complete: checked=${books.size}")
     }
 }
 

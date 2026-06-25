@@ -3,6 +3,7 @@ package com.viel.oto.data.cover
 import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.BookEntity
+import com.viel.oto.logger.NoOpWorkflowLogSink
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -21,7 +22,7 @@ class CoverRecoveryGatewayImplTest {
     @Test
     fun `triggerRecovery forwards the book to the self healer`() {
         val healer = RecordingCoverSelfHealer()
-        val gateway = CoverRecoveryGatewayImpl(fakeBookDao(emptyList()), healer)
+        val gateway = CoverRecoveryGatewayImpl(fakeBookDao(emptyList()), healer, workflowLogSink = NoOpWorkflowLogSink)
 
         gateway.triggerRecovery(sampleBook("b1"))
 
@@ -31,7 +32,7 @@ class CoverRecoveryGatewayImplTest {
     @Test
     fun `lightweight triggerRecovery forwards the id to the self healer`() {
         val healer = RecordingCoverSelfHealer()
-        val gateway = CoverRecoveryGatewayImpl(fakeBookDao(emptyList()), healer)
+        val gateway = CoverRecoveryGatewayImpl(fakeBookDao(emptyList()), healer, workflowLogSink = NoOpWorkflowLogSink)
 
         gateway.triggerRecovery(
             bookId = "b2",
@@ -46,7 +47,7 @@ class CoverRecoveryGatewayImplTest {
     @Test
     fun `forceRegenerate forwards the id and returns the healer result`() = runBlocking {
         val healer = RecordingCoverSelfHealer().apply { forceResult = true }
-        val gateway = CoverRecoveryGatewayImpl(fakeBookDao(emptyList()), healer)
+        val gateway = CoverRecoveryGatewayImpl(fakeBookDao(emptyList()), healer, workflowLogSink = NoOpWorkflowLogSink)
 
         val rebuilt = gateway.forceRegenerate("b7")
 
@@ -57,7 +58,7 @@ class CoverRecoveryGatewayImplTest {
     @Test
     fun `forceRegenerate propagates a false rebuild result`() = runBlocking {
         val healer = RecordingCoverSelfHealer().apply { forceResult = false }
-        val gateway = CoverRecoveryGatewayImpl(fakeBookDao(emptyList()), healer)
+        val gateway = CoverRecoveryGatewayImpl(fakeBookDao(emptyList()), healer, workflowLogSink = NoOpWorkflowLogSink)
 
         assertFalse(gateway.forceRegenerate("b8"))
     }
@@ -66,7 +67,7 @@ class CoverRecoveryGatewayImplTest {
     fun `recoverMissingCovers triggers self heal for every active book in order`() = runBlocking {
         val healer = RecordingCoverSelfHealer()
         val books = listOf(sampleBook("b1"), sampleBook("b2"), sampleBook("b3"))
-        val gateway = CoverRecoveryGatewayImpl(fakeBookDao(books), healer)
+        val gateway = CoverRecoveryGatewayImpl(fakeBookDao(books), healer, workflowLogSink = NoOpWorkflowLogSink)
 
         gateway.recoverMissingCovers()
 
@@ -80,7 +81,8 @@ class CoverRecoveryGatewayImplTest {
         val gateway = CoverRecoveryGatewayImpl(
             bookDao = fakeBookDao(books),
             coverSelfHealer = healer,
-            sweepPolicy = CoverRecoverySweepPolicy(maxBooksPerSweep = 2, batchSize = 1, batchDelayMs = 0L)
+            sweepPolicy = CoverRecoverySweepPolicy(maxBooksPerSweep = 2, batchSize = 1, batchDelayMs = 0L),
+            workflowLogSink = NoOpWorkflowLogSink
         )
 
         gateway.recoverMissingCovers()
@@ -91,7 +93,7 @@ class CoverRecoveryGatewayImplTest {
     @Test
     fun `recoverMissingCovers does nothing when the catalog snapshot is empty`() = runBlocking {
         val healer = RecordingCoverSelfHealer()
-        val gateway = CoverRecoveryGatewayImpl(fakeBookDao(emptyList()), healer)
+        val gateway = CoverRecoveryGatewayImpl(fakeBookDao(emptyList()), healer, workflowLogSink = NoOpWorkflowLogSink)
 
         gateway.recoverMissingCovers()
 

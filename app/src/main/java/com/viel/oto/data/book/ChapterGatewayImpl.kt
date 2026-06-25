@@ -9,7 +9,7 @@ import com.viel.oto.data.entity.BookEntity
 import com.viel.oto.data.entity.BookFileEntity
 import com.viel.oto.data.entity.ChapterEntity
 import com.viel.oto.data.entity.ChapterWithBookFile
-import com.viel.oto.logger.SecureLog
+import com.viel.oto.logger.DiagnosticLogSink
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,11 +34,12 @@ import java.util.UUID
 @OptIn(UnstableApi::class)
 class ChapterGatewayImpl(
     private val bookDao: BookDao,
-    private val chapterDao: ChapterDao
+    private val chapterDao: ChapterDao,
+    private val diagnosticLogSink: DiagnosticLogSink
 ) : ChapterGateway, Closeable {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
-        SecureLog.error("ChapterGatewayImpl", "协程在 ChapterGatewayImpl 运行中捕获到未处理异常", exception)
+        diagnosticLogSink.error("ChapterGatewayImpl", "协程在 ChapterGatewayImpl 运行中捕获到未处理异常", exception)
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)

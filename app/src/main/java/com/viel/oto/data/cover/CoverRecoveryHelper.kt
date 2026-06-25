@@ -8,7 +8,7 @@ import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.BookEntity
 import com.viel.oto.data.entity.BookFileEntity
-import com.viel.oto.logger.ScanWorkflowLogger
+import com.viel.oto.logger.WorkflowLogSink
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -28,7 +28,8 @@ class CoverRecoveryHelper(
     private val scope: CoroutineScope,
     private val coverArtworkSource: CoverRecoveryArtworkSource,
     private val absItemMirrorDao: AbsItemMirrorDao,
-    private val absCoverStoreProvider: () -> AbsCoverStore?
+    private val absCoverStoreProvider: () -> AbsCoverStore?,
+    private val workflowLogSink: WorkflowLogSink
 ) : CoverSelfHealer {
     /**
      * Limits cover repair concurrency because each job may read VFS streams, decode bitmaps, and sample colors.
@@ -74,7 +75,7 @@ class CoverRecoveryHelper(
                         rebuiltCover = regenerateCoverForBook(bookId)
                     }
                 } catch (error: Exception) {
-                    ScanWorkflowLogger.error("coverRecovery background regenerate failed: bookId=$bookId", error)
+                    workflowLogSink.error("coverRecovery background regenerate failed: bookId=$bookId", error)
                 } finally {
                     pendingRegenerations.remove(bookId)
                     if (rebuiltCover) {
@@ -97,7 +98,7 @@ class CoverRecoveryHelper(
                     regenerateCoverForBook(bookId)
                 }
             } catch (error: Exception) {
-                ScanWorkflowLogger.error("coverRecovery force regenerate failed: bookId=$bookId", error)
+                workflowLogSink.error("coverRecovery force regenerate failed: bookId=$bookId", error)
                 false
             }
         }
@@ -162,7 +163,7 @@ class CoverRecoveryHelper(
         try {
             coverArtworkSource.extractEmbeddedCover(bookId, file)
         } catch (error: Exception) {
-            ScanWorkflowLogger.error("coverRecovery embedded cover parse failed: bookId=$bookId", error)
+            workflowLogSink.error("coverRecovery embedded cover parse failed: bookId=$bookId", error)
             CoverImageResult.Empty
         }
 
@@ -170,7 +171,7 @@ class CoverRecoveryHelper(
         try {
             coverArtworkSource.extractSidecarCover(primaryFile)
         } catch (error: Exception) {
-            ScanWorkflowLogger.error("coverRecovery sidecar parse failed: sourcePath=${primaryFile.sourcePath}", error)
+            workflowLogSink.error("coverRecovery sidecar parse failed: sourcePath=${primaryFile.sourcePath}", error)
             CoverImageResult.Empty
         }
 

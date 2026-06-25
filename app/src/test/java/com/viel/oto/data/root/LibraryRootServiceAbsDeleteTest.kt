@@ -17,6 +17,7 @@ import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.data.webdav.WebDavCredentialStore
 import com.viel.oto.library.scan.ScanOutcome
 import com.viel.oto.library.scan.ScanOutcomeKind
+import com.viel.oto.logger.NoOpWorkflowLogSink
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -203,7 +204,8 @@ class LibraryRootServiceAbsDeleteTest {
             rootStore = rootStore,
             webDavCredentialStore = testWebDavCredentialStore("abs-root-webdav-placeholder"),
             absCredentialStore = credentialStore,
-            database = database
+            database = database,
+            workflowLogSink = NoOpWorkflowLogSink
         )
     }
 

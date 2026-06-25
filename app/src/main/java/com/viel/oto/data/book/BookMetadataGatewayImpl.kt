@@ -2,7 +2,7 @@ package com.viel.oto.data.book
 
 import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.db.AudiobookSchema
-import com.viel.oto.logger.SecureLog
+import com.viel.oto.logger.DiagnosticLogSink
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,11 +19,12 @@ import java.io.Closeable
  * fire-and-forget on a private IO scope, so this service is [Closeable] and must be torn down by the graph.
  */
 class BookMetadataGatewayImpl(
-    private val bookDao: BookDao
+    private val bookDao: BookDao,
+    private val diagnosticLogSink: DiagnosticLogSink
 ) : BookMetadataGateway, Closeable {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
-        SecureLog.error("BookMetadataGatewayImpl", "协程在 BookMetadataGatewayImpl 运行中捕获到未处理异常", exception)
+        diagnosticLogSink.error("BookMetadataGatewayImpl", "协程在 BookMetadataGatewayImpl 运行中捕获到未处理异常", exception)
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)

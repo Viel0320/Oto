@@ -20,6 +20,7 @@ import com.viel.oto.library.availability.MissingBookFileRecoveryChecker
 import com.viel.oto.library.vfs.VfsFileInterface
 import com.viel.oto.library.vfs.cache.DirectoryListingCache
 import com.viel.oto.library.vfs.cache.VfsRangeCache
+import com.viel.oto.logger.ScanWorkflowLogSink
 import org.koin.core.module.Module
 import org.koin.dsl.bind
 import org.koin.dsl.module
@@ -87,7 +88,8 @@ internal object LibraryScanModule {
                 rootStore = get<LibraryRootStore>(),
                 webDavCredentialStore = get<WebDavCredentialStore>(),
                 absCredentialStore = get<AbsCredentialStore>(),
-                database = get<AppDatabase>()
+                database = get<AppDatabase>(),
+                workflowLogSink = ScanWorkflowLogSink
             ).also { gateway ->
                 GraphClosePolicy.register(
                     stage = GraphClosePolicy.Stage.Library,

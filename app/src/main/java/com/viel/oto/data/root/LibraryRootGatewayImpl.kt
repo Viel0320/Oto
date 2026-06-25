@@ -16,7 +16,7 @@ import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.data.webdav.WebDavCredentialStore
 import com.viel.oto.library.LibraryRootStore
 import com.viel.oto.library.vfs.sourceProvider.LibrarySourceKind
-import com.viel.oto.logger.ScanWorkflowLogger
+import com.viel.oto.logger.WorkflowLogSink
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,13 +42,14 @@ class LibraryRootGatewayImpl(
     private val rootStore: LibraryRootStore,
     private val webDavCredentialStore: WebDavCredentialStore,
     private val absCredentialStore: AbsCredentialStore,
-    private val database: AppDatabase
+    private val database: AppDatabase,
+    private val workflowLogSink: WorkflowLogSink
 ) : LibraryRootGateway, java.io.Closeable {
 
     private val appContext = context.applicationContext
 
     private val exceptionHandler = CoroutineExceptionHandler { _, exception ->
-        ScanWorkflowLogger.error("libraryRootService coroutine failure", exception)
+        workflowLogSink.error("libraryRootService coroutine failure", exception)
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob() + exceptionHandler)
@@ -127,7 +128,7 @@ class LibraryRootGatewayImpl(
                     rootIds = setOf(root.id)
                 )
             }.onFailure { error ->
-                ScanWorkflowLogger.error("libraryRootService add SAF root failed", error)
+                workflowLogSink.error("libraryRootService add SAF root failed", error)
             }
         }
     }
@@ -154,7 +155,7 @@ class LibraryRootGatewayImpl(
                     rootIds = setOf(root.id)
                 )
             }.onFailure { error ->
-                ScanWorkflowLogger.error("libraryRootService add WebDAV root failed", error)
+                workflowLogSink.error("libraryRootService add WebDAV root failed", error)
             }
         }
     }
@@ -172,7 +173,7 @@ class LibraryRootGatewayImpl(
         try {
             cacheEvictionCoordinator.evictBeforeRootDelete(root)
         } catch (e: Exception) {
-            ScanWorkflowLogger.error("libraryRootService cache eviction failed: rootId=${root.id}", e)
+            workflowLogSink.error("libraryRootService cache eviction failed: rootId=${root.id}", e)
         }
 
         val sourceKind = LibrarySourceKind.from(root.sourceType)
@@ -200,7 +201,7 @@ class LibraryRootGatewayImpl(
                 }
             }
             null -> {
-                ScanWorkflowLogger.warn("libraryRootService unknown sourceType during delete: sourceType=${root.sourceType}")
+                workflowLogSink.warn("libraryRootService unknown sourceType during delete: sourceType=${root.sourceType}")
                 PostCommitRootCleanup.None
             }
         }
@@ -233,7 +234,7 @@ class LibraryRootGatewayImpl(
                         Intent.FLAG_GRANT_READ_URI_PERMISSION
                     )
                 } catch (e: Exception) {
-                    ScanWorkflowLogger.error("libraryRootService release SAF permission failed: rootId=${root.id}", e)
+                    workflowLogSink.error("libraryRootService release SAF permission failed: rootId=${root.id}", e)
                 }
             }
             is PostCommitRootCleanup.DeleteWebDavCredential -> {
