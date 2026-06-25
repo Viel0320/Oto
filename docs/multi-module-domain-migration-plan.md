@@ -162,6 +162,10 @@ flowchart TD
 - 已落地：`data/scan/ScanSchedulerImpl.kt` 已移到 `library/scan` 所属包；`data` 只保留扫描状态持久化 gateway，后续随阶段 4 提升进 `:library:import`。
 - 已落地：`data/subtitle` 已迁出为 `media/subtitle` gateway，sidecar 解析不再作为 data store 职责暴露。
 - 已落地：`data/cover` 已通过 `CoverImageWriter` 和 `CoverRecoveryArtworkSource` 收拢 parser/VFS 访问，Room store 不再直接依赖解析 Implementation。
+- 已落地：`data/metadata` 已通过 `MetadataRefreshSource` 接入 metadata 刷新，Room store 不再直接依赖 `MetadataResolver`。
+- 已落地：`data/cover` 已通过 `RemoteCoverStore` 接入远程封面删除，Room store 不再直接依赖 ABS cover cache Implementation。
+- 已落地：`data/cache` 已通过 `RootSourceCacheEvictor` 接入 source cache 清理，Room store 不再直接依赖 VFS range cache Implementation。
+- 已落地：`data/availability` 已通过 `FileAvailabilityProbe` 接入文件可用性探测，Room store 不再直接依赖 library availability Implementation。
 - 已落地：`data` 不再直接调用具体 logger object，只依赖 `:runtime:observability` 提供的 `DiagnosticLogSink` 和 `WorkflowLogSink`。
 - 已落地：`data/root` 已迁入 `library/root`，source root lifecycle、扫描触发、SAF/WebDAV/ABS post-commit cleanup 不再作为 data store 职责维护。
 
