@@ -17,7 +17,7 @@ import com.viel.oto.data.entity.BookmarkEntity
 import com.viel.oto.data.entity.ChapterEntity
 import com.viel.oto.data.entity.ChapterWithBookFile
 import com.viel.oto.data.progress.ProgressGateway
-import com.viel.oto.data.subtitle.SubtitleGateway
+import com.viel.oto.media.subtitle.SubtitleGateway
 import com.viel.oto.media.subtitle.SubtitleLine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first

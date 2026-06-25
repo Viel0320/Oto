@@ -32,10 +32,10 @@ import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.metadata.MetadataRefreshGateway
 import com.viel.oto.data.progress.ProgressGateway
 import com.viel.oto.data.root.LibraryRootGateway
-import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.data.search.SearchHistoryGateway
-import com.viel.oto.data.subtitle.SubtitleGateway
 import com.viel.oto.library.availability.AvailabilityChecker
+import com.viel.oto.library.scan.ScanScheduler
+import com.viel.oto.media.subtitle.SubtitleGateway
 import org.koin.core.module.Module
 import org.koin.dsl.binds
 import org.koin.dsl.module

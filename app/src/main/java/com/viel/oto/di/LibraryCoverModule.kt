@@ -13,12 +13,12 @@ import com.viel.oto.data.cover.CoverUriResolver
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.metadata.MetadataRefreshGateway
 import com.viel.oto.data.metadata.MetadataRefreshGatewayImpl
-import com.viel.oto.data.subtitle.SubtitleGateway
-import com.viel.oto.data.subtitle.SubtitleGatewayImpl
 import com.viel.oto.library.vfs.VfsFileInterface
 import com.viel.oto.media.parser.CoverExtractor
 import com.viel.oto.media.parser.MetadataResolver
 import com.viel.oto.media.subtitle.SubtitleFileResolver
+import com.viel.oto.media.subtitle.SubtitleGateway
+import com.viel.oto.media.subtitle.SubtitleGatewayImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
