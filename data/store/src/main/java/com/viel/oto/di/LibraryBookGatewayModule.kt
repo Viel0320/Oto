@@ -1,7 +1,5 @@
 package com.viel.oto.di
 
-import androidx.annotation.OptIn
-import androidx.media3.common.util.UnstableApi
 import com.viel.oto.data.availability.BookAvailabilityGateway
 import com.viel.oto.data.availability.BookAvailabilityGatewayImpl
 import com.viel.oto.data.availability.FileAvailabilityProbe
@@ -20,38 +18,23 @@ import com.viel.oto.data.book.ChapterGatewayImpl
 import com.viel.oto.data.cleanup.RemotePlaybackCleanupGateway
 import com.viel.oto.data.cleanup.RemotePlaybackCleanupGatewayImpl
 import com.viel.oto.data.db.AppDatabase
-import com.viel.oto.library.availability.AbsAvailabilityGateway
-import com.viel.oto.library.availability.AvailabilityChecker
-import com.viel.oto.library.availability.LibraryFileAvailabilityProbe
-import com.viel.oto.library.availability.MissingBookFileRecoveryChecker
 import com.viel.oto.logger.SecureDiagnosticLogSink
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
 /**
- * Local library book-level gateways and availability checker.
- * Replaces the gateway section of LibraryGraph with Koin-managed single definitions.
+ * Data-owned book, chapter, bookmark, and cleanup gateways.
+ *
+ * Source-aware availability probing is supplied by the library import module through
+ * FileAvailabilityProbe, keeping Room-backed gateway definitions in the data module without making
+ * data depend on source protocols.
+ *
  * Gateway interfaces are registered directly so release dependency resolution keeps one factory
  * path per contract.
  */
-@OptIn(UnstableApi::class)
-internal object LibraryBookGatewayModule {
+object LibraryBookGatewayModule {
 
     val module: Module = module {
-        single {
-            AvailabilityChecker(
-                context = get(),
-                database = get<AppDatabase>(),
-                absAvailabilityGateway = get<AbsAvailabilityGateway>()
-            )
-        }
-
-        single { MissingBookFileRecoveryChecker(get<AppDatabase>(), get()) }
-
-        single<FileAvailabilityProbe> {
-            LibraryFileAvailabilityProbe(availabilityChecker = get())
-        }
-
         single<BookAvailabilityGateway> {
             BookAvailabilityGatewayImpl(
                 bookDao = get<AppDatabase>().bookDao(),

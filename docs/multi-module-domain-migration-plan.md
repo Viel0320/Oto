@@ -341,6 +341,7 @@ flowchart TD
 - 已落地 8E：`AppMediaServiceLaunchIntentFactory` 从 app `di` 包迁入 app-owned playback adapter 包；`MediaModule` 只绑定 `MediaServiceLaunchIntentFactory` 契约，不再直接命名 `MainActivity`。
 - 已落地 8F：`MediaPlaybackControllerModule` 随 `PlayerPlaybackController` 场景绑定迁入 `:application`；app composition root 继续聚合同名 Koin Module，不再持有播放器场景控制器定义。
 - 已落地 8G：`CoreSettingsModule` 随 settings read/command Adapter 迁入 `:application`；`DownloadRuntimeInitializedFlag` 作为 application download seam 暴露给 app 下载 runtime 更新，settings 命令不再由 app `di` 持有。
+- 已落地 8H：`LibraryBookGatewayModule` 的 Room-backed book/chapter/bookmark gateway 绑定迁入 `:data:store`；source-aware `AvailabilityChecker`、`MissingBookFileRecoveryChecker` 和 `FileAvailabilityProbe` Adapter 归入 `:library:import`。
 
 验收：
 
