@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.viel.oto.shared.R
 import com.viel.oto.application.library.home.HomeBookItem
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.CoverImageSourceSelector
 import com.viel.oto.ui.motion.SharedElementKeys
 

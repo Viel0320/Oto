@@ -11,7 +11,7 @@
 - `:data:store` for Room/DataStore gateway contracts and persistence services.
 - `:library:vfs` for SAF/WebDAV/VFS file access and source-provider contracts.
 - `:media:metadata` for manifest, metadata, cover, and parser behavior used by import.
-- `:network:policy`, `:runtime:lifecycle`, `:runtime:observability`, and `:work:policy`.
+- `:shared`, `:runtime:lifecycle`, `:runtime:observability`, and `:work:policy`.
 
 ## Forbidden Dependencies
 

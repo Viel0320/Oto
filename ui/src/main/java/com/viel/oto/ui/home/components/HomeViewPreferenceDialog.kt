@@ -20,11 +20,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.viel.oto.shared.R
-import com.viel.oto.shared.settings.GlassEffectMode
-import com.viel.oto.shared.settings.HomeBookStatusFilter
-import com.viel.oto.shared.settings.HomeSortDirection
-import com.viel.oto.shared.settings.HomeSortRule
-import com.viel.oto.shared.settings.HomeViewStyle
+import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.shared.model.HomeBookStatusFilter
+import com.viel.oto.shared.model.HomeSortDirection
+import com.viel.oto.shared.model.HomeSortRule
+import com.viel.oto.shared.model.HomeViewStyle
 import com.viel.oto.ui.common.OtoDialogTemplate
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import dev.chrisbanes.haze.HazeState

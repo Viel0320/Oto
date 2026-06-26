@@ -5,7 +5,7 @@ import com.viel.oto.media.PlaybackDomainEvent
 import com.viel.oto.media.PlaybackDomainEventSink
 import com.viel.oto.media.PlaybackSourcePreflight
 import com.viel.oto.media.PlaybackSourcePreflightResult
-import com.viel.oto.shared.settings.AppSettings
+import com.viel.oto.shared.model.AppSettings
 
 /**
  * Keeps MediaSession resume aligned with foreground playback policy.

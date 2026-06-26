@@ -23,10 +23,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.oto.shared.R
-import com.viel.oto.shared.settings.GlassEffectMode
-import com.viel.oto.shared.settings.SeekStepSeconds
-import com.viel.oto.shared.settings.SleepMode
-import com.viel.oto.shared.settings.ThemeMode
+import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.shared.model.SeekStepSeconds
+import com.viel.oto.shared.model.SleepMode
+import com.viel.oto.shared.model.ThemeMode
 import com.viel.oto.ui.common.OtoPopupSelector
 import com.viel.oto.ui.common.OtoPopupWidth
 import com.viel.oto.ui.common.aPlayerTextPopupItem

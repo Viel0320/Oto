@@ -12,10 +12,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.oto.application.library.home.toDetailBookItem
-import com.viel.oto.shared.settings.HomeBookStatusFilter
-import com.viel.oto.shared.settings.HomeSortDirection
-import com.viel.oto.shared.settings.HomeSortRule
-import com.viel.oto.shared.settings.HomeViewStyle
+import com.viel.oto.shared.model.HomeBookStatusFilter
+import com.viel.oto.shared.model.HomeSortDirection
+import com.viel.oto.shared.model.HomeSortRule
+import com.viel.oto.shared.model.HomeViewStyle
 import com.viel.oto.ui.common.uiPerformanceTrace
 import com.viel.oto.ui.detail.DetailEntrySource
 import com.viel.oto.ui.detail.DetailViewModel

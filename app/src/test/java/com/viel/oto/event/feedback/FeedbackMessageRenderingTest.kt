@@ -2,7 +2,7 @@ package com.viel.oto.event.feedback
 
 import com.viel.oto.shared.R
 import com.viel.oto.i18n.AppLocaleController
-import com.viel.oto.shared.settings.AppLanguage
+import com.viel.oto.shared.model.AppLanguage
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith

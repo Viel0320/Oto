@@ -9,8 +9,8 @@ import com.viel.oto.data.entity.BookFileEntity
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.library.availability.AbsAvailabilityGateway
 import com.viel.oto.library.availability.AvailabilityResult
-import com.viel.oto.network.UnsafeNetworkPolicy
-import com.viel.oto.shared.settings.AppSettings
+import com.viel.oto.shared.policy.UnsafeNetworkPolicy
+import com.viel.oto.shared.model.AppSettings
 
 /**
  * Checks ABS root and file availability behind the library availability seam.

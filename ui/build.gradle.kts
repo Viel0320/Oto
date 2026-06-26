@@ -39,8 +39,6 @@ android {
 }
 
 dependencies {
-    implementation(project(":settings:model"))
-    implementation(project(":network:policy"))
     implementation(project(":runtime:observability"))
     implementation(project(":application"))
     implementation(project(":event"))

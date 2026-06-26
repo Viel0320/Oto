@@ -34,7 +34,7 @@ import com.mikepenz.aboutlibraries.entity.Developer
 import com.mikepenz.aboutlibraries.entity.Library
 import com.mikepenz.aboutlibraries.entity.License
 import com.viel.oto.shared.R
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.theme.OtoTheme
 import com.viel.oto.ui.detail.components.DetailInfoChip
 import com.viel.oto.ui.player.MiniPlayerActions

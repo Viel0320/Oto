@@ -1,7 +1,7 @@
 package com.viel.oto.application.library.home
 
 import com.viel.oto.application.library.LibraryBookStatus
-import com.viel.oto.shared.settings.HomeBookStatusFilter
+import com.viel.oto.shared.model.HomeBookStatusFilter
 
 /**
  * Application-layer availability matching.

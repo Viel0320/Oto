@@ -1,4 +1,4 @@
-package com.viel.oto.shared.settings
+package com.viel.oto.shared.model
 
 enum class GlassEffectMode {
     Material,

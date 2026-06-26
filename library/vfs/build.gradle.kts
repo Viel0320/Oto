@@ -35,8 +35,8 @@ kotlin {
 dependencies {
     api(project(":data:store"))
 
-    implementation(project(":network:policy"))
     implementation(project(":runtime:observability"))
+    implementation(project(":shared"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.documentfile)
     implementation(libs.koin.android)

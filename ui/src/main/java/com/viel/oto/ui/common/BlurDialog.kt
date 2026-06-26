@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.theme.LocalHazeState
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect

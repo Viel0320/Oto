@@ -14,8 +14,8 @@ import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavConnectionTestFailur
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavEndpointValidationException
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavEndpointValidationReason
 import com.viel.oto.logger.AbsLogSanitizer
-import com.viel.oto.network.UnsafeNetworkPolicyViolation
-import java.util.Locale
+import com.viel.oto.shared.policy.UnsafeNetworkPolicyViolation
+import com.viel.oto.shared.policy.formatDate
 
 /**
  * UI-owned formatter for settings root rows and connection failure copy.
@@ -124,11 +124,6 @@ class SettingsRootFormatter(private val context: Context) {
             importedBookCount = snapshot.importedBookCount,
             lastError = snapshot.absLastError?.let(::redactAbsError)
         )
-    }
-
-    private fun formatDate(ms: Long): String {
-        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-        return sdf.format(java.util.Date(ms))
     }
 
     private fun WebDavEndpointValidationReason.webDavEndpointValidationMessageRes(): Int =

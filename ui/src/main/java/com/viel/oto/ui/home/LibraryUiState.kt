@@ -2,14 +2,14 @@ package com.viel.oto.ui.home
 
 import androidx.annotation.StringRes
 import com.viel.oto.application.library.home.HomeBookItem
-import com.viel.oto.shared.settings.AppSettings
-import com.viel.oto.shared.settings.GlassEffectMode
-import com.viel.oto.shared.settings.HomeBookStatusFilter
-import com.viel.oto.shared.settings.HomeFilter
-import com.viel.oto.shared.settings.HomeSortDirection
-import com.viel.oto.shared.settings.HomeSortRule
-import com.viel.oto.shared.settings.HomeViewStyle
-import com.viel.oto.shared.settings.ThemeMode
+import com.viel.oto.shared.model.AppSettings
+import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.shared.model.HomeBookStatusFilter
+import com.viel.oto.shared.model.HomeFilter
+import com.viel.oto.shared.model.HomeSortDirection
+import com.viel.oto.shared.model.HomeSortRule
+import com.viel.oto.shared.model.HomeViewStyle
+import com.viel.oto.shared.model.ThemeMode
 
 /**
  * Library Main Screen UI State.

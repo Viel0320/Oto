@@ -20,8 +20,8 @@ import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.library.availability.RemoteAvailabilityMappingPolicy
 import com.viel.oto.library.availability.RemoteAvailabilityProtocol
 import com.viel.oto.logger.AbsAuthLogger
-import com.viel.oto.network.UnsafeNetworkPolicy
-import com.viel.oto.shared.settings.AppSettings
+import com.viel.oto.shared.policy.UnsafeNetworkPolicy
+import com.viel.oto.shared.model.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

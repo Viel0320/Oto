@@ -8,7 +8,7 @@
 
 ## Allowed Dependencies
 
-- `:settings:model` for seek-step value objects.
+- `:shared` for seek-step value objects.
 - `:runtime:observability` for diagnostic logging.
 - AndroidX Glance and Media3 session APIs for widget rendering and command dispatch.
 

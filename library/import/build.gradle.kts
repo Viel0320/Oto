@@ -37,9 +37,9 @@ dependencies {
     api(project(":library:vfs"))
     api(project(":media:metadata"))
 
-    implementation(project(":network:policy"))
     implementation(project(":runtime:lifecycle"))
     implementation(project(":runtime:observability"))
+    implementation(project(":shared"))
     implementation(project(":work:policy"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.media3.common)

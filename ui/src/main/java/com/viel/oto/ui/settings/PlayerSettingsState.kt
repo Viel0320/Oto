@@ -1,6 +1,6 @@
 package com.viel.oto.ui.settings
 
-import com.viel.oto.shared.settings.PlaybackSeekStepConfig
+import com.viel.oto.shared.model.PlaybackSeekStepConfig
 
 /**
  * Separates visual transition origins.

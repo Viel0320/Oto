@@ -20,7 +20,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import dev.chrisbanes.haze.HazeState
 
 /**

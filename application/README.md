@@ -8,7 +8,7 @@
 
 ## Allowed Dependencies
 
-- `:settings:model`
+- `:shared`
 - `:data:store`
 - `:library:import`
 - `:library:vfs`

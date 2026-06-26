@@ -1,7 +1,7 @@
-package com.viel.oto.media
+package com.viel.oto.shared.policy
 
-import com.viel.oto.shared.settings.PlaybackSeekStepConfig
-import com.viel.oto.shared.settings.SeekStepSeconds
+import com.viel.oto.shared.model.PlaybackSeekStepConfig
+import com.viel.oto.shared.model.SeekStepSeconds
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

@@ -4,7 +4,7 @@ import android.content.Context
 import android.media.AudioManager
 import com.viel.oto.application.playback.PlayerPlaybackController
 import com.viel.oto.event.feedback.FeedbackFact
-import com.viel.oto.shared.settings.PlaybackSeekStepConfig
+import com.viel.oto.shared.model.PlaybackSeekStepConfig
 import com.viel.oto.ui.player.BookMetadataState
 import com.viel.oto.ui.player.PlaybackState
 import kotlinx.coroutines.CoroutineScope
@@ -35,7 +35,7 @@ class PlayerSettingsManager(
 
     var isShakeToResetEnabled: Boolean = true
 
-    var sleepMode: com.viel.oto.shared.settings.SleepMode = com.viel.oto.shared.settings.SleepMode.Regular
+    var sleepMode: com.viel.oto.shared.model.SleepMode = com.viel.oto.shared.model.SleepMode.Regular
 
     private val sleepTimerManager = SleepTimerManager(
         scope = scope,

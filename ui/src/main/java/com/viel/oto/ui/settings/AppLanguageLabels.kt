@@ -4,7 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.viel.oto.shared.R
-import com.viel.oto.shared.settings.AppLanguage
+import com.viel.oto.shared.model.AppLanguage
 
 val AppLanguageOptions: List<AppLanguage> = listOf(
     AppLanguage.System,

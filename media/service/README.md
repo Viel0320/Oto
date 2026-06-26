@@ -8,7 +8,7 @@
 
 ## Allowed Dependencies
 
-- `:settings:model` for playback seek-step and settings value objects.
+- `:shared` for playback seek-step, settings value objects, and shared notification formatting policy.
 - `:data:store` for persisted book, download, and progress gateway contracts.
 - `:media:playback` for playback plans, Media3 item construction, preflight, data sources, and playback events.
 - `:runtime:observability` for release-safe diagnostics.

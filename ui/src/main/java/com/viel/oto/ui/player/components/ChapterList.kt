@@ -52,9 +52,9 @@ import com.viel.oto.shared.R
 import com.viel.oto.application.library.LibraryChapterSource
 import com.viel.oto.application.library.player.PlayerChapterItem
 import com.viel.oto.application.library.player.PlayerChapterTimeline
-import com.viel.oto.shared.formatTime
-import com.viel.oto.shared.settings.AppSettings
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.policy.formatTime
+import com.viel.oto.shared.model.AppSettings
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.BlurModalBottomSheet
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.oto.ui.common.theme.OtoTheme

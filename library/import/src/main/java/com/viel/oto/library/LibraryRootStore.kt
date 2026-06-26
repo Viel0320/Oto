@@ -16,7 +16,7 @@ import com.viel.oto.library.root.AbsRootCredentialGateway
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavEndpointValidationException
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavEndpointValidationReason
 import com.viel.oto.logger.SecureLog
-import com.viel.oto.network.UnsafeNetworkPolicy
+import com.viel.oto.shared.policy.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID

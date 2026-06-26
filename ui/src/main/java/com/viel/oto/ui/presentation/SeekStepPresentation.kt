@@ -3,7 +3,7 @@ package com.viel.oto.ui.presentation
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import com.viel.oto.shared.R
-import com.viel.oto.shared.settings.SeekStepSeconds
+import com.viel.oto.shared.model.SeekStepSeconds
 
 object SeekStepPresentation {
     @DrawableRes

@@ -27,7 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.viel.oto.application.library.player.PlayerBookmarkItem
 import com.viel.oto.application.library.player.PlayerChapterItem
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.CoverImageSourceSelector
 import com.viel.oto.ui.common.PlayerCover
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass

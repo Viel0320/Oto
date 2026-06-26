@@ -2,8 +2,8 @@ package com.viel.oto.application.library.home
 
 import android.icu.text.Collator
 import com.viel.oto.application.library.home.HomeCatalogSortPolicy.organize
-import com.viel.oto.shared.settings.HomeSortDirection
-import com.viel.oto.shared.settings.HomeSortRule
+import com.viel.oto.shared.model.HomeSortDirection
+import com.viel.oto.shared.model.HomeSortRule
 import java.util.Locale
 
 /**

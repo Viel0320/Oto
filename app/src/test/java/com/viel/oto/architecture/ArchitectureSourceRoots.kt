@@ -75,6 +75,17 @@ internal object ArchitectureSourceRoots {
         )
     )
 
+    /**
+     * Resolves the shared module so architecture guards can pin its dependency-free policy/model boundary.
+     */
+    fun sharedMain(): File = resolveRequiredRoot(
+        description = "shared main source root",
+        candidates = listOf(
+            File("../shared/src/main/kotlin/com/viel/oto"),
+            File("shared/src/main/kotlin/com/viel/oto")
+        )
+    )
+
     fun appMainFile(relativePath: String): File = appMain().resolve(relativePath)
 
     fun applicationMainFile(relativePath: String): File = applicationMain().resolve(relativePath)
@@ -82,6 +93,8 @@ internal object ArchitectureSourceRoots {
     fun uiMainFile(relativePath: String): File = uiMain().resolve(relativePath)
 
     fun eventMainFile(relativePath: String): File = eventMain().resolve(relativePath)
+
+    fun sharedMainFile(relativePath: String): File = sharedMain().resolve(relativePath)
 
     private fun resolveRequiredRoot(description: String, candidates: List<File>): File =
         candidates.firstOrNull { candidate -> candidate.isDirectory }

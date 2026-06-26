@@ -20,7 +20,7 @@ import com.materialkolor.dynamicColorScheme
 import com.materialkolor.ktx.animateColorScheme
 import com.viel.oto.application.library.LibraryReadStatus
 import com.viel.oto.media.parser.ImageProcessor
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.theme.LocalAmoled
 import com.viel.oto.ui.common.theme.LocalDarkTheme
 import com.viel.oto.ui.common.uiPerformanceTrace

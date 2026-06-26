@@ -32,8 +32,8 @@ android {
 }
 
 dependencies {
-    implementation(project(":settings:model"))
     implementation(project(":runtime:observability"))
+    implementation(project(":shared"))
 
     implementation(libs.androidx.core.ktx)
     implementation(platform(libs.androidx.compose.bom))

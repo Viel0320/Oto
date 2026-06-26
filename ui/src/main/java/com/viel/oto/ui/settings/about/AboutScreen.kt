@@ -71,7 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mikepenz.aboutlibraries.entity.Library
 import com.viel.oto.shared.R
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.OtoGlassTopBar
 import com.viel.oto.ui.common.layout.AppWindowSizeClass
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass

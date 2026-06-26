@@ -36,8 +36,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.oto.shared.R
 import com.viel.oto.ui.presentation.SeekStepPresentation
-import com.viel.oto.shared.settings.GlassEffectMode
-import com.viel.oto.shared.settings.PlaybackSeekStepConfig
+import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.shared.model.PlaybackSeekStepConfig
 import com.viel.oto.ui.common.theme.OtoTheme
 import com.viel.oto.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.oto.ui.motion.LocalSharedTransitionScope

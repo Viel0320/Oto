@@ -39,7 +39,7 @@ kotlin {
 }
 
 dependencies {
-    api(project(":settings:model"))
+    api(project(":shared"))
     api(libs.androidx.datastore.preferences)
     api(libs.androidx.room.runtime)
 

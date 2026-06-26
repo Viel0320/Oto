@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.oto.application.library.LibraryChapterSource
 import com.viel.oto.application.library.player.PlayerChapterItem
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.theme.OtoTheme
 import com.viel.oto.ui.player.BookMetadataState
 import com.viel.oto.ui.player.PlaybackProgressViewState

@@ -13,8 +13,8 @@ import com.viel.oto.logger.AbsCoverLogger
 import com.viel.oto.logger.CoverImageCacheLogger
 import com.viel.oto.media.parser.CoverExtractor
 import com.viel.oto.media.parser.toCoverImageResult
-import com.viel.oto.network.UnsafeNetworkPolicy
-import com.viel.oto.shared.settings.AppSettings
+import com.viel.oto.shared.policy.UnsafeNetworkPolicy
+import com.viel.oto.shared.model.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient

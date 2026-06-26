@@ -2,15 +2,15 @@
 
 ## 当前事实
 
-- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:media:playback`、`:media:service`、`:abs`、`:work:policy`、`:application`、`:event`、`:widget`、`:shared`、`:ui`。
+- `settings.gradle.kts` 当前包含 `:app`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:media:playback`、`:media:service`、`:abs`、`:work:policy`、`:application`、`:event`、`:widget`、`:shared`、`:ui`。
 - `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 app-owned event adapter、app-owned widget adapter（`app/widget`）、app-owned playback presentation adapter 和组合根；`application` 已提升到 `application/src/main/java/com/viel/oto/application`，`event` 核心已提升到 `event/src/main/kotlin/com/viel/oto/event`，`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`，scan/import/root lifecycle/availability 已提升到 `library/import/src/main/java/com/viel/oto/library`，ABS 已提升到 `abs/src/main/java/com/viel/oto/abs`，Glance widget 已提升到 `widget/src/main/java/com/viel/oto/widget`，Compose UI、i18n、ViewModel Koin 定义和 UI feedback resource adapter 已提升到 `ui/src/main/java/com/viel/oto`。
 - 本次迁移后，app 内 `library`、`abs`、`application`、`widget`、`media`、`i18n` 和 `ui` 生产 Kotlin 文件已清空（app 只保留 app-owned adapter 与组合根）；`:library:vfs` 维护 VFS/source provider，`:library:import` 维护 scan/import/root lifecycle/availability，`:media:metadata` 维护 parser/manifest/cover/subtitle parser，`:media:playback` 维护 playback plan/controller/data source/cache/session state 和 subtitle gateway implementation，`:media:service` 维护 Media3 service、download service、audio focus 和通知 adapter，`:application` 维护 read model、command、use case、download orchestration 和 startup warmup seam，`:event` 维护 feedback delivery 核心契约，`:ui` 维护 Compose route/screen/overlay/ViewModel/theme/i18n 和资源化 feedback presentation adapter，`:abs` 维护 ABS auth、DTO、client、sync、mapping、cover cache、progress sync 和 ABS VFS Adapter，`:data:store` 继续维护 Room、DataStore 和持久化 gateway，`:widget` 维护 Glance widget render/receiver/state。
-- `settings/model`、`network/policy`、`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability`、`library/vfs` 和 `media/metadata` 已是 Android library Module，继续保留 `com.viel.oto.logger`、`com.viel.oto.library.vfs`、`com.viel.oto.media.parser`、`com.viel.oto.media.manifest` 和 `com.viel.oto.media.subtitle` 包名供现有调用点使用。
+- `:shared` 已收回纯设置模型、纯 seek-step 策略、unsafe network 纯策略和共享资源；`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability`、`library/vfs` 和 `media/metadata` 已是 Android library Module，继续保留 `com.viel.oto.logger`、`com.viel.oto.library.vfs`、`com.viel.oto.media.parser`、`com.viel.oto.media.manifest` 和 `com.viel.oto.media.subtitle` 包名供现有调用点使用。
 - ABS Room 持久化文件当前位于 `data/store/src/main/java/com/viel/oto/data/abs/playback` 和 `data/store/src/main/java/com/viel/oto/data/abs/sync`，`AppDatabase` 已从 `data.abs.*` 导入这些 DAO/Entity。
 - Koin 入口集中在 `OtoKoinApplication`，关闭顺序由 `GraphClosePolicy` 固定为 `media -> download -> abs -> library -> uiEvents -> data`。
 - 现有导入图仍存在阻碍继续拆模块的循环：
   - `data` 已进入 `:data:store`，当前只保留对 `shared`、`timeline`、`logger` 的窄依赖。
-  - `:abs` 已作为 anti-corruption Module 独立维护，直接依赖 `:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:media:playback`、`:network:policy`、`:work:policy` 和运行时模块；ABS 同步反馈通过 `AbsSyncFeedbackSink` 由 app event adapter 转换。
+  - `:abs` 已作为 anti-corruption Module 独立维护，直接依赖 `:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:media:playback`、`:shared`、`:work:policy` 和运行时模块；ABS 同步反馈通过 `AbsSyncFeedbackSink` 由 app event adapter 转换。
   - `library` 已移除对 `abs` 的生产源码直接引用，VFS 已进入 `:library:vfs`，metadata parser/manifest 已进入 `:media:metadata`，scan/import/root lifecycle/availability 已进入 `:library:import`。
   - `media` 已拆出 `:media:metadata`、`:media:playback` 和 `:media:service`；sidecar subtitle resolver implementation 已随 `:media:playback` 维护，app 不再持有生产 `media/` 包。
   - `logger` 已物理迁出 app，多数领域仍直接依赖具体 logger，后续需要继续收敛为窄 observability Interface。
@@ -35,8 +35,7 @@ flowchart TD
     mediaPlayback[":media:playback"]
     mediaService[":media:service"]
     abs[":abs"]
-    settings[":settings:model"]
-    network[":network:policy"]
+    shared[":shared"]
     lifecycle[":runtime:lifecycle"]
     observability[":runtime:observability"]
 
@@ -54,7 +53,7 @@ flowchart TD
     application --> libraryImport
     application --> mediaPlayback
     application --> abs
-    data --> settings
+    data --> shared
     data --> observability
     libraryImport --> libraryVfs
     libraryImport --> mediaMetadata
@@ -65,9 +64,8 @@ flowchart TD
     abs --> data
     abs --> libraryVfs
     abs --> mediaMetadata
-    abs --> network
+    abs --> shared
     abs --> workPolicy
-    network --> settings
     libraryImport --> workPolicy
 ```
 
@@ -76,8 +74,6 @@ flowchart TD
 | Gradle Module | 领域职责 | Interface | Implementation | 禁止事项 |
 | --- | --- | --- | --- | --- |
 | `:app` | Android application、manifest、`MainActivity`、`OtoApplication`、版本、签名、AboutLibraries、Koin 聚合 | 应用启动和组件注册 | Activity/Application/manifest 合并 | 不放业务规则，不放特性 Koin 定义 |
-| `:settings:model` | 用户设置值对象和枚举 | `AppSettings`、设置枚举 | 纯 Kotlin 值模型 | 不依赖 Android、Room、Compose |
-| `:network:policy` | cleartext HTTP、unsafe TLS 全局策略 | `UnsafeNetworkPolicy` | 纯策略和结构化异常 | 不持有 OkHttp client，不读取 DataStore |
 | `:runtime:lifecycle` | 关闭顺序和生命周期注册 | `GraphClosePolicy` | Closeable 注册与阶段关闭 | 不解析领域业务 |
 | `:runtime:observability` | 领域日志和安全日志 | 日志 Interface、领域中立事件 | Android Log Adapter 和专用 logger | 不依赖 Room Entity 作为公共 Interface |
 | `:data:store` | Room、DataStore、DAO、Gateway、Service、schema export | 现有 `XxxGateway` | Room/DataStore Implementation | 不调度扫描，不解析媒体，不直接依赖 ABS Implementation |
@@ -92,6 +88,7 @@ flowchart TD
 | `:event` | one-shot feedback 核心契约 | `AppEventSink`、`AppShellEvent`、`FeedbackMessage`、feedback outcome/identity | `DefaultAppEventSink`、`FeedbackDeliveryPolicy` | 不直接引用 Android `R`、media、ABS、library、data、application |
 | `:ui` | Compose route/screen/overlay/ViewModel/theme/i18n | screen state、actions、route | Compose Implementation | 不绕过 application/data gateway |
 | `:widget` | Glance widget 和 widget action receiver | widget render state、action entrypoints | Glance UI、receiver Adapter | 不直接操纵播放器 Implementation |
+| `:shared` | 跨模块共享的纯资源、纯函数策略和纯数值模型 | `shared/src/main/res`、`shared.policy`、`shared.model` | Android resource catalog、无外部领域依赖的 Kotlin model/policy | 不依赖其他 Oto 领域包，不放业务流程、DI、UI 组件或平台 runtime Adapter |
 
 不建立 `:core`、`:common-all`、`:di` 这类宽 Module。Koin 定义跟随所属领域 Module，`:app` 只收集模块列表。
 
@@ -116,20 +113,18 @@ flowchart TD
 
 ## 阶段 1A - 抽出纯 Kotlin 设置、网络策略和生命周期（已落地，后续维护）
 
-目标：先拆不依赖 Android runtime 的低耦合 Module，给后续领域 Module 提供稳定 Interface。
+目标：先拆不依赖 Android runtime 的低耦合 Module，给后续领域 Module 提供稳定 Interface；纯模型和纯策略统一收回 `:shared`。
 
 改动范围：
 
-- 保持 `:settings:model` 管理 `shared/settings/AppSettings.kt` 和设置枚举。
-- 保持 `:network:policy` 管理 `UnsafeNetworkPolicy`，并只依赖 `:settings:model`。
+- 保持 `:shared` 管理 `com.viel.oto.shared.model.AppSettings`、设置枚举、`UnsafeNetworkPolicy` 和 `PlaybackSeekStepPolicy`。
 - 保持 `:runtime:lifecycle` 管理 `GraphClosePolicy`。
 - `:runtime:observability` 继续单独维护，因为 logger Implementation 依赖 Android `Log`，不和纯 Kotlin 基础模块糅在一起。
-- `work/WorkSchedulingPolicy.kt` 已作为 `:work:policy` Android library Module 独立维护，因为 library import 和 ABS sync 都需要共享 WorkManager 队列语义。
+- `work/policy/src/main/java/com/viel/oto/work/WorkSchedulingPolicy.kt` 已作为 `:work:policy` Android library Module 独立维护，因为 library import 和 ABS sync 都需要共享 WorkManager 队列语义。
 
 验收：
 
-- `.\gradlew.bat --no-problems-report :settings:model:test`
-- `.\gradlew.bat --no-problems-report :network:policy:test`
+- `.\gradlew.bat --no-problems-report :shared:testDebugUnitTest`
 - `.\gradlew.bat --no-problems-report :runtime:lifecycle:test`
 - `.\gradlew.bat --no-problems-report compileDebugKotlin`
 - `.\gradlew.bat --no-problems-report :app:testDebugUnitTest --tests "com.viel.oto.architecture.GraphLifecycleTest"`
@@ -370,10 +365,11 @@ flowchart TD
 - 一个 Module 只有一个 Adapter 时不急着抽新的 Seam；第二个真实 Adapter 出现后再提升 Interface。
 - 不使用 Kotlin `typealias` 和 import alias 解决命名冲突。
 - 不在迁移阶段改变 Room 版本基线、backup allowlist、unsafe network 默认值、release shrinking 策略。
+- shared 边界只接收三类内容：纯资源文件放在 `shared/src/main/res`，纯函数策略类放在 `com.viel.oto.shared.policy`，纯数值模型放在 `com.viel.oto.shared.model`。原则上 shared 边界不依赖其他 Oto 包，允许被其他任何模块依赖。
 
 ## 首批建议提交顺序
 
-已落地的前置提交：基线架构测试和导入图守卫、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`。
+已落地的前置提交：基线架构测试和导入图守卫、`:shared`、`:runtime:lifecycle`、`:runtime:observability`。
 
 后续建议提交顺序：
 

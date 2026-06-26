@@ -31,8 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import com.viel.oto.shared.R
-import com.viel.oto.shared.settings.AppSettings
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.AppSettings
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.BlurDropdownMenu
 import com.viel.oto.ui.common.formatPeopleSubtitle
 import com.viel.oto.ui.common.theme.OtoTheme

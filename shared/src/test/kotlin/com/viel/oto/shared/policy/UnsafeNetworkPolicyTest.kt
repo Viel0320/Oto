@@ -1,6 +1,6 @@
-package com.viel.oto.network
+package com.viel.oto.shared.policy
 
-import com.viel.oto.shared.settings.AppSettings
+import com.viel.oto.shared.model.AppSettings
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

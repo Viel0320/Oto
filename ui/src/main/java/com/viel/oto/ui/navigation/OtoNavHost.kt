@@ -8,11 +8,11 @@ import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
-import com.viel.oto.shared.settings.GlassEffectMode
-import com.viel.oto.shared.settings.HomeBookStatusFilter
-import com.viel.oto.shared.settings.HomeSortDirection
-import com.viel.oto.shared.settings.HomeSortRule
-import com.viel.oto.shared.settings.HomeViewStyle
+import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.shared.model.HomeBookStatusFilter
+import com.viel.oto.shared.model.HomeSortDirection
+import com.viel.oto.shared.model.HomeSortRule
+import com.viel.oto.shared.model.HomeViewStyle
 import com.viel.oto.ui.common.uiPerformanceTrace
 import com.viel.oto.ui.detail.DetailViewModel
 import com.viel.oto.ui.home.HomeScreen

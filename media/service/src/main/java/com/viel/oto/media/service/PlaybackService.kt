@@ -36,7 +36,7 @@ import com.viel.oto.media.PlaybackPlanBuilder
 import com.viel.oto.media.PlaybackSourcePreflight
 import com.viel.oto.media.session.PlaybackSessionErrorDecision
 import com.viel.oto.media.session.PlaybackSessionState
-import com.viel.oto.shared.settings.PlaybackSeekStepConfig
+import com.viel.oto.shared.model.PlaybackSeekStepConfig
 import com.viel.oto.timeline.PositionMapper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

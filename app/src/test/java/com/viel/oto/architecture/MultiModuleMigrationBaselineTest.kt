@@ -94,10 +94,6 @@ class MultiModuleMigrationBaselineTest {
         val candidates = listOf(
             File("src/main/java/com/viel/oto"),
             File("app/src/main/java/com/viel/oto"),
-            File("../settings/model/src/main/kotlin/com/viel/oto"),
-            File("settings/model/src/main/kotlin/com/viel/oto"),
-            File("../network/policy/src/main/kotlin/com/viel/oto"),
-            File("network/policy/src/main/kotlin/com/viel/oto"),
             File("../runtime/lifecycle/src/main/kotlin/com/viel/oto"),
             File("runtime/lifecycle/src/main/kotlin/com/viel/oto"),
             File("../runtime/observability/src/main/java/com/viel/oto"),
@@ -122,6 +118,8 @@ class MultiModuleMigrationBaselineTest {
             File("application/src/main/java/com/viel/oto"),
             File("../event/src/main/kotlin/com/viel/oto"),
             File("event/src/main/kotlin/com/viel/oto"),
+            File("../shared/src/main/kotlin/com/viel/oto"),
+            File("shared/src/main/kotlin/com/viel/oto"),
             File("../ui/src/main/java/com/viel/oto"),
             File("ui/src/main/java/com/viel/oto")
         )
@@ -186,7 +184,6 @@ class MultiModuleMigrationBaselineTest {
             "abs->library",
             "abs->logger",
             "abs->media",
-            "abs->network",
             "abs->shared",
             "abs->timeline",
             "abs->work",
@@ -230,7 +227,6 @@ class MultiModuleMigrationBaselineTest {
             "library->data",
             "library->logger",
             "library->media",
-            "library->network",
             "library->shared",
             "library->timeline",
             "library->work",
@@ -238,10 +234,8 @@ class MultiModuleMigrationBaselineTest {
             "media->application",
             "media->library",
             "media->logger",
-            "media->network",
             "media->shared",
             "media->timeline",
-            "network->shared",
             "timeline->data",
             "ui->application",
             "ui->event",
@@ -249,7 +243,6 @@ class MultiModuleMigrationBaselineTest {
             "ui->library",
             "ui->logger",
             "ui->media",
-            "ui->network",
             "ui->shared",
             "work->data"
         )

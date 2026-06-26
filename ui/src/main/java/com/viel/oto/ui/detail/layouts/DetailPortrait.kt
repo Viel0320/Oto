@@ -21,7 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.oto.shared.R
 import com.viel.oto.application.library.detail.DetailBookItem
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.CoverImageSourceSelector
 import com.viel.oto.ui.common.PlayerCover
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass

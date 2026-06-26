@@ -1,6 +1,6 @@
 package com.viel.oto.ui.common.theme
 
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

@@ -33,7 +33,7 @@ kotlin {
 }
 
 dependencies {
-    api(project(":settings:model"))
+    api(project(":shared"))
     api(project(":data:store"))
     api(project(":library:vfs"))
     api(project(":media:metadata"))
@@ -41,7 +41,6 @@ dependencies {
     api(libs.androidx.media3.datasource)
     api(libs.androidx.media3.session)
 
-    implementation(project(":network:policy"))
     implementation(project(":runtime:lifecycle"))
     implementation(project(":runtime:observability"))
     implementation(libs.androidx.core.ktx)

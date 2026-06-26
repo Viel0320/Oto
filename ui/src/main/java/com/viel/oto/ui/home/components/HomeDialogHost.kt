@@ -3,7 +3,7 @@ package com.viel.oto.ui.home.components
 import androidx.compose.runtime.Composable
 import com.viel.oto.application.library.LibraryReadStatus
 import com.viel.oto.application.library.home.HomeBookItem
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.AudiobookActionDialog
 import com.viel.oto.ui.common.AudiobookActionDialogBook
 import com.viel.oto.ui.home.HomeDialogState

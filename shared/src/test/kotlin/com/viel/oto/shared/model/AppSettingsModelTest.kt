@@ -1,10 +1,10 @@
-package com.viel.oto.shared.settings
+package com.viel.oto.shared.model
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Protects persisted setting value compatibility inside the extracted settings model module.
+ * Protects persisted setting value compatibility inside the shared model boundary.
  *
  * These checks stay close to the pure model so later Android, Room, or UI module moves cannot
  * accidentally change stored enum parsing behavior while only touching presentation code.

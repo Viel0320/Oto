@@ -17,8 +17,8 @@ import androidx.compose.ui.unit.dp
 import com.viel.oto.shared.R
 import com.viel.oto.application.library.player.PlayerChapterItem
 import com.viel.oto.application.library.player.PlayerChapterTimeline
-import com.viel.oto.shared.formatTime
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.policy.formatTime
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.theme.OtoTheme
 
 /**

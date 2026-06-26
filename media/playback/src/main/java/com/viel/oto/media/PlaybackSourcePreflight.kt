@@ -2,8 +2,8 @@ package com.viel.oto.media
 
 import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.db.AudiobookSchema
-import com.viel.oto.network.UnsafeNetworkPolicy
-import com.viel.oto.shared.settings.AppSettings
+import com.viel.oto.shared.policy.UnsafeNetworkPolicy
+import com.viel.oto.shared.model.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

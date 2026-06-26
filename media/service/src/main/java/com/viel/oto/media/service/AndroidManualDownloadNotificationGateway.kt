@@ -13,11 +13,9 @@ import androidx.core.content.ContextCompat
 import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.entity.DownloadMetadataEntity
 import com.viel.oto.data.entity.DownloadStatus
+import com.viel.oto.shared.policy.formatFileSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.Locale
-import kotlin.math.log10
-import kotlin.math.pow
 
 /**
  * Render one Android progress notification per manual book download.
@@ -148,22 +146,7 @@ class AndroidManualDownloadNotificationGateway(
     private fun notificationIdForBook(bookId: String): Int =
         BOOK_NOTIFICATION_ID_PREFIX or (bookId.hashCode() and BOOK_NOTIFICATION_ID_MASK)
 
-    private fun formatFileSize(sizeInBytes: Long): String {
-        if (sizeInBytes <= 0) return "0 B"
-        val units = arrayOf("B", "KB", "MB", "GB", "TB")
-        val digitGroups = (log10(sizeInBytes.toDouble()) / log10(BYTES_PER_UNIT.toDouble()))
-            .toInt()
-            .coerceAtMost(units.lastIndex)
-        return String.format(
-            Locale.getDefault(),
-            "%.1f %s",
-            sizeInBytes / BYTES_PER_UNIT.toDouble().pow(digitGroups.toDouble()),
-            units[digitGroups]
-        )
-    }
-
     private companion object {
-        private const val BYTES_PER_UNIT = 1024
         private const val PROGRESS_MAX = 100
         private const val BOOK_NOTIFICATION_ID_PREFIX = 0x31000000
         private const val BOOK_NOTIFICATION_ID_MASK = 0x00FFFFFF

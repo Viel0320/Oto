@@ -14,7 +14,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.motion.LocalAnimatedVisibilityScope
 import com.viel.oto.ui.motion.LocalHomeRecent2DetailTargetScope
 import dev.chrisbanes.haze.HazeState

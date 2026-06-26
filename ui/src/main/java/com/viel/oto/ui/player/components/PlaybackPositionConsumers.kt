@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.oto.application.library.player.PlayerBookmarkItem
 import com.viel.oto.media.subtitle.SubtitleLine
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.player.BookMetadataState
 import com.viel.oto.ui.player.PlaybackProgressViewState
 import com.viel.oto.ui.player.PlayerActions

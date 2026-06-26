@@ -15,7 +15,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.viel.oto.shared.R
-import com.viel.oto.shared.settings.SeekStepSeconds
+import com.viel.oto.shared.model.SeekStepSeconds
 import com.viel.oto.ui.common.theme.OtoTheme
 import com.viel.oto.ui.settings.components.SettingsSegmentedSeekStepItem
 import com.viel.oto.ui.settings.components.SettingsToggleItem

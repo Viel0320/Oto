@@ -47,7 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.oto.shared.R
-import com.viel.oto.shared.formatCompactDuration
+import com.viel.oto.shared.policy.formatCompactDuration
 import com.viel.oto.ui.common.CoverImageVariant
 import com.viel.oto.ui.common.LazyCoverImage
 import com.viel.oto.ui.common.formatPeopleSubtitle

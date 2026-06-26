@@ -32,7 +32,7 @@ import com.viel.oto.application.library.settings.SettingsRootItem
 import com.viel.oto.event.AppEventSink
 import com.viel.oto.event.feedback.FeedbackMessage
 import com.viel.oto.i18n.AppLocaleController
-import com.viel.oto.shared.settings.ThemeMode
+import com.viel.oto.shared.model.ThemeMode
 import com.viel.oto.ui.common.theme.OtoTheme
 import com.viel.oto.ui.common.theme.VisualEffectPolicy
 import com.viel.oto.ui.common.theme.rememberVisualEffectEnvironment

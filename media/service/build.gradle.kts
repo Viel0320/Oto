@@ -33,7 +33,7 @@ kotlin {
 }
 
 dependencies {
-    api(project(":settings:model"))
+    api(project(":shared"))
     api(project(":data:store"))
     api(project(":media:playback"))
 

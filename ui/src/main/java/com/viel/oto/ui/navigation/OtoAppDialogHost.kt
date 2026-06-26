@@ -17,9 +17,9 @@ import com.viel.oto.shared.R
 import com.viel.oto.application.library.settings.SettingsRootItem
 import com.viel.oto.event.feedback.FeedbackMessage
 import com.viel.oto.event.feedback.render
-import com.viel.oto.shared.formatDate
-import com.viel.oto.shared.formatTime
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.policy.formatDate
+import com.viel.oto.shared.policy.formatTime
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.OtoDialogTemplate
 import com.viel.oto.ui.libraryManagement.AddLibrarySourceDialog
 import com.viel.oto.ui.player.PlaybackViewModel

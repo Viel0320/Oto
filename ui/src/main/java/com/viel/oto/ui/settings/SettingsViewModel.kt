@@ -21,7 +21,7 @@ import com.viel.oto.event.feedback.DataTransferFeedbackFacts
 import com.viel.oto.event.feedback.DownloadCacheFeedbackFacts
 import com.viel.oto.event.feedback.FeedbackFact
 import com.viel.oto.logger.AbsLogSanitizer
-import com.viel.oto.shared.settings.AppSettings
+import com.viel.oto.shared.model.AppSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

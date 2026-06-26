@@ -5,8 +5,8 @@ import com.viel.oto.abs.auth.AbsCredentialStore
 import com.viel.oto.abs.sync.AbsCoverCache
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
-import com.viel.oto.network.UnsafeNetworkPolicyViolation
-import com.viel.oto.shared.settings.AppSettings
+import com.viel.oto.shared.policy.UnsafeNetworkPolicyViolation
+import com.viel.oto.shared.model.AppSettings
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer

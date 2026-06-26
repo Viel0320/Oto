@@ -32,7 +32,7 @@ class SleepTimerManager(
     private val contextProvider: () -> Context?,
     private val isSleepFadeOutEnabled: () -> Boolean,
     private val isShakeToResetEnabled: () -> Boolean,
-    private val sleepMode: () -> com.viel.oto.shared.settings.SleepMode,
+    private val sleepMode: () -> com.viel.oto.shared.model.SleepMode,
     private val onFeedback: (FeedbackFact) -> Unit,
     private val selectedSleepTimer: () -> Int,
     private val onTimerReset: () -> Unit,
@@ -65,7 +65,7 @@ class SleepTimerManager(
         currentMetadata: () -> BookMetadataState
     ) {
         val ctx = contextProvider() ?: return
-        if (!isShakeToResetEnabled() && sleepMode() == com.viel.oto.shared.settings.SleepMode.Regular) return
+        if (!isShakeToResetEnabled() && sleepMode() == com.viel.oto.shared.model.SleepMode.Regular) return
         if (sensorManager == null) {
             sensorManager = ctx.getSystemService(Context.SENSOR_SERVICE) as? android.hardware.SensorManager
         }
@@ -92,11 +92,11 @@ class SleepTimerManager(
 
                     val gDeviation = kotlin.math.abs(gForce - 1.0f)
 
-                    val movementThreshold = if (sleepMode() == com.viel.oto.shared.settings.SleepMode.SleepTracking) 0.08f else 0.035f
+                    val movementThreshold = if (sleepMode() == com.viel.oto.shared.model.SleepMode.SleepTracking) 0.08f else 0.035f
 
                     if (gDeviation > movementThreshold) {
                         if (!isDeviceMoving) {
-                            if (sleepMode() == com.viel.oto.shared.settings.SleepMode.MotionTracking) {
+                            if (sleepMode() == com.viel.oto.shared.model.SleepMode.MotionTracking) {
                                 emitFeedback(PlaybackControlFeedbackFacts.sleepMotionTrackingPaused())
                             }
                         }
@@ -105,7 +105,7 @@ class SleepTimerManager(
                         lastActiveTriggerTime = System.currentTimeMillis()
                         staticSampleCount = 0
                         timeInStaticMs = 0L
-                        if (sleepMode() == com.viel.oto.shared.settings.SleepMode.SleepTracking && hasUserFallenAsleep) {
+                        if (sleepMode() == com.viel.oto.shared.model.SleepMode.SleepTracking && hasUserFallenAsleep) {
                             hasUserFallenAsleep = false
                             emitFeedback(PlaybackControlFeedbackFacts.sleepTrackingPausedByActivity())
                         }
@@ -114,7 +114,7 @@ class SleepTimerManager(
                             staticSampleCount++
                             if (staticSampleCount >= 8) {
                                 if (isDeviceMoving) {
-                                    if (sleepMode() == com.viel.oto.shared.settings.SleepMode.MotionTracking) {
+                                    if (sleepMode() == com.viel.oto.shared.model.SleepMode.MotionTracking) {
                                         emitFeedback(PlaybackControlFeedbackFacts.sleepMotionTrackingResumed())
                                     }
                                 }
@@ -229,8 +229,8 @@ class SleepTimerManager(
             return
         }
 
-        if (sleepMode() == com.viel.oto.shared.settings.SleepMode.MotionTracking ||
-            sleepMode() == com.viel.oto.shared.settings.SleepMode.SleepTracking) {
+        if (sleepMode() == com.viel.oto.shared.model.SleepMode.MotionTracking ||
+            sleepMode() == com.viel.oto.shared.model.SleepMode.SleepTracking) {
             registerShakeListener(currentPlayback, currentMetadata)
         }
 
@@ -260,7 +260,7 @@ class SleepTimerManager(
                                     if (!isFading) {
                                         isFading = true
                                         originalVolume = playbackController()?.playerVolume ?: 1.0f
-                                        if (isShakeToResetEnabled() || sleepMode() != com.viel.oto.shared.settings.SleepMode.Regular) {
+                                        if (isShakeToResetEnabled() || sleepMode() != com.viel.oto.shared.model.SleepMode.Regular) {
                                             registerShakeListener(currentPlayback, currentMetadata)
                                             registeredSensor = true
                                         }
@@ -273,11 +273,11 @@ class SleepTimerManager(
                                     delay(100.milliseconds)
                                     val updatedState = currentPlayback()
                                     if (updatedState.isPlaying) {
-                                        if (sleepMode() == com.viel.oto.shared.settings.SleepMode.MotionTracking && isDeviceMoving) {
+                                        if (sleepMode() == com.viel.oto.shared.model.SleepMode.MotionTracking && isDeviceMoving) {
                                             playbackController()?.playerVolume = originalVolume
                                             continue
                                         }
-                                        if (sleepMode() == com.viel.oto.shared.settings.SleepMode.SleepTracking && !hasUserFallenAsleep) {
+                                        if (sleepMode() == com.viel.oto.shared.model.SleepMode.SleepTracking && !hasUserFallenAsleep) {
                                             playbackController()?.playerVolume = originalVolume
                                             continue
                                         }
@@ -337,7 +337,7 @@ class SleepTimerManager(
                         if (!isFading) {
                             isFading = true
                             originalVolume = playbackController()?.playerVolume ?: 1.0f
-                            if (isShakeToResetEnabled() || sleepMode() != com.viel.oto.shared.settings.SleepMode.Regular) {
+                            if (isShakeToResetEnabled() || sleepMode() != com.viel.oto.shared.model.SleepMode.Regular) {
                                 registerShakeListener(currentPlayback, currentMetadata)
                                 registeredSensor = true
                             }
@@ -348,11 +348,11 @@ class SleepTimerManager(
                             if (_sleepTimerMillis.value <= 0) break
                             delay(100.milliseconds)
                             if (currentPlayback().isPlaying) {
-                                if (sleepMode() == com.viel.oto.shared.settings.SleepMode.MotionTracking && isDeviceMoving) {
+                                if (sleepMode() == com.viel.oto.shared.model.SleepMode.MotionTracking && isDeviceMoving) {
                                     playbackController()?.playerVolume = originalVolume
                                     continue
                                 }
-                                if (sleepMode() == com.viel.oto.shared.settings.SleepMode.SleepTracking && !hasUserFallenAsleep) {
+                                if (sleepMode() == com.viel.oto.shared.model.SleepMode.SleepTracking && !hasUserFallenAsleep) {
                                     playbackController()?.playerVolume = originalVolume
                                     continue
                                 }
@@ -375,15 +375,15 @@ class SleepTimerManager(
                         delay(1000.milliseconds)
                         if (currentPlayback().isPlaying) {
                             when (sleepMode()) {
-                                com.viel.oto.shared.settings.SleepMode.Regular -> {
+                                com.viel.oto.shared.model.SleepMode.Regular -> {
                                     _sleepTimerMillis.value = (_sleepTimerMillis.value - 1000).coerceAtLeast(0L)
                                 }
-                                com.viel.oto.shared.settings.SleepMode.MotionTracking -> {
+                                com.viel.oto.shared.model.SleepMode.MotionTracking -> {
                                     if (!isDeviceMoving) {
                                         _sleepTimerMillis.value = (_sleepTimerMillis.value - 1000).coerceAtLeast(0L)
                                     }
                                 }
-                                com.viel.oto.shared.settings.SleepMode.SleepTracking -> {
+                                com.viel.oto.shared.model.SleepMode.SleepTracking -> {
                                     if (!hasUserFallenAsleep) {
                                         if (!isDeviceMoving) {
                                             timeInStaticMs += 1000L

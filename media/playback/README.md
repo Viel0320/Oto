@@ -8,11 +8,11 @@
 
 ## Allowed Dependencies
 
-- `:settings:model` for playback setting value objects.
+- `:shared` for playback setting value objects and pure seek-step policy.
 - `:data:store` for persisted book, file, root, and progress gateway contracts.
 - `:library:vfs` for VFS playback stream access and remote availability exception contracts.
 - `:media:metadata` for subtitle line models carried by playback plans.
-- `:network:policy` and `:runtime:observability` for security gates and diagnostics.
+- `:runtime:observability` for diagnostics.
 
 ## Forbidden Dependencies
 

@@ -39,7 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mikepenz.aboutlibraries.entity.Library
 import com.viel.oto.application.library.settings.SettingsRootItem
 import com.viel.oto.i18n.AppLocaleController
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.uiPerformanceTrace
 import com.viel.oto.ui.settings.about.AboutLibrariesScreen
 import com.viel.oto.ui.settings.downloads.DownloadManagementScreen

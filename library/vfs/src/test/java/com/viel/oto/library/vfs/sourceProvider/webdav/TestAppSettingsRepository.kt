@@ -5,7 +5,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.webdav.WebDavCredentialStore
 import com.viel.oto.data.webdav.webDavCredentialDataStore
-import com.viel.oto.shared.settings.AppSettings
+import com.viel.oto.shared.model.AppSettings
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.createTempDirectory

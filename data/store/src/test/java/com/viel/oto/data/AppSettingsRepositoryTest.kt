@@ -109,7 +109,7 @@ class AppSettingsRepositoryTest {
 
         val settings = repository.settingsFlow.first()
 
-        assertEquals(com.viel.oto.shared.settings.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES, settings.playbackBufferMaxBytes)
+        assertEquals(com.viel.oto.shared.model.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES, settings.playbackBufferMaxBytes)
         assertEquals(false, settings.isDownloadWifiOnly)
         assertTrue(
             "legacy disk cache key should migrate into the new playback buffer key and stale duration should be removed",
@@ -117,7 +117,7 @@ class AppSettingsRepositoryTest {
                 val preferences = dataStore.data.first()
                 preferences[legacyPlaybackCacheMaxBytesKey] == null &&
                     preferences[legacyPlaybackBufferDurationMsKey] == null &&
-                    preferences[playbackBufferMaxBytesKey] == com.viel.oto.shared.settings.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES
+                    preferences[playbackBufferMaxBytesKey] == com.viel.oto.shared.model.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES
             }
         )
     }
@@ -133,8 +133,8 @@ class AppSettingsRepositoryTest {
         }
 
         val settings = repository.settingsFlow.first()
-        assertEquals(com.viel.oto.shared.settings.HomeFilter.Finished, settings.homeFilter)
-        assertEquals(com.viel.oto.shared.settings.HomeBookStatusFilter.Partial, settings.homeBookStatusFilter)
+        assertEquals(com.viel.oto.shared.model.HomeFilter.Finished, settings.homeFilter)
+        assertEquals(com.viel.oto.shared.model.HomeBookStatusFilter.Partial, settings.homeBookStatusFilter)
 
         dataStore.edit { preferences ->
             preferences[stringPreferencesKey("home_filter")] = "InvalidFilterName"
@@ -142,8 +142,8 @@ class AppSettingsRepositoryTest {
         }
 
         val fallbackSettings = repository.settingsFlow.first()
-        assertEquals(com.viel.oto.shared.settings.HomeFilter.NotStarted, fallbackSettings.homeFilter)
-        assertEquals(com.viel.oto.shared.settings.HomeBookStatusFilter.All, fallbackSettings.homeBookStatusFilter)
+        assertEquals(com.viel.oto.shared.model.HomeFilter.NotStarted, fallbackSettings.homeFilter)
+        assertEquals(com.viel.oto.shared.model.HomeBookStatusFilter.All, fallbackSettings.homeBookStatusFilter)
     }
 
     @Test
@@ -151,8 +151,8 @@ class AppSettingsRepositoryTest {
         val dataStore = createSettingsDataStore(testName = "write-filters")
         val repository = AppSettingsRepository.createForTesting(dataStore)
 
-        repository.updateHomeFilter(com.viel.oto.shared.settings.HomeFilter.InProgress)
-        repository.updateHomeBookStatusFilter(com.viel.oto.shared.settings.HomeBookStatusFilter.Unavailable)
+        repository.updateHomeFilter(com.viel.oto.shared.model.HomeFilter.InProgress)
+        repository.updateHomeBookStatusFilter(com.viel.oto.shared.model.HomeBookStatusFilter.Unavailable)
 
         val preferences = dataStore.data.first()
         assertEquals("InProgress", preferences[stringPreferencesKey("home_filter")])
@@ -207,7 +207,7 @@ class AppSettingsRepositoryTest {
         repository.updatePlaybackBufferMaxBytes(1L)
 
         val fallbackPreferences = dataStore.data.first()
-        assertEquals(com.viel.oto.shared.settings.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES, fallbackPreferences[playbackBufferMaxBytesKey])
+        assertEquals(com.viel.oto.shared.model.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES, fallbackPreferences[playbackBufferMaxBytesKey])
     }
 
     private fun createSettingsDataStore(testName: String) =

@@ -1,7 +1,7 @@
 package com.viel.oto.architecture
 
-import com.viel.oto.network.UnsafeNetworkPolicy
-import com.viel.oto.shared.settings.AppSettings
+import com.viel.oto.shared.policy.UnsafeNetworkPolicy
+import com.viel.oto.shared.model.AppSettings
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.w3c.dom.Element
@@ -123,8 +123,7 @@ class ReleasePolicyTest {
         val networkConfig = repoFile("app/src/main/res/xml/network_security_config.xml").readText()
         val defaults = AppSettings()
         val policy = repoFile(
-            "network/policy/src/main/kotlin/com/viel/oto/network/UnsafeNetworkPolicy.kt",
-            "app/src/main/java/com/viel/oto/network/UnsafeNetworkPolicy.kt"
+            "shared/src/main/kotlin/com/viel/oto/shared/policy/UnsafeNetworkPolicy.kt"
         ).readText()
         val runtimeGates = listOf(
             repoFile(
@@ -245,6 +244,7 @@ class ReleasePolicyTest {
             "media/service/src/main/java/com/viel/oto",
             "abs/src/main/java/com/viel/oto",
             "work/policy/src/main/java/com/viel/oto",
+            "shared/src/main/kotlin/com/viel/oto",
             "application/src/main/java/com/viel/oto"
         ).flatMap { path -> listOf(File(path), File("../$path")) }
         return candidates

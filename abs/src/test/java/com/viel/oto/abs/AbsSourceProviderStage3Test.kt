@@ -21,7 +21,7 @@ import com.viel.oto.data.entity.BookEntity
 import com.viel.oto.data.entity.BookFileEntity
 import com.viel.oto.data.entity.ChapterEntity
 import com.viel.oto.data.entity.LibraryRootEntity
-import com.viel.oto.shared.settings.AppSettings
+import com.viel.oto.shared.model.AppSettings
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer

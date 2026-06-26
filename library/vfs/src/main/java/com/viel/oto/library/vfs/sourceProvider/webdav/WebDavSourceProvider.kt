@@ -23,8 +23,8 @@ import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangeBodyReadResult
 import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangeEndPolicy
 import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangePlan
 import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangeStrategyLogSink
-import com.viel.oto.network.UnsafeNetworkPolicy
-import com.viel.oto.shared.settings.AppSettings
+import com.viel.oto.shared.policy.UnsafeNetworkPolicy
+import com.viel.oto.shared.model.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials

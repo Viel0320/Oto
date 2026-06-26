@@ -11,7 +11,7 @@ import com.viel.oto.abs.net.ensureSupportedAbsServerVersion
 import com.viel.oto.abs.sync.AbsConnectionTester
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.library.vfs.sourceProvider.LibrarySourceKind
-import com.viel.oto.shared.settings.AppSettings
+import com.viel.oto.shared.model.AppSettings
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient

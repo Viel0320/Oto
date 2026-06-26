@@ -40,10 +40,9 @@ dependencies {
     api(project(":media:metadata"))
     api(project(":media:playback"))
 
-    implementation(project(":settings:model"))
-    implementation(project(":network:policy"))
     implementation(project(":runtime:lifecycle"))
     implementation(project(":runtime:observability"))
+    implementation(project(":shared"))
     implementation(project(":work:policy"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.datastore.preferences)

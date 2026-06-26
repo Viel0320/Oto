@@ -26,9 +26,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "oto"
 include(":app")
-// Stage 1 Foundation Modules (Extract pure settings, network policy, and lifecycle policy before heavier domains)
-include(":settings:model")
-include(":network:policy")
+// Stage 1 Foundation Modules (Keep lifecycle policy extracted before heavier domains)
 include(":runtime:lifecycle")
 // Stage 1B Runtime Observability Module (Owns Android-backed logging without depending on app internals)
 include(":runtime:observability")
@@ -57,7 +55,7 @@ include(":event")
 // Stage 7D Widget Module (Owns Glance widget rendering, state, and receivers)
 include(":widget")
 
-// Stage 7E Shared Module (Owns cross-layer utilities and the consolidated user-visible resource catalog)
+// Stage 7E Shared Module (Owns shared models, pure policies, and the consolidated user-visible resource catalog)
 include(":shared")
 
 // Stage 7G UI Module (Owns Compose routes, screens, overlays, ViewModels, theme, and locale UI support)

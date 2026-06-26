@@ -39,9 +39,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.oto.shared.R
 import com.viel.oto.application.library.detail.DetailBookItem
-import com.viel.oto.shared.formatFileSize
-import com.viel.oto.shared.formatTime
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.policy.formatFileSize
+import com.viel.oto.shared.policy.formatTime
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.detail.DetailUiState
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect

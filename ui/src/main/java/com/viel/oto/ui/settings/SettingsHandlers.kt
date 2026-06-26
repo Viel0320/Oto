@@ -15,11 +15,11 @@ import com.viel.oto.event.AppEventSink
 import com.viel.oto.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.oto.i18n.AppLocaleController
 import com.viel.oto.logger.AbsSettingsLogger
-import com.viel.oto.shared.settings.AppLanguage
-import com.viel.oto.shared.settings.GlassEffectMode
-import com.viel.oto.shared.settings.SeekStepSeconds
-import com.viel.oto.shared.settings.SleepMode
-import com.viel.oto.shared.settings.ThemeMode
+import com.viel.oto.shared.model.AppLanguage
+import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.shared.model.SeekStepSeconds
+import com.viel.oto.shared.model.SleepMode
+import com.viel.oto.shared.model.ThemeMode
 import com.viel.oto.ui.libraryManagement.AbsConnectionUiState
 import com.viel.oto.ui.libraryManagement.AbsLibraryOptionState
 import com.viel.oto.ui.libraryManagement.WebDavConnectionUiState

@@ -8,7 +8,7 @@ import android.content.res.Configuration
 import android.os.Build
 import android.os.LocaleList
 import com.viel.oto.logger.SecureLog
-import com.viel.oto.shared.settings.AppLanguage
+import com.viel.oto.shared.model.AppLanguage
 
 object AppLocaleController {
     private const val TAG = "AppLocaleController"

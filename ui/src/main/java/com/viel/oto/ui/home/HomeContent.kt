@@ -50,10 +50,10 @@ import com.viel.oto.application.library.LibraryBookSourceType
 import com.viel.oto.application.library.LibraryBookStatus
 import com.viel.oto.application.library.LibraryReadStatus
 import com.viel.oto.application.library.home.HomeBookItem
-import com.viel.oto.shared.settings.AppSettings
-import com.viel.oto.shared.settings.GlassEffectMode
-import com.viel.oto.shared.settings.HomeFilter
-import com.viel.oto.shared.settings.HomeViewStyle
+import com.viel.oto.shared.model.AppSettings
+import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.shared.model.HomeFilter
+import com.viel.oto.shared.model.HomeViewStyle
 import com.viel.oto.ui.common.CoverImageSourceSelector
 import com.viel.oto.ui.common.OtoFilterChip
 import com.viel.oto.ui.common.layout.AppWindowSizeClass

@@ -37,9 +37,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.viel.oto.shared.R
 import com.viel.oto.application.library.player.PlayerBookmarkItem
-import com.viel.oto.shared.formatDate
-import com.viel.oto.shared.formatTime
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.policy.formatDate
+import com.viel.oto.shared.policy.formatTime
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.OtoDialogTemplate
 import com.viel.oto.ui.common.theme.OtoTheme
 import dev.chrisbanes.haze.HazeState

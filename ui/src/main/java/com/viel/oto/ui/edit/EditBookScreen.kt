@@ -67,8 +67,8 @@ import com.materialkolor.ktx.animateColorScheme
 import com.viel.oto.shared.R
 import com.viel.oto.application.library.edit.EditBookDraft
 import com.viel.oto.media.parser.ImageProcessor
-import com.viel.oto.shared.settings.AppSettings
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.AppSettings
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.CoverBackground
 import com.viel.oto.ui.common.PlayerCover
 import com.viel.oto.ui.common.layout.AppWindowSizeClass

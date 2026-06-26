@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.viel.oto.shared.R
 import com.viel.oto.application.library.search.SearchHistoryItem
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.theme.OtoTheme
 import org.junit.Rule
 import org.junit.Test

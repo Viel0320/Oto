@@ -73,10 +73,6 @@ class AppShellDependencyArchitectureTest {
         )
 
         private val domainModuleSourceRoots = listOf(
-            File("../settings/model/src/main"),
-            File("settings/model/src/main"),
-            File("../network/policy/src/main"),
-            File("network/policy/src/main"),
             File("../runtime/lifecycle/src/main"),
             File("runtime/lifecycle/src/main"),
             File("../runtime/observability/src/main"),

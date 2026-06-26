@@ -19,7 +19,7 @@ Owns the AudiobookShelf anti-corruption layer: credentials, DTOs, Moshi API clie
 - `:data:store` for persisted catalog, root, progress, and credential-adjacent gateway contracts.
 - `:library:vfs` and `:library:import` for source-provider and root-availability contracts.
 - `:media:metadata` and `:media:playback` for cover extraction and remote playback-session contracts.
-- `:network:policy`, `:work:policy`, and runtime modules for policy and lifecycle support.
+- `:shared`, `:work:policy`, and runtime modules for shared policy, WorkManager policy, and lifecycle support.
 
 ## Forbidden Dependencies
 

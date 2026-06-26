@@ -54,8 +54,8 @@ import com.viel.oto.application.download.BookCacheState
 import com.viel.oto.application.download.BookCacheStatus
 import com.viel.oto.application.download.ManualDownloadDisplayTextPolicy
 import com.viel.oto.application.download.ManualDownloadTaskItem
-import com.viel.oto.shared.formatFileSize
-import com.viel.oto.shared.settings.GlassEffectMode
+import com.viel.oto.shared.policy.formatFileSize
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.OtoGlassTopBar
 import com.viel.oto.ui.settings.SettingsTemplateDialog
 import dev.chrisbanes.haze.HazeState

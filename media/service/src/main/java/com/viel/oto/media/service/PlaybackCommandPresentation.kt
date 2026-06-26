@@ -1,7 +1,7 @@
 package com.viel.oto.media.service
 
 import android.content.Context
-import com.viel.oto.shared.settings.SeekStepSeconds
+import com.viel.oto.shared.model.SeekStepSeconds
 
 /**
  * Supplies localized MediaSession command labels and app-owned icon resource ids.

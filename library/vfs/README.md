@@ -11,7 +11,7 @@
 ## Allowed Dependencies
 
 - `:data:store` for source roots, file entities, cache policy, and WebDAV credentials.
-- `:network:policy` for cleartext HTTP and unsafe TLS enforcement.
+- `:shared` for cleartext HTTP and unsafe TLS policy.
 - `:runtime:observability` for VFS and cache diagnostics.
 
 ## Forbidden Dependencies

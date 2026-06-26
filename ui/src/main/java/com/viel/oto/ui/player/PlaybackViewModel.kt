@@ -17,7 +17,7 @@ import com.viel.oto.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.oto.event.feedback.PlaybackControlFeedbackFacts
 import com.viel.oto.event.feedback.RecoveryFeedbackFacts
 import com.viel.oto.media.PlaybackMediaId
-import com.viel.oto.media.PlaybackSeekStepPolicy
+import com.viel.oto.shared.policy.PlaybackSeekStepPolicy
 import com.viel.oto.media.subtitle.SubtitleParser
 import com.viel.oto.ui.settings.PlayerSettingsState
 import kotlinx.coroutines.CoroutineScope
@@ -297,9 +297,9 @@ class PlaybackViewModel(
     private var undoJob: kotlinx.coroutines.Job? = null
     private var hasRestoredLastPlayedBook = false
 
-    private var _playbackSeekStepConfig = com.viel.oto.shared.settings.PlaybackSeekStepConfig()
+    private var _playbackSeekStepConfig = com.viel.oto.shared.model.PlaybackSeekStepConfig()
 
-    fun setPlaybackSeekStepConfig(config: com.viel.oto.shared.settings.PlaybackSeekStepConfig) {
+    fun setPlaybackSeekStepConfig(config: com.viel.oto.shared.model.PlaybackSeekStepConfig) {
         _playbackSeekStepConfig = config
     }
 
