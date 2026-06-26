@@ -120,6 +120,8 @@ class MultiModuleMigrationBaselineTest {
             File("event/src/main/kotlin/com/viel/oto"),
             File("../shared/src/main/kotlin/com/viel/oto"),
             File("shared/src/main/kotlin/com/viel/oto"),
+            File("../widget/src/main/java/com/viel/oto"),
+            File("widget/src/main/java/com/viel/oto"),
             File("../ui/src/main/java/com/viel/oto"),
             File("ui/src/main/java/com/viel/oto")
         )
@@ -244,6 +246,8 @@ class MultiModuleMigrationBaselineTest {
             "ui->logger",
             "ui->media",
             "ui->shared",
+            "widget->logger",
+            "widget->shared",
             "work->data"
         )
     }
