@@ -1,6 +1,5 @@
 package com.viel.oto.library.vfs.sourceProvider.webdav
 
-import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.library.vfs.VfsNode
@@ -9,9 +8,7 @@ import com.viel.oto.library.vfs.VirtualFileSystem
 import com.viel.oto.library.vfs.cache.DirectoryListingCache
 import com.viel.oto.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.oto.library.vfs.sourceProvider.SourceNode
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
@@ -44,7 +41,7 @@ class WebDavSourceProviderPropfindTest {
                 )
                 val cache = RecordingDirectoryListingCache()
                 val vfs = VirtualFileSystem(
-                    providerResolver = { WebDavSourceProvider(RuntimeEnvironment.getApplication()) },
+                    providerResolver = { testWebDavSourceProvider(RuntimeEnvironment.getApplication()) },
                     directoryListingCache = cache
                 )
 
@@ -67,7 +64,7 @@ class WebDavSourceProviderPropfindTest {
                         .setHeader("Content-Type", "application/xml")
                         .setBody(mixedPropstatMultistatus())
                 )
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val children = provider.listChildren(rootDirectoryNode(rootFor(server)).sourceNode)
 
@@ -80,23 +77,7 @@ class WebDavSourceProviderPropfindTest {
     }
 
     private suspend fun withCleartextAllowed(block: suspend () -> Unit) {
-        val repository = testAppSettingsRepository("webdav-propfind")
-        repository.updateCleartextTrafficAllowed(true)
-        repository.awaitCleartextSetting(enabled = true)
-        try {
-            block()
-        } finally {
-            repository.updateCleartextTrafficAllowed(false)
-            repository.awaitCleartextSetting(enabled = false)
-        }
-    }
-
-    private suspend fun AppSettingsRepository.awaitCleartextSetting(enabled: Boolean) {
-        withTimeout(2_000L) {
-            while (cachedSettings.isCleartextTrafficAllowed != enabled) {
-                delay(10L)
-            }
-        }
+        block()
     }
 
     private fun rootFor(server: MockWebServer): LibraryRootEntity =

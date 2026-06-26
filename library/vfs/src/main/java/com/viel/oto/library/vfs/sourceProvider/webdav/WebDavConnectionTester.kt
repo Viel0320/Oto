@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.core.net.toUri
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.network.UnsafeNetworkPolicy
+import com.viel.oto.shared.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
@@ -21,6 +22,7 @@ data class WebDavConnectionTestResult(
  */
 class WebDavConnectionTester(
     private val appSettingsRepository: AppSettingsRepository,
+    private val settingsProvider: () -> AppSettings = { appSettingsRepository.cachedSettings },
     private val clientFactory: WebDavHttpClientFactory = WebDavHttpClientFactory(
         connectTimeoutSeconds = 10,
         readTimeoutSeconds = 15
@@ -35,7 +37,7 @@ class WebDavConnectionTester(
         val normalizedEndpoint = normalizeWebDavEndpoint(url)
         val normalizedBasePath = normalizeWebDavBasePath(basePath, url)
         val targetUrl = if (normalizedBasePath.isEmpty()) normalizedEndpoint else "$normalizedEndpoint$normalizedBasePath"
-        val settings = appSettingsRepository.cachedSettings
+        val settings = settingsProvider()
         UnsafeNetworkPolicy.requireCleartextHttpAllowed(targetUrl, settings, "WebDAV connection test")
         val request = Request.Builder()
             .url(targetUrl)

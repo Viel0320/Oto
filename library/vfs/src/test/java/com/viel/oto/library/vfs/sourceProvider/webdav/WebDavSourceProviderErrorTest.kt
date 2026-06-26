@@ -1,13 +1,10 @@
 package com.viel.oto.library.vfs.sourceProvider.webdav
 
-import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.oto.library.vfs.sourceProvider.SourceNode
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.SocketPolicy
@@ -29,7 +26,7 @@ class WebDavSourceProviderErrorTest {
         withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val error = assertThrows(WebDavException::class.java) {
                     runBlocking {
@@ -47,7 +44,7 @@ class WebDavSourceProviderErrorTest {
         withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(416))
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val result = provider.readRange(fileNode(rootFor(server)), 9999L, 100)
 
@@ -61,7 +58,7 @@ class WebDavSourceProviderErrorTest {
         withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(200).setBody("full file content"))
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val result = provider.readRange(fileNode(rootFor(server)), 10L, 5)
 
@@ -80,7 +77,7 @@ class WebDavSourceProviderErrorTest {
                         .setResponseCode(207)
                         .setBody(largeXml)
                 )
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val error = assertThrows(WebDavException::class.java) {
                     runBlocking {
@@ -98,7 +95,7 @@ class WebDavSourceProviderErrorTest {
         withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(404))
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val result = provider.exists(fileNode(rootFor(server)))
 
@@ -112,7 +109,7 @@ class WebDavSourceProviderErrorTest {
         withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(404))
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val result = provider.rootDirectory(rootFor(server))
 
@@ -126,7 +123,7 @@ class WebDavSourceProviderErrorTest {
         withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(206).setBody("data"))
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val error = assertThrows(WebDavException::class.java) {
                     runBlocking {
@@ -140,23 +137,7 @@ class WebDavSourceProviderErrorTest {
     }
 
     private suspend fun withCleartextAllowed(block: suspend () -> Unit) {
-        val repository = testAppSettingsRepository("webdav-error")
-        repository.updateCleartextTrafficAllowed(true)
-        repository.awaitCleartextSetting(true)
-        try {
-            block()
-        } finally {
-            repository.updateCleartextTrafficAllowed(false)
-            repository.awaitCleartextSetting(false)
-        }
-    }
-
-    private suspend fun AppSettingsRepository.awaitCleartextSetting(enabled: Boolean) {
-        withTimeout(2_000L) {
-            while (cachedSettings.isCleartextTrafficAllowed != enabled) {
-                delay(10L)
-            }
-        }
+        block()
     }
 
     private fun rootFor(server: MockWebServer) = LibraryRootEntity(

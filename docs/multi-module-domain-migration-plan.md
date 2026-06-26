@@ -2,16 +2,16 @@
 
 ## 当前事实
 
-- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`。
+- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`。
 - `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 `abs`、`application`、`library`、`media`、`ui`、`widget`、`work`；`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`。
-- 本次静态扫描的 app Kotlin 文件数量：`ui` 128、`application` 73、`media` 62、`library` 55、`abs` 32、`di` 17、`event` 15、`widget` 6、`i18n` 1、`shared` 1、`work` 1；`:data:store` Kotlin 文件数量：`data` 76、`di` 1、`timeline` 1。
-- `settings/model`、`network/policy`、`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability` 已是 Android library Module，继续保留 `com.viel.oto.logger` 包名供现有调用点使用。
+- 本次迁移后，app 内 `library` 生产 Kotlin 文件数量为 37，`:library:vfs` 生产 Kotlin 文件数量为 21、JVM 测试文件数量为 17；`:data:store` 继续维护 Room、DataStore 和持久化 gateway。
+- `settings/model`、`network/policy`、`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability` 和 `library/vfs` 已是 Android library Module，继续保留 `com.viel.oto.logger` 和 `com.viel.oto.library.vfs` 包名供现有调用点使用。
 - ABS Room 持久化文件当前位于 `data/store/src/main/java/com/viel/oto/data/abs/playback` 和 `data/store/src/main/java/com/viel/oto/data/abs/sync`，`AppDatabase` 已从 `data.abs.*` 导入这些 DAO/Entity。
 - Koin 入口集中在 `OtoKoinApplication`，关闭顺序由 `GraphClosePolicy` 固定为 `media -> download -> abs -> library -> uiEvents -> data`。
 - 现有导入图仍存在阻碍继续拆模块的循环：
   - `data` 已进入 `:data:store`，当前只保留对 `shared`、`timeline`、`logger` 的窄依赖。
   - `abs` 仍直接引用 `data`、`library`、`media`、`work`。
-  - `library` 已移除对 `abs` 的生产源码直接引用，当前仍直接引用 `data`、`media`。
+  - `library` 已移除对 `abs` 的生产源码直接引用，VFS 已进入 `:library:vfs`，app 内剩余 library import/root/availability 代码当前仍直接引用 `data`、`media`。
   - `media` 直接引用 `application`、`data`、`library`、`widget`、`MainActivity`、`R`。
   - `logger` 已物理迁出 app，多数领域仍直接依赖具体 logger，后续需要继续收敛为窄 observability Interface。
   - `event` 直接引用 `application`、`data`、`media`、`R`。
@@ -208,7 +208,9 @@ flowchart TD
 
 改动范围：
 
-- 新增 `:library:vfs`，移动 `VirtualFileSystem`、`VfsFileInterface`、VFS cache、SAF/WebDAV source provider、remote range strategy。
+- 已新增 `:library:vfs`，并移动 `VirtualFileSystem`、`VfsFileInterface`、VFS cache、SAF/WebDAV source provider、remote range strategy。
+- 已移动 `FileRef`、`FileIdentity` 和 `RemoteAvailabilityMappingPolicy` 到 `:library:vfs`，让 WebDAV、ABS 和 metadata/import 调用点继续使用稳定坐标模型与远程错误映射。
+- 已为 WebDAV provider/tester 增加 settings provider 注入点，模块测试不再依赖 app composition root 或 DataStore 缓存预热。
 - 新增 `:library:import`，移动 scan/import/root lifecycle/availability。
 - 已落地：`LibrarySourceProvider` 改为接收 source Adapter 列表；ABS Adapter 由 app composition root 注册，`library` 不再 import `AbsSourceProvider`。
 - WebDAV 继续留在 `:library:vfs`，因为它是 library source Adapter，不与 ABS protocol 合并。
@@ -217,6 +219,7 @@ flowchart TD
 验收：
 
 - `.\gradlew.bat --no-problems-report :library:vfs:compileDebugKotlin`
+- `.\gradlew.bat --no-problems-report :library:vfs:testDebugUnitTest`
 - `.\gradlew.bat --no-problems-report :library:import:testDebugUnitTest`
 - `.\gradlew.bat --no-problems-report :library:import:testDebugUnitTest --tests "com.viel.oto.library.*"`
 - `.\gradlew.bat --no-problems-report :media:playback:testDebugUnitTest --tests "com.viel.oto.media.VfsPlaybackDataSourceTest"`

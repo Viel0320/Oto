@@ -1,13 +1,10 @@
 package com.viel.oto.library.vfs.sourceProvider.webdav
 
-import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.oto.library.vfs.sourceProvider.SourceNode
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
@@ -48,7 +45,7 @@ class WebDavSourceProviderXmlTest {
                             """.trimIndent()
                         )
                 )
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val children = provider.listChildren(directoryNode(rootFor(server)))
 
@@ -84,7 +81,7 @@ class WebDavSourceProviderXmlTest {
                             """.trimIndent()
                         )
                 )
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val children = provider.listChildren(directoryNode(rootFor(server)))
 
@@ -118,7 +115,7 @@ class WebDavSourceProviderXmlTest {
                             """.trimIndent()
                         )
                 )
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val children = provider.listChildren(directoryNode(rootFor(server)))
 
@@ -137,7 +134,7 @@ class WebDavSourceProviderXmlTest {
                         .setResponseCode(207)
                         .setBody("<malformed><xml")
                 )
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val error = assertThrows(WebDavException::class.java) {
                     runBlocking {
@@ -182,7 +179,7 @@ class WebDavSourceProviderXmlTest {
                             """.trimIndent()
                         )
                 )
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val children = provider.listChildren(directoryNode(rootFor(server)))
 
@@ -215,7 +212,7 @@ class WebDavSourceProviderXmlTest {
                             """.trimIndent()
                         )
                 )
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val node = provider.resolve(rootFor(server), "target.mp3")
 
@@ -226,23 +223,7 @@ class WebDavSourceProviderXmlTest {
     }
 
     private suspend fun withCleartextAllowed(block: suspend () -> Unit) {
-        val repository = testAppSettingsRepository("webdav-xml")
-        repository.updateCleartextTrafficAllowed(true)
-        repository.awaitCleartextSetting(true)
-        try {
-            block()
-        } finally {
-            repository.updateCleartextTrafficAllowed(false)
-            repository.awaitCleartextSetting(false)
-        }
-    }
-
-    private suspend fun AppSettingsRepository.awaitCleartextSetting(enabled: Boolean) {
-        withTimeout(2_000L) {
-            while (cachedSettings.isCleartextTrafficAllowed != enabled) {
-                delay(10L)
-            }
-        }
+        block()
     }
 
     private fun rootFor(server: MockWebServer) = LibraryRootEntity(

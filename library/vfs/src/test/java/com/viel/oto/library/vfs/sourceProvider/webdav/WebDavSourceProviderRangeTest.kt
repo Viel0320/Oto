@@ -1,13 +1,10 @@
 package com.viel.oto.library.vfs.sourceProvider.webdav
 
-import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.oto.library.vfs.sourceProvider.SourceNode
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
@@ -32,7 +29,7 @@ class WebDavSourceProviderRangeTest {
                         .setHeader("Content-Range", "bytes 0-3/100")
                         .setBody("0123")
                 )
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
                 val node = sourceNodeFor(server)
 
                 val error = runCatching {
@@ -56,7 +53,7 @@ class WebDavSourceProviderRangeTest {
                         .setHeader("Content-Range", "bytes 5-8/100")
                         .setBody("56789")
                 )
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
                 val node = sourceNodeFor(server)
 
                 val error = runCatching {
@@ -83,7 +80,7 @@ class WebDavSourceProviderRangeTest {
                         .setResponseCode(206)
                         .setBody("56789")
                 )
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
                 val node = sourceNodeFor(server)
 
                 val error = runCatching {
@@ -98,23 +95,7 @@ class WebDavSourceProviderRangeTest {
     }
 
     private suspend fun withCleartextAllowed(block: suspend () -> Unit) {
-        val repository = testAppSettingsRepository("webdav-range")
-        repository.updateCleartextTrafficAllowed(true)
-        repository.awaitCleartextSetting(enabled = true)
-        try {
-            block()
-        } finally {
-            repository.updateCleartextTrafficAllowed(false)
-            repository.awaitCleartextSetting(enabled = false)
-        }
-    }
-
-    private suspend fun AppSettingsRepository.awaitCleartextSetting(enabled: Boolean) {
-        withTimeout(2_000L) {
-            while (cachedSettings.isCleartextTrafficAllowed != enabled) {
-                delay(10L)
-            }
-        }
+        block()
     }
 
     private fun sourceNodeFor(server: MockWebServer): SourceNode {

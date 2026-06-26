@@ -23,6 +23,7 @@ import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangeEndPolicy
 import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangePlan
 import com.viel.oto.library.vfs.sourceProvider.remote.RemoteRangeStrategyLogSink
 import com.viel.oto.network.UnsafeNetworkPolicy
+import com.viel.oto.shared.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
@@ -79,6 +80,7 @@ private data class WebDavResource(
 class WebDavSourceProvider(
     context: Context,
     appSettingsRepository: AppSettingsRepository? = null,
+    settingsProvider: (() -> AppSettings)? = null,
     webDavCredentialStore: WebDavCredentialStore = WebDavCredentialStore(context.applicationContext.webDavCredentialDataStore)
 ) : LibrarySourceProvider, KoinComponent {
     override val kind: LibrarySourceKind = LibrarySourceKind.WEBDAV
@@ -90,7 +92,10 @@ class WebDavSourceProvider(
     )
 
     private val injectedAppSettingsRepository: AppSettingsRepository by inject()
-    private val appSettingsRepository = appSettingsRepository ?: injectedAppSettingsRepository
+    private val providedAppSettingsRepository = appSettingsRepository
+    private val settingsProvider = settingsProvider ?: {
+        (providedAppSettingsRepository ?: injectedAppSettingsRepository).cachedSettings
+    }
 
     private val clientFactory = WebDavHttpClientFactory(
         connectTimeoutSeconds = 10,
@@ -101,7 +106,7 @@ class WebDavSourceProvider(
     private val credentialStore = webDavCredentialStore
 
     private fun getClient(): OkHttpClient =
-        clientFactory.clientFor(UnsafeNetworkPolicy.isInsecureTlsAllowed(appSettingsRepository.cachedSettings))
+        clientFactory.clientFor(UnsafeNetworkPolicy.isInsecureTlsAllowed(settingsProvider()))
 
     override suspend fun rootDirectory(root: LibraryRootEntity): SourceNode? =
         try {
@@ -360,7 +365,7 @@ class WebDavSourceProvider(
         try {
             UnsafeNetworkPolicy.requireCleartextHttpAllowed(
                 url = request.url.toString(),
-                settings = appSettingsRepository.cachedSettings,
+                settings = settingsProvider(),
                 operation = "WebDAV ${request.method}"
             )
             getClient().newCall(request).execute()

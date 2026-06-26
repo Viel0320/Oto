@@ -1,15 +1,12 @@
 package com.viel.oto.library.vfs.sourceProvider.webdav
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.data.webdav.WebDavCredentialStore
 import com.viel.oto.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.oto.library.vfs.sourceProvider.SourceNode
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
@@ -29,13 +26,12 @@ class WebDavSourceProviderAuthTest {
 
     @Test
     fun `openInputStream should include auth header when credentials exist`() = runBlocking {
-        withCleartextAllowed { repository ->
+        withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(200).setBody("content"))
                 val credentialStore = testCredentialStore("webdav-auth-header")
-                val provider = WebDavSourceProvider(
+                val provider = testWebDavSourceProvider(
                     context = RuntimeEnvironment.getApplication(),
-                    appSettingsRepository = repository,
                     webDavCredentialStore = credentialStore
                 )
                 val root = rootFor(server, credentialId = "cred-1")
@@ -52,13 +48,10 @@ class WebDavSourceProviderAuthTest {
 
     @Test
     fun `readRange should map 401 to AUTH_REQUIRED status`() = runBlocking {
-        withCleartextAllowed { repository ->
+        withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(401))
-                val provider = WebDavSourceProvider(
-                    context = RuntimeEnvironment.getApplication(),
-                    appSettingsRepository = repository
-                )
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val error = assertThrows(WebDavException::class.java) {
                     runBlocking {
@@ -73,13 +66,10 @@ class WebDavSourceProviderAuthTest {
 
     @Test
     fun `listChildren should map 403 to ACCESS_DENIED status`() = runBlocking {
-        withCleartextAllowed { repository ->
+        withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(403))
-                val provider = WebDavSourceProvider(
-                    context = RuntimeEnvironment.getApplication(),
-                    appSettingsRepository = repository
-                )
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val error = assertThrows(WebDavException::class.java) {
                     runBlocking {
@@ -92,16 +82,8 @@ class WebDavSourceProviderAuthTest {
         }
     }
 
-    private suspend fun withCleartextAllowed(block: suspend (AppSettingsRepository) -> Unit) {
-        val repository = testAppSettingsRepository("webdav-auth")
-        repository.updateCleartextTrafficAllowed(true)
-        repository.awaitCleartextSetting(true)
-        try {
-            block(repository)
-        } finally {
-            repository.updateCleartextTrafficAllowed(false)
-            repository.awaitCleartextSetting(false)
-        }
+    private suspend fun withCleartextAllowed(block: suspend () -> Unit) {
+        block()
     }
 
     /**
@@ -114,12 +96,6 @@ class WebDavSourceProviderAuthTest {
                 produceFile = { File(tempDir, "webdav_credentials.preferences_pb") }
             )
         )
-    }
-
-    private suspend fun AppSettingsRepository.awaitCleartextSetting(enabled: Boolean) {
-        withTimeout(2_000L) {
-            settingsFlow.first { settings -> settings.isCleartextTrafficAllowed == enabled }
-        }
     }
 
     private fun rootFor(server: MockWebServer, credentialId: String? = null) =

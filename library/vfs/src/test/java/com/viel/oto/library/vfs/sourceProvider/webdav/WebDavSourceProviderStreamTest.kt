@@ -1,13 +1,10 @@
 package com.viel.oto.library.vfs.sourceProvider.webdav
 
-import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.library.vfs.sourceProvider.SourceFileMetadata
 import com.viel.oto.library.vfs.sourceProvider.SourceNode
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertArrayEquals
@@ -28,7 +25,7 @@ class WebDavSourceProviderStreamTest {
         withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(200).setBody("file content"))
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val stream = provider.openInputStream(fileNode(rootFor(server)))
                 val content = stream?.readBytes()
@@ -49,7 +46,7 @@ class WebDavSourceProviderStreamTest {
                         .setHeader("Content-Range", "bytes 10-19/100")
                         .setBody("0123456789")
                 )
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val stream = provider.openInputStream(fileNode(rootFor(server)), offset = 10L)
                 val content = stream?.readBytes()
@@ -67,7 +64,7 @@ class WebDavSourceProviderStreamTest {
         withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(200).setBody("0123456789abcdef"))
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val stream = provider.openInputStream(fileNode(rootFor(server)), offset = 10L)
                 val content = stream?.readBytes()
@@ -83,7 +80,7 @@ class WebDavSourceProviderStreamTest {
         withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(416))
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val error = assertThrows(WebDavException::class.java) {
                     runBlocking {
@@ -106,7 +103,7 @@ class WebDavSourceProviderStreamTest {
                         .setHeader("Content-Range", "bytes 5-9/100")
                         .setBody("56789")
                 )
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
 
                 val data = provider.readRange(fileNode(rootFor(server)), offset = 5L, length = 5)
 
@@ -127,7 +124,7 @@ class WebDavSourceProviderStreamTest {
                         .setHeader("Content-Range", "bytes 95-99/100")
                         .setBody("95-99")
                 )
-                val provider = WebDavSourceProvider(RuntimeEnvironment.getApplication())
+                val provider = testWebDavSourceProvider(RuntimeEnvironment.getApplication())
                 val node = fileNode(rootFor(server), fileSize = 100L)
 
                 val data = provider.readRange(node, offset = 95L, length = 1000)
@@ -140,23 +137,7 @@ class WebDavSourceProviderStreamTest {
     }
 
     private suspend fun withCleartextAllowed(block: suspend () -> Unit) {
-        val repository = testAppSettingsRepository("webdav-stream")
-        repository.updateCleartextTrafficAllowed(true)
-        repository.awaitCleartextSetting(true)
-        try {
-            block()
-        } finally {
-            repository.updateCleartextTrafficAllowed(false)
-            repository.awaitCleartextSetting(false)
-        }
-    }
-
-    private suspend fun AppSettingsRepository.awaitCleartextSetting(enabled: Boolean) {
-        withTimeout(2_000L) {
-            while (cachedSettings.isCleartextTrafficAllowed != enabled) {
-                delay(10L)
-            }
-        }
+        block()
     }
 
     private fun rootFor(server: MockWebServer) = LibraryRootEntity(

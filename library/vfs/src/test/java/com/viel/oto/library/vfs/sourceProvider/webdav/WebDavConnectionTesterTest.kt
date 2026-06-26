@@ -1,9 +1,6 @@
 package com.viel.oto.library.vfs.sourceProvider.webdav
 
-import com.viel.oto.data.AppSettingsRepository
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
@@ -23,7 +20,7 @@ class WebDavConnectionTesterTest {
         withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(207))
-                val tester = WebDavConnectionTester(appSettings())
+                val tester = testWebDavConnectionTester()
 
                 val result = tester.testConnection(
                     url = server.url("/dav").toString(),
@@ -46,7 +43,7 @@ class WebDavConnectionTesterTest {
         withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(401))
-                val tester = WebDavConnectionTester(appSettings())
+                val tester = testWebDavConnectionTester()
 
                 val error = assertThrows(WebDavConnectionTestException::class.java) {
                     runBlocking {
@@ -65,7 +62,7 @@ class WebDavConnectionTesterTest {
         withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(403))
-                val tester = WebDavConnectionTester(appSettings())
+                val tester = testWebDavConnectionTester()
 
                 val error = assertThrows(WebDavConnectionTestException::class.java) {
                     runBlocking {
@@ -83,7 +80,7 @@ class WebDavConnectionTesterTest {
         withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(404))
-                val tester = WebDavConnectionTester(appSettings())
+                val tester = testWebDavConnectionTester()
 
                 val error = assertThrows(WebDavConnectionTestException::class.java) {
                     runBlocking {
@@ -98,7 +95,7 @@ class WebDavConnectionTesterTest {
 
     @Test
     fun `testConnection should reject URL with userinfo`() {
-        val tester = WebDavConnectionTester(appSettings())
+        val tester = testWebDavConnectionTester()
 
         val error = assertThrows(WebDavEndpointValidationException::class.java) {
             runBlocking {
@@ -111,7 +108,7 @@ class WebDavConnectionTesterTest {
 
     @Test
     fun `testConnection should reject URL without scheme`() {
-        val tester = WebDavConnectionTester(appSettings())
+        val tester = testWebDavConnectionTester()
 
         val error = assertThrows(WebDavEndpointValidationException::class.java) {
             runBlocking {
@@ -127,7 +124,7 @@ class WebDavConnectionTesterTest {
         withCleartextAllowed {
             MockWebServer().use { server ->
                 server.enqueue(MockResponse().setResponseCode(200))
-                val tester = WebDavConnectionTester(appSettings())
+                val tester = testWebDavConnectionTester()
 
                 val result = tester.testConnection(
                     url = server.url("/remote/library").toString(),
@@ -143,24 +140,6 @@ class WebDavConnectionTesterTest {
     }
 
     private suspend fun withCleartextAllowed(block: suspend () -> Unit) {
-        val repository = appSettings()
-        repository.updateCleartextTrafficAllowed(true)
-        repository.awaitCleartextSetting(true)
-        try {
-            block()
-        } finally {
-            repository.updateCleartextTrafficAllowed(false)
-            repository.awaitCleartextSetting(false)
-        }
+        block()
     }
-
-    private suspend fun AppSettingsRepository.awaitCleartextSetting(enabled: Boolean) {
-        withTimeout(2_000L) {
-            while (cachedSettings.isCleartextTrafficAllowed != enabled) {
-                delay(10L)
-            }
-        }
-    }
-
-    private fun appSettings() = testAppSettingsRepository("webdav-connection")
 }
