@@ -232,7 +232,6 @@ class MultiModuleMigrationBaselineTest {
             "media->timeline",
             "network->shared",
             "timeline->data",
-            "ui->BuildConfig",
             "ui->application",
             "ui->event",
             "ui->i18n",

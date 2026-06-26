@@ -70,8 +70,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mikepenz.aboutlibraries.entity.Library
-import com.mikepenz.aboutlibraries.ui.compose.android.produceLibraries
-import com.viel.oto.BuildConfig
 import com.viel.oto.shared.R
 import com.viel.oto.shared.settings.GlassEffectMode
 import com.viel.oto.ui.common.OtoGlassTopBar
@@ -84,16 +82,20 @@ import dev.chrisbanes.haze.hazeSource
 
 /**
  * Generated open-source licenses view.
- * Loads Gradle-generated AboutLibraries metadata and renders it through the app's responsive independent columns.
+ * Renders app-shell supplied AboutLibraries metadata through responsive independent columns.
+ *
+ * MainActivity owns the generated raw resource and version source so this UI boundary can move to
+ * the UI module without importing the application module's R class or BuildConfig.
  */
 @Composable
 fun AboutLibrariesScreen(
     modifier: Modifier = Modifier,
+    appVersionName: String,
+    libraries: List<Library>?,
     onBack: () -> Unit,
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     aboutHazeState: HazeState? = null
 ) {
-    val libraries by produceLibraries(com.viel.oto.R.raw.aboutlibraries)
     val uriHandler = LocalUriHandler.current
     val layoutDirection = LocalLayoutDirection.current
     val density = LocalDensity.current
@@ -137,7 +139,8 @@ fun AboutLibrariesScreen(
                 LoadingLicensesContent(contentPadding = licenseContentPadding)
             } else {
                 GeneratedLibrariesColumns(
-                    libraries = libraries?.libraries.orEmpty(),
+                    appVersionName = appVersionName,
+                    libraries = libraries,
                     columnsCount = windowClass.columnsCount,
                     contentPadding = licenseContentPadding,
                     onVisitUrl = openProjectUrl
@@ -175,6 +178,7 @@ fun AboutLibrariesScreen(
  */
 @Composable
 private fun GeneratedLibrariesColumns(
+    appVersionName: String,
     libraries: List<Library>,
     columnsCount: Int,
     contentPadding: PaddingValues,
@@ -188,7 +192,10 @@ private fun GeneratedLibrariesColumns(
         modifier = Modifier.fillMaxSize(),
         contentPadding = contentPadding,
         header = {
-            BrandHeaderCard(modifier = Modifier.fillMaxWidth())
+            BrandHeaderCard(
+                appVersionName = appVersionName,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     ) { libraryIndex ->
         val library = libraries[libraryIndex]
@@ -223,10 +230,12 @@ private fun LoadingLicensesContent(contentPadding: PaddingValues) {
  * Displays app identity and Gradle-owned version metadata without mixing it into generated third-party notices.
  */
 @Composable
-private fun BrandHeaderCard(modifier: Modifier = Modifier) {
+private fun BrandHeaderCard(
+    appVersionName: String,
+    modifier: Modifier = Modifier
+) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val secondaryColor = MaterialTheme.colorScheme.tertiary
-    val versionName = remember { BuildConfig.VERSION_NAME }
 
     Card(
         modifier = modifier,
@@ -271,7 +280,7 @@ private fun BrandHeaderCard(modifier: Modifier = Modifier) {
             )
 
             Text(
-                text = stringResource(R.string.about_version_text, versionName),
+                text = stringResource(R.string.about_version_text, appVersionName),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 fontWeight = FontWeight.Medium
@@ -560,7 +569,11 @@ fun AboutLibrariesScreenPreview() {
         CompositionLocalProvider(
             LocalAppWindowSizeClass provides AppWindowSizeClass.PortraitPhone
         ) {
-            AboutLibrariesScreen(onBack = {})
+            AboutLibrariesScreen(
+                appVersionName = "preview",
+                libraries = emptyList(),
+                onBack = {}
+            )
         }
     }
 }

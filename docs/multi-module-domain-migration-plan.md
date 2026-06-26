@@ -304,6 +304,8 @@ flowchart TD
 - 已落地 7D：widget 模块自带各 locale 副本；app 内 `player_widget_*` string 和 widget 专用 drawable/layout/xml 死资源已清理。7D 暂留在 app 的共享 string 已在 7E 迁入 `:shared`。
 - 已落地 7E：`:shared` 继续维护跨层小工具，并接管 app、UI、event adapter 和测试共同引用的 user-visible string、locale 资源和共享 playback/navigation drawable；app 只保留 launcher、AboutLibraries raw 等应用壳专属资源。
 - 已落地 7E：UI、app-owned event adapter、download notification resource adapter 和相关测试改为引用 `com.viel.oto.shared.R`；架构 baseline 移除 `app/event/ui -> R` 资源边，保留明确的 `app/event/ui -> shared` 边。
+- 已落地 7F 预备切片：`MainActivity` 作为 app shell 读取 `BuildConfig.VERSION_NAME` 和 AboutLibraries raw 资源，并把版本号和已解析 license 列表传入 `OtoApp`；`AboutLibrariesScreen` 不再 import app `BuildConfig` 或 app `R`。
+- 已落地 7F 预备切片：架构 baseline 移除 `ui -> BuildConfig`，后续 `:ui` 抽取只需要继续处理 UI 对 app composition root、DI 和 app-owned adapter 的剩余引用。
 - 后续将 `ViewModelModule` 移到 `:ui`。widget receiver 由 manifest 声明，`:widget` 当前无 Koin 定义。
 - UI 继续只通过 application command/read model、event sink 和 media playback Interface 交互。
 

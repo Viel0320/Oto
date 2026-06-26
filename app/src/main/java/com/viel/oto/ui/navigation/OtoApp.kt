@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.savedstate.compose.LocalSavedStateRegistryOwner
+import com.mikepenz.aboutlibraries.entity.Library
 import com.viel.oto.application.library.home.toDetailBookItem
 import com.viel.oto.application.library.settings.AppSettingsReadModel
 import com.viel.oto.application.library.settings.SettingsRootItem
@@ -65,11 +66,14 @@ import org.koin.compose.koinInject
  *
  * Theme mode is resolved independently from the selected glass effect mode so Haze can use light,
  * dark, or system appearance normally. Dynamic color remains owned by OtoTheme and continues
- * to use the same wallpaper seed path for both Material and Haze rendering.
+ * to use the same wallpaper seed path for both Material and Haze rendering. App-shell metadata is
+ * passed in as values because the UI module must not import application BuildConfig or raw resources.
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun OtoApp(
+    appVersionName: String = "unknown",
+    aboutLibraries: List<Library>? = emptyList(),
     openPlayerOverlayRequest: Boolean = false,
     onOpenPlayerOverlayConsumed: () -> Unit = {},
     openDownloadManagementRequest: Boolean = false,
@@ -536,6 +540,8 @@ fun OtoApp(
 
                 if (settingsViewModel != null) {
                     SettingsOverlay(
+                        appVersionName = appVersionName,
+                        aboutLibraries = aboutLibraries,
                         settingsViewModel = settingsViewModel,
                         glassEffectMode = activeGlassEffectMode,
                         appHazeState = hazeState,

@@ -10,7 +10,15 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.mikepenz.aboutlibraries.ui.compose.android.produceLibraries
 import com.viel.oto.ui.navigation.OtoApp
+
+/**
+ * Android application entry point and owner of app-shell generated resources.
+ *
+ * Supplies version metadata and generated AboutLibraries data to the UI tree so UI code can stay
+ * independent from this module's BuildConfig and application R namespace during module extraction.
+ */
 class MainActivity : ComponentActivity() {
     private var shouldOpenPlayerOverlay by mutableStateOf(false)
     private var shouldOpenDownloadManagement by mutableStateOf(false)
@@ -24,7 +32,11 @@ class MainActivity : ComponentActivity() {
         window.decorView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
 
         setContent {
+            val aboutLibraries by produceLibraries(R.raw.aboutlibraries)
+
             OtoApp(
+                appVersionName = BuildConfig.VERSION_NAME,
+                aboutLibraries = aboutLibraries?.libraries,
                 openPlayerOverlayRequest = shouldOpenPlayerOverlay,
                 onOpenPlayerOverlayConsumed = {
                     shouldOpenPlayerOverlay = false

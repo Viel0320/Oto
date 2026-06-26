@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mikepenz.aboutlibraries.entity.Library
 import com.viel.oto.application.library.settings.SettingsRootItem
 import com.viel.oto.i18n.AppLocaleController
 import com.viel.oto.shared.settings.GlassEffectMode
@@ -54,11 +55,14 @@ import org.koin.androidx.compose.koinViewModel
  * Hosts the settings overlay interface inside MainActivity, completely replacing the independent SettingsActivity.
  * Controls visual presentation through fade-in and slide-in transitions, maintaining premium layout animations.
  * Manual download retry dispatches the cache command immediately, then requests notification permission only
- * for progress visibility so denial cannot block offline caching.
+ * for progress visibility so denial cannot block offline caching. About metadata is forwarded from
+ * the app shell so this overlay can remain portable when the UI package becomes its own module.
  */
 @Composable
 fun SettingsOverlay(
     modifier: Modifier = Modifier,
+    appVersionName: String = "unknown",
+    aboutLibraries: List<Library>? = emptyList(),
     settingsViewModel: SettingsViewModel = koinViewModel(),
     glassEffectMode: GlassEffectMode,
     openDownloadManagementRequest: Boolean = false,
@@ -211,6 +215,8 @@ fun SettingsOverlay(
                 when (page) {
                     SettingsOverlayPage.AboutLibraries -> {
                         AboutLibrariesScreen(
+                            appVersionName = appVersionName,
+                            libraries = aboutLibraries,
                             onBack = { activeSettingsPage = SettingsOverlayPage.Main },
                             glassEffectMode = glassEffectMode,
                             aboutHazeState = if (isBlur) aboutHazeState else null
