@@ -132,7 +132,7 @@ class PlaybackLifetimeArchitectureTest {
             }
         )
 
-        val mediaPlaybackControllerModule = ArchitectureSourceRoots.appMainFile("di/MediaPlaybackControllerModule.kt").readText()
+        val mediaPlaybackControllerModule = ArchitectureSourceRoots.applicationMainFile("di/MediaPlaybackControllerModule.kt").readText()
 
         assertTrue(mediaPlaybackControllerModule.contains("PlayerPlaybackController"))
     }

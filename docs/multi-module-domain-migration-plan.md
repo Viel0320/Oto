@@ -339,6 +339,7 @@ flowchart TD
 - 已落地 8C：`DownloadReadModelModule` 随下载状态、下载管理和缓存维护读写模型迁入 `:application`，app 不再持有该下载场景 Koin 定义。
 - 已落地 8D：`LibraryUseCaseModule` 随播放计划、进度、搜索历史和 library 管理 use case 绑定迁入 `:application`，关闭注册继续通过 `:runtime:lifecycle` 的 `GraphClosePolicy` 执行。
 - 已落地 8E：`AppMediaServiceLaunchIntentFactory` 从 app `di` 包迁入 app-owned playback adapter 包；`MediaModule` 只绑定 `MediaServiceLaunchIntentFactory` 契约，不再直接命名 `MainActivity`。
+- 已落地 8F：`MediaPlaybackControllerModule` 随 `PlayerPlaybackController` 场景绑定迁入 `:application`；app composition root 继续聚合同名 Koin Module，不再持有播放器场景控制器定义。
 
 验收：
 

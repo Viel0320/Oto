@@ -14,7 +14,7 @@ import org.koin.dsl.module
  * Kept separate from MediaModule so the player controller can evolve without touching media runtime.
  */
 @OptIn(UnstableApi::class)
-internal object MediaPlaybackControllerModule {
+object MediaPlaybackControllerModule {
 
     val module: Module = module {
         single<PlayerPlaybackController> {
