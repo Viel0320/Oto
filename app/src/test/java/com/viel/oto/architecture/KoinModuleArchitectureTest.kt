@@ -117,7 +117,11 @@ class KoinModuleArchitectureTest {
             File("data/store/src/main/java/com/viel/oto/di"),
             File("../data/store/src/main/java/com/viel/oto/di"),
             File("library/import/src/main/java/com/viel/oto/di"),
-            File("../library/import/src/main/java/com/viel/oto/di")
+            File("../library/import/src/main/java/com/viel/oto/di"),
+            File("media/metadata/src/main/java/com/viel/oto/di"),
+            File("../media/metadata/src/main/java/com/viel/oto/di"),
+            File("media/playback/src/main/java/com/viel/oto/di"),
+            File("../media/playback/src/main/java/com/viel/oto/di")
         )
         return candidates
             .filter { candidate -> candidate.isDirectory }

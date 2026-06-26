@@ -220,7 +220,7 @@ flowchart TD
 - 已新增 `:library:import`，移动 scan/import/root lifecycle/availability，并保留对 `:data:store`、`:library:vfs`、`:media:metadata`、`:work:policy` 的显式依赖。
 - 已落地：`LibrarySourceProvider` 改为接收 source Adapter 列表；ABS Adapter 由 app composition root 注册，`library` 不再 import `AbsSourceProvider`。
 - WebDAV 继续留在 `:library:vfs`，因为它是 library source Adapter，不与 ABS protocol 合并。
-- `LibraryScanModule` 已移动到 `:library:import`；`LibraryCoverModule`、`LibraryUseCaseModule` 仍留在 app，后续随 cover/application 领域拆分。
+- `LibraryScanModule` 已移动到 `:library:import`；`LibraryCoverModule` 已迁入 `:data:store` 并通过 `:media:metadata` Adapter 获取解析能力，`LibraryUseCaseModule` 已随阶段 8D 迁入 `:application`。
 
 验收：
 
@@ -342,6 +342,7 @@ flowchart TD
 - 已落地 8F：`MediaPlaybackControllerModule` 随 `PlayerPlaybackController` 场景绑定迁入 `:application`；app composition root 继续聚合同名 Koin Module，不再持有播放器场景控制器定义。
 - 已落地 8G：`CoreSettingsModule` 随 settings read/command Adapter 迁入 `:application`；`DownloadRuntimeInitializedFlag` 作为 application download seam 暴露给 app 下载 runtime 更新，settings 命令不再由 app `di` 持有。
 - 已落地 8H：`LibraryBookGatewayModule` 的 Room-backed book/chapter/bookmark gateway 绑定迁入 `:data:store`；source-aware `AvailabilityChecker`、`MissingBookFileRecoveryChecker` 和 `FileAvailabilityProbe` Adapter 归入 `:library:import`。
+- 已落地 8I：`LibraryCoverModule` 的 Room-backed cover/metadata gateway 绑定迁入 `:data:store`；cover extraction 与 metadata refresh Adapter 由 `:media:metadata` 的 `MediaMetadataModule` 维护，subtitle gateway 由 `:media:playback` 的 `MediaSubtitleModule` 维护。
 
 验收：
 

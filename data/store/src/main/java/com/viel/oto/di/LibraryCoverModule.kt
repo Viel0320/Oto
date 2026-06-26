@@ -1,7 +1,5 @@
 package com.viel.oto.di
 
-import androidx.annotation.OptIn
-import androidx.media3.common.util.UnstableApi
 import com.viel.oto.data.cover.AndroidCoverUriResolver
 import com.viel.oto.data.cover.CoverAssetGateway
 import com.viel.oto.data.cover.CoverAssetGatewayImpl
@@ -17,15 +15,6 @@ import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.metadata.MetadataRefreshGateway
 import com.viel.oto.data.metadata.MetadataRefreshGatewayImpl
 import com.viel.oto.data.metadata.MetadataRefreshSource
-import com.viel.oto.library.vfs.VfsFileInterface
-import com.viel.oto.media.parser.CoverExtractor
-import com.viel.oto.media.parser.MediaCoverImageWriter
-import com.viel.oto.media.parser.MediaCoverRecoveryArtworkSource
-import com.viel.oto.media.parser.MediaMetadataRefreshSource
-import com.viel.oto.media.parser.MetadataResolver
-import com.viel.oto.media.subtitle.SubtitleFileResolver
-import com.viel.oto.media.subtitle.SubtitleGateway
-import com.viel.oto.media.subtitle.SubtitleGatewayImpl
 import com.viel.oto.logger.ScanWorkflowLogSink
 import com.viel.oto.logger.SecureDiagnosticLogSink
 import kotlinx.coroutines.CoroutineScope
@@ -38,14 +27,17 @@ import org.koin.dsl.module
 import java.io.Closeable
 
 /**
- * Cover extraction, recovery, asset gateway, metadata resolver, and subtitle resolver.
- * Replaces the cover/metadata section of LibraryGraph.
+ * Data-owned cover recovery, cover asset, and metadata refresh gateways.
+ *
+ * Media parser adapters provide CoverImageWriter, CoverRecoveryArtworkSource, and
+ * MetadataRefreshSource from the metadata module. This module keeps the Room-backed gateway
+ * definitions close to their DAOs while consuming those parser capabilities only through data-owned
+ * interfaces.
  *
  * CoverRecoveryHelper owns the background repair scope and binds CoverSelfHealer from the
  * same singleton definition, avoiding release-only redirect providers after R8 optimization.
  */
-@OptIn(UnstableApi::class)
-internal object LibraryCoverModule {
+object LibraryCoverModule {
 
     /**
      * Owns the cover recovery coroutine scope registered with graph shutdown.
@@ -59,25 +51,6 @@ internal object LibraryCoverModule {
     }
 
     val module: Module = module {
-        single { CoverExtractor(get()) }
-
-        single<CoverImageWriter> {
-            MediaCoverImageWriter(coverExtractor = get())
-        }
-
-        single<CoverRecoveryArtworkSource> {
-            MediaCoverRecoveryArtworkSource(
-                fileReader = get<VfsFileInterface>(),
-                coverImageWriter = get<CoverImageWriter>()
-            )
-        }
-
-        single { MetadataResolver(get<VfsFileInterface>()) }
-
-        single<MetadataRefreshSource> {
-            MediaMetadataRefreshSource(metadataResolver = get())
-        }
-
         single<CoverUriResolver> { AndroidCoverUriResolver(get()) }
 
         single<CoverRecoveryHelper> {
@@ -124,14 +97,5 @@ internal object LibraryCoverModule {
             )
         }
 
-        single {
-            SubtitleFileResolver(
-                context = get(),
-                bookDao = get<AppDatabase>().bookDao(),
-                fileReader = get<VfsFileInterface>()
-            )
-        }
-
-        single<SubtitleGateway> { SubtitleGatewayImpl(subtitleResolver = get()) }
     }
 }

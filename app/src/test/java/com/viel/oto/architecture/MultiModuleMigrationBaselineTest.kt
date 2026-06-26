@@ -159,6 +159,8 @@ class MultiModuleMigrationBaselineTest {
             "CoreSettingsModule",
             "UiEventModule",
             "MediaModule",
+            "MediaMetadataModule",
+            "MediaSubtitleModule",
             "MediaPlaybackControllerModule",
             "DownloadModule",
             "DownloadReadModelModule",

@@ -40,6 +40,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.media3.common)
     implementation(libs.androidx.palette.ktx)
+    implementation(libs.koin.android)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
