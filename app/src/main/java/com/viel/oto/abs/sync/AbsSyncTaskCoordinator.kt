@@ -3,8 +3,8 @@ package com.viel.oto.abs.sync
 import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.event.AppEventSink
 import com.viel.oto.event.feedback.LibraryAccessFeedbackFacts
+import com.viel.oto.event.feedback.toRootUnavailableFeedbackMessage
 import com.viel.oto.library.availability.LibraryRootAvailabilityUpdate
-import com.viel.oto.library.availability.buildRootUnavailableSyncMessage
 import com.viel.oto.library.availability.isSyncAvailable
 import com.viel.oto.logger.AbsLogSanitizer
 import kotlinx.coroutines.CancellationException
@@ -72,7 +72,7 @@ class AbsSyncTaskCoordinator(
                     return@launch
                 }
                 if (preflight != null && !preflight.isSyncAvailable) {
-                    val feedback = buildRootUnavailableSyncMessage(preflight)
+                    val detailMessage = preflight.toRootUnavailableFeedbackMessage()
                     val errMsg = "ROOT_UNAVAILABLE:${preflight.availability.status}"
                     _events.emit(
                         AbsSyncTaskResult(
@@ -84,7 +84,7 @@ class AbsSyncTaskCoordinator(
                         )
                     )
                     appEventSink.emitFeedback(
-                        LibraryAccessFeedbackFacts.syncBlocked(rootId = root.id, detailMessage = feedback)
+                        LibraryAccessFeedbackFacts.syncBlocked(rootId = root.id, detailMessage = detailMessage)
                     )
                     return@launch
                 }

@@ -4,17 +4,9 @@ import com.viel.oto.data.cover.CoverRecoveryGateway
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.BookEntity
 import com.viel.oto.data.entity.ScanSessionEntity
-import com.viel.oto.event.AppEventSink
-import com.viel.oto.event.AppShellEvent
-import com.viel.oto.event.feedback.FeedbackDeliveryResult
-import com.viel.oto.event.feedback.FeedbackFact
-import com.viel.oto.library.scan.ScanOutcome
-import com.viel.oto.library.scan.ScanOutcomeKind
 import com.viel.oto.library.vfs.VfsFileInterface
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -81,9 +73,9 @@ class ScanSchedulerImplTest {
             coldRootIds = emptyList(),
             executor = { command ->
                 when (command.targetRootIds.single()) {
-                    "r1" -> ScanOutcome(ScanOutcomeKind.SUCCESS, feedback = null)
-                    "r2" -> ScanOutcome(ScanOutcomeKind.PARTIAL, feedback = null)
-                    else -> ScanOutcome(ScanOutcomeKind.SUCCESS, feedback = null)
+                    "r1" -> ScanOutcome(ScanOutcomeKind.SUCCESS, notice = null)
+                    "r2" -> ScanOutcome(ScanOutcomeKind.PARTIAL, notice = null)
+                    else -> ScanOutcome(ScanOutcomeKind.SUCCESS, notice = null)
                 }
             }
         )
@@ -167,7 +159,7 @@ class ScanSchedulerImplTest {
             context = context,
             coverRecoveryGateway = NoOpCoverRecoveryGateway,
             vfsFileInterface = VfsFileInterface(context),
-            appEventSink = RecordingAppEventSink(),
+            scanNoticeSink = RecordingScanNoticeSink(),
             rootScanExecutor = executor,
             coldStartRootIdsProvider = { coldRootIds }
         )
@@ -176,7 +168,7 @@ class ScanSchedulerImplTest {
     private fun successOutcome(discovered: Int = 0): ScanOutcome =
         ScanOutcome(
             kind = ScanOutcomeKind.SUCCESS,
-            feedback = null,
+            notice = null,
             session = ScanSessionEntity(
                 id = "scan",
                 trigger = AudiobookSchema.ScanTrigger.COLD_START,
@@ -197,13 +189,10 @@ class ScanSchedulerImplTest {
         override suspend fun recoverMissingCovers() = Unit
     }
 
-    private class RecordingAppEventSink : AppEventSink {
-        private val _events = MutableSharedFlow<AppShellEvent>()
-        override val events: SharedFlow<AppShellEvent> = _events
-        val emitted = Collections.synchronizedList(mutableListOf<FeedbackFact>())
-        override fun emitFeedback(fact: FeedbackFact): FeedbackDeliveryResult {
-            emitted += fact
-            return FeedbackDeliveryResult.Delivered(fact)
+    private class RecordingScanNoticeSink : ScanNoticeSink {
+        val emitted = Collections.synchronizedList(mutableListOf<ScanNotice>())
+        override fun emitNotice(notice: ScanNotice) {
+            emitted += notice
         }
     }
 }

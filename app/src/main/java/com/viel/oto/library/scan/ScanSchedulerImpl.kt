@@ -9,16 +9,10 @@ import androidx.work.WorkManager
 import com.viel.oto.data.cover.CoverRecoveryGateway
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.db.AudiobookSchema
-import com.viel.oto.event.AppEventSink
 import com.viel.oto.library.LibraryRootStore
 import com.viel.oto.library.availability.MissingBookFileRecoveryChecker
 import com.viel.oto.library.availability.isDirectorySyncRoot
 import com.viel.oto.library.orchestrator.ScanSessionRunner
-import com.viel.oto.library.scan.ScanCommand
-import com.viel.oto.library.scan.ScanOutcome
-import com.viel.oto.library.scan.ScanOutcomeKind
-import com.viel.oto.library.scan.ScanOutcomePolicy
-import com.viel.oto.library.scan.ScanSession
 import com.viel.oto.library.sync.LibrarySyncWorker
 import com.viel.oto.library.vfs.VfsFileInterface
 import com.viel.oto.library.vfs.cache.DirectoryListingCache
@@ -59,7 +53,7 @@ class ScanSchedulerImpl(
     private val coverRecoveryGateway: CoverRecoveryGateway,
     private val vfsFileInterface: VfsFileInterface,
     private val directoryListingCache: DirectoryListingCache = NoOpDirectoryListingCache,
-    private val appEventSink: AppEventSink,
+    private val scanNoticeSink: ScanNoticeSink = NoOpScanNoticeSink,
     private val database: AppDatabase? = null,
     private val rootStore: LibraryRootStore? = null,
     private val missingRecoveryChecker: MissingBookFileRecoveryChecker? = null,
@@ -91,10 +85,10 @@ class ScanSchedulerImpl(
 
         if (targetRootIds.isEmpty()) {
             // USER/ADD without targets, or cold-start with no active directory roots: run one command so the
-            // blocked / no-work feedback wording is preserved.
+            // blocked / no-work notice wording is preserved.
             val outcome = runSingleRootCommand(ScanCommand(scanTrigger, emptySet()))
             logScanOutcome(scanTrigger.name, outcome)
-            if (isUser) emitScanOutcomeFeedback(outcome)
+            if (isUser) emitScanOutcomeNotice(outcome)
             return outcome
         }
 
@@ -114,7 +108,7 @@ class ScanSchedulerImpl(
         val aggregated = aggregate(outcomes)
         if (!isUser && hasCatalogChange(outcomes)) {
             val discovered = outcomes.sumOf { outcome -> outcome.session?.discoveredBookCount ?: 0 }
-            appEventSink.emitFeedback(ScanOutcomePolicy.coldStartSummaryFeedback(discovered))
+            scanNoticeSink.emitNotice(ScanOutcomePolicy.coldStartSummaryNotice(discovered))
         }
         return aggregated
     }
@@ -176,7 +170,7 @@ class ScanSchedulerImpl(
                     ensureActive()
                     val outcome = runSingleRootCommand(ScanCommand(trigger, setOf(rootId)))
                     logScanOutcome(trigger.name, outcome)
-                    if (isUser) emitScanOutcomeFeedback(outcome)
+                    if (isUser) emitScanOutcomeNotice(outcome)
                     outcome
                 }
             } finally {
@@ -294,16 +288,16 @@ class ScanSchedulerImpl(
                 )
             }
             ScanOutcomeKind.BLOCKED ->
-                ScanWorkflowLogger.warn("scanService blocked: trigger=$trigger, feedback=${outcome.feedback?.outcome?.identity?.topic}")
+                ScanWorkflowLogger.warn("scanService blocked: trigger=$trigger, notice=${outcome.notice?.message}")
             ScanOutcomeKind.RETRY ->
-                ScanWorkflowLogger.warn("scanService retry: trigger=$trigger, feedback=${outcome.feedback?.outcome?.identity?.topic}", outcome.cause)
+                ScanWorkflowLogger.warn("scanService retry: trigger=$trigger, notice=${outcome.notice?.message}", outcome.cause)
             ScanOutcomeKind.FAILED ->
-                ScanWorkflowLogger.error("scanService failed: trigger=$trigger, feedback=${outcome.feedback?.outcome?.identity?.topic}", outcome.cause)
+                ScanWorkflowLogger.error("scanService failed: trigger=$trigger, notice=${outcome.notice?.message}", outcome.cause)
         }
     }
 
-    private fun emitScanOutcomeFeedback(outcome: ScanOutcome) {
-        outcome.feedback?.let { feedback -> appEventSink.emitFeedback(feedback) }
+    private fun emitScanOutcomeNotice(outcome: ScanOutcome) {
+        outcome.notice?.let { notice -> scanNoticeSink.emitNotice(notice) }
     }
 
     override fun close() {

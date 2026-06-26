@@ -2,13 +2,7 @@ package com.viel.oto.library.scan
 
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.ScanSessionEntity
-import com.viel.oto.event.feedback.FeedbackContext
-import com.viel.oto.event.feedback.FeedbackFact
-import com.viel.oto.event.feedback.FeedbackMessage
-import com.viel.oto.event.feedback.FeedbackMessages
-import com.viel.oto.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.oto.library.availability.LibraryRootAvailabilityUpdate
-import com.viel.oto.library.availability.buildUnavailableRootsSyncMessage
 import java.io.IOException
 
 /**
@@ -25,18 +19,18 @@ enum class ScanOutcomeKind {
 
 /**
  * Command-level scan result contract.
- * Carries the persisted session when one exists plus the user-facing feedback fact and WorkManager result mapping for background callers.
+ * Carries the persisted session when one exists plus a library-owned notice and WorkManager result mapping for background callers.
  */
 data class ScanOutcome(
     val kind: ScanOutcomeKind,
-    val feedback: FeedbackFact?,
+    val notice: ScanNotice?,
     val session: ScanSessionEntity? = null,
     val cause: Throwable? = null
 )
 
 /**
  * Maps scan sessions, preflight blocks, and exceptions into one command result language.
- * Keeps user feedback text, retry classification, and empty-library success handling out of runners, services, and workers.
+ * Keeps notice selection, retry classification, and empty-library success handling out of runners, services, and workers.
  */
 object ScanOutcomePolicy {
 
@@ -48,7 +42,7 @@ object ScanOutcomePolicy {
         session: ScanSessionEntity,
         isLibraryEmpty: Boolean,
         skippedRoots: List<LibraryRootAvailabilityUpdate> = emptyList(),
-        primaryContext: FeedbackContext = FeedbackContext.Global
+        primaryContext: ScanNoticeContext = ScanNoticeContext.Global
     ): ScanOutcome {
         if (session.status != AudiobookSchema.ScanStatus.COMPLETED) {
             return fromFailure(
@@ -57,23 +51,23 @@ object ScanOutcomePolicy {
         }
         val changedCount = session.discoveredBookCount + session.updatedBookCount + session.partialBookCount
         val baseMessage = when {
-            session.discoveredBookCount > 0 -> FeedbackMessages.scanCompletedWithDiscoveredBooks(session.discoveredBookCount)
-            changedCount > 0 -> FeedbackMessages.scanCompleted()
-            isLibraryEmpty -> FeedbackMessages.scanLibraryEmpty()
-            else -> FeedbackMessages.scanAlreadyUpToDate()
+            session.discoveredBookCount > 0 -> ScanNoticeMessage.CompletedWithDiscoveredBooks(session.discoveredBookCount)
+            changedCount > 0 -> ScanNoticeMessage.Completed
+            isLibraryEmpty -> ScanNoticeMessage.LibraryEmpty
+            else -> ScanNoticeMessage.AlreadyUpToDate
         }
         val message = baseMessage
             .appendIf(session.updatedBookCount > 0) {
-                FeedbackMessages.scanCompletedSuffixUpdated(session.updatedBookCount)
+                ScanNoticeMessage.CompletedSuffixUpdated(session.updatedBookCount)
             }
             .appendIf(session.partialBookCount > 0) {
-                FeedbackMessages.scanCompletedSuffixPartial(session.partialBookCount)
+                ScanNoticeMessage.CompletedSuffixPartial(session.partialBookCount)
             }
             .appendIf(skippedRoots.isNotEmpty()) {
-                FeedbackMessage.Composite(
+                ScanNoticeMessage.Composite(
                     listOf(
-                        FeedbackMessages.messageSeparator(),
-                        buildUnavailableRootsSyncMessage(skippedRoots)
+                        ScanNoticeMessage.Separator,
+                        unavailableRootsNotice(skippedRoots)
                     )
                 )
             }
@@ -84,30 +78,38 @@ object ScanOutcomePolicy {
         }
         return ScanOutcome(
             kind = kind,
-            feedback = LibraryAccessFeedbackFacts.rescanCompleted(message, resolveContext(skippedRoots, primaryContext)),
+            notice = ScanNotice(
+                message = message,
+                context = resolveContext(skippedRoots, primaryContext),
+                severity = ScanNoticeSeverity.COMPLETED
+            ),
             session = session
         )
     }
 
     /**
-     * Builds the single Global summary feedback for a cold-start fan-out that changed the catalog.
+     * Builds the single Global summary notice for a cold-start fan-out that changed the catalog.
      *
      * Per-root cold-start jobs stay silent; the scheduler emits this one aggregated fact so a background scan of many
      * roots never produces a burst of per-root toasts.
      */
-    fun coldStartSummaryFeedback(discoveredBookCount: Int): FeedbackFact {
+    fun coldStartSummaryNotice(discoveredBookCount: Int): ScanNotice {
         val message = if (discoveredBookCount > 0) {
-            FeedbackMessages.scanCompletedWithDiscoveredBooks(discoveredBookCount)
+            ScanNoticeMessage.CompletedWithDiscoveredBooks(discoveredBookCount)
         } else {
-            FeedbackMessages.scanCompleted()
+            ScanNoticeMessage.Completed
         }
-        return LibraryAccessFeedbackFacts.rescanCompleted(message, FeedbackContext.Global)
+        return ScanNotice(
+            message = message,
+            context = ScanNoticeContext.Global,
+            severity = ScanNoticeSeverity.COMPLETED
+        )
     }
 
     /**
      * Builds a shared no-work outcome when no library can be used.
      *
-     * The scanner still protects its importer from no-work commands, but the rendered feedback stays
+     * The scanner still protects its importer from no-work commands, but the rendered notice stays
      * access-form-neutral so users do not see separate local, WebDAV, or catalog-backed library wording.
      */
     fun blocked(
@@ -115,13 +117,17 @@ object ScanOutcomePolicy {
         hasAvailableLibrary: Boolean
     ): ScanOutcome {
         val message = if (!hasAvailableLibrary) {
-            FeedbackMessages.scanBlockedNoAvailableLibraries()
+            ScanNoticeMessage.BlockedNoAvailableLibraries
         } else {
-            buildUnavailableRootsSyncMessage(unavailableRoots)
+            unavailableRootsNotice(unavailableRoots)
         }
         return ScanOutcome(
             kind = ScanOutcomeKind.BLOCKED,
-            feedback = LibraryAccessFeedbackFacts.rescanBlocked(message, skippedRootsContext(unavailableRoots))
+            notice = ScanNotice(
+                message = message,
+                context = skippedRootsContext(unavailableRoots),
+                severity = ScanNoticeSeverity.BLOCKED
+            )
         )
     }
 
@@ -135,79 +141,113 @@ object ScanOutcomePolicy {
     fun noScanWorkRequired(): ScanOutcome =
         ScanOutcome(
             kind = ScanOutcomeKind.SUCCESS,
-            feedback = LibraryAccessFeedbackFacts.rescanCompleted(
-                message = FeedbackMessages.scanAlreadyUpToDate(),
-                context = FeedbackContext.Global
+            notice = ScanNotice(
+                message = ScanNoticeMessage.AlreadyUpToDate,
+                context = ScanNoticeContext.Global,
+                severity = ScanNoticeSeverity.COMPLETED
             )
         )
 
     /**
-     * Classifies scan exceptions for Worker retry and user feedback.
+     * Classifies scan exceptions for Worker retry and user notice mapping.
      * IO failures are treated as transient retry candidates; other exceptions are permanent command failures until proven otherwise.
      */
     fun fromFailure(error: Throwable): ScanOutcome {
         val kind = if (error is IOException) ScanOutcomeKind.RETRY else ScanOutcomeKind.FAILED
         val message = if (kind == ScanOutcomeKind.RETRY) {
-            FeedbackMessages.scanRetryLater()
+            ScanNoticeMessage.RetryLater
         } else {
-            FeedbackMessages.scanFailed(error.message ?: error::class.java.simpleName)
+            ScanNoticeMessage.Failed(error.message ?: error::class.java.simpleName)
         }
         return ScanOutcome(
             kind = kind,
-            feedback = LibraryAccessFeedbackFacts.rescanFailed(message),
+            notice = ScanNotice(
+                message = message,
+                context = ScanNoticeContext.Global,
+                severity = ScanNoticeSeverity.FAILED
+            ),
             cause = error
         )
     }
 
     /**
-     * Keys rescan feedback to a single skipped root when one is identifiable.
+     * Keys rescan notice context to a single skipped root when one is identifiable.
      *
-     * A lone skipped root keeps its stable, non-sensitive [FeedbackContext.LibraryRoot] identity; multiple
-     * skipped roots fall back to [FeedbackContext.Global] because the message reports only a count.
+     * A lone skipped root keeps its stable, non-sensitive [ScanNoticeContext.LibraryRoot] identity;
+     * multiple skipped roots fall back to [ScanNoticeContext.Global] because the message reports only a count.
      */
-    private fun skippedRootsContext(skippedRoots: List<LibraryRootAvailabilityUpdate>): FeedbackContext =
+    private fun skippedRootsContext(skippedRoots: List<LibraryRootAvailabilityUpdate>): ScanNoticeContext =
         if (skippedRoots.size == 1) {
             val root = skippedRoots.first().root
-            LibraryAccessFeedbackFacts.libraryRootContext(
+            ScanNoticeContext.LibraryRoot(
                 rootId = root.id,
-                accessForm = LibraryAccessFeedbackFacts.accessFormOf(root.sourceType)
+                accessForm = scanAccessFormOf(root.sourceType)
             )
         } else {
-            FeedbackContext.Global
+            ScanNoticeContext.Global
         }
 
     /**
-     * Picks the rescan feedback context, preferring the caller-supplied [primaryContext] (a single user-scanned
+     * Picks the rescan notice context, preferring the caller-supplied [primaryContext] (a single user-scanned
      * root) when nothing was skipped, and keying to a lone skipped root otherwise.
      */
     private fun resolveContext(
         skippedRoots: List<LibraryRootAvailabilityUpdate>,
-        primaryContext: FeedbackContext
-    ): FeedbackContext =
+        primaryContext: ScanNoticeContext
+    ): ScanNoticeContext =
         when {
             skippedRoots.isEmpty() -> primaryContext
             else -> skippedRootsContext(skippedRoots)
         }
+
+    /**
+     * Maps persisted root source types to scan notice identity without importing app feedback classes.
+     */
+    fun scanAccessFormOf(sourceType: AudiobookSchema.LibrarySourceType): ScanNoticeAccessForm =
+        when (sourceType) {
+            AudiobookSchema.LibrarySourceType.SAF -> ScanNoticeAccessForm.LOCAL_FOLDER
+            AudiobookSchema.LibrarySourceType.WEBDAV -> ScanNoticeAccessForm.WEBDAV
+            AudiobookSchema.LibrarySourceType.ABS -> ScanNoticeAccessForm.AUDIOBOOKSHELF
+        }
+
+    /**
+     * Creates the compact scan notice message for skipped roots.
+     */
+    private fun unavailableRootsNotice(updates: List<LibraryRootAvailabilityUpdate>): ScanNoticeMessage {
+        if (updates.isEmpty()) return ScanNoticeMessage.UnavailableRootsNone
+        if (updates.size == 1) return unavailableRootNotice(updates.first())
+        return ScanNoticeMessage.UnavailableRootCount(updates.size)
+    }
+
+    private fun unavailableRootNotice(update: LibraryRootAvailabilityUpdate): ScanNoticeMessage {
+        val rootName = update.root.displayName.ifBlank { update.root.sourceUri }
+        val status = update.availability.status
+        return ScanNoticeMessage.UnavailableRoot(
+            rootName = rootName,
+            availabilityStatus = status,
+            fallbackCode = update.availability.errorCode ?: status.name
+        )
+    }
 }
 
 /**
  * Combines resource-backed fragments for scan summaries.
  *
- * Scan outcomes still expose one feedback fact, while individual fragments remain resource keys for
- * localization and snapshot testing.
+ * Scan outcomes still expose one notice, while individual fragments remain separate keys for
+ * localization and app-side mapping.
  */
-private fun FeedbackMessage.appendIf(
+private fun ScanNoticeMessage.appendIf(
     condition: Boolean,
-    suffix: () -> FeedbackMessage
-): FeedbackMessage =
+    suffix: () -> ScanNoticeMessage
+): ScanNoticeMessage =
     if (condition) {
-        FeedbackMessage.Composite(flattenFeedbackParts() + suffix().flattenFeedbackParts())
+        ScanNoticeMessage.Composite(flattenNoticeParts() + suffix().flattenNoticeParts())
     } else {
         this
     }
 
-private fun FeedbackMessage.flattenFeedbackParts(): List<FeedbackMessage> =
+private fun ScanNoticeMessage.flattenNoticeParts(): List<ScanNoticeMessage> =
     when (this) {
-        is FeedbackMessage.Composite -> parts
+        is ScanNoticeMessage.Composite -> parts
         else -> listOf(this)
     }

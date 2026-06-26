@@ -1,10 +1,8 @@
 package com.viel.oto.library.scan
 
-import com.viel.oto.R
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.data.entity.ScanSessionEntity
-import com.viel.oto.event.feedback.FeedbackMessage
 import com.viel.oto.library.availability.AvailabilityResult
 import com.viel.oto.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.oto.library.orchestrator.RescanType
@@ -49,8 +47,8 @@ class ScanSessionTest {
         assertEquals(ScanOutcomeKind.BLOCKED, outcome.kind)
         assertNull(outcome.session)
         assertTrue(importCalls.isEmpty())
-        val message = outcome.feedback!!.message as FeedbackMessage.Resource
-        assertEquals(R.string.feedback_sync_root_unavailable_timeout, message.resId)
+        val message = outcome.notice!!.message as ScanNoticeMessage.UnavailableRoot
+        assertEquals(AudiobookSchema.AvailabilityStatus.TIMEOUT, message.availabilityStatus)
     }
 
     @Test
@@ -89,8 +87,7 @@ class ScanSessionTest {
 
         assertEquals(ScanOutcomeKind.BLOCKED, outcome.kind)
         assertTrue(importCalls.isEmpty())
-        val message = outcome.feedback!!.message as FeedbackMessage.Resource
-        assertEquals(R.string.feedback_scan_blocked_no_available_libraries, message.resId)
+        assertEquals(ScanNoticeMessage.BlockedNoAvailableLibraries, outcome.notice!!.message)
     }
 
     @Test
@@ -119,8 +116,7 @@ class ScanSessionTest {
 
         assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
         assertTrue(importCalls.isEmpty())
-        val message = outcome.feedback!!.message as FeedbackMessage.Resource
-        assertEquals(R.string.feedback_scan_already_up_to_date, message.resId)
+        assertEquals(ScanNoticeMessage.AlreadyUpToDate, outcome.notice!!.message)
     }
 
     @Test
@@ -318,8 +314,7 @@ class ScanSessionTest {
         )
 
         assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
-        val message = outcome.feedback!!.message as FeedbackMessage.Resource
-        assertEquals(R.string.feedback_scan_library_empty, message.resId)
+        assertEquals(ScanNoticeMessage.LibraryEmpty, outcome.notice!!.message)
     }
 
     @Test
@@ -376,8 +371,7 @@ class ScanSessionTest {
 
         assertEquals(ScanOutcomeKind.RETRY, outcome.kind)
         assertTrue(outcome.cause is IOException)
-        val message = outcome.feedback!!.message as FeedbackMessage.Resource
-        assertEquals(R.string.feedback_scan_retry_later, message.resId)
+        assertEquals(ScanNoticeMessage.RetryLater, outcome.notice!!.message)
     }
 
     private fun scanSession(

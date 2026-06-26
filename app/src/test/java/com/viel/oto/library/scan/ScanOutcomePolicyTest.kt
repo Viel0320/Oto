@@ -1,15 +1,8 @@
 package com.viel.oto.library.scan
 
-import com.viel.oto.R
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.data.entity.ScanSessionEntity
-import com.viel.oto.event.feedback.FeedbackCategory
-import com.viel.oto.event.feedback.FeedbackContext
-import com.viel.oto.event.feedback.FeedbackMessage
-import com.viel.oto.event.feedback.FeedbackSeverity
-import com.viel.oto.event.feedback.FeedbackTopic
-import com.viel.oto.event.feedback.LibraryAccessForm
 import com.viel.oto.library.availability.AvailabilityResult
 import com.viel.oto.library.availability.LibraryRootAvailabilityUpdate
 import org.junit.Assert.assertEquals
@@ -31,15 +24,11 @@ class ScanOutcomePolicyTest {
 
         assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
         assertEquals(session, outcome.session)
-        val feedback = outcome.feedback!!
-        val message = feedback.message as FeedbackMessage.Quantity
-        assertEquals(R.plurals.feedback_scan_completed_with_discovered_books, message.resId)
-        assertEquals(2, message.quantity)
-        assertEquals(listOf(2), message.args)
-        val identity = feedback.outcome.identity
-        assertEquals(FeedbackCategory.LIBRARY_ACCESS, identity.category)
-        assertEquals(FeedbackTopic.Rescan, identity.topic)
-        assertEquals(FeedbackContext.Global, identity.context)
+        val notice = outcome.notice!!
+        val message = notice.message as ScanNoticeMessage.CompletedWithDiscoveredBooks
+        assertEquals(2, message.discoveredCount)
+        assertEquals(ScanNoticeContext.Global, notice.context)
+        assertEquals(ScanNoticeSeverity.COMPLETED, notice.severity)
     }
 
     @Test
@@ -62,29 +51,22 @@ class ScanOutcomePolicyTest {
         )
 
         assertEquals(ScanOutcomeKind.PARTIAL, outcome.kind)
-        val feedback = outcome.feedback!!
-        val message = feedback.message as FeedbackMessage.Composite
+        val notice = outcome.notice!!
+        val message = notice.message as ScanNoticeMessage.Composite
         assertTrue(message.parts.any { part ->
-            part is FeedbackMessage.Quantity &&
-                part.resId == R.plurals.feedback_scan_suffix_updated &&
-                part.quantity == 1 &&
-                part.args == listOf(1)
+            part is ScanNoticeMessage.CompletedSuffixUpdated &&
+                part.updatedCount == 1
         })
         assertTrue(message.parts.any { part ->
-            part is FeedbackMessage.Quantity &&
-                part.resId == R.plurals.feedback_scan_suffix_partial &&
-                part.quantity == 1 &&
-                part.args == listOf(1)
+            part is ScanNoticeMessage.CompletedSuffixPartial &&
+                part.partialCount == 1
         })
         assertTrue(message.parts.any { part ->
-            part is FeedbackMessage.Resource &&
-                part.resId == R.string.feedback_sync_root_unavailable_timeout &&
-                part.args == listOf("Remote Shelf")
+            part is ScanNoticeMessage.UnavailableRoot &&
+                part.availabilityStatus == AudiobookSchema.AvailabilityStatus.TIMEOUT &&
+                part.rootName == "Remote Shelf"
         })
-        val identity = feedback.outcome.identity
-        assertEquals(FeedbackCategory.LIBRARY_ACCESS, identity.category)
-        assertEquals(FeedbackTopic.Rescan, identity.topic)
-        assertEquals(FeedbackContext.LibraryRoot("root-1", LibraryAccessForm.WEBDAV), identity.context)
+        assertEquals(ScanNoticeContext.LibraryRoot("root-1", ScanNoticeAccessForm.WEBDAV), notice.context)
     }
 
     @Test
@@ -110,14 +92,10 @@ class ScanOutcomePolicyTest {
 
         assertEquals(ScanOutcomeKind.BLOCKED, outcome.kind)
         assertNull(outcome.session)
-        val feedback = outcome.feedback!!
-        val message = feedback.message as FeedbackMessage.Resource
-        assertEquals(R.string.feedback_scan_blocked_no_available_libraries, message.resId)
-        val identity = feedback.outcome.identity
-        assertEquals(FeedbackCategory.LIBRARY_ACCESS, identity.category)
-        assertEquals(FeedbackTopic.Rescan, identity.topic)
-        assertEquals(FeedbackContext.Global, identity.context)
-        assertEquals(FeedbackSeverity.BLOCKED, feedback.outcome.severity)
+        val notice = outcome.notice!!
+        assertEquals(ScanNoticeMessage.BlockedNoAvailableLibraries, notice.message)
+        assertEquals(ScanNoticeContext.Global, notice.context)
+        assertEquals(ScanNoticeSeverity.BLOCKED, notice.severity)
     }
 
     @Test
@@ -125,11 +103,10 @@ class ScanOutcomePolicyTest {
         val outcome = ScanOutcomePolicy.noScanWorkRequired()
 
         assertEquals(ScanOutcomeKind.SUCCESS, outcome.kind)
-        val feedback = outcome.feedback!!
-        val message = feedback.message as FeedbackMessage.Resource
-        assertEquals(R.string.feedback_scan_already_up_to_date, message.resId)
-        assertEquals(FeedbackContext.Global, feedback.outcome.identity.context)
-        assertEquals(FeedbackSeverity.COMPLETED, feedback.outcome.severity)
+        val notice = outcome.notice!!
+        assertEquals(ScanNoticeMessage.AlreadyUpToDate, notice.message)
+        assertEquals(ScanNoticeContext.Global, notice.context)
+        assertEquals(ScanNoticeSeverity.COMPLETED, notice.severity)
     }
 
     @Test
@@ -139,11 +116,9 @@ class ScanOutcomePolicyTest {
 
         assertEquals(ScanOutcomeKind.RETRY, retry.kind)
         assertEquals(ScanOutcomeKind.FAILED, failed.kind)
-        val retryMessage = retry.feedback!!.message as FeedbackMessage.Resource
-        val failedMessage = failed.feedback!!.message as FeedbackMessage.Resource
-        assertEquals(R.string.feedback_scan_retry_later, retryMessage.resId)
-        assertEquals(R.string.feedback_scan_failed, failedMessage.resId)
-        assertEquals(listOf("bad state"), failedMessage.args)
+        assertEquals(ScanNoticeMessage.RetryLater, retry.notice!!.message)
+        val failedMessage = failed.notice!!.message as ScanNoticeMessage.Failed
+        assertEquals("bad state", failedMessage.errorMessage)
     }
 
     private fun scanSession(

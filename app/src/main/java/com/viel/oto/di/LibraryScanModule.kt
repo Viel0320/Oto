@@ -14,6 +14,7 @@ import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.library.scan.ScanSchedulerImpl
 import com.viel.oto.data.webdav.WebDavCredentialStore
 import com.viel.oto.event.AppEventSink
+import com.viel.oto.event.feedback.AppEventScanNoticeSink
 import com.viel.oto.library.LibraryRootStore
 import com.viel.oto.library.availability.AvailabilityChecker
 import com.viel.oto.library.availability.MissingBookFileRecoveryChecker
@@ -62,7 +63,7 @@ internal object LibraryScanModule {
                 coverRecoveryGateway = get<CoverRecoveryGateway>(),
                 vfsFileInterface = get<VfsFileInterface>(),
                 directoryListingCache = get<DirectoryListingCache>(),
-                appEventSink = get<AppEventSink>(),
+                scanNoticeSink = AppEventScanNoticeSink(get<AppEventSink>()),
                 database = get<AppDatabase>(),
                 rootStore = get<LibraryRootStore>(),
                 missingRecoveryChecker = get<MissingBookFileRecoveryChecker>()

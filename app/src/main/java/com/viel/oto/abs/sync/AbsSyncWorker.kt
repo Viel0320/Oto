@@ -7,8 +7,8 @@ import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.data.runCatchingCancellable
 import com.viel.oto.event.AppEventSink
 import com.viel.oto.event.feedback.LibraryAccessFeedbackFacts
+import com.viel.oto.event.feedback.toRootUnavailableFeedbackMessage
 import com.viel.oto.library.LibraryRootStore
-import com.viel.oto.library.availability.buildRootUnavailableSyncMessage
 import com.viel.oto.library.availability.isSyncAvailable
 import com.viel.oto.logger.AbsSyncLogger
 import org.koin.core.component.KoinComponent
@@ -28,7 +28,7 @@ class AbsSyncWorker(
         val preflight = libraryRootStore.refreshRootStatus(rootId)
             ?: return Result.failure()
         if (!preflight.isSyncAvailable) {
-            val message = buildRootUnavailableSyncMessage(preflight)
+            val message = preflight.toRootUnavailableFeedbackMessage()
             AbsSyncLogger.logWorkerFailure(
                 rootId = rootId,
                 errorClass = "RootUnavailable",

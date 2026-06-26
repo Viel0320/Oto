@@ -8,7 +8,7 @@ import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.event.feedback.LibraryAccessFeedbackFacts
-import com.viel.oto.library.availability.buildRootUnavailableSyncMessage
+import com.viel.oto.event.feedback.toRootUnavailableFeedbackMessage
 import com.viel.oto.library.availability.isSyncAvailable
 import kotlinx.coroutines.flow.Flow
 
@@ -60,7 +60,7 @@ class DefaultSettingsRootModule(
             return SettingsAbsSyncInspection.Blocked(
                 LibraryAccessFeedbackFacts.syncBlocked(
                     rootId = preflight.root.id,
-                    detailMessage = buildRootUnavailableSyncMessage(preflight)
+                    detailMessage = preflight.toRootUnavailableFeedbackMessage()
                 )
             )
         }

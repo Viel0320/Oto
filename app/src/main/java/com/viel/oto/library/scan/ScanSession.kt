@@ -3,8 +3,6 @@ package com.viel.oto.library.scan
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.ScanSessionEntity
 import com.viel.oto.data.runCatchingCancellable
-import com.viel.oto.event.feedback.FeedbackContext
-import com.viel.oto.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.oto.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.oto.library.availability.isDirectorySyncRoot
 import com.viel.oto.library.availability.isSyncAvailable
@@ -110,14 +108,16 @@ class ScanSession(
     }
 
     /**
-     * Keys a successful scan's feedback to the one root it scanned, so per-root user rescans surface a
-     * root-scoped toast instead of a Global one. Falls back to Global when the scan covered several roots.
+     * Keys a successful scan notice to the one root it scanned.
+     *
+     * Per-root user rescans should stay root-scoped, while multi-root scans fall back to a Global notice
+     * context because the summary covers more than one source.
      */
-    private fun singleRootContext(availableDirectoryRootUpdates: List<LibraryRootAvailabilityUpdate>): FeedbackContext {
-        val root = availableDirectoryRootUpdates.singleOrNull()?.root ?: return FeedbackContext.Global
-        return LibraryAccessFeedbackFacts.libraryRootContext(
+    private fun singleRootContext(availableDirectoryRootUpdates: List<LibraryRootAvailabilityUpdate>): ScanNoticeContext {
+        val root = availableDirectoryRootUpdates.singleOrNull()?.root ?: return ScanNoticeContext.Global
+        return ScanNoticeContext.LibraryRoot(
             rootId = root.id,
-            accessForm = LibraryAccessFeedbackFacts.accessFormOf(root.sourceType)
+            accessForm = ScanOutcomePolicy.scanAccessFormOf(root.sourceType)
         )
     }
 

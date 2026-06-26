@@ -36,7 +36,7 @@ class LibrarySyncWorker(
             throw e
         } catch (e: Exception) {
             val outcome = ScanOutcomePolicy.fromFailure(e)
-            ScanWorkflowLogger.warn("librarySyncWorker fallback outcome=${outcome.kind}: feedback=${outcome.feedback?.outcome?.identity?.topic}", e)
+            ScanWorkflowLogger.warn("librarySyncWorker fallback outcome=${outcome.kind}: notice=${outcome.notice?.message}", e)
             outcome.toWorkerResult()
         }
     }

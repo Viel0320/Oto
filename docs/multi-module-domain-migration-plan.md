@@ -217,6 +217,7 @@ flowchart TD
 - 已为 WebDAV provider/tester 增加 settings provider 注入点，模块测试不再依赖 app composition root 或 DataStore 缓存预热。
 - `:media:metadata` 已先于 `:library:import` 抽出，作为 import pipeline 的 parser/manifest 前置依赖。
 - 已新增 `:work:policy`，把 library cold-start scan 与 ABS root sync 共用的 WorkManager 唯一队列、约束和退避策略移出 app。
+- 已落地：`ScanOutcome` 改为携带 library-owned `ScanNotice`，app 侧通过 mapper 转回 `FeedbackFact`，避免 `:library:import` 依赖 app `R` 或 event delivery。
 - 新增 `:library:import`，移动 scan/import/root lifecycle/availability。
 - 已落地：`LibrarySourceProvider` 改为接收 source Adapter 列表；ABS Adapter 由 app composition root 注册，`library` 不再 import `AbsSourceProvider`。
 - WebDAV 继续留在 `:library:vfs`，因为它是 library source Adapter，不与 ABS protocol 合并。
