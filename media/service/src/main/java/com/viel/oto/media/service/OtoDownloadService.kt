@@ -7,7 +7,6 @@ import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.media3.exoplayer.scheduler.Scheduler
-import com.viel.oto.R
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -27,13 +26,20 @@ class OtoDownloadService : DownloadService(
     DOWNLOAD_NOTIFICATION_ID,
     DEFAULT_FOREGROUND_NOTIFICATION_UPDATE_INTERVAL,
     DOWNLOAD_NOTIFICATION_CHANNEL_ID,
-    R.string.app_name,
+    R.string.media_service_download_channel_name,
     0
 ), KoinComponent {
     private val injectedDownloadManager: DownloadManager by inject()
+    private val launchIntentFactory: MediaServiceLaunchIntentFactory by inject()
+    private val notificationResources: DownloadNotificationResources by inject()
 
     private val notificationHelper by lazy {
-        DownloadNotificationHelper(this, DOWNLOAD_NOTIFICATION_CHANNEL_ID)
+        DownloadNotificationHelper(
+            context = this,
+            channelId = DOWNLOAD_NOTIFICATION_CHANNEL_ID,
+            launchIntentFactory = launchIntentFactory,
+            notificationResources = notificationResources
+        )
     }
 
     override fun getDownloadManager(): DownloadManager =

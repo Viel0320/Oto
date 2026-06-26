@@ -1,4 +1,4 @@
-package com.viel.oto.media
+package com.viel.oto.ui.presentation
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes

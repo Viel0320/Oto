@@ -41,7 +41,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.viel.oto.MainActivity
 import com.viel.oto.R
-import com.viel.oto.media.SeekStepPresentation
+import com.viel.oto.ui.presentation.SeekStepPresentation
 import com.viel.oto.shared.settings.SeekStepSeconds
 
 /**

@@ -4,7 +4,6 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.viel.oto.application.download.DownloadController
 import com.viel.oto.logger.SecureLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +13,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class ManualDownloadNotificationActionReceiver : BroadcastReceiver(), KoinComponent {
-    private val downloadController: DownloadController by inject()
+    private val downloadActionGateway: ManualDownloadActionGateway by inject()
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
@@ -24,10 +23,10 @@ class ManualDownloadNotificationActionReceiver : BroadcastReceiver(), KoinCompon
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             try {
                 when (action) {
-                    ACTION_PAUSE_DOWNLOAD -> downloadController.pauseDownload(bookId)
-                    ACTION_RESUME_DOWNLOAD -> downloadController.resumeDownload(bookId)
-                    ACTION_RETRY_DOWNLOAD -> downloadController.downloadBook(bookId)
-                    ACTION_CANCEL_DOWNLOAD -> downloadController.cancelDownload(bookId)
+                    ACTION_PAUSE_DOWNLOAD -> downloadActionGateway.pauseDownload(bookId)
+                    ACTION_RESUME_DOWNLOAD -> downloadActionGateway.resumeDownload(bookId)
+                    ACTION_RETRY_DOWNLOAD -> downloadActionGateway.retryDownload(bookId)
+                    ACTION_CANCEL_DOWNLOAD -> downloadActionGateway.cancelDownload(bookId)
                 }
             } catch (error: Exception) {
                 SecureLog.error(TAG, "Manual download notification action failed: ${error.message}", error)

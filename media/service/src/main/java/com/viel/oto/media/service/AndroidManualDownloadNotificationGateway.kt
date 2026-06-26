@@ -10,16 +10,14 @@ import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import com.viel.oto.MainActivity
-import com.viel.oto.R
-import com.viel.oto.application.download.ManualDownloadDisplayTextPolicy
-import com.viel.oto.application.download.ManualDownloadNotificationGateway
 import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.entity.DownloadMetadataEntity
 import com.viel.oto.data.entity.DownloadStatus
-import com.viel.oto.shared.formatFileSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.Locale
+import kotlin.math.log10
+import kotlin.math.pow
 
 /**
  * Render one Android progress notification per manual book download.
@@ -29,20 +27,22 @@ import kotlinx.coroutines.withContext
  */
 class AndroidManualDownloadNotificationGateway(
     context: Context,
-    private val bookDao: BookDao
-) : ManualDownloadNotificationGateway {
+    private val bookDao: BookDao,
+    private val launchIntentFactory: MediaServiceLaunchIntentFactory,
+    private val notificationResources: DownloadNotificationResources
+) {
     private val appContext = context.applicationContext
     private val notificationManager = NotificationManagerCompat.from(appContext)
 
     @SuppressLint("MissingPermission")
-    override suspend fun publish(metadata: DownloadMetadataEntity) = withContext(Dispatchers.IO) {
+    suspend fun publish(metadata: DownloadMetadataEntity) = withContext(Dispatchers.IO) {
         if (!canPostNotifications()) return@withContext
         ensureNotificationChannel()
         val book = bookDao.getBookById(metadata.bookId)
         val bookTitle = book?.title?.takeIf { value -> value.isNotBlank() }
-            ?: appContext.getString(R.string.common_unknown_title)
+            ?: notificationResources.unknownBookTitle(appContext)
         val author = book?.author?.takeIf { value -> value.isNotBlank() }
-            ?: appContext.getString(R.string.common_unknown)
+            ?: notificationResources.unknownAuthor(appContext)
         val bookProgressLabel = ManualDownloadNotificationPresentationPolicy.title(
             author = author,
             bookTitle = bookTitle,
@@ -52,7 +52,7 @@ class AndroidManualDownloadNotificationGateway(
         notificationManager.notify(
             notificationIdForBook(metadata.bookId),
             NotificationCompat.Builder(appContext, DOWNLOAD_NOTIFICATION_CHANNEL_ID)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(notificationResources.smallIconRes)
                 .setContentTitle(statusTitle)
                 .setSubText(bookProgressLabel)
                 .setContentIntent(createContentIntent(metadata.bookId))
@@ -68,7 +68,7 @@ class AndroidManualDownloadNotificationGateway(
         )
     }
 
-    override suspend fun cancel(bookId: String) = withContext(Dispatchers.IO) {
+    suspend fun cancel(bookId: String) = withContext(Dispatchers.IO) {
         notificationManager.cancel(notificationIdForBook(bookId))
     }
 
@@ -85,8 +85,8 @@ class AndroidManualDownloadNotificationGateway(
     private fun NotificationCompat.Builder.applyControlActions(metadata: DownloadMetadataEntity): NotificationCompat.Builder {
         ManualDownloadNotificationPresentationPolicy.actionsFor(metadata.status).forEach { action ->
             addAction(
-                action.iconRes(),
-                action.titleText(),
+                notificationResources.actionIcon(action),
+                notificationResources.actionText(appContext, action),
                 ManualDownloadNotificationActionReceiver.pendingIntent(appContext, action, metadata.bookId)
             )
         }
@@ -100,8 +100,8 @@ class AndroidManualDownloadNotificationGateway(
         val totalSizeText = metadata.totalBytes
             .takeIf { totalBytes -> totalBytes > 0L }
             ?.let { totalBytes -> formatFileSize(totalBytes) }
-        return ManualDownloadDisplayTextPolicy.taskSupplementalLabel(
-            statusText = appContext.getString(metadata.status.statusTextRes()),
+        return ManualDownloadNotificationPresentationPolicy.taskSupplementalLabel(
+            statusText = notificationResources.statusText(appContext, metadata.status),
             completedFiles = metadata.completedFiles,
             totalFiles = metadata.totalFiles,
             downloadedSizeText = downloadedSizeText,
@@ -129,14 +129,14 @@ class AndroidManualDownloadNotificationGateway(
         val manager = appContext.getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             DOWNLOAD_NOTIFICATION_CHANNEL_ID,
-            appContext.getString(R.string.app_name),
+            notificationResources.appName(appContext),
             NotificationManager.IMPORTANCE_LOW
         )
         manager.createNotificationChannel(channel)
     }
 
     private fun createContentIntent(bookId: String): PendingIntent {
-        val intent = MainActivity.createOpenDownloadManagementIntent(appContext)
+        val intent = launchIntentFactory.openDownloadManagementIntent(appContext)
         return PendingIntent.getActivity(
             appContext,
             notificationIdForBook(bookId),
@@ -148,32 +148,22 @@ class AndroidManualDownloadNotificationGateway(
     private fun notificationIdForBook(bookId: String): Int =
         BOOK_NOTIFICATION_ID_PREFIX or (bookId.hashCode() and BOOK_NOTIFICATION_ID_MASK)
 
-    private fun ManualDownloadNotificationAction.iconRes(): Int =
-        when (this) {
-            ManualDownloadNotificationAction.Pause -> R.drawable.pause
-            ManualDownloadNotificationAction.Resume -> R.drawable.play
-            ManualDownloadNotificationAction.Retry -> android.R.drawable.ic_popup_sync
-            ManualDownloadNotificationAction.Cancel -> android.R.drawable.ic_menu_close_clear_cancel
-        }
-
-    private fun ManualDownloadNotificationAction.titleText(): String =
-        when (this) {
-            ManualDownloadNotificationAction.Pause -> appContext.getString(R.string.detail_download_pause_action)
-            ManualDownloadNotificationAction.Resume -> appContext.getString(R.string.detail_download_resume_action)
-            ManualDownloadNotificationAction.Retry -> appContext.getString(R.string.detail_download_resume_action)
-            ManualDownloadNotificationAction.Cancel -> appContext.getString(R.string.detail_download_cancel_action)
-        }
-
-    private fun DownloadStatus.statusTextRes(): Int =
-        when (this) {
-            DownloadStatus.QUEUED -> R.string.download_management_status_queued
-            DownloadStatus.DOWNLOADING -> R.string.download_management_status_downloading
-            DownloadStatus.PAUSED -> R.string.download_management_status_paused
-            DownloadStatus.COMPLETED -> R.string.download_management_status_completed
-            DownloadStatus.FAILED -> R.string.download_management_status_failed
-        }
+    private fun formatFileSize(sizeInBytes: Long): String {
+        if (sizeInBytes <= 0) return "0 B"
+        val units = arrayOf("B", "KB", "MB", "GB", "TB")
+        val digitGroups = (log10(sizeInBytes.toDouble()) / log10(BYTES_PER_UNIT.toDouble()))
+            .toInt()
+            .coerceAtMost(units.lastIndex)
+        return String.format(
+            Locale.getDefault(),
+            "%.1f %s",
+            sizeInBytes / BYTES_PER_UNIT.toDouble().pow(digitGroups.toDouble()),
+            units[digitGroups]
+        )
+    }
 
     private companion object {
+        private const val BYTES_PER_UNIT = 1024
         private const val PROGRESS_MAX = 100
         private const val BOOK_NOTIFICATION_ID_PREFIX = 0x31000000
         private const val BOOK_NOTIFICATION_ID_MASK = 0x00FFFFFF

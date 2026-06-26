@@ -242,6 +242,7 @@ class ReleasePolicyTest {
             "library/import/src/main/java/com/viel/oto",
             "media/metadata/src/main/java/com/viel/oto",
             "media/playback/src/main/java/com/viel/oto",
+            "media/service/src/main/java/com/viel/oto",
             "work/policy/src/main/java/com/viel/oto"
         ).flatMap { path -> listOf(File(path), File("../$path")) }
         return candidates

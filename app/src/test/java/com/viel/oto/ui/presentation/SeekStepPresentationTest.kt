@@ -1,4 +1,4 @@
-package com.viel.oto.media
+package com.viel.oto.ui.presentation
 
 import com.viel.oto.R
 import com.viel.oto.shared.settings.SeekStepSeconds

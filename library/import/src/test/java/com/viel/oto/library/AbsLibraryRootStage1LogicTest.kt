@@ -1,9 +1,8 @@
-package com.viel.oto.abs
+package com.viel.oto.library
 
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.library.root.shouldDeleteAbsCredential
-import com.viel.oto.library.mergeAbsRoot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

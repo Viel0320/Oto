@@ -6,6 +6,7 @@ import androidx.media3.common.util.UnstableApi
 import com.viel.oto.abs.vfs.AbsSourceProvider
 import com.viel.oto.application.playback.PlaybackStopper
 import com.viel.oto.data.db.AppDatabase
+import com.viel.oto.application.playback.AppPlaybackResumePlanProvider
 import com.viel.oto.library.vfs.VfsFileInterface
 import com.viel.oto.library.vfs.cache.DirectoryListingCache
 import com.viel.oto.library.vfs.cache.RoomDirectoryListingCache
@@ -19,7 +20,13 @@ import com.viel.oto.media.PlaybackManager
 import com.viel.oto.media.PlaybackRootLookup
 import com.viel.oto.media.PlaybackSessionTokenFactory
 import com.viel.oto.media.PlaybackSourcePreflight
+import com.viel.oto.media.service.MediaServiceLaunchIntentFactory
+import com.viel.oto.media.service.PlaybackCommandPresentation
+import com.viel.oto.media.service.PlaybackResumePlanProvider
 import com.viel.oto.media.service.PlaybackServiceSessionTokenFactory
+import com.viel.oto.media.service.PlaybackWidgetStateSink
+import com.viel.oto.ui.presentation.AppPlaybackCommandPresentation
+import com.viel.oto.widget.AppPlaybackWidgetStateSink
 import org.koin.core.module.Module
 import org.koin.dsl.bind
 import org.koin.dsl.module
@@ -57,6 +64,14 @@ internal object MediaModule {
         single { RoomDirectoryListingCache(directoryChildCacheDao = get<AppDatabase>().directoryChildCacheDao()) } bind DirectoryListingCache::class
 
         single { AutoRewindManager(get(), get(), get(), get()) }
+
+        single<MediaServiceLaunchIntentFactory> { AppMediaServiceLaunchIntentFactory() }
+
+        single<PlaybackCommandPresentation> { AppPlaybackCommandPresentation() }
+
+        single<PlaybackWidgetStateSink> { AppPlaybackWidgetStateSink() }
+
+        single<PlaybackResumePlanProvider> { AppPlaybackResumePlanProvider(get()) }
 
         single<PlaybackSessionTokenFactory> { PlaybackServiceSessionTokenFactory() }
 

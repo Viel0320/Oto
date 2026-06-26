@@ -181,6 +181,7 @@ dependencies {
     implementation(project(":library:import"))
     implementation(project(":media:metadata"))
     implementation(project(":media:playback"))
+    implementation(project(":media:service"))
     implementation(project(":work:policy"))
 
     implementation(libs.androidx.core.ktx)

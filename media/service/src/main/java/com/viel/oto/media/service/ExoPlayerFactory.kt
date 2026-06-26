@@ -8,6 +8,7 @@ import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.cache.Cache
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -19,7 +20,6 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
 import androidx.media3.extractor.ts.AdtsExtractor
-import com.viel.oto.application.download.DownloadCacheAccess
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.media.PlaybackFileLookup
 import com.viel.oto.media.PlaybackRootLookup
@@ -106,7 +106,7 @@ object ExoPlayerFactory : KoinComponent {
             .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
 
         val manualCacheDataSourceFactory = ManualCachePlaybackDataSource.Factory(
-            manualCache = get<DownloadCacheAccess>().manualCache,
+            manualCache = get<Cache>(),
             upstreamDataSourceFactory = VfsPlaybackDataSource.Factory(context),
             playbackFileLookup = get<PlaybackFileLookup>(),
             playbackRootLookup = get<PlaybackRootLookup>()

@@ -3,13 +3,10 @@ package com.viel.oto.media.service
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.offline.Download
-import com.viel.oto.MainActivity
-import com.viel.oto.R
 
 /**
  * Build foreground status for manual offline cache work.
@@ -20,7 +17,9 @@ import com.viel.oto.R
 @OptIn(UnstableApi::class)
 internal class DownloadNotificationHelper(
     private val context: Context,
-    private val channelId: String
+    private val channelId: String,
+    private val launchIntentFactory: MediaServiceLaunchIntentFactory,
+    private val notificationResources: DownloadNotificationResources
 ) {
     fun buildForegroundNotification(downloads: List<Download>, notMetRequirements: Int): Notification {
         val hasFailures = downloads.any { download -> download.state == Download.STATE_FAILED }
@@ -29,16 +28,16 @@ internal class DownloadNotificationHelper(
                 download.state == Download.STATE_DOWNLOADING ||
                 download.state == Download.STATE_RESTARTING
         }
-        val contentText = when {
-            notMetRequirements != 0 -> context.getString(R.string.download_notification_waiting)
-            hasFailures -> context.getString(R.string.download_notification_failed)
-            hasActiveDownloads -> context.getString(R.string.download_notification_active)
-            else -> context.getString(R.string.download_notification_idle)
+        val state = when {
+            notMetRequirements != 0 -> DownloadForegroundNotificationState.Waiting
+            hasFailures -> DownloadForegroundNotificationState.Failed
+            hasActiveDownloads -> DownloadForegroundNotificationState.Active
+            else -> DownloadForegroundNotificationState.Idle
         }
         return NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(context.getString(R.string.app_name))
-            .setContentText(contentText)
+            .setSmallIcon(notificationResources.smallIconRes)
+            .setContentTitle(notificationResources.appName(context))
+            .setContentText(notificationResources.foregroundStatus(context, state))
             .setContentIntent(createContentIntent())
             .setOnlyAlertOnce(true)
             .setGroup(DOWNLOAD_NOTIFICATION_GROUP)
@@ -48,7 +47,7 @@ internal class DownloadNotificationHelper(
     }
 
     private fun createContentIntent(): PendingIntent {
-        val intent = Intent(context, MainActivity::class.java)
+        val intent = launchIntentFactory.openAppIntent(context)
         return PendingIntent.getActivity(
             context,
             0,

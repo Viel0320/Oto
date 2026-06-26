@@ -17,6 +17,9 @@ import com.viel.oto.application.download.DefaultDownloadRuntimeGateway
 import com.viel.oto.application.download.DownloadCacheAccess
 import com.viel.oto.application.download.DownloadController
 import com.viel.oto.application.download.DownloadIndexSnapshotReader
+import com.viel.oto.application.download.AppDownloadNotificationResources
+import com.viel.oto.application.download.AppManualDownloadActionGateway
+import com.viel.oto.application.download.AppManualDownloadNotificationGateway
 import com.viel.oto.application.download.DownloadProgressPoller
 import com.viel.oto.application.download.DownloadRecoveryService
 import com.viel.oto.application.download.DownloadRequestRepairer
@@ -34,6 +37,9 @@ import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.media.VfsPlaybackDataSource
 import com.viel.oto.media.service.AndroidManualDownloadNotificationGateway
+import com.viel.oto.media.service.DownloadNotificationResources
+import com.viel.oto.media.service.ManualDownloadActionGateway
+import com.viel.oto.media.service.MediaServiceLaunchIntentFactory
 import com.viel.oto.media.service.OtoDownloadService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -88,6 +94,12 @@ internal object DownloadModule {
 
         single { DownloadRuntimeInitializedFlag() }
 
+        single<DownloadNotificationResources> { AppDownloadNotificationResources() }
+
+        single<ManualDownloadActionGateway> {
+            AppManualDownloadActionGateway(downloadControllerProvider = { get<DownloadController>() })
+        }
+
         single<DownloadableBookFileSelector> {
             DownloadableBookFileSelector(
                 downloadBookFileReader = RoomDownloadBookFileReader(get<AppDatabase>().bookDao()),
@@ -96,9 +108,13 @@ internal object DownloadModule {
         }
 
         single<ManualDownloadNotificationGateway> {
-            AndroidManualDownloadNotificationGateway(
-                context = get(),
-                bookDao = get<AppDatabase>().bookDao()
+            AppManualDownloadNotificationGateway(
+                delegate = AndroidManualDownloadNotificationGateway(
+                    context = get(),
+                    bookDao = get<AppDatabase>().bookDao(),
+                    launchIntentFactory = get<MediaServiceLaunchIntentFactory>(),
+                    notificationResources = get<DownloadNotificationResources>()
+                )
             )
         }
 

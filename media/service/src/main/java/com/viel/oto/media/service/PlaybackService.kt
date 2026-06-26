@@ -6,7 +6,6 @@ import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.os.Bundle
 import androidx.annotation.OptIn
-import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
@@ -20,9 +19,6 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import com.viel.oto.MainActivity
-import com.viel.oto.R
-import com.viel.oto.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.availability.BookAvailabilityGateway
 import com.viel.oto.data.book.BookCatalogGateway
@@ -36,14 +32,12 @@ import com.viel.oto.media.NotificationProgressPlayer
 import com.viel.oto.media.PlaybackDomainEvent
 import com.viel.oto.media.PlaybackDomainEventSink
 import com.viel.oto.media.PlaybackMediaId
+import com.viel.oto.media.PlaybackPlanBuilder
 import com.viel.oto.media.PlaybackSourcePreflight
-import com.viel.oto.media.SeekStepPresentation
 import com.viel.oto.media.session.PlaybackSessionErrorDecision
 import com.viel.oto.media.session.PlaybackSessionState
 import com.viel.oto.shared.settings.PlaybackSeekStepConfig
 import com.viel.oto.timeline.PositionMapper
-import com.viel.oto.widget.PlayerWidget
-import com.viel.oto.widget.PlayerWidgetStateHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -70,12 +64,15 @@ class PlaybackService : MediaSessionService(), KoinComponent {
     private val injectedBookCatalogGateway: BookCatalogGateway by inject()
     private val injectedChapterGateway: ChapterGateway by inject()
     private val injectedBookmarkGateway: BookmarkGateway by inject()
-    private val injectedBuildPlaybackPlanUseCase: BuildPlaybackPlanUseCase by inject()
+    private val injectedPlaybackResumePlanProvider: PlaybackResumePlanProvider by inject()
     private val injectedPlaybackSourcePreflight: PlaybackSourcePreflight by inject()
     private val injectedProgressGateway: ProgressGateway by inject()
     private val injectedBookAvailabilityGateway: BookAvailabilityGateway by inject()
     private val injectedPlaybackEventSink: PlaybackDomainEventSink by inject()
     private val injectedSettingsRepository: AppSettingsRepository by inject()
+    private val injectedLaunchIntentFactory: MediaServiceLaunchIntentFactory by inject()
+    private val injectedPlaybackWidgetStateSink: PlaybackWidgetStateSink by inject()
+    private val injectedPlaybackCommandPresentation: PlaybackCommandPresentation by inject()
     private val autoRewindManager: AutoRewindManager by inject()
 
     private var widgetUpdateJob: Job? = null
@@ -96,12 +93,15 @@ class PlaybackService : MediaSessionService(), KoinComponent {
     private lateinit var bookCatalogGateway: BookCatalogGateway
     private lateinit var chapterGateway: ChapterGateway
     private lateinit var bookmarkGateway: BookmarkGateway
-    private lateinit var buildPlaybackPlanUseCase: BuildPlaybackPlanUseCase
+    private lateinit var playbackResumePlanProvider: PlaybackResumePlanProvider
     private lateinit var playbackSourcePreflight: PlaybackSourcePreflight
     private lateinit var progressGateway: ProgressGateway
     private lateinit var bookAvailabilityGateway: BookAvailabilityGateway
     private lateinit var settingsRepository: AppSettingsRepository
     private lateinit var playbackEventSink: PlaybackDomainEventSink
+    private lateinit var launchIntentFactory: MediaServiceLaunchIntentFactory
+    private lateinit var playbackWidgetStateSink: PlaybackWidgetStateSink
+    private lateinit var playbackCommandPresentation: PlaybackCommandPresentation
     private lateinit var resumptionPreflight: PlaybackResumptionPreflight
     private lateinit var notificationPlayer: NotificationProgressPlayer
 
@@ -126,12 +126,15 @@ class PlaybackService : MediaSessionService(), KoinComponent {
         bookCatalogGateway = injectedBookCatalogGateway
         chapterGateway = injectedChapterGateway
         bookmarkGateway = injectedBookmarkGateway
-        buildPlaybackPlanUseCase = injectedBuildPlaybackPlanUseCase
+        playbackResumePlanProvider = injectedPlaybackResumePlanProvider
         playbackSourcePreflight = injectedPlaybackSourcePreflight
         progressGateway = injectedProgressGateway
         bookAvailabilityGateway = injectedBookAvailabilityGateway
         settingsRepository = injectedSettingsRepository
         playbackEventSink = injectedPlaybackEventSink
+        launchIntentFactory = injectedLaunchIntentFactory
+        playbackWidgetStateSink = injectedPlaybackWidgetStateSink
+        playbackCommandPresentation = injectedPlaybackCommandPresentation
         resumptionPreflight = PlaybackResumptionPreflight(
             playbackSourcePreflight = playbackSourcePreflight,
             settingsProvider = { settingsRepository.settingsFlow.first() },
@@ -260,16 +263,16 @@ class PlaybackService : MediaSessionService(), KoinComponent {
         rebuildTransportButtons(settingsRepository.cachedSettings.playbackSeekStepConfig)
 
         bookmarkButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName(getString(R.string.bookmark_add_title))
+            .setDisplayName(playbackCommandPresentation.bookmarkTitle(this))
             .setSessionCommand(SessionCommand(ACTION_BOOKMARK, Bundle.EMPTY))
-            .setCustomIconResId(R.drawable.ic_bookmark_add)
+            .setCustomIconResId(playbackCommandPresentation.bookmarkIcon())
             .setEnabled(true)
             .build()
 
         val playerOverlayPendingIntent = PendingIntent.getActivity(
             this,
             REQUEST_OPEN_PLAYER_OVERLAY_FROM_NOTIFICATION,
-            MainActivity.createOpenPlayerOverlayIntent(this),
+            launchIntentFactory.openPlayerOverlayIntent(this),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -292,16 +295,16 @@ class PlaybackService : MediaSessionService(), KoinComponent {
 
     private fun rebuildTransportButtons(config: PlaybackSeekStepConfig) {
         rewindButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName(getString(SeekStepPresentation.backwardLabel(config.backward)))
+            .setDisplayName(playbackCommandPresentation.rewindTitle(this, config.backward))
             .setSessionCommand(SessionCommand(ACTION_REWIND, Bundle.EMPTY))
-            .setCustomIconResId(SeekStepPresentation.backwardIcon(config.backward))
+            .setCustomIconResId(playbackCommandPresentation.rewindIcon(config.backward))
             .setEnabled(true)
             .build()
 
         forwardButton = CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName(getString(SeekStepPresentation.forwardLabel(config.forward)))
+            .setDisplayName(playbackCommandPresentation.forwardTitle(this, config.forward))
             .setSessionCommand(SessionCommand(ACTION_FORWARD, Bundle.EMPTY))
-            .setCustomIconResId(SeekStepPresentation.forwardIcon(config.forward))
+            .setCustomIconResId(playbackCommandPresentation.forwardIcon(config.forward))
             .setEnabled(true)
             .build()
     }
@@ -449,13 +452,13 @@ class PlaybackService : MediaSessionService(), KoinComponent {
                         future.setException(UnsupportedOperationException("No last played book found"))
                         return@launch
                     }
-                    val plan = buildPlaybackPlanUseCase(lastProgress.bookId)
+                    val plan = playbackResumePlanProvider.buildPlaybackPlan(lastProgress.bookId)
                     if (plan == null || plan.files.isEmpty()) {
                         future.setException(UnsupportedOperationException("Playback plan is empty for book: ${lastProgress.bookId}"))
                         return@launch
                     }
                     resumptionPreflight.requireAvailable(plan)
-                    val mediaItems = com.viel.oto.media.PlaybackPlanBuilder.buildMediaItems(plan)
+                    val mediaItems = PlaybackPlanBuilder.buildMediaItems(plan)
                     val chapters = chapterGateway.getChaptersForBookSync(lastProgress.bookId)
                     val startIndex = if (lastProgress.currentFileIndex in mediaItems.indices) {
                         lastProgress.currentFileIndex
@@ -544,41 +547,34 @@ class PlaybackService : MediaSessionService(), KoinComponent {
             if (mediaParts != null) {
                 val bookId = mediaParts.bookId
                 withContext(Dispatchers.IO) {
-                    val glanceIds = GlanceAppWidgetManager(this@PlaybackService)
-                        .getGlanceIds(PlayerWidget::class.java)
-                    if (glanceIds.isEmpty()) return@withContext
-
                     val book = bookCatalogGateway.getBookById(bookId)
-                    val title = book?.title ?: fallbackTitle
-                    val author = book?.author ?: fallbackArtist
-                    val coverPath = book?.thumbnailPath ?: book?.coverPath
                     val seekConfig = settingsRepository.cachedSettings.playbackSeekStepConfig
 
-                    PlayerWidgetStateHelper.updateWidgetState(
+                    playbackWidgetStateSink.update(
                         context = this@PlaybackService,
-                        isPlaying = isPlaying,
-                        title = title,
-                        author = author,
-                        coverPath = coverPath,
-                        seekBackwardSeconds = seekConfig.backward.seconds,
-                        seekForwardSeconds = seekConfig.forward.seconds
+                        snapshot = PlaybackWidgetSnapshot(
+                            isPlaying = isPlaying,
+                            title = book?.title ?: fallbackTitle,
+                            author = book?.author ?: fallbackArtist,
+                            coverPath = book?.thumbnailPath ?: book?.coverPath,
+                            seekBackwardSeconds = seekConfig.backward.seconds,
+                            seekForwardSeconds = seekConfig.forward.seconds
+                        )
                     )
                 }
             } else {
                 withContext(Dispatchers.IO) {
-                    val glanceIds = GlanceAppWidgetManager(this@PlaybackService)
-                        .getGlanceIds(PlayerWidget::class.java)
-                    if (glanceIds.isEmpty()) return@withContext
-
                     val seekConfig = settingsRepository.cachedSettings.playbackSeekStepConfig
-                    PlayerWidgetStateHelper.updateWidgetState(
+                    playbackWidgetStateSink.update(
                         context = this@PlaybackService,
-                        isPlaying = false,
-                        title = null,
-                        author = null,
-                        coverPath = null,
-                        seekBackwardSeconds = seekConfig.backward.seconds,
-                        seekForwardSeconds = seekConfig.forward.seconds
+                        snapshot = PlaybackWidgetSnapshot(
+                            isPlaying = false,
+                            title = null,
+                            author = null,
+                            coverPath = null,
+                            seekBackwardSeconds = seekConfig.backward.seconds,
+                            seekForwardSeconds = seekConfig.forward.seconds
+                        )
                     )
                 }
             }
@@ -589,14 +585,16 @@ class PlaybackService : MediaSessionService(), KoinComponent {
         widgetUpdateJob?.cancel()
 
         serviceScope.launch {
-            PlayerWidgetStateHelper.updateWidgetState(
+            playbackWidgetStateSink.update(
                 context = this@PlaybackService,
-                isPlaying = false,
-                title = null,
-                author = null,
-                coverPath = null,
-                seekBackwardSeconds = settingsRepository.cachedSettings.playbackSeekStepConfig.backward.seconds,
-                seekForwardSeconds = settingsRepository.cachedSettings.playbackSeekStepConfig.forward.seconds
+                snapshot = PlaybackWidgetSnapshot(
+                    isPlaying = false,
+                    title = null,
+                    author = null,
+                    coverPath = null,
+                    seekBackwardSeconds = settingsRepository.cachedSettings.playbackSeekStepConfig.backward.seconds,
+                    seekForwardSeconds = settingsRepository.cachedSettings.playbackSeekStepConfig.forward.seconds
+                )
             )
         }
         serviceScope.cancel()

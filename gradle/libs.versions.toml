@@ -94,6 +94,8 @@ moshi-kotlin-codegen = { group = "com.squareup.moshi", name = "moshi-kotlin-code
 # Coroutines Virtual-Time Test Harness (Expose TestScope and scheduler controls for Flow backpressure tests)
 # Search input throttling must be verified without wall-clock sleeps, so tests need kotlinx-coroutines-test explicitly.
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
+# Android Dispatchers.Main Runtime (Service modules launch foreground-service work on the Android main dispatcher)
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 # Robolectric JVM Test Runtime (Backs Android API-dependent unit tests without a device)
 # Allows tests to pin the supported app SDK so file-backed AndroidX components avoid production-impossible legacy branches.
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }

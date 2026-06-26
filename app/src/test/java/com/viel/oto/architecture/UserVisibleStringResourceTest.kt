@@ -199,10 +199,10 @@ class UserVisibleStringResourceTest {
             "app/src/main/java/com/viel/oto/ui/home/LibraryViewModel.kt",
             "app/src/main/java/com/viel/oto/ui/player/components/ChapterList.kt",
             "app/src/main/java/com/viel/oto/widget/PlayerWidget.kt",
-            "app/src/main/java/com/viel/oto/media/service/PlaybackService.kt",
+            "media/service/src/main/java/com/viel/oto/media/service/PlaybackService.kt",
             "app/src/main/java/com/viel/oto/abs/sync/AbsSyncTaskCoordinator.kt",
             "app/src/main/java/com/viel/oto/abs/net/AbsApiClient.kt",
-            "app/src/main/java/com/viel/oto/library/scan/ScanOutcomePolicy.kt",
+            "library/import/src/main/java/com/viel/oto/library/scan/ScanOutcomePolicy.kt",
             "app/proguard-rules.pro"
         ).map(::repoFile)
 
