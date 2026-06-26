@@ -1,4 +1,4 @@
-package com.viel.oto.di
+package com.viel.oto.app.playback
 
 import android.content.Context
 import android.content.Intent
