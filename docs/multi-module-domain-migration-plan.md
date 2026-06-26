@@ -334,6 +334,7 @@ flowchart TD
 - AboutLibraries 插件、签名、BuildConfig、locale filter、backup/network security 继续由 `:app` 维护。
 - 保留 release shrinking 和 resource shrinking，不新增宽 R8 keep rule。
 - 更新架构测试，禁止领域 Module 反向依赖 `:app`。
+- 已落地 8A：`:widget` 打开应用改为通过 package launcher intent，不再硬编码 `com.viel.oto.MainActivity`；新增架构测试扫描非 app 生产 Module，禁止引用 app shell 类名和 app-owned adapter 包。
 
 验收：
 

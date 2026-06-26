@@ -1,7 +1,6 @@
 package com.viel.oto.widget
 
 import android.content.Context
-import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
@@ -225,18 +224,16 @@ class PlayerWidget : GlanceAppWidget() {
     }
 
     /**
-     * Opens the host app without a compile-time dependency on the application module.
+     * Opens the host app through the package launcher entrypoint.
      *
-     * The widget module is delivered through the app manifest merge, so the runtime package name can
-     * differ between debug and release builds while the activity class name remains stable.
+     * Widget rendering belongs to `:widget`, while the concrete launch activity belongs to `:app`.
+     * Resolving the launcher intent through PackageManager keeps this module independent from app
+     * shell class names and still follows debug/release application id variants.
      */
     private fun widgetOpenAppIntent(context: Context): Intent =
-        Intent().apply {
-            component = ComponentName(context.packageName, MAIN_ACTIVITY_CLASS_NAME)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        }
-
-    private companion object {
-        const val MAIN_ACTIVITY_CLASS_NAME = "com.viel.oto.MainActivity"
-    }
+        context.packageManager.getLaunchIntentForPackage(context.packageName)
+            ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            ?: Intent(Intent.ACTION_MAIN)
+                .setPackage(context.packageName)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
 }
