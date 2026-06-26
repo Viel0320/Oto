@@ -7,8 +7,6 @@ import com.viel.oto.application.usecase.LibraryRootSettingsSnapshot
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.library.scan.ScanScheduler
-import com.viel.oto.event.feedback.LibraryAccessFeedbackFacts
-import com.viel.oto.event.feedback.toRootUnavailableFeedbackMessage
 import com.viel.oto.library.availability.isSyncAvailable
 import kotlinx.coroutines.flow.Flow
 
@@ -58,9 +56,11 @@ class DefaultSettingsRootModule(
             ?: return SettingsAbsSyncInspection.MissingRoot
         if (!preflight.isSyncAvailable) {
             return SettingsAbsSyncInspection.Blocked(
-                LibraryAccessFeedbackFacts.syncBlocked(
+                SettingsAbsSyncBlockedReason(
                     rootId = preflight.root.id,
-                    detailMessage = preflight.toRootUnavailableFeedbackMessage()
+                    rootName = preflight.root.displayName.ifBlank { preflight.root.sourceUri },
+                    availabilityStatus = preflight.availability.status,
+                    fallbackCode = preflight.availability.errorCode ?: preflight.availability.status.name
                 )
             )
         }

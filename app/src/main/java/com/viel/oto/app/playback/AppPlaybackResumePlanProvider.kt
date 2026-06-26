@@ -1,4 +1,4 @@
-package com.viel.oto.application.playback
+package com.viel.oto.app.playback
 
 import com.viel.oto.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.oto.media.BookPlaybackPlan

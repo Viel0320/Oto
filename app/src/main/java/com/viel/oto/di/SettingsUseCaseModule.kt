@@ -13,7 +13,6 @@ import com.viel.oto.application.library.settings.SettingsRootCommands
 import com.viel.oto.application.library.settings.SettingsRootReadModel
 import com.viel.oto.application.usecase.AbsSettingsConnectionUseCase
 import com.viel.oto.application.usecase.ExportUserDataUseCase
-import com.viel.oto.application.usecase.FormatSettingsRootUseCase
 import com.viel.oto.application.usecase.ImportUserDataUseCase
 import com.viel.oto.application.usecase.ResolveProgressConflictUseCase
 import com.viel.oto.application.usecase.SettingsLibraryMaintenanceUseCase
@@ -25,6 +24,7 @@ import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavConnectionTester
+import com.viel.oto.ui.settings.SettingsRootFormatter
 import org.koin.core.module.Module
 import org.koin.dsl.binds
 import org.koin.dsl.module
@@ -51,7 +51,7 @@ internal object SettingsUseCaseModule {
             )
         }
 
-        single { FormatSettingsRootUseCase(get()) }
+        single { SettingsRootFormatter(get()) }
 
         single {
             SettingsLibraryMaintenanceUseCase(

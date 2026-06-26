@@ -9,8 +9,8 @@ import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.viel.oto.abs.sync.AbsSyncWorkScheduler
+import com.viel.oto.app.download.ManualDownloadOrphanCleanupScheduler
 import com.viel.oto.application.download.DownloadRecoveryService
-import com.viel.oto.application.download.ManualDownloadOrphanCleanupScheduler
 import com.viel.oto.application.library.settings.AppSettingsReadModel
 import com.viel.oto.application.startup.DefaultStartupWarmupDependencies
 import com.viel.oto.application.startup.OtoStartupWarmup

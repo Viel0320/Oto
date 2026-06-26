@@ -1,5 +1,6 @@
-package com.viel.oto.application.download
+package com.viel.oto.app.download
 
+import com.viel.oto.application.download.ManualDownloadNotificationGateway
 import com.viel.oto.data.entity.DownloadMetadataEntity
 import com.viel.oto.media.service.AndroidManualDownloadNotificationGateway
 

@@ -290,6 +290,10 @@ flowchart TD
 
 改动范围：
 
+- 已落地 7A：download notification resources、manual download notification/action adapter、playback resume adapter 和 manual-download orphan cleanup Worker 已移到 app-owned package，`application` 不再持有 Android service/WorkManager adapter。
+- 已落地 7A：settings ABS sync preflight 不再返回 `FeedbackFact`；`application` 只返回结构化 blocked reason，UI/event 边缘负责资源化 feedback。
+- 已落地 7A：settings root 文案和 connection failure 文案格式化已移到 UI-owned formatter，`application` 不再直接引用 app `R` 或 event feedback。
+- 阶段 7A 后，`application` 剩余 Android `Context` 依赖集中在 user-data import/export 用例，下一切片先决定它们保留为 Android application Module 能力，还是拆出 app/runtime adapter。
 - 新增 `:application`，移动 read model、command、use case、download orchestration。
 - 新增 `:event`，移动 `AppEventSink` 和 feedback facts；资源字符串映射放在 `:ui` 或 `:app` presentation Adapter。
 - 新增 `:ui`，移动 Compose route/screen/overlay/ViewModel/theme/i18n。

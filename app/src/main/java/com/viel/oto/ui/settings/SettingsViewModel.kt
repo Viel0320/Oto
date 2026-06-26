@@ -15,7 +15,6 @@ import com.viel.oto.application.library.settings.SettingsRootItem
 import com.viel.oto.application.library.settings.SettingsRootReadModel
 import com.viel.oto.application.usecase.BackupManifest
 import com.viel.oto.application.usecase.ExportUserDataUseCase
-import com.viel.oto.application.usecase.FormatSettingsRootUseCase
 import com.viel.oto.application.usecase.ImportUserDataUseCase
 import com.viel.oto.event.AppEventSink
 import com.viel.oto.event.feedback.DataTransferFeedbackFacts
@@ -39,7 +38,7 @@ class SettingsViewModel(
     private val application: android.app.Application,
     private val settingsReadModel: AppSettingsReadModel,
     private val settingsCommands: AppSettingsCommands,
-    private val formatSettingsRootUseCase: FormatSettingsRootUseCase,
+    private val settingsRootFormatter: SettingsRootFormatter,
     private val settingsRootReadModel: SettingsRootReadModel,
     private val settingsRootCommands: SettingsRootCommands,
     private val appEventSink: AppEventSink,
@@ -74,7 +73,7 @@ class SettingsViewModel(
     val libraryRootDisplays: StateFlow<List<SettingsRootItem>> = settingsRootReadModel
         .observeRootSnapshots()
         .map { snapshots ->
-            snapshots.map(formatSettingsRootUseCase::formatSnapshot)
+            snapshots.map(settingsRootFormatter::formatSnapshot)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

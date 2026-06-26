@@ -40,8 +40,8 @@ class SettingsSceneArchitectureTest {
             remoteConnectionViewModelSource.contains("settingsRootCommands.addLocalRootAndScheduleSync(uri)")
         )
         assertTrue(
-            "SettingsViewModel must consume FormatSettingsRootUseCase.",
-            settingsViewModelSource.contains("formatSettingsRootUseCase")
+            "SettingsViewModel must consume the UI-owned settings root formatter.",
+            settingsViewModelSource.contains("settingsRootFormatter")
         )
         assertTrue(
             "SettingsViewModel must not import the Room library root entity.",

@@ -1,4 +1,4 @@
-package com.viel.oto.application.download
+package com.viel.oto.app.download
 
 import android.content.Context
 import com.viel.oto.R

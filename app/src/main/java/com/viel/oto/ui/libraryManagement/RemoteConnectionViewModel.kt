@@ -7,16 +7,17 @@ import com.viel.oto.application.library.settings.SettingsAbsSyncInspection
 import com.viel.oto.application.library.settings.SettingsRootCommands
 import com.viel.oto.application.library.settings.SettingsRootItem
 import com.viel.oto.application.usecase.AbsSettingsConnectionUseCase
-import com.viel.oto.application.usecase.FormatSettingsRootUseCase
 import com.viel.oto.application.usecase.LibraryRootManagementUseCase
 import com.viel.oto.application.usecase.SettingsLibraryMaintenanceUseCase
 import com.viel.oto.application.usecase.SettingsQueryUseCase
 import com.viel.oto.application.usecase.TestWebDavConnectionUseCase
 import com.viel.oto.event.AppEventSink
+import com.viel.oto.event.feedback.FeedbackMessages
 import com.viel.oto.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.oto.logger.AbsSettingsLogger
 import com.viel.oto.logger.ScanWorkflowLogger
 import com.viel.oto.ui.settings.SettingsConnectionHandler
+import com.viel.oto.ui.settings.SettingsRootFormatter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,7 +39,7 @@ class RemoteConnectionViewModel(
     private val testWebDavConnectionUseCase: TestWebDavConnectionUseCase,
     private val settingsQueryUseCase: SettingsQueryUseCase,
     private val settingsRootCommands: SettingsRootCommands,
-    private val formatSettingsRootUseCase: FormatSettingsRootUseCase,
+    private val settingsRootFormatter: SettingsRootFormatter,
     private val appEventSink: AppEventSink,
     private val libraryRootManagementUseCase: LibraryRootManagementUseCase
 ) : ViewModel() {
@@ -49,7 +50,7 @@ class RemoteConnectionViewModel(
         testWebDavConnectionUseCase = testWebDavConnectionUseCase,
         settingsQueryUseCase = settingsQueryUseCase,
         settingsRootCommands = settingsRootCommands,
-        formatSettingsRootUseCase = formatSettingsRootUseCase,
+        settingsRootFormatter = settingsRootFormatter,
         appEventSink = appEventSink,
         scope = viewModelScope,
         app = application
@@ -293,7 +294,16 @@ class RemoteConnectionViewModel(
                 SettingsAbsSyncInspection.MissingRoot ->
                     appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncRootMissing())
                 is SettingsAbsSyncInspection.Blocked ->
-                    appEventSink.emitFeedback(inspection.fact)
+                    appEventSink.emitFeedback(
+                        LibraryAccessFeedbackFacts.syncBlocked(
+                            rootId = inspection.reason.rootId,
+                            detailMessage = FeedbackMessages.libraryRootUnavailableSync(
+                                rootName = inspection.reason.rootName,
+                                availabilityStatus = inspection.reason.availabilityStatus,
+                                fallbackCode = inspection.reason.fallbackCode
+                            )
+                        )
+                    )
                 is SettingsAbsSyncInspection.Ready -> {
                     val start = AbsSettingsLogger.mark()
                     AbsSettingsLogger.logManualSyncStart(rootId = inspection.rootId, displayName = inspection.displayName)

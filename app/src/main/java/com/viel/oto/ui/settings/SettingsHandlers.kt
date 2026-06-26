@@ -157,7 +157,7 @@ class SettingsConnectionHandler(
     private val testWebDavConnectionUseCase: TestWebDavConnectionUseCase,
     private val settingsQueryUseCase: SettingsQueryUseCase,
     private val settingsRootCommands: SettingsRootCommands,
-    private val formatSettingsRootUseCase: com.viel.oto.application.usecase.FormatSettingsRootUseCase,
+    private val settingsRootFormatter: SettingsRootFormatter,
     private val appEventSink: AppEventSink,
     private val scope: CoroutineScope,
     private val app: Application
@@ -194,7 +194,7 @@ class SettingsConnectionHandler(
                     LibraryAccessFeedbackFacts.webDavConnectionSucceeded(draftId = editingRootId ?: NEW_DRAFT_ID)
                 )
             }.onFailure { error ->
-                val friendlyMessage = formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
+                val friendlyMessage = settingsRootFormatter.resolveConnectionFailureMessage(error)
                 _webDavConnectionState.value = WebDavConnectionUiState(
                     isTesting = false,
                     testSucceeded = false,
@@ -274,9 +274,9 @@ class SettingsConnectionHandler(
                 }.onFailure { error ->
                     hasError = true
                     lastErrorMsg = if (error.isDuplicateRootFor(DuplicateLibraryRootSource.ABS)) {
-                        formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
+                        settingsRootFormatter.resolveConnectionFailureMessage(error)
                     } else {
-                        formatSettingsRootUseCase.redactAbsError(
+                        settingsRootFormatter.redactAbsError(
                             error.message ?: app.getString(R.string.feedback_settings_abs_server_save_failed_fallback)
                         )
                     }
@@ -352,8 +352,8 @@ class SettingsConnectionHandler(
                 )
             }.onFailure { error ->
                 lastSuccessfulAbsConnection = null
-                val friendlyMessage = formatSettingsRootUseCase.redactAbsError(
-                    formatSettingsRootUseCase.resolveConnectionFailureMessage(error)
+                val friendlyMessage = settingsRootFormatter.redactAbsError(
+                    settingsRootFormatter.resolveConnectionFailureMessage(error)
                 )
                 _absConnectionState.value = AbsConnectionUiState(
                     isTesting = false,

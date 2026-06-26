@@ -17,9 +17,9 @@ import com.viel.oto.application.download.DefaultDownloadRuntimeGateway
 import com.viel.oto.application.download.DownloadCacheAccess
 import com.viel.oto.application.download.DownloadController
 import com.viel.oto.application.download.DownloadIndexSnapshotReader
-import com.viel.oto.application.download.AppDownloadNotificationResources
-import com.viel.oto.application.download.AppManualDownloadActionGateway
-import com.viel.oto.application.download.AppManualDownloadNotificationGateway
+import com.viel.oto.app.download.AppDownloadNotificationResources
+import com.viel.oto.app.download.AppManualDownloadActionGateway
+import com.viel.oto.app.download.AppManualDownloadNotificationGateway
 import com.viel.oto.application.download.DownloadProgressPoller
 import com.viel.oto.application.download.DownloadRecoveryService
 import com.viel.oto.application.download.DownloadRequestRepairer

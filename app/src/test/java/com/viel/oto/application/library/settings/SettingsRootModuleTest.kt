@@ -129,6 +129,34 @@ class SettingsRootModuleTest {
     }
 
     @Test
+    fun inspectManualAbsSyncReturnsBlockedReasonAfterUnavailablePreflight() = runBlocking {
+        val update = LibraryRootAvailabilityUpdate(
+            root = root(sourceType = AudiobookSchema.LibrarySourceType.ABS, displayName = "ABS Library"),
+            availability = AvailabilityResult(
+                status = AudiobookSchema.AvailabilityStatus.AUTH_FAILED,
+                errorCode = "AUTH_FAILED"
+            )
+        )
+        val gateway = FakeLibraryRootGateway(preflightByRootId = mapOf(ROOT_ID to update))
+        val module = moduleFor(rootGateway = gateway)
+
+        val result = module.inspectManualAbsSync(ROOT_ID)
+
+        assertEquals(
+            SettingsAbsSyncInspection.Blocked(
+                SettingsAbsSyncBlockedReason(
+                    rootId = ROOT_ID,
+                    rootName = "ABS Library",
+                    availabilityStatus = AudiobookSchema.AvailabilityStatus.AUTH_FAILED,
+                    fallbackCode = "AUTH_FAILED"
+                )
+            ),
+            result
+        )
+        assertEquals(listOf(ROOT_ID), gateway.refreshedRootIds)
+    }
+
+    @Test
     fun startAbsSyncUsesSceneSpecificOrigins() {
         val startedTasks = mutableListOf<StartedAbsTask>()
         val module = moduleFor(

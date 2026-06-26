@@ -1,15 +1,16 @@
 package com.viel.oto.application.library.settings
 
 import android.net.Uri
-import com.viel.oto.event.feedback.FeedbackFact
+import com.viel.oto.data.db.AudiobookSchema
 
 /**
  * Entity-free preflight result for settings actions.
- * Gives SettingsViewModel only the decision data needed to ask for confirmation or show a blocked-sync message, while root lookup and ABS plan inspection stay in the settings-root module.
+ * Gives SettingsViewModel only the decision data needed to ask for confirmation or render a
+ * blocked-sync message, while root lookup and ABS plan inspection stay in the settings-root module.
  */
 sealed interface SettingsAbsSyncInspection {
     data object MissingRoot : SettingsAbsSyncInspection
-    data class Blocked(val fact: FeedbackFact) : SettingsAbsSyncInspection
+    data class Blocked(val reason: SettingsAbsSyncBlockedReason) : SettingsAbsSyncInspection
     data class Ready(
         val rootId: String,
         val displayName: String,
@@ -17,6 +18,18 @@ sealed interface SettingsAbsSyncInspection {
         val requiresConfirmation: Boolean
     ) : SettingsAbsSyncInspection
 }
+
+/**
+ * Source-neutral reason returned when a settings-triggered ABS sync cannot start.
+ *
+ * Application owns the preflight decision, while UI/event adapters own localized feedback rendering.
+ */
+data class SettingsAbsSyncBlockedReason(
+    val rootId: String,
+    val rootName: String,
+    val availabilityStatus: AudiobookSchema.AvailabilityStatus,
+    val fallbackCode: String
+)
 
 /**
  * Scene-level root management surface.
