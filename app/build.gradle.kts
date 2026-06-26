@@ -187,6 +187,7 @@ dependencies {
     implementation(project(":application"))
     implementation(project(":event"))
     implementation(project(":widget"))
+    implementation(project(":shared"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

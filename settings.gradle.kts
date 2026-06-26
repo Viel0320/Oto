@@ -56,3 +56,6 @@ include(":event")
 
 // Stage 7D Widget Module (Owns Glance widget rendering, state, and receivers)
 include(":widget")
+
+// Stage 7E Shared Module (Owns cross-layer utilities and the consolidated user-visible resource catalog)
+include(":shared")
