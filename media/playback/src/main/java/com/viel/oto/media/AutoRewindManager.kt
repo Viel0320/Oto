@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
  * secondary playback features from PlaybackManager.
  */
 @OptIn(UnstableApi::class)
-class AutoRewindManager internal constructor(
+class AutoRewindManager(
     context: Context,
     settingsRepository: AppSettingsRepository,
     private val bookCatalogGateway: com.viel.oto.data.book.BookCatalogGateway,

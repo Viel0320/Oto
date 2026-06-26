@@ -1,6 +1,7 @@
 package com.viel.oto.abs.net
 
 import com.viel.oto.data.db.AudiobookSchema
+import com.viel.oto.library.availability.RemoteAvailabilityException
 import java.io.IOException
 
 /**
@@ -13,7 +14,7 @@ import java.io.IOException
 open class AbsApiError(
     val code: String,
     val httpStatus: Int? = null,
-    val availabilityStatus: AudiobookSchema.AvailabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
+    override val availabilityStatus: AudiobookSchema.AvailabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
     message: String,
     cause: Throwable? = null
-) : IOException(message, cause)
+) : IOException(message, cause), RemoteAvailabilityException

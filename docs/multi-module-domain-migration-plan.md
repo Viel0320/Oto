@@ -2,9 +2,9 @@
 
 ## 当前事实
 
-- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:work:policy`。
+- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:media:playback`、`:work:policy`。
 - `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 `abs`、`application`、`media`、`ui`、`widget`、`work`；`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`，scan/import/root lifecycle/availability 已提升到 `library/import/src/main/java/com/viel/oto/library`。
-- 本次迁移后，app 内 `library` 生产 Kotlin 文件已清空；`:library:vfs` 维护 VFS/source provider，`:library:import` 维护 scan/import/root lifecycle/availability，`:media:metadata` 维护 parser/manifest/cover/subtitle parser，`:data:store` 继续维护 Room、DataStore 和持久化 gateway。
+- 本次迁移后，app 内 `library` 生产 Kotlin 文件已清空；`:library:vfs` 维护 VFS/source provider，`:library:import` 维护 scan/import/root lifecycle/availability，`:media:metadata` 维护 parser/manifest/cover/subtitle parser，`:media:playback` 维护 playback plan/controller/data source/cache/session state，`:data:store` 继续维护 Room、DataStore 和持久化 gateway。
 - `settings/model`、`network/policy`、`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability`、`library/vfs` 和 `media/metadata` 已是 Android library Module，继续保留 `com.viel.oto.logger`、`com.viel.oto.library.vfs`、`com.viel.oto.media.parser`、`com.viel.oto.media.manifest` 和 `com.viel.oto.media.subtitle` 包名供现有调用点使用。
 - ABS Room 持久化文件当前位于 `data/store/src/main/java/com/viel/oto/data/abs/playback` 和 `data/store/src/main/java/com/viel/oto/data/abs/sync`，`AppDatabase` 已从 `data.abs.*` 导入这些 DAO/Entity。
 - Koin 入口集中在 `OtoKoinApplication`，关闭顺序由 `GraphClosePolicy` 固定为 `media -> download -> abs -> library -> uiEvents -> data`。
@@ -12,7 +12,7 @@
   - `data` 已进入 `:data:store`，当前只保留对 `shared`、`timeline`、`logger` 的窄依赖。
   - `abs` 仍直接引用 `data`、`library`、`media`、`work`。
   - `library` 已移除对 `abs` 的生产源码直接引用，VFS 已进入 `:library:vfs`，metadata parser/manifest 已进入 `:media:metadata`，scan/import/root lifecycle/availability 已进入 `:library:import`。
-  - `media` 直接引用 `application`、`data`、`library`、`widget`、`MainActivity`、`R`；其中 `:media:metadata` 当前仅承接 parser/manifest/cover/subtitle parser，并保留迁移期对 `:data:store` 与 `:library:vfs` 的编译依赖。
+  - `media` 已拆出 `:media:metadata` 和 `:media:playback`；app 内剩余 `media/service`、`media/subtitle` 和 `SeekStepPresentation` 仍直接引用 `application`、`widget`、`MainActivity`、`R`，后续随 `:media:service` 和 UI/event presentation 继续收敛。
   - `logger` 已物理迁出 app，多数领域仍直接依赖具体 logger，后续需要继续收敛为窄 observability Interface。
   - `event` 直接引用 `application`、`data`、`media`、`R`。
 
@@ -242,7 +242,8 @@ flowchart TD
 
 - 已新增 `:media:metadata`，移动 `media/parser`、`media/manifest`、subtitle parser、cover extractor。
 - `ManifestModels.kt` 已从 `library` 包模型改为 `media.manifest` 包模型，避免 metadata module 继续暴露 import/root lifecycle 领域包。
-- 新增 `:media:playback`，移动 `BookPlaybackPlan`、`VfsPlaybackUri`、`VfsPlaybackDataSource`、`PlaybackManager`、preflight、progress sync tracking。
+- 已新增 `:media:playback`，移动 `BookPlaybackPlan`、`VfsPlaybackUri`、`VfsPlaybackDataSource`、`PlaybackManager`、preflight、progress sync tracking、manual cache playback、session state 和 playback domain event。
+- 已落地：`PlaybackManager` 通过 `PlaybackSessionTokenFactory` 获取 Media3 session token，不再直接引用 `PlaybackService`；ABS playback session sync 通过 `RemotePlaybackSessionSyncGateway` 适配，不再由 playback core 直接 import ABS implementation。
 - 新增 `:media:service`，移动 `media/service` 下的 MediaSession service、download service、notification Adapter。
 - 清理 `media -> MainActivity`：由 `:app` 提供 launch intent Adapter，`media:service` 只依赖一个窄 Interface。
 - 清理 `media -> widget`：播放状态通过 `event` 或 application command 通知，Widget 自己读取 render state。

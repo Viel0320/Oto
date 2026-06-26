@@ -17,7 +17,9 @@ import com.viel.oto.media.DefaultPlaybackRootLookup
 import com.viel.oto.media.PlaybackFileLookup
 import com.viel.oto.media.PlaybackManager
 import com.viel.oto.media.PlaybackRootLookup
+import com.viel.oto.media.PlaybackSessionTokenFactory
 import com.viel.oto.media.PlaybackSourcePreflight
+import com.viel.oto.media.service.PlaybackServiceSessionTokenFactory
 import org.koin.core.module.Module
 import org.koin.dsl.bind
 import org.koin.dsl.module
@@ -56,8 +58,10 @@ internal object MediaModule {
 
         single { AutoRewindManager(get(), get(), get(), get()) }
 
+        single<PlaybackSessionTokenFactory> { PlaybackServiceSessionTokenFactory() }
+
         single {
-            PlaybackManager(get(), get(), get(), get(), get(), get(), get(), get(), get()).also { playbackManager ->
+            PlaybackManager(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()).also { playbackManager ->
                 GraphClosePolicy.register(
                     stage = GraphClosePolicy.Stage.Media,
                     closeable = PlaybackRuntimeHolder(playbackManager)

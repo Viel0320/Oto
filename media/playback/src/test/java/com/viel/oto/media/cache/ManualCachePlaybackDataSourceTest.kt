@@ -24,10 +24,16 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 import java.util.concurrent.atomic.AtomicInteger
 
+/**
+ * Pins Robolectric to the app minimum SDK because manual-cache playback tests use cache and Uri
+ * APIs available on supported devices while the module compile SDK exceeds Robolectric support.
+ */
 @OptIn(UnstableApi::class)
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class ManualCachePlaybackDataSourceTest {
     @Test
     fun `manual cache hit should not open upstream`() {

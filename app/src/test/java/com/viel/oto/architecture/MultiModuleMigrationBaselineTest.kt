@@ -110,6 +110,8 @@ class MultiModuleMigrationBaselineTest {
             File("library/import/src/main/java/com/viel/oto"),
             File("../media/metadata/src/main/java/com/viel/oto"),
             File("media/metadata/src/main/java/com/viel/oto"),
+            File("../media/playback/src/main/java/com/viel/oto"),
+            File("media/playback/src/main/java/com/viel/oto"),
             File("../work/policy/src/main/java/com/viel/oto"),
             File("work/policy/src/main/java/com/viel/oto")
         )
@@ -215,7 +217,6 @@ class MultiModuleMigrationBaselineTest {
             "library->work",
             "media->MainActivity",
             "media->R",
-            "media->abs",
             "media->application",
             "media->data",
             "media->library",

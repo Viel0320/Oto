@@ -9,6 +9,7 @@ import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.data.webdav.WebDavCredentialStore
 import com.viel.oto.data.webdav.webDavCredentialDataStore
+import com.viel.oto.library.availability.RemoteAvailabilityException
 import com.viel.oto.library.availability.RemoteAvailabilityMappingPolicy
 import com.viel.oto.library.availability.RemoteAvailabilityProtocol
 import com.viel.oto.library.vfs.sourceProvider.LibrarySourceKind
@@ -51,10 +52,10 @@ import javax.xml.parsers.DocumentBuilderFactory
  * Maps WebDAV HTTP and network failures to standardized availability statuses.
  */
 open class WebDavException(
-    val availabilityStatus: AudiobookSchema.AvailabilityStatus,
+    override val availabilityStatus: AudiobookSchema.AvailabilityStatus,
     message: String,
     cause: Throwable? = null
-) : IOException(message, cause)
+) : IOException(message, cause), RemoteAvailabilityException
 
 /**
  * Represents one HTTP resource returned by a WebDAV PROPFIND response.

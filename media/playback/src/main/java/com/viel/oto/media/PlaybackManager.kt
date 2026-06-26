@@ -1,6 +1,5 @@
 package com.viel.oto.media
 
-import android.content.ComponentName
 import android.content.Context
 import android.os.SystemClock
 import androidx.annotation.OptIn
@@ -10,13 +9,11 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.entity.BookFileEntity
 import com.viel.oto.data.entity.BookProgressEntity
 import com.viel.oto.logger.PlaybackWorkflowLogger
-import com.viel.oto.media.service.PlaybackService
 import com.viel.oto.media.subtitle.SubtitleLine
 import com.viel.oto.timeline.PositionMapper
 
@@ -31,13 +28,21 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * Owns the playback controller runtime exposed to the app dependency graph.
+ *
+ * The constructor is public because the app-level Koin graph wires Android service integration,
+ * source preflight, and remote-session adapters into this playback-domain module without allowing
+ * the module to depend back on the app shell.
+ */
 @OptIn(UnstableApi::class)
-class PlaybackManager internal constructor(
+class PlaybackManager(
     context: Context,
+    private val sessionTokenFactory: PlaybackSessionTokenFactory,
     private val bookCatalogGateway: com.viel.oto.data.book.BookCatalogGateway,
     private val progressGateway: com.viel.oto.data.progress.ProgressGateway,
     private val bookAvailabilityGateway: com.viel.oto.data.availability.BookAvailabilityGateway,
-    private val absPlaybackSessionSyncer: com.viel.oto.abs.playback.AbsPlaybackSessionSyncer,
+    private val remotePlaybackSessionSyncGateway: RemotePlaybackSessionSyncGateway,
     private val playbackSourcePreflight: com.viel.oto.media.PlaybackSourcePreflight,
     private val playbackEventSink: com.viel.oto.media.PlaybackDomainEventSink,
     settingsRepository: AppSettingsRepository,
@@ -154,7 +159,7 @@ class PlaybackManager internal constructor(
             context = appContext,
             bookCatalogGateway = bookCatalogGateway,
             progressGateway = progressGateway,
-            absPlaybackSessionSyncer = absPlaybackSessionSyncer,
+            remotePlaybackSessionSyncGateway = remotePlaybackSessionSyncGateway,
             scope = scope,
             getController = { mediaController },
             getCurrentPlan = { currentPlan },
@@ -169,7 +174,7 @@ class PlaybackManager internal constructor(
     }
 
     private fun initializeController() {
-        val sessionToken = SessionToken(appContext, ComponentName(appContext, PlaybackService::class.java))
+        val sessionToken = sessionTokenFactory.createSessionToken(appContext)
         controllerFuture = MediaController.Builder(appContext, sessionToken)
             .setListener(object : MediaController.Listener {
                 override fun onCustomCommand(
@@ -501,7 +506,7 @@ class PlaybackManager internal constructor(
         if (book.sourceType != com.viel.oto.data.db.AudiobookSchema.SourceType.ABS_REMOTE) return
         val remoteItemId = book.id.substringAfter(":item:", missingDelimiterValue = "")
         if (remoteItemId.isBlank()) return
-        absPlaybackSessionSyncer.openSession(book, remoteItemId)
+        remotePlaybackSessionSyncGateway.openSession(book, remoteItemId)
     }
 
     private suspend fun closeAbsSessionIfNeeded(snapshot: AbsSessionSnapshot?) {
@@ -509,7 +514,7 @@ class PlaybackManager internal constructor(
         val book = bookCatalogGateway.getBookById(sessionSnapshot.bookId) ?: return
         if (book.sourceType != com.viel.oto.data.db.AudiobookSchema.SourceType.ABS_REMOTE) return
         val progress = resolveCloseProgress(sessionSnapshot)
-        absPlaybackSessionSyncer.closeSession(book, progress, sessionSnapshot.durationMs)
+        remotePlaybackSessionSyncGateway.closeSession(book, progress, sessionSnapshot.durationMs)
     }
 
     private suspend fun resolveCloseProgress(snapshot: AbsSessionSnapshot): BookProgressEntity? {

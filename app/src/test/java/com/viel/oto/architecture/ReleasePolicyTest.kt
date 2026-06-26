@@ -142,7 +142,10 @@ class ReleasePolicyTest {
             repoFile("app/src/main/java/com/viel/oto/abs/net/AbsApiClient.kt"),
             repoFile("app/src/main/java/com/viel/oto/abs/sync/AbsCoverCache.kt"),
             repoFile("app/src/main/java/com/viel/oto/abs/vfs/AbsSourceProvider.kt"),
-            repoFile("app/src/main/java/com/viel/oto/media/PlaybackSourcePreflight.kt")
+            repoFile(
+                "media/playback/src/main/java/com/viel/oto/media/PlaybackSourcePreflight.kt",
+                "app/src/main/java/com/viel/oto/media/PlaybackSourcePreflight.kt"
+            )
         )
 
         assertTrue(networkConfig.contains("""cleartextTrafficPermitted="true""""))
@@ -238,6 +241,7 @@ class ReleasePolicyTest {
             "library/vfs/src/main/java/com/viel/oto",
             "library/import/src/main/java/com/viel/oto",
             "media/metadata/src/main/java/com/viel/oto",
+            "media/playback/src/main/java/com/viel/oto",
             "work/policy/src/main/java/com/viel/oto"
         ).flatMap { path -> listOf(File(path), File("../$path")) }
         return candidates

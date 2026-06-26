@@ -4,8 +4,8 @@ import androidx.media3.common.PlaybackException
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceException
-import com.viel.oto.abs.net.AbsApiError
 import com.viel.oto.data.db.AudiobookSchema
+import com.viel.oto.library.availability.RemoteAvailabilityException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -53,16 +53,16 @@ class PlaybackErrorPolicyTest {
     }
 
     @Test
-    fun `abs open errors use availability status`() {
+    fun `remote availability errors use availability status`() {
         val error = PlaybackErrorPolicy.toOpenException(
-            AbsApiError(
-                code = "TIMEOUT",
-                availabilityStatus = AudiobookSchema.AvailabilityStatus.TIMEOUT,
-                message = "ABS timeout"
-            ),
+            FakeRemoteAvailabilityException(AudiobookSchema.AvailabilityStatus.TIMEOUT),
             position = 0L
         ) as DataSourceException
 
         assertEquals(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT, error.reason)
     }
+
+    private class FakeRemoteAvailabilityException(
+        override val availabilityStatus: AudiobookSchema.AvailabilityStatus
+    ) : IOException("remote availability failure"), RemoteAvailabilityException
 }

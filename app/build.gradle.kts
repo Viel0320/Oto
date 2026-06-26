@@ -180,6 +180,7 @@ dependencies {
     implementation(project(":library:vfs"))
     implementation(project(":library:import"))
     implementation(project(":media:metadata"))
+    implementation(project(":media:playback"))
     implementation(project(":work:policy"))
 
     implementation(libs.androidx.core.ktx)

@@ -4,9 +4,8 @@ import androidx.annotation.OptIn
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceException
-import com.viel.oto.abs.net.AbsApiError
 import com.viel.oto.data.db.AudiobookSchema
-import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavException
+import com.viel.oto.library.availability.RemoteAvailabilityException
 import kotlinx.coroutines.CancellationException
 import java.io.FileNotFoundException
 import java.io.IOException
@@ -64,8 +63,7 @@ object PlaybackErrorPolicy {
 
     private fun IOException.toOpenErrorCode(position: Long): Int =
         when {
-            this is AbsApiError -> availabilityStatusToOpenErrorCode(availabilityStatus, position)
-            this is WebDavException -> availabilityStatusToOpenErrorCode(availabilityStatus, position)
+            this is RemoteAvailabilityException -> availabilityStatusToOpenErrorCode(availabilityStatus, position)
             hasCause<SocketTimeoutException>() -> PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
             hasCause<UnknownHostException>() || hasCause<ConnectException>() -> PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
             this is FileNotFoundException -> PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND

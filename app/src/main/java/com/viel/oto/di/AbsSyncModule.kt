@@ -5,6 +5,7 @@ import androidx.media3.common.util.UnstableApi
 import com.viel.oto.abs.auth.AbsCredentialStore
 import com.viel.oto.abs.net.AbsApiClient
 import com.viel.oto.abs.playback.AbsPlaybackCredentialResolver
+import com.viel.oto.abs.playback.AbsPlaybackSessionSyncGateway
 import com.viel.oto.abs.playback.AbsPlaybackSessionSyncer
 import com.viel.oto.abs.playback.AbsProgressConflictCoordinator
 import com.viel.oto.abs.sync.AbsAuthorizedProgressSynchronizer
@@ -16,6 +17,7 @@ import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.progress.ProgressGateway
 import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.event.AppEventSink
+import com.viel.oto.media.RemotePlaybackSessionSyncGateway
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -76,6 +78,10 @@ internal object AbsSyncModule {
                 credentialProvider = { book -> get<AbsPlaybackCredentialResolver>().resolve(book) },
                 progressConflictCoordinator = get()
             )
+        }
+
+        single<RemotePlaybackSessionSyncGateway> {
+            AbsPlaybackSessionSyncGateway(syncer = get<AbsPlaybackSessionSyncer>())
         }
 
         single {

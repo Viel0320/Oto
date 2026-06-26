@@ -5,8 +5,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+/**
+ * Pins Robolectric to the app minimum SDK because this test only needs Android Uri behavior while
+ * the module compiles against API 37, which is newer than the current Robolectric runtime.
+ */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class VfsPlaybackUriTest {
     @Test
     fun `buffered playback uri should keep the custom VFS scheme`() {

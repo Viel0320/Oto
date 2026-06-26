@@ -2,7 +2,6 @@ package com.viel.oto.media
 
 import android.content.Context
 import androidx.media3.session.MediaController
-import com.viel.oto.abs.playback.AbsPlaybackSessionSyncer
 import com.viel.oto.data.book.BookCatalogGateway
 import com.viel.oto.data.entity.BookFileEntity
 import com.viel.oto.data.entity.BookProgressEntity
@@ -29,7 +28,7 @@ class ProgressSyncTracker(
     private val context: Context,
     private val bookCatalogGateway: BookCatalogGateway,
     private val progressGateway: ProgressGateway,
-    private val absPlaybackSessionSyncer: AbsPlaybackSessionSyncer,
+    private val remotePlaybackSessionSyncGateway: RemotePlaybackSessionSyncGateway,
     private val scope: CoroutineScope,
     private val getController: () -> MediaController?,
     private val getCurrentPlan: () -> BookPlaybackPlan?,
@@ -161,7 +160,7 @@ class ProgressSyncTracker(
         if (!accepted) return@launch
         val book = bookCatalogGateway.getBookById(snapshot.bookId)
         if (book != null) {
-            absPlaybackSessionSyncer.syncProgress(
+            remotePlaybackSessionSyncGateway.syncProgress(
                 book = book,
                 progress = progress,
                 durationMs = files.sumOf { it.durationMs }

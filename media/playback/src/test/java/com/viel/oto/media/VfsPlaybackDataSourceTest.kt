@@ -5,9 +5,9 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceException
 import androidx.media3.datasource.DataSpec
-import com.viel.oto.abs.net.AbsApiError
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.BookFileEntity
+import com.viel.oto.library.availability.RemoteAvailabilityException
 import com.viel.oto.library.vfs.VfsPlaybackStreamReader
 import kotlinx.coroutines.delay
 import org.junit.Assert.assertEquals
@@ -15,6 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.io.ByteArrayInputStream
 import java.io.IOException
 import java.io.InputStream
@@ -23,8 +24,13 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
+/**
+ * Pins Robolectric to the app minimum SDK because data-source behavior under test is independent
+ * of newer platform APIs while the module compile SDK is ahead of Robolectric support.
+ */
 @OptIn(UnstableApi::class)
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class VfsPlaybackDataSourceTest {
     @Test
     fun `open cancellation interrupts the Media3 loader thread instead of the watcher thread`() {
@@ -76,11 +82,7 @@ class VfsPlaybackDataSourceTest {
         val source = VfsPlaybackDataSource(
             fileLookup = StaticPlaybackFileLookup(testFile()),
             fileReader = ThrowingPlaybackStreamReader(
-                AbsApiError(
-                    code = "TIMEOUT",
-                    availabilityStatus = AudiobookSchema.AvailabilityStatus.TIMEOUT,
-                    message = "ABS timeout"
-                )
+                FakeRemoteAvailabilityException(AudiobookSchema.AvailabilityStatus.TIMEOUT)
             )
         )
 
@@ -94,11 +96,7 @@ class VfsPlaybackDataSourceTest {
         val source = VfsPlaybackDataSource(
             fileLookup = StaticPlaybackFileLookup(testFile()),
             fileReader = ThrowingPlaybackStreamReader(
-                AbsApiError(
-                    code = "RANGE_NOT_SATISFIABLE",
-                    availabilityStatus = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
-                    message = "ABS range was out of bounds"
-                )
+                FakeRemoteAvailabilityException(AudiobookSchema.AvailabilityStatus.NOT_FOUND)
             )
         )
 
@@ -207,6 +205,10 @@ class VfsPlaybackDataSourceTest {
             throw error
         }
     }
+
+    private class FakeRemoteAvailabilityException(
+        override val availabilityStatus: AudiobookSchema.AvailabilityStatus
+    ) : IOException("remote availability failure"), RemoteAvailabilityException
 
     private fun dataSpec(
         position: Long = 0L,

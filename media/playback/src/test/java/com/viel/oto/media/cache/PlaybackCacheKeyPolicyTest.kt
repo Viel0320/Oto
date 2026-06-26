@@ -5,8 +5,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+/**
+ * Pins Robolectric to the app minimum SDK because cache-key derivation only needs Android Uri
+ * parsing and should not depend on the module compile SDK selected for production builds.
+ */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class PlaybackCacheKeyPolicyTest {
     @Test
     fun `vfs book file uri should use file-level cache key`() {
