@@ -112,6 +112,8 @@ class KoinModuleArchitectureTest {
         val candidates = listOf(
             File("src/main/java/com/viel/oto/di"),
             File("app/src/main/java/com/viel/oto/di"),
+            File("application/src/main/java/com/viel/oto/di"),
+            File("../application/src/main/java/com/viel/oto/di"),
             File("data/store/src/main/java/com/viel/oto/di"),
             File("../data/store/src/main/java/com/viel/oto/di"),
             File("library/import/src/main/java/com/viel/oto/di"),

@@ -47,6 +47,7 @@ dependencies {
     implementation(libs.androidx.media3.datasource)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.koin.android)
     implementation(libs.moshi)
     implementation(libs.okhttp)
 

@@ -48,7 +48,7 @@ import org.koin.dsl.module
  * bound to both contracts so scene state stays single-instance across read and command entrypoints.
  */
 @OptIn(UnstableApi::class)
-internal object LibrarySceneModule {
+object LibrarySceneModule {
 
     val module: Module = module {
         single<HomeLibraryReadModel> {
