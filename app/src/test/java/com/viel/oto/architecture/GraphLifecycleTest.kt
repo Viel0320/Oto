@@ -81,7 +81,7 @@ class GraphLifecycleTest {
         val sourceRoot = resolveSourceRoot()
         val mediaModuleSource = sourceRoot.resolve("di/MediaModule.kt").readText()
         val downloadModuleSource = sourceRoot.resolve("di/DownloadModule.kt").readText()
-        val absSyncModuleSource = sourceRoot.resolve("di/AbsSyncModule.kt").readText()
+        val absSyncModuleSource = resolveAbsSyncModuleFile().readText()
         val libraryScanModuleSource = resolveLibraryScanModuleFile().readText()
         val uiEventModuleSource = sourceRoot.resolve("di/UiEventModule.kt").readText()
         val coreDataModuleSource = resolveCoreDataModuleFile().readText()
@@ -130,6 +130,20 @@ class GraphLifecycleTest {
         )
         return candidates.firstOrNull { candidate -> candidate.isFile }
             ?: error("Could not locate CoreDataModule for di lifecycle test.")
+    }
+
+    /**
+     * Resolves AbsSyncModule from its extracted ABS module or the old app location during migration.
+     */
+    private fun resolveAbsSyncModuleFile(): java.io.File {
+        val candidates = listOf(
+            java.io.File("abs/src/main/java/com/viel/oto/abs/di/AbsSyncModule.kt"),
+            java.io.File("../abs/src/main/java/com/viel/oto/abs/di/AbsSyncModule.kt"),
+            java.io.File("src/main/java/com/viel/oto/di/AbsSyncModule.kt"),
+            java.io.File("app/src/main/java/com/viel/oto/di/AbsSyncModule.kt")
+        )
+        return candidates.firstOrNull { candidate -> candidate.isFile }
+            ?: error("Could not locate AbsSyncModule for di lifecycle test.")
     }
 
     /**

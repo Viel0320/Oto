@@ -139,9 +139,9 @@ class ReleasePolicyTest {
                 "library/vfs/src/main/java/com/viel/oto/library/vfs/sourceProvider/webdav/WebDavSourceProvider.kt",
                 "app/src/main/java/com/viel/oto/library/vfs/sourceProvider/webdav/WebDavSourceProvider.kt"
             ),
-            repoFile("app/src/main/java/com/viel/oto/abs/net/AbsApiClient.kt"),
-            repoFile("app/src/main/java/com/viel/oto/abs/sync/AbsCoverCache.kt"),
-            repoFile("app/src/main/java/com/viel/oto/abs/vfs/AbsSourceProvider.kt"),
+            repoFile("abs/src/main/java/com/viel/oto/abs/net/AbsApiClient.kt"),
+            repoFile("abs/src/main/java/com/viel/oto/abs/sync/AbsCoverCache.kt"),
+            repoFile("abs/src/main/java/com/viel/oto/abs/vfs/AbsSourceProvider.kt"),
             repoFile(
                 "media/playback/src/main/java/com/viel/oto/media/PlaybackSourcePreflight.kt",
                 "app/src/main/java/com/viel/oto/media/PlaybackSourcePreflight.kt"
@@ -243,6 +243,7 @@ class ReleasePolicyTest {
             "media/metadata/src/main/java/com/viel/oto",
             "media/playback/src/main/java/com/viel/oto",
             "media/service/src/main/java/com/viel/oto",
+            "abs/src/main/java/com/viel/oto",
             "work/policy/src/main/java/com/viel/oto"
         ).flatMap { path -> listOf(File(path), File("../$path")) }
         return candidates

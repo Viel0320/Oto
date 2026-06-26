@@ -114,6 +114,8 @@ class MultiModuleMigrationBaselineTest {
             File("media/playback/src/main/java/com/viel/oto"),
             File("../media/service/src/main/java/com/viel/oto"),
             File("media/service/src/main/java/com/viel/oto"),
+            File("../abs/src/main/java/com/viel/oto"),
+            File("abs/src/main/java/com/viel/oto"),
             File("../work/policy/src/main/java/com/viel/oto"),
             File("work/policy/src/main/java/com/viel/oto")
         )
@@ -167,7 +169,6 @@ class MultiModuleMigrationBaselineTest {
 
         private val expectedTopLevelImportEdges = setOf(
             "abs->data",
-            "abs->event",
             "abs->library",
             "abs->logger",
             "abs->media",
@@ -207,6 +208,7 @@ class MultiModuleMigrationBaselineTest {
             "di->widget",
             "event->R",
             "event->application",
+            "event->abs",
             "event->data",
             "event->library",
             "event->media",

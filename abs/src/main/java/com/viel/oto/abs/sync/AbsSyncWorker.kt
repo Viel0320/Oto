@@ -5,9 +5,6 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.data.runCatchingCancellable
-import com.viel.oto.event.AppEventSink
-import com.viel.oto.event.feedback.LibraryAccessFeedbackFacts
-import com.viel.oto.event.feedback.toRootUnavailableFeedbackMessage
 import com.viel.oto.library.LibraryRootStore
 import com.viel.oto.library.availability.isSyncAvailable
 import com.viel.oto.logger.AbsSyncLogger
@@ -18,7 +15,7 @@ class AbsSyncWorker(
     context: Context,
     params: WorkerParameters
 ) : CoroutineWorker(context, params), KoinComponent {
-    private val appEventSink: AppEventSink by inject()
+    private val feedbackSink: AbsSyncFeedbackSink by inject()
     private val absCatalogSynchronizer: AbsCatalogSynchronizer by inject()
     private val libraryRootStore: LibraryRootStore by inject()
 
@@ -28,15 +25,12 @@ class AbsSyncWorker(
         val preflight = libraryRootStore.refreshRootStatus(rootId)
             ?: return Result.failure()
         if (!preflight.isSyncAvailable) {
-            val message = preflight.toRootUnavailableFeedbackMessage()
             AbsSyncLogger.logWorkerFailure(
                 rootId = rootId,
                 errorClass = "RootUnavailable",
                 message = "ROOT_UNAVAILABLE:${preflight.availability.status}"
             )
-            appEventSink.emitFeedback(
-                LibraryAccessFeedbackFacts.syncBlocked(rootId = rootId, detailMessage = message)
-            )
+            feedbackSink.syncBlocked(rootId = rootId, availability = preflight)
             return Result.failure()
         }
         return runSync(rootId, preflight.root, absCatalogSynchronizer)

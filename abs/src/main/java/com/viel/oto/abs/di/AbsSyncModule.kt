@@ -10,14 +10,14 @@ import com.viel.oto.abs.playback.AbsPlaybackSessionSyncer
 import com.viel.oto.abs.playback.AbsProgressConflictCoordinator
 import com.viel.oto.abs.sync.AbsAuthorizedProgressSynchronizer
 import com.viel.oto.abs.sync.AbsCatalogSynchronizer
+import com.viel.oto.abs.sync.AbsSyncFeedbackSink
 import com.viel.oto.abs.sync.AbsSyncTaskCoordinator
 import com.viel.oto.data.book.BookCatalogGateway
 import com.viel.oto.data.book.BookMetadataGateway
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.progress.ProgressGateway
-import com.viel.oto.library.root.LibraryRootGateway
-import com.viel.oto.event.AppEventSink
 import com.viel.oto.media.RemotePlaybackSessionSyncGateway
+import com.viel.oto.library.root.LibraryRootGateway
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -27,7 +27,7 @@ import org.koin.dsl.module
  * the concrete network implementation outside the ABS networking module.
  */
 @OptIn(UnstableApi::class)
-internal object AbsSyncModule {
+object AbsSyncModule {
 
     val module: Module = module {
         single {
@@ -88,7 +88,7 @@ internal object AbsSyncModule {
             AbsSyncTaskCoordinator(
                 libraryRootDao = get<AppDatabase>().libraryRootDao(),
                 synchronizer = get(),
-                appEventSink = get<AppEventSink>(),
+                feedbackSink = get<AbsSyncFeedbackSink>(),
                 rootPreflight = get<LibraryRootGateway>()::refreshLibraryRootStatus
             ).also { coordinator ->
                 GraphClosePolicy.register(

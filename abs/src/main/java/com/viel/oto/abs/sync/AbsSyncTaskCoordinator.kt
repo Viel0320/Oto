@@ -1,9 +1,6 @@
 package com.viel.oto.abs.sync
 
 import com.viel.oto.data.dao.LibraryRootDao
-import com.viel.oto.event.AppEventSink
-import com.viel.oto.event.feedback.LibraryAccessFeedbackFacts
-import com.viel.oto.event.feedback.toRootUnavailableFeedbackMessage
 import com.viel.oto.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.oto.library.availability.isSyncAvailable
 import com.viel.oto.logger.AbsLogSanitizer
@@ -25,7 +22,7 @@ import java.io.Closeable
 class AbsSyncTaskCoordinator(
     private val libraryRootDao: LibraryRootDao,
     private val synchronizer: AbsCatalogSynchronizer,
-    private val appEventSink: AppEventSink,
+    private val feedbackSink: AbsSyncFeedbackSink,
     private val rootPreflight: (suspend (String) -> LibraryRootAvailabilityUpdate?)? = null,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 ) : Closeable {
@@ -68,11 +65,10 @@ class AbsSyncTaskCoordinator(
                             errorMessage = errMsg
                         )
                     )
-                    appEventSink.emitFeedback(LibraryAccessFeedbackFacts.syncRootMissing())
+                    feedbackSink.syncRootMissing()
                     return@launch
                 }
                 if (preflight != null && !preflight.isSyncAvailable) {
-                    val detailMessage = preflight.toRootUnavailableFeedbackMessage()
                     val errMsg = "ROOT_UNAVAILABLE:${preflight.availability.status}"
                     _events.emit(
                         AbsSyncTaskResult(
@@ -83,9 +79,7 @@ class AbsSyncTaskCoordinator(
                             errorMessage = errMsg
                         )
                     )
-                    appEventSink.emitFeedback(
-                        LibraryAccessFeedbackFacts.syncBlocked(rootId = root.id, detailMessage = detailMessage)
-                    )
+                    feedbackSink.syncBlocked(rootId = root.id, availability = preflight)
                     return@launch
                 }
                 val summary = synchronizer.syncRootWithSummary(root)
@@ -98,13 +92,7 @@ class AbsSyncTaskCoordinator(
                         errorMessage = null
                     )
                 )
-                appEventSink.emitFeedback(
-                    LibraryAccessFeedbackFacts.syncCompleted(
-                        rootId = root.id,
-                        addedBooks = summary.addedBooks,
-                        failedItems = summary.failedItems
-                    )
-                )
+                feedbackSink.syncCompleted(rootId = root.id, summary = summary)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -118,9 +106,7 @@ class AbsSyncTaskCoordinator(
                         errorMessage = errMsg.redactAbsError()
                     )
                 )
-                appEventSink.emitFeedback(
-                    LibraryAccessFeedbackFacts.syncFailed(rootId, errMsg.redactAbsError())
-                )
+                feedbackSink.syncFailed(rootId, errMsg.redactAbsError())
             } finally {
                 synchronized(lock) {
                     runningRootIds -= rootId

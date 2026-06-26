@@ -31,7 +31,7 @@ import org.koin.dsl.module
  * directly so optimized builds do not need redirect-only Koin definitions.
  */
 @OptIn(UnstableApi::class)
-internal object AbsModule {
+object AbsModule {
     private val Context.absCredentialDataStore: DataStore<Preferences> by preferencesDataStore(name = "abs_credentials")
 
     val module: Module = module {

@@ -20,16 +20,7 @@ import com.viel.oto.data.entity.BookEntity
 import com.viel.oto.data.entity.BookFileEntity
 import com.viel.oto.data.entity.ChapterEntity
 import com.viel.oto.data.entity.LibraryRootEntity
-import com.viel.oto.event.AppEventSink
-import com.viel.oto.event.AppShellEvent
-import com.viel.oto.event.feedback.FeedbackCategory
-import com.viel.oto.event.feedback.FeedbackContext
-import com.viel.oto.event.feedback.FeedbackDeliveryResult
-import com.viel.oto.event.feedback.FeedbackFact
-import com.viel.oto.event.feedback.FeedbackMessage
-import com.viel.oto.event.feedback.FeedbackSeverity
-import com.viel.oto.event.feedback.FeedbackTopic
-import com.viel.oto.event.feedback.LibraryAccessForm
+import com.viel.oto.library.availability.LibraryRootAvailabilityUpdate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -40,8 +31,6 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -60,8 +49,8 @@ class AbsSyncTaskCoordinatorTest {
     @Test
     fun `catalog cancellation should not emit coordinator failure event or toast`() = runBlocking {
         val api = CancellingAbsApi(CancellationException("ABS sync cancelled"))
-        val appEventSink = RecordingAppEventSink()
-        val coordinator = createCoordinator(api = api, appEventSink = appEventSink)
+        val feedbackSink = RecordingAbsSyncFeedbackSink()
+        val coordinator = createCoordinator(api = api, feedbackSink = feedbackSink)
         val events = CopyOnWriteArrayList<AbsSyncTaskResult>()
         val collector = CoordinatorEventCollector.start(coordinator, events)
 
@@ -70,7 +59,7 @@ class AbsSyncTaskCoordinatorTest {
             assertTrue(api.authorizeEntered.await(1, TimeUnit.SECONDS))
             assertFalse(
                 "Cancellation should remain control flow instead of producing failure feedback.",
-                eventually { events.isNotEmpty() || appEventSink.feedbackFacts.isNotEmpty() }
+                eventually { events.isNotEmpty() || feedbackSink.feedback.isNotEmpty() }
             )
         } finally {
             coordinator.close()
@@ -81,8 +70,8 @@ class AbsSyncTaskCoordinatorTest {
     @Test
     fun `close should cancel suspended sync without emitting failure feedback`() = runBlocking {
         val api = HangingAbsApi()
-        val appEventSink = RecordingAppEventSink()
-        val coordinator = createCoordinator(api = api, appEventSink = appEventSink)
+        val feedbackSink = RecordingAbsSyncFeedbackSink()
+        val coordinator = createCoordinator(api = api, feedbackSink = feedbackSink)
         val events = CopyOnWriteArrayList<AbsSyncTaskResult>()
         val collector = CoordinatorEventCollector.start(coordinator, events)
 
@@ -93,7 +82,7 @@ class AbsSyncTaskCoordinatorTest {
             assertTrue(api.cancellationObserved.await(1, TimeUnit.SECONDS))
             assertFalse(
                 "Graph teardown should cancel suspended ABS work without user-facing failure feedback.",
-                eventually(timeoutMs = 200) { events.isNotEmpty() || appEventSink.feedbackFacts.isNotEmpty() }
+                eventually(timeoutMs = 200) { events.isNotEmpty() || feedbackSink.feedback.isNotEmpty() }
             )
         } finally {
             collector.stop()
@@ -103,8 +92,8 @@ class AbsSyncTaskCoordinatorTest {
     @Test
     fun `ordinary sync exception should still emit redacted coordinator failure event and toast`() = runBlocking {
         val api = FailingAbsApi(IllegalStateException("Remote failed with Bearer secret-token"))
-        val appEventSink = RecordingAppEventSink()
-        val coordinator = createCoordinator(api = api, appEventSink = appEventSink)
+        val feedbackSink = RecordingAbsSyncFeedbackSink()
+        val coordinator = createCoordinator(api = api, feedbackSink = feedbackSink)
         val events = CopyOnWriteArrayList<AbsSyncTaskResult>()
         val collector = CoordinatorEventCollector.start(coordinator, events)
 
@@ -113,7 +102,7 @@ class AbsSyncTaskCoordinatorTest {
             assertTrue(api.authorizeEntered.await(1, TimeUnit.SECONDS))
             assertTrue(
                 "Non-cancellation failures should still reach the coordinator failure channel.",
-                eventually { events.isNotEmpty() && appEventSink.feedbackFacts.isNotEmpty() }
+                eventually { events.isNotEmpty() && feedbackSink.feedback.isNotEmpty() }
             )
 
             val result = events.single()
@@ -122,21 +111,10 @@ class AbsSyncTaskCoordinatorTest {
             assertEquals(AbsSyncTaskOrigin.AUTO_ADD, result.origin)
             assertEquals("Remote failed with Bearer <redacted>", result.errorMessage)
 
-            val fact = appEventSink.feedbackFacts.single()
-            val toast = fact.message
-            assertTrue(toast is FeedbackMessage.Resource)
             assertEquals(
-                listOf("Remote failed with Bearer <redacted>"),
-                (toast as FeedbackMessage.Resource).args
+                RecordedAbsSyncFeedback.Failed(ROOT_ID, "Remote failed with Bearer <redacted>"),
+                feedbackSink.feedback.single()
             )
-            val identity = fact.outcome.identity
-            assertEquals(FeedbackCategory.LIBRARY_ACCESS, identity.category)
-            assertEquals(FeedbackTopic.LibrarySync, identity.topic)
-            assertEquals(
-                FeedbackContext.LibraryRoot(ROOT_ID, LibraryAccessForm.AudiobookShelf),
-                identity.context
-            )
-            assertEquals(FeedbackSeverity.FAILED, fact.outcome.severity)
         } finally {
             coordinator.close()
             collector.stop()
@@ -145,7 +123,7 @@ class AbsSyncTaskCoordinatorTest {
 
     private fun createCoordinator(
         api: AbsApiClient,
-        appEventSink: RecordingAppEventSink
+        feedbackSink: RecordingAbsSyncFeedbackSink
     ): AbsSyncTaskCoordinator {
         val credentialStore = createCredentialStore()
         val synchronizer = AbsCatalogSynchronizer(
@@ -156,7 +134,7 @@ class AbsSyncTaskCoordinatorTest {
         return AbsSyncTaskCoordinator(
             libraryRootDao = FakeLibraryRootDao(absRoot()),
             synchronizer = synchronizer,
-            appEventSink = appEventSink,
+            feedbackSink = feedbackSink,
             scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
         )
     }
@@ -326,15 +304,31 @@ class AbsSyncTaskCoordinatorTest {
         }
     }
 
-    private class RecordingAppEventSink : AppEventSink {
-        private val _events = MutableSharedFlow<AppShellEvent>()
-        override val events: SharedFlow<AppShellEvent> = _events
-        val feedbackFacts = CopyOnWriteArrayList<FeedbackFact>()
+    private class RecordingAbsSyncFeedbackSink : AbsSyncFeedbackSink {
+        val feedback = CopyOnWriteArrayList<RecordedAbsSyncFeedback>()
 
-        override fun emitFeedback(fact: FeedbackFact): FeedbackDeliveryResult {
-            feedbackFacts += fact
-            return FeedbackDeliveryResult.Delivered(fact)
+        override fun syncRootMissing() {
+            feedback += RecordedAbsSyncFeedback.RootMissing
         }
+
+        override fun syncBlocked(rootId: String, availability: LibraryRootAvailabilityUpdate) {
+            feedback += RecordedAbsSyncFeedback.Blocked(rootId, availability)
+        }
+
+        override fun syncCompleted(rootId: String, summary: AbsSyncSummary) {
+            feedback += RecordedAbsSyncFeedback.Completed(rootId, summary)
+        }
+
+        override fun syncFailed(rootId: String, redactedMessage: String) {
+            feedback += RecordedAbsSyncFeedback.Failed(rootId, redactedMessage)
+        }
+    }
+
+    private sealed interface RecordedAbsSyncFeedback {
+        data object RootMissing : RecordedAbsSyncFeedback
+        data class Blocked(val rootId: String, val availability: LibraryRootAvailabilityUpdate) : RecordedAbsSyncFeedback
+        data class Completed(val rootId: String, val summary: AbsSyncSummary) : RecordedAbsSyncFeedback
+        data class Failed(val rootId: String, val redactedMessage: String) : RecordedAbsSyncFeedback
     }
 
     private class FakeCatalogStore : AbsCatalogStore {

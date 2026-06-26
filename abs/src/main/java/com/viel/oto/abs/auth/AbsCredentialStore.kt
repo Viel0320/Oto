@@ -97,7 +97,7 @@ class AbsCredentialStore internal constructor(
         stringPreferencesKey("abs_credential.$credentialId")
 
     companion object {
-        internal fun createForTesting(dataStore: DataStore<Preferences>): AbsCredentialStore =
+        fun createForTesting(dataStore: DataStore<Preferences>): AbsCredentialStore =
             AbsCredentialStore(dataStore = dataStore)
     }
 }

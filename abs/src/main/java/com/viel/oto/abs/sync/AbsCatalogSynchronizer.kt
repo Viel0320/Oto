@@ -603,7 +603,7 @@ internal fun isAbsPlayableBook(item: AbsLibraryItemDto): Boolean =
  * Evaluates startup progress refresh age without constructing sync adapters.
  * Startup warmup and catalog synchronization share this pure rule so freshness reads can stay on DAO data until stale roots need WorkManager scheduling.
  */
-internal fun isAbsAuthorizedProgressRefreshDue(syncState: AbsSyncStateEntity?, nowMillis: Long): Boolean =
+fun isAbsAuthorizedProgressRefreshDue(syncState: AbsSyncStateEntity?, nowMillis: Long): Boolean =
     !OnlineSourceCachePolicy.isFresh(
         cachedAtMillis = syncState?.lastIncrementalSyncAt ?: syncState?.lastFullSyncAt,
         nowMillis = nowMillis,

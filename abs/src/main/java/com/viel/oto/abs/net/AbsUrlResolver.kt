@@ -10,7 +10,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
  * REST client, Cover Cache, and VFS provider. share the same URL sanitization,
  * trailing-slash trimming, and structural endpoint construction logic.
  */
-internal object AbsUrlResolver {
+object AbsUrlResolver {
 
     /**
      * Normalizes and parses the ABS baseUrl into a structured HttpUrl object.

@@ -2,15 +2,15 @@
 
 ## 当前事实
 
-- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:media:playback`、`:media:service`、`:work:policy`。
-- `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 `abs`、`application`、`media`、`ui`、`widget`、`work`；`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`，scan/import/root lifecycle/availability 已提升到 `library/import/src/main/java/com/viel/oto/library`。
-- 本次迁移后，app 内 `library` 生产 Kotlin 文件已清空；`:library:vfs` 维护 VFS/source provider，`:library:import` 维护 scan/import/root lifecycle/availability，`:media:metadata` 维护 parser/manifest/cover/subtitle parser，`:media:playback` 维护 playback plan/controller/data source/cache/session state，`:media:service` 维护 Media3 service、download service、audio focus 和通知 adapter，`:data:store` 继续维护 Room、DataStore 和持久化 gateway。
+- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:media:playback`、`:media:service`、`:abs`、`:work:policy`。
+- `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 `application`、`event`、`i18n`、`ui`、`widget`；`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`，scan/import/root lifecycle/availability 已提升到 `library/import/src/main/java/com/viel/oto/library`，ABS 已提升到 `abs/src/main/java/com/viel/oto/abs`。
+- 本次迁移后，app 内 `library` 和 `abs` 生产 Kotlin 文件已清空；`:library:vfs` 维护 VFS/source provider，`:library:import` 维护 scan/import/root lifecycle/availability，`:media:metadata` 维护 parser/manifest/cover/subtitle parser，`:media:playback` 维护 playback plan/controller/data source/cache/session state，`:media:service` 维护 Media3 service、download service、audio focus 和通知 adapter，`:abs` 维护 ABS auth、DTO、client、sync、mapping、cover cache、progress sync 和 ABS VFS Adapter，`:data:store` 继续维护 Room、DataStore 和持久化 gateway。
 - `settings/model`、`network/policy`、`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability`、`library/vfs` 和 `media/metadata` 已是 Android library Module，继续保留 `com.viel.oto.logger`、`com.viel.oto.library.vfs`、`com.viel.oto.media.parser`、`com.viel.oto.media.manifest` 和 `com.viel.oto.media.subtitle` 包名供现有调用点使用。
 - ABS Room 持久化文件当前位于 `data/store/src/main/java/com/viel/oto/data/abs/playback` 和 `data/store/src/main/java/com/viel/oto/data/abs/sync`，`AppDatabase` 已从 `data.abs.*` 导入这些 DAO/Entity。
 - Koin 入口集中在 `OtoKoinApplication`，关闭顺序由 `GraphClosePolicy` 固定为 `media -> download -> abs -> library -> uiEvents -> data`。
 - 现有导入图仍存在阻碍继续拆模块的循环：
   - `data` 已进入 `:data:store`，当前只保留对 `shared`、`timeline`、`logger` 的窄依赖。
-  - `abs` 仍直接引用 `data`、`library`、`media`、`work`。
+  - `:abs` 已作为 anti-corruption Module 独立维护，直接依赖 `:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:media:playback`、`:network:policy`、`:work:policy` 和运行时模块；ABS 同步反馈通过 `AbsSyncFeedbackSink` 由 app event adapter 转换。
   - `library` 已移除对 `abs` 的生产源码直接引用，VFS 已进入 `:library:vfs`，metadata parser/manifest 已进入 `:media:metadata`，scan/import/root lifecycle/availability 已进入 `:library:import`。
   - `media` 已拆出 `:media:metadata`、`:media:playback` 和 `:media:service`；app 内剩余 `media/subtitle` 仍等待后续 presentation/module 收口。
   - `logger` 已物理迁出 app，多数领域仍直接依赖具体 logger，后续需要继续收敛为窄 observability Interface。
@@ -267,11 +267,12 @@ flowchart TD
 
 改动范围：
 
-- 新增 `:abs` Android library Module。
-- 移动 ABS auth、DTO、Moshi client、sync、mapping、cover cache、progress sync、ABS VFS Adapter。
+- 已新增 `:abs` Android library Module。
+- 已移动 ABS auth、DTO、Moshi client、sync、mapping、cover cache、progress sync、ABS VFS Adapter。
 - ABS Room Entity/DAO 已在阶段 2 归入 `data` 持久化包，并随阶段 3 进入 `:data:store`；`:abs` 通过 gateway/DAO Interface 访问持久化。
 - `AbsSourceProvider` 实现 `:library:vfs` 的 source provider Interface，由 ABS Koin Module 注册。
 - `AbsCatalogMapper` 继续做 DTO 到本地 catalog 的 anti-corruption 转换，原始 DTO 不穿透到 `application` 或 `ui`。
+- 已清理 `abs -> event`：ABS 输出 `AbsSyncFeedbackSink` 事实，app 侧 `AppEventAbsSyncFeedbackSink` 负责转成资源化 feedback。
 
 验收：
 

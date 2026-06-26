@@ -200,8 +200,8 @@ class UserVisibleStringResourceTest {
             "app/src/main/java/com/viel/oto/ui/player/components/ChapterList.kt",
             "app/src/main/java/com/viel/oto/widget/PlayerWidget.kt",
             "media/service/src/main/java/com/viel/oto/media/service/PlaybackService.kt",
-            "app/src/main/java/com/viel/oto/abs/sync/AbsSyncTaskCoordinator.kt",
-            "app/src/main/java/com/viel/oto/abs/net/AbsApiClient.kt",
+            "abs/src/main/java/com/viel/oto/abs/sync/AbsSyncTaskCoordinator.kt",
+            "abs/src/main/java/com/viel/oto/abs/net/AbsApiClient.kt",
             "library/import/src/main/java/com/viel/oto/library/scan/ScanOutcomePolicy.kt",
             "app/proguard-rules.pro"
         ).map(::repoFile)

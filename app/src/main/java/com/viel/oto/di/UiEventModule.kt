@@ -1,8 +1,10 @@
 package com.viel.oto.di
 
+import com.viel.oto.abs.sync.AbsSyncFeedbackSink
 import com.viel.oto.event.AppEventSink
 import com.viel.oto.event.DefaultAppEventSink
 import com.viel.oto.event.PlaybackDomainEventBridge
+import com.viel.oto.event.feedback.AppEventAbsSyncFeedbackSink
 import com.viel.oto.event.feedback.AppEventScanNoticeSink
 import com.viel.oto.library.scan.ScanNoticeSink
 import com.viel.oto.media.DefaultPlaybackDomainEventSink
@@ -36,6 +38,7 @@ internal object UiEventModule {
         single<AppEventSink> { DefaultAppEventSink(scope = get(UiEventScopeQualifier)) }
 
         single<ScanNoticeSink> { AppEventScanNoticeSink(appEventSink = get<AppEventSink>()) }
+        single<AbsSyncFeedbackSink> { AppEventAbsSyncFeedbackSink(appEventSink = get<AppEventSink>()) }
 
         single<PlaybackDomainEventSink> { DefaultPlaybackDomainEventSink() }
 
