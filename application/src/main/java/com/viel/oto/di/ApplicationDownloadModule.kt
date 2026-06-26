@@ -1,5 +1,7 @@
 package com.viel.oto.di
 
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.cache.Cache
 import androidx.media3.exoplayer.offline.DownloadManager
 import com.viel.oto.application.download.DefaultDownloadCacheAccess
@@ -35,9 +37,11 @@ val DownloadScopeQualifier = named("downloadScope")
 /**
  * Application-owned manual download orchestration bindings.
  *
- * The app module still owns Media3 DownloadService commands and Android notification resources,
- * while this module owns selection, sync, reconciliation, polling, cleanup, and controller contracts.
+ * The media service module owns Media3 DownloadService commands, the app module owns resource
+ * selection, and this module owns selection, sync, reconciliation, polling, cleanup, and controller
+ * contracts.
  */
+@OptIn(UnstableApi::class)
 object ApplicationDownloadModule {
 
     val module: Module = module {
