@@ -20,7 +20,7 @@ object SubtitleLogger {
      * @param extension The subtitle file extension (e.g., srt, ass, lrc).
      */
     fun logParseStart(extension: String) {
-        Log.d(TAG, "Parsing $extension")
+        debug("Parsing $extension")
     }
 
     /**
@@ -31,7 +31,7 @@ object SubtitleLogger {
      * @param lineCount The total number of parsed subtitle lines.
      */
     fun logParseResult(lineCount: Int) {
-        Log.d(TAG, "Parsed $lineCount lines")
+        debug("Parsed $lineCount lines")
     }
 
     /**
@@ -52,5 +52,14 @@ object SubtitleLogger {
      */
     fun logParseError(extension: String, error: Throwable) {
         SecureLog.error(TAG, "Failed parsing $extension subtitle", error)
+    }
+
+    /**
+     * Writes debug-only subtitle diagnostics without coupling parser unit tests to Android Log stubs.
+     */
+    private fun debug(message: String) {
+        runCatching {
+            Log.d(TAG, message)
+        }
     }
 }

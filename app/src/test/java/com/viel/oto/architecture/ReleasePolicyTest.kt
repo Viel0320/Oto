@@ -128,8 +128,14 @@ class ReleasePolicyTest {
         ).readText()
         val runtimeGates = listOf(
             repoFile("app/src/main/java/com/viel/oto/library/LibraryRootStore.kt"),
-            repoFile("app/src/main/java/com/viel/oto/library/vfs/sourceProvider/webdav/WebDavConnectionTester.kt"),
-            repoFile("app/src/main/java/com/viel/oto/library/vfs/sourceProvider/webdav/WebDavSourceProvider.kt"),
+            repoFile(
+                "library/vfs/src/main/java/com/viel/oto/library/vfs/sourceProvider/webdav/WebDavConnectionTester.kt",
+                "app/src/main/java/com/viel/oto/library/vfs/sourceProvider/webdav/WebDavConnectionTester.kt"
+            ),
+            repoFile(
+                "library/vfs/src/main/java/com/viel/oto/library/vfs/sourceProvider/webdav/WebDavSourceProvider.kt",
+                "app/src/main/java/com/viel/oto/library/vfs/sourceProvider/webdav/WebDavSourceProvider.kt"
+            ),
             repoFile("app/src/main/java/com/viel/oto/abs/net/AbsApiClient.kt"),
             repoFile("app/src/main/java/com/viel/oto/abs/sync/AbsCoverCache.kt"),
             repoFile("app/src/main/java/com/viel/oto/abs/vfs/AbsSourceProvider.kt"),
@@ -225,7 +231,9 @@ class ReleasePolicyTest {
         val candidates = listOf(
             "app/src/main/java/com/viel/oto",
             "runtime/observability/src/main/java/com/viel/oto",
-            "data/store/src/main/java/com/viel/oto"
+            "data/store/src/main/java/com/viel/oto",
+            "library/vfs/src/main/java/com/viel/oto",
+            "media/metadata/src/main/java/com/viel/oto"
         ).flatMap { path -> listOf(File(path), File("../$path")) }
         return candidates
             .filter { file -> file.isDirectory }

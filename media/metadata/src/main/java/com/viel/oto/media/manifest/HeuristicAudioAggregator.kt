@@ -5,13 +5,19 @@ import com.viel.oto.media.AudiobookMetadata
 import com.viel.oto.media.parser.EmbeddedCoverBytes
 import java.io.InputStream
 
-internal data class AudioMetadataRef(
+/**
+ * Audio file plus parsed metadata that the import pipeline can group before persistence.
+ */
+data class AudioMetadataRef(
     val file: FileRef,
     val metadata: AudiobookMetadata,
     val embeddedCover: EmbeddedCoverBytes? = null
 )
 
-internal data class HeuristicAggregationPlan(
+/**
+ * Generated multi-file book plan produced from loose audio files and optional sidecar context.
+ */
+data class HeuristicAggregationPlan(
     val title: String,
     val chapters: List<HeuristicChapterPlan>,
     val ruleVersion: String,
@@ -19,12 +25,18 @@ internal data class HeuristicAggregationPlan(
     val sidecarCoverFile: FileRef? = null
 )
 
-internal data class HeuristicChapterPlan(
+/**
+ * One generated chapter entry before the library import pipeline maps it to persisted entities.
+ */
+data class HeuristicChapterPlan(
     val audio: AudioMetadataRef,
     val title: String
 )
 
-internal object HeuristicAudioAggregator {
+/**
+ * Builds generated audiobook plans from adjacent loose audio files.
+ */
+object HeuristicAudioAggregator {
     const val RULE_VERSION = "sequence-v1"
 
     fun shouldAggregate(files: List<AudioMetadataRef>): Boolean {

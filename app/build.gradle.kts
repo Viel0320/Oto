@@ -178,6 +178,7 @@ dependencies {
     implementation(project(":runtime:observability"))
     implementation(project(":data:store"))
     implementation(project(":library:vfs"))
+    implementation(project(":media:metadata"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

@@ -103,7 +103,11 @@ class MultiModuleMigrationBaselineTest {
             File("../runtime/observability/src/main/java/com/viel/oto"),
             File("runtime/observability/src/main/java/com/viel/oto"),
             File("../data/store/src/main/java/com/viel/oto"),
-            File("data/store/src/main/java/com/viel/oto")
+            File("data/store/src/main/java/com/viel/oto"),
+            File("../library/vfs/src/main/java/com/viel/oto"),
+            File("library/vfs/src/main/java/com/viel/oto"),
+            File("../media/metadata/src/main/java/com/viel/oto"),
+            File("media/metadata/src/main/java/com/viel/oto")
         )
         return candidates
             .filter { candidate -> candidate.isDirectory }
@@ -202,6 +206,7 @@ class MultiModuleMigrationBaselineTest {
             "library->logger",
             "library->media",
             "library->network",
+            "library->shared",
             "library->timeline",
             "library->work",
             "media->MainActivity",

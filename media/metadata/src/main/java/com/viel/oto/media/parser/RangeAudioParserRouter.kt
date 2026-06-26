@@ -5,7 +5,7 @@ import com.viel.oto.media.AudiobookMetadata
 /**
  * Unified embedded cover payload shared by all range-read audio parsers.
  */
-internal data class EmbeddedCoverBytes(
+data class EmbeddedCoverBytes(
     val bytes: ByteArray,
     val mimeType: String?
 ) {

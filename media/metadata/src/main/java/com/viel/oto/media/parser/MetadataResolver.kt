@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets
 /**
  * Metadata payload returned by parser backends before the import pipeline decides how to persist covers.
  */
-internal data class ExtractedAudiobookMetadata(
+data class ExtractedAudiobookMetadata(
     val metadata: AudiobookMetadata,
     val embeddedCover: EmbeddedCoverBytes?
 )
@@ -50,7 +50,7 @@ class MetadataResolver(
      * Callers that aggregate scan results should persist or hand off embeddedCover promptly, then clear it from
      * long-lived metadata references so large image byte arrays do not survive beyond the cover-binding boundary.
      */
-    internal suspend fun extractWithEmbeddedCover(file: FileRef): ExtractedAudiobookMetadata =
+    suspend fun extractWithEmbeddedCover(file: FileRef): ExtractedAudiobookMetadata =
         extractInternal(file, includeEmbeddedCover = true)
 
     /**
@@ -59,7 +59,7 @@ class MetadataResolver(
      * The returned byte array is caller-owned and should not be cached inside broad scan summaries after the
      * cover image has been written or rejected.
      */
-    internal suspend fun extractWithEmbeddedCover(file: BookFileEntity): ExtractedAudiobookMetadata =
+    suspend fun extractWithEmbeddedCover(file: BookFileEntity): ExtractedAudiobookMetadata =
         extractInternal(file, includeEmbeddedCover = true)
 
     private suspend fun extractInternal(file: FileRef, includeEmbeddedCover: Boolean): ExtractedAudiobookMetadata =

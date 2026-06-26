@@ -1,8 +1,6 @@
 package com.viel.oto.media.manifest
 
-import com.viel.oto.library.ChapterCandidate
 import com.viel.oto.library.FileRef
-import com.viel.oto.library.MetadataSuggestion
 import com.viel.oto.logger.SecureLog
 import java.io.BufferedInputStream
 import java.io.BufferedReader

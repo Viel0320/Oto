@@ -2,17 +2,17 @@
 
 ## 当前事实
 
-- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`。
+- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:media:metadata`。
 - `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 `abs`、`application`、`library`、`media`、`ui`、`widget`、`work`；`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`。
-- 本次迁移后，app 内 `library` 生产 Kotlin 文件数量为 37，`:library:vfs` 生产 Kotlin 文件数量为 21、JVM 测试文件数量为 17；`:data:store` 继续维护 Room、DataStore 和持久化 gateway。
-- `settings/model`、`network/policy`、`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability` 和 `library/vfs` 已是 Android library Module，继续保留 `com.viel.oto.logger` 和 `com.viel.oto.library.vfs` 包名供现有调用点使用。
+- 本次迁移后，app 内 `library` 生产 Kotlin 文件数量为 36，app 内 `media` 生产 Kotlin 文件数量为 35；`:library:vfs` 生产 Kotlin 文件数量为 21，`:media:metadata` 生产 Kotlin 文件数量为 28、JVM 测试文件数量为 5；`:data:store` 继续维护 Room、DataStore 和持久化 gateway。
+- `settings/model`、`network/policy`、`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability`、`library/vfs` 和 `media/metadata` 已是 Android library Module，继续保留 `com.viel.oto.logger`、`com.viel.oto.library.vfs`、`com.viel.oto.media.parser`、`com.viel.oto.media.manifest` 和 `com.viel.oto.media.subtitle` 包名供现有调用点使用。
 - ABS Room 持久化文件当前位于 `data/store/src/main/java/com/viel/oto/data/abs/playback` 和 `data/store/src/main/java/com/viel/oto/data/abs/sync`，`AppDatabase` 已从 `data.abs.*` 导入这些 DAO/Entity。
 - Koin 入口集中在 `OtoKoinApplication`，关闭顺序由 `GraphClosePolicy` 固定为 `media -> download -> abs -> library -> uiEvents -> data`。
 - 现有导入图仍存在阻碍继续拆模块的循环：
   - `data` 已进入 `:data:store`，当前只保留对 `shared`、`timeline`、`logger` 的窄依赖。
   - `abs` 仍直接引用 `data`、`library`、`media`、`work`。
-  - `library` 已移除对 `abs` 的生产源码直接引用，VFS 已进入 `:library:vfs`，app 内剩余 library import/root/availability 代码当前仍直接引用 `data`、`media`。
-  - `media` 直接引用 `application`、`data`、`library`、`widget`、`MainActivity`、`R`。
+  - `library` 已移除对 `abs` 的生产源码直接引用，VFS 已进入 `:library:vfs`，metadata parser/manifest 已进入 `:media:metadata`，app 内剩余 library import/root/availability 代码当前仍直接引用 `data`、`media`。
+  - `media` 直接引用 `application`、`data`、`library`、`widget`、`MainActivity`、`R`；其中 `:media:metadata` 当前仅承接 parser/manifest/cover/subtitle parser，并保留迁移期对 `:data:store` 与 `:library:vfs` 的编译依赖。
   - `logger` 已物理迁出 app，多数领域仍直接依赖具体 logger，后续需要继续收敛为窄 observability Interface。
   - `event` 直接引用 `application`、`data`、`media`、`R`。
 
@@ -211,6 +211,7 @@ flowchart TD
 - 已新增 `:library:vfs`，并移动 `VirtualFileSystem`、`VfsFileInterface`、VFS cache、SAF/WebDAV source provider、remote range strategy。
 - 已移动 `FileRef`、`FileIdentity` 和 `RemoteAvailabilityMappingPolicy` 到 `:library:vfs`，让 WebDAV、ABS 和 metadata/import 调用点继续使用稳定坐标模型与远程错误映射。
 - 已为 WebDAV provider/tester 增加 settings provider 注入点，模块测试不再依赖 app composition root 或 DataStore 缓存预热。
+- `:media:metadata` 已先于 `:library:import` 抽出，作为 import pipeline 的 parser/manifest 前置依赖。
 - 新增 `:library:import`，移动 scan/import/root lifecycle/availability。
 - 已落地：`LibrarySourceProvider` 改为接收 source Adapter 列表；ABS Adapter 由 app composition root 注册，`library` 不再 import `AbsSourceProvider`。
 - WebDAV 继续留在 `:library:vfs`，因为它是 library source Adapter，不与 ABS protocol 合并。
@@ -233,7 +234,8 @@ flowchart TD
 
 改动范围：
 
-- 新增 `:media:metadata`，移动 `media/parser`、`media/manifest`、subtitle parser、cover extractor。
+- 已新增 `:media:metadata`，移动 `media/parser`、`media/manifest`、subtitle parser、cover extractor。
+- `ManifestModels.kt` 已从 `library` 包模型改为 `media.manifest` 包模型，避免 metadata module 继续暴露 import/root lifecycle 领域包。
 - 新增 `:media:playback`，移动 `BookPlaybackPlan`、`VfsPlaybackUri`、`VfsPlaybackDataSource`、`PlaybackManager`、preflight、progress sync tracking。
 - 新增 `:media:service`，移动 `media/service` 下的 MediaSession service、download service、notification Adapter。
 - 清理 `media -> MainActivity`：由 `:app` 提供 launch intent Adapter，`media:service` 只依赖一个窄 Interface。
@@ -242,6 +244,7 @@ flowchart TD
 
 验收：
 
+- `.\gradlew.bat --no-problems-report :media:metadata:compileDebugKotlin`
 - `.\gradlew.bat --no-problems-report :media:metadata:testDebugUnitTest`
 - `.\gradlew.bat --no-problems-report :media:playback:testDebugUnitTest`
 - `.\gradlew.bat --no-problems-report :media:service:compileDebugKotlin`
@@ -338,10 +341,11 @@ flowchart TD
 1. 完成 `data` 外向依赖清理，先收尾 ABS Room 持久化包移动，再处理 scan、subtitle、cover、logger 依赖。
 2. 提升 `:data:store`，保持 Room schema export 和 release policy 不变。
 3. 提升 `:library:vfs`，拆掉 `library -> abs` 的直接 Adapter 引用。
-4. 提升 `:library:import`，把 scan/import/root lifecycle/availability 从 app 中移出。
-5. 拆 `:media:metadata`、`:media:playback`、`:media:service`，先去除 `MainActivity`、`R`、Widget 反向依赖。
-6. 提升 `:abs`，保持 ABS DTO 只停留在 anti-corruption Module 内。
-7. 提升 `:application`、`:event`、`:ui`、`:widget`。
-8. 收口 `:app` 为 manifest、application shell、Koin 聚合和发布策略所有者。
+4. 提升 `:media:metadata`，作为 `:library:import` 的 parser/manifest 前置 Module。
+5. 提升 `:library:import`，把 scan/import/root lifecycle/availability 从 app 中移出。
+6. 拆 `:media:playback`、`:media:service`，先去除 `MainActivity`、`R`、Widget 反向依赖。
+7. 提升 `:abs`，保持 ABS DTO 只停留在 anti-corruption Module 内。
+8. 提升 `:application`、`:event`、`:ui`、`:widget`。
+9. 收口 `:app` 为 manifest、application shell、Koin 聚合和发布策略所有者。
 
-完成前四个后续提交后，项目会进入可持续多模块状态；后续 ABS、media、UI、widget 可以按领域独立推进。
+完成前五个后续提交后，项目会进入可持续多模块状态；后续 ABS、media、UI、widget 可以按领域独立推进。

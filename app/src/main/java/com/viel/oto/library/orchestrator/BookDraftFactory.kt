@@ -8,15 +8,15 @@ import com.viel.oto.data.entity.BookEntity
 import com.viel.oto.data.entity.BookFileEntity
 import com.viel.oto.data.entity.ChapterEntity
 import com.viel.oto.data.runCatchingCancellable
-import com.viel.oto.library.ChapterCandidate
 import com.viel.oto.library.FileRef
-import com.viel.oto.library.MetadataSuggestion
 import com.viel.oto.library.orchestrator.draftmodels.BookDraft
 import com.viel.oto.library.vfsFileKey
 import com.viel.oto.logger.SecureLog
 import com.viel.oto.media.AudiobookMetadata
 import com.viel.oto.media.manifest.AudioMetadataRef
+import com.viel.oto.media.manifest.ChapterCandidate
 import com.viel.oto.media.manifest.HeuristicAggregationPlan
+import com.viel.oto.media.manifest.MetadataSuggestion
 import com.viel.oto.media.parser.CoverExtractor
 import com.viel.oto.media.parser.MetadataResolver
 import com.viel.oto.media.parser.Mp4MetadataFrameReader
@@ -406,4 +406,3 @@ internal class BookDraftFactory(private val metadataResolver: MetadataResolver) 
  */
 internal fun String.escapeJson(): String =
     replace("\\", "\\\\").replace("\"", "\\\"")
-

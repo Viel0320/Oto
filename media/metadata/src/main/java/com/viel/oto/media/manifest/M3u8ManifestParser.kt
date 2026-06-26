@@ -1,7 +1,6 @@
 package com.viel.oto.media.manifest
 
 import com.viel.oto.library.FileRef
-import com.viel.oto.library.MetadataSuggestion
 import com.viel.oto.logger.SecureLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
