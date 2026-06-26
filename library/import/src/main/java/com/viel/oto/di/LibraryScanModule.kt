@@ -6,7 +6,6 @@ import com.viel.oto.data.cache.RootSourceCacheEvictor
 import com.viel.oto.data.cleanup.LibraryResourceCleanupGateway
 import com.viel.oto.data.cover.CoverRecoveryGateway
 import com.viel.oto.data.db.AppDatabase
-import com.viel.oto.data.availability.FileAvailabilityProbe
 import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.library.root.LibraryRootGatewayImpl
 import com.viel.oto.library.scan.ScanNoticeSink
@@ -14,9 +13,7 @@ import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.library.scan.ScanSchedulerImpl
 import com.viel.oto.data.webdav.WebDavCredentialStore
 import com.viel.oto.library.LibraryRootStore
-import com.viel.oto.library.availability.AbsAvailabilityGateway
 import com.viel.oto.library.availability.AvailabilityChecker
-import com.viel.oto.library.availability.LibraryFileAvailabilityProbe
 import com.viel.oto.library.availability.MissingBookFileRecoveryChecker
 import com.viel.oto.library.root.AbsRootCredentialGateway
 import com.viel.oto.library.vfs.VfsFileInterface
@@ -31,7 +28,8 @@ import java.io.Closeable
 
 /**
  * Library scan scheduling, cache eviction, root gateway, and cleanup seams.
- * Replaces the scan/root section of LibraryGraph.
+ * Availability probing is owned by LibraryAvailabilityModule so this module stays focused on the
+ * scan, cache-eviction, and root lifecycle.
  *
  * Cleanup, scheduler, and root gateway contracts are exposed from their owning definitions
  * instead of through secondary Koin providers that only redirect to implementation classes.
@@ -39,20 +37,6 @@ import java.io.Closeable
 object LibraryScanModule {
 
     val module: Module = module {
-        single {
-            AvailabilityChecker(
-                context = get(),
-                database = get<AppDatabase>(),
-                absAvailabilityGateway = get<AbsAvailabilityGateway>()
-            )
-        }
-
-        single { MissingBookFileRecoveryChecker(get<AppDatabase>(), get()) }
-
-        single<FileAvailabilityProbe> {
-            LibraryFileAvailabilityProbe(availabilityChecker = get())
-        }
-
         single<RootSourceCacheEvictor> {
             VfsRootSourceCacheEvictor(
                 rangeCache = get<VfsRangeCache>(),

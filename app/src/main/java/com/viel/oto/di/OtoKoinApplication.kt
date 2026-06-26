@@ -49,6 +49,7 @@ internal object OtoKoinApplication {
                 DownloadReadModelModule.module,
                 LibraryBookGatewayModule.module,
                 LibraryCoverModule.module,
+                LibraryAvailabilityModule.module,
                 LibraryScanModule.module,
                 LibraryUseCaseModule.module,
                 LibrarySceneModule.module,

@@ -171,6 +171,7 @@ class MultiModuleMigrationBaselineTest {
             "DownloadReadModelModule",
             "LibraryBookGatewayModule",
             "LibraryCoverModule",
+            "LibraryAvailabilityModule",
             "LibraryScanModule",
             "LibraryUseCaseModule",
             "LibrarySceneModule",
