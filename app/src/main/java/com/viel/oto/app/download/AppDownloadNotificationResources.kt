@@ -14,7 +14,7 @@ import com.viel.oto.media.service.ManualDownloadNotificationAction
  * icon ownership in the app module.
  */
 class AppDownloadNotificationResources : DownloadNotificationResources {
-    override val smallIconRes: Int = com.viel.oto.R.mipmap.ic_launcher
+    override val smallIconRes: Int = R.mipmap.ic_launcher
 
     override fun appName(context: Context): String =
         context.getString(R.string.app_name)

@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // UI Module (Owns Compose routes, screens, overlays, ViewModels, theme, and app locale UI support)
@@ -43,9 +44,7 @@ dependencies {
     implementation(project(":application"))
     implementation(project(":event"))
     implementation(project(":library:vfs"))
-    implementation(project(":library:import"))
     implementation(project(":media:metadata"))
-    implementation(project(":media:playback"))
     implementation(project(":shared"))
 
     implementation(libs.androidx.core.ktx)

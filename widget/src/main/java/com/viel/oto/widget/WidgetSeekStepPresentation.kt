@@ -2,6 +2,7 @@ package com.viel.oto.widget
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import com.viel.oto.shared.R
 import com.viel.oto.shared.model.SeekStepSeconds
 
 internal object WidgetSeekStepPresentation {

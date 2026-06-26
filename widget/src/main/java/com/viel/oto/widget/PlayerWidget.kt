@@ -39,6 +39,7 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import com.viel.oto.shared.R
 import com.viel.oto.shared.model.SeekStepSeconds
 
 /**

@@ -10,13 +10,12 @@ import com.viel.oto.application.library.player.PlayerRelatedData
 import com.viel.oto.application.library.settings.AppSettingsCommands
 import com.viel.oto.application.library.settings.AppSettingsReadModel
 import com.viel.oto.application.playback.PlayerPlaybackController
-import com.viel.oto.application.usecase.BuildPlaybackPlanUseCase
+import com.viel.oto.application.usecase.PrepareBookPlaybackUseCase
 import com.viel.oto.application.usecase.ResolveProgressConflictUseCase
 import com.viel.oto.event.AppEventSink
 import com.viel.oto.event.feedback.LibraryAccessFeedbackFacts
 import com.viel.oto.event.feedback.PlaybackControlFeedbackFacts
 import com.viel.oto.event.feedback.RecoveryFeedbackFacts
-import com.viel.oto.media.PlaybackMediaId
 import com.viel.oto.shared.policy.PlaybackSeekStepPolicy
 import com.viel.oto.media.subtitle.SubtitleParser
 import com.viel.oto.ui.settings.PlayerSettingsState
@@ -42,7 +41,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class PlaybackViewModel(
     private val playbackController: PlayerPlaybackController,
     private val playerLibraryReadModel: PlayerLibraryReadModel,
-    private val buildPlaybackPlanUseCase: BuildPlaybackPlanUseCase,
+    private val prepareBookPlaybackUseCase: PrepareBookPlaybackUseCase,
     private val resolveProgressConflictUseCase: ResolveProgressConflictUseCase,
     private val appEventSink: AppEventSink,
     private val settingsReadModel: AppSettingsReadModel,
@@ -373,27 +372,21 @@ class PlaybackViewModel(
         val controller = playbackController
 
         externalScope.launch {
-            controller.observeCurrentMediaItemId().collectLatest { mediaItemId ->
-                if (mediaItemId != null) {
-                    val mediaParts = PlaybackMediaId.parse(mediaItemId)
-                    if (mediaParts != null) {
-                        val bookId = mediaParts.bookId
-                        val bookFileId = mediaParts.fileId
-                        _currentBookId.value = bookId
-                        onMiniPlayerHiddenChanged?.invoke(false)
+            controller.observeCurrentPlaybackMediaIdentity().collectLatest { mediaIdentity ->
+                if (mediaIdentity != null) {
+                    val bookId = mediaIdentity.bookId
+                    val bookFileId = mediaIdentity.fileId
+                    _currentBookId.value = bookId
+                    onMiniPlayerHiddenChanged?.invoke(false)
 
-                        subtitleLoadJob?.cancel()
-                        _currentSubtitles.value = emptyList()
+                    subtitleLoadJob?.cancel()
+                    _currentSubtitles.value = emptyList()
 
-                        subtitleLoadJob = externalScope.launch {
-                            val externalSubs = kotlinx.coroutines.withContext(Dispatchers.IO) {
-                                playerLibraryReadModel.loadSubtitlesForBookFile(bookFileId)
-                            }
-                            _currentSubtitles.value = SubtitleParser.limitForPlayerState(externalSubs)
+                    subtitleLoadJob = externalScope.launch {
+                        val externalSubs = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                            playerLibraryReadModel.loadSubtitlesForBookFile(bookFileId)
                         }
-                    } else {
-                        subtitleLoadJob?.cancel()
-                        _currentSubtitles.value = emptyList()
+                        _currentSubtitles.value = SubtitleParser.limitForPlayerState(externalSubs)
                     }
                 } else {
                     subtitleLoadJob?.cancel()
@@ -465,23 +458,23 @@ class PlaybackViewModel(
         onUndoSeekVisibilityChanged?.invoke(false)
 
         val playbackPlanStart = SystemClock.elapsedRealtime()
-        val plan = buildPlaybackPlanUseCase.invoke(id)
+        val preparedPlan = prepareBookPlaybackUseCase.invoke(id, playWhenReady)
         val playbackPlanCost = SystemClock.elapsedRealtime() - playbackPlanStart
         com.viel.oto.logger.PlaybackTimingLogger.logPlaybackPlanBuild(
             bookId = id,
             costMs = playbackPlanCost,
-            planReady = plan != null,
+            planReady = preparedPlan != null,
             playWhenReady = playWhenReady
         )
-        if (plan != null) {
+        if (preparedPlan != null) {
             val totalCost = SystemClock.elapsedRealtime() - loadBookRequestStart
             com.viel.oto.logger.PlaybackTimingLogger.logLoadBookReady(
                 bookId = id,
                 totalMs = totalCost,
-                fileCount = plan.files.size,
-                startPosition = plan.startGlobalPositionMs
+                fileCount = preparedPlan.fileCount,
+                startPosition = preparedPlan.startGlobalPositionMs
             )
-            playbackDelegate.loadBook(plan, playWhenReady) { onCoverUpdateCallback?.invoke(it) }
+            playbackDelegate.refreshCoverAfterLoad(id) { onCoverUpdateCallback?.invoke(it) }
         } else {
             val totalCost = SystemClock.elapsedRealtime() - loadBookRequestStart
             com.viel.oto.logger.PlaybackTimingLogger.logLoadBookNoPlan(
@@ -571,8 +564,7 @@ class PlaybackViewModel(
     fun pause() = playbackDelegate.pause()
 
     private fun isMediaSourceLoadedFor(bookId: String): Boolean {
-        val mediaId = playbackController.currentMediaItemId ?: return false
-        return PlaybackMediaId.parse(mediaId)?.bookId == bookId
+        return playbackController.currentPlaybackMediaIdentity?.bookId == bookId
     }
 
     fun seekTo(positionMs: Long, allowUndo: Boolean = false) {

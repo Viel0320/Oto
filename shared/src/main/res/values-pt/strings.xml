@@ -1,4 +1,4 @@
-<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingQuantity">
+﻿<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingQuantity">
     <string name="author_label">Autor</string>
     <string name="narrator_label">Narrador</string>
     <string name="summary_label">Resumo</string>
@@ -668,4 +668,14 @@
     <string name="settings_required_field">Obrigatório</string>
     <string name="action_test">Testar</string>
     <string name="action_connect">Conectar serviço</string>
+    <string name="player_widget_name">Leitor Oto</string>
+    <string name="player_widget_description">Widget de leitor 2x2 para o ambiente de trabalho</string>
+    <string name="player_widget_empty_subtitle">Pronto para reproduzir</string>
+    <string name="player_widget_cover_description">Capa do audiolivro atual</string>
+    <string name="player_widget_play_pause">Reproduzir ou pausar</string>
+    <string name="player_widget_fallback_author">Leitor de audiolivros</string>
+    <string name="player_widget_background_cover_description">Capa de fundo</string>
+    <string name="player_widget_background_placeholder_description">Marcador de fundo</string>
+    <string name="player_widget_seek_backward_description">Recuar</string>
+    <string name="player_widget_seek_forward_description">Avançar</string>
 </resources>

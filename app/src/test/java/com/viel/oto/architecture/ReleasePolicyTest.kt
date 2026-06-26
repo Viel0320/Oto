@@ -39,8 +39,8 @@ class ReleasePolicyTest {
     @Test
     fun backupRulesUseLintCompatiblePortableSettingsAllowlist() {
         val manifest = repoFile("app/src/main/AndroidManifest.xml").readText()
-        val backupRules = repoFile("app/src/main/res/xml/backup_rules.xml").readText()
-        val extractionRules = repoFile("app/src/main/res/xml/data_extraction_rules.xml").readText()
+        val backupRules = repoFile("shared/src/main/res/xml/backup_rules.xml").readText()
+        val extractionRules = repoFile("shared/src/main/res/xml/data_extraction_rules.xml").readText()
         val legacyBackupRules = parseBackupRules(backupRules)
         val android12ExtractionRules = parseBackupRules(extractionRules)
 
@@ -120,7 +120,7 @@ class ReleasePolicyTest {
 
     @Test
     fun cleartextPlatformAllowanceIsPairedWithUnsafeNetworkRuntimePolicy() {
-        val networkConfig = repoFile("app/src/main/res/xml/network_security_config.xml").readText()
+        val networkConfig = repoFile("shared/src/main/res/xml/network_security_config.xml").readText()
         val defaults = AppSettings()
         val policy = repoFile(
             "shared/src/main/kotlin/com/viel/oto/shared/policy/UnsafeNetworkPolicy.kt"

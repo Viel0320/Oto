@@ -4,7 +4,7 @@ import android.content.Context
 import com.viel.oto.shared.R
 import com.viel.oto.application.library.LibraryReadStatus
 import com.viel.oto.application.usecase.SettingsRootAvailabilityKind
-import com.viel.oto.media.PlaybackSourcePreflightBlockReason
+import com.viel.oto.shared.model.PlaybackSourcePreflightBlockReason
 
 /**
  * Centralizes the Android resource keys used by feedback producers.

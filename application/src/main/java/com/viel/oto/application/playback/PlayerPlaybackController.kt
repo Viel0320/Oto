@@ -2,11 +2,22 @@ package com.viel.oto.application.playback
 
 import com.viel.oto.media.AutoRewindManager
 import com.viel.oto.media.BookPlaybackPlan
+import com.viel.oto.media.PlaybackMediaId
 import com.viel.oto.media.PlaybackManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+
+/**
+ * Stable playback identity exposed to player-facing application callers.
+ * The media layer still owns the encoded Media3 id format, while UI only receives
+ * the book and file coordinates needed for scene state and subtitle loading.
+ */
+data class PlaybackMediaIdentity(
+    val bookId: String,
+    val fileId: String
+)
 
 /**
  * Player-facing playback runtime seam.
@@ -50,10 +61,10 @@ interface PlayerPlaybackController {
     val playbackSpeed: StateFlow<Float>
 
     /**
-     * Read the active media id without exposing MediaItem.
+     * Read the active media identity without exposing MediaItem or encoded media ids.
      * Lets duplicate-load checks compare the prepared media queue with restored preview state.
      */
-    val currentMediaItemId: String?
+    val currentPlaybackMediaIdentity: PlaybackMediaIdentity?
 
     /**
      * Adjust playback-runtime volume for sleep fade-out.
@@ -62,10 +73,10 @@ interface PlayerPlaybackController {
     var playerVolume: Float
 
     /**
-     * Observe active media id changes without exposing MediaItem.
-     * PlayerViewModel parses the stable app media id while media-core details stay behind the adapter.
+     * Observe active media identity changes without exposing MediaItem or encoded media ids.
+     * Keeps Media3 identifier parsing inside the application adapter instead of UI state holders.
      */
-    fun observeCurrentMediaItemId(): Flow<String?>
+    fun observeCurrentPlaybackMediaIdentity(): Flow<PlaybackMediaIdentity?>
 
     /**
      * Resume foreground playback.
@@ -136,8 +147,8 @@ class DefaultPlayerPlaybackController(
     override val playbackSpeed: StateFlow<Float>
         get() = playbackManager.playbackSpeed
 
-    override val currentMediaItemId: String?
-        get() = playbackManager.currentMediaItem.value?.mediaId
+    override val currentPlaybackMediaIdentity: PlaybackMediaIdentity?
+        get() = playbackManager.currentMediaItem.value?.mediaId.toPlaybackMediaIdentity()
 
     override var playerVolume: Float
         get() = playbackManager.playerVolume
@@ -145,9 +156,9 @@ class DefaultPlayerPlaybackController(
             playbackManager.playerVolume = value
         }
 
-    override fun observeCurrentMediaItemId(): Flow<String?> {
+    override fun observeCurrentPlaybackMediaIdentity(): Flow<PlaybackMediaIdentity?> {
         return playbackManager.currentMediaItem
-            .map { mediaItem -> mediaItem?.mediaId }
+            .map { mediaItem -> mediaItem?.mediaId.toPlaybackMediaIdentity() }
             .distinctUntilChanged()
     }
 
@@ -169,5 +180,13 @@ class DefaultPlayerPlaybackController(
 
     override fun skipToNextAvailableTrack(bookId: String, queueIndex: Int) {
         playbackManager.skipToNextAvailableTrack(bookId, queueIndex)
+    }
+
+    /**
+     * Converts the media-owned encoded id into an application playback identity.
+     */
+    private fun String?.toPlaybackMediaIdentity(): PlaybackMediaIdentity? {
+        val parts = PlaybackMediaId.parse(this) ?: return null
+        return PlaybackMediaIdentity(bookId = parts.bookId, fileId = parts.fileId)
     }
 }

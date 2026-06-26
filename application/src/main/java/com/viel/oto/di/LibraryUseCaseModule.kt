@@ -8,6 +8,7 @@ import com.viel.oto.application.playback.PlaybackStopper
 import com.viel.oto.application.usecase.BookManagementUseCase
 import com.viel.oto.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.oto.application.usecase.LibraryRootManagementUseCase
+import com.viel.oto.application.usecase.PrepareBookPlaybackUseCase
 import com.viel.oto.data.availability.BookAvailabilityGateway
 import com.viel.oto.data.book.BookCatalogGateway
 import com.viel.oto.data.book.BookDeletionGateway
@@ -50,6 +51,13 @@ object LibraryUseCaseModule {
             BuildPlaybackPlanUseCase(
                 playbackPlanGateway = get<PlaybackPlanGateway>(),
                 downloadStatusReadModel = get<DownloadStatusReadModel>()
+            )
+        }
+
+        single {
+            PrepareBookPlaybackUseCase(
+                buildPlaybackPlanUseCase = get<BuildPlaybackPlanUseCase>(),
+                playbackController = get()
             )
         }
 

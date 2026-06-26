@@ -1,4 +1,4 @@
-<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedQuantity">
+﻿<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedQuantity">
     <string name="author_label">著者</string>
     <string name="narrator_label">朗読者</string>
     <string name="summary_label">概要</string>
@@ -582,4 +582,14 @@
     <string name="settings_required_field">必須</string>
     <string name="action_test">テスト</string>
     <string name="action_connect">サービスに接続</string>
+    <string name="player_widget_name">Oto プレーヤー</string>
+    <string name="player_widget_description">2x2 デスクトッププレーヤーウィジェット</string>
+    <string name="player_widget_empty_subtitle">再生準備完了</string>
+    <string name="player_widget_cover_description">現在のオーディオブック表紙</string>
+    <string name="player_widget_play_pause">再生または一時停止</string>
+    <string name="player_widget_fallback_author">オーディオブックプレーヤー</string>
+    <string name="player_widget_background_cover_description">背景の表紙</string>
+    <string name="player_widget_background_placeholder_description">背景プレースホルダー</string>
+    <string name="player_widget_seek_backward_description">戻る</string>
+    <string name="player_widget_seek_forward_description">進む</string>
 </resources>

@@ -1,6 +1,6 @@
 package com.viel.oto.event.feedback
 
-import com.viel.oto.media.PlaybackSourcePreflightBlockReason
+import com.viel.oto.shared.model.PlaybackSourcePreflightBlockReason
 
 /**
  * Fact factory for playback content/source recovery outcomes.

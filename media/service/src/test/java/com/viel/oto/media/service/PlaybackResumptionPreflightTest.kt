@@ -9,7 +9,7 @@ import com.viel.oto.media.PlaybackDomainEvent
 import com.viel.oto.media.PlaybackDomainEventDeliveryResult
 import com.viel.oto.media.PlaybackDomainEventSink
 import com.viel.oto.media.PlaybackSourcePreflight
-import com.viel.oto.media.PlaybackSourcePreflightBlockReason
+import com.viel.oto.shared.model.PlaybackSourcePreflightBlockReason
 import com.viel.oto.shared.model.AppSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow

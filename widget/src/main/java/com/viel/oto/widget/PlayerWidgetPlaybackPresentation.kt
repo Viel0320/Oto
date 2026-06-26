@@ -1,5 +1,7 @@
 package com.viel.oto.widget
 
+import com.viel.oto.shared.R
+
 internal object PlayerWidgetPlaybackPresentation {
 
     fun playPauseIcon(isPlaying: Boolean): Int =

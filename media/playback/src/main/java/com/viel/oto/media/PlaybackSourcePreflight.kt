@@ -2,8 +2,9 @@ package com.viel.oto.media
 
 import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.db.AudiobookSchema
-import com.viel.oto.shared.policy.UnsafeNetworkPolicy
 import com.viel.oto.shared.model.AppSettings
+import com.viel.oto.shared.model.PlaybackSourcePreflightBlockReason
+import com.viel.oto.shared.policy.UnsafeNetworkPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -51,13 +52,4 @@ sealed class PlaybackSourcePreflightResult {
         val rootName: String? = null
     ) : PlaybackSourcePreflightResult()
     data object CleartextHttpBlocked : PlaybackSourcePreflightResult()
-}
-
-/**
- * Stable media-core block code.
- * The app-shell event bridge maps these codes to localized feedback instead of receiving preformatted text from playback.
- */
-enum class PlaybackSourcePreflightBlockReason {
-    MissingRoot,
-    UnavailableRoot
 }

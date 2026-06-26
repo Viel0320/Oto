@@ -1,7 +1,7 @@
 package com.viel.oto.event.feedback
 
 import com.viel.oto.shared.R
-import com.viel.oto.media.PlaybackSourcePreflightBlockReason
+import com.viel.oto.shared.model.PlaybackSourcePreflightBlockReason
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

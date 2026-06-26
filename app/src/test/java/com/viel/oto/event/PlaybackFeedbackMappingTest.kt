@@ -9,7 +9,7 @@ import com.viel.oto.event.feedback.FeedbackRenderMode
 import com.viel.oto.event.feedback.FeedbackSeverity
 import com.viel.oto.event.feedback.FeedbackTopic
 import com.viel.oto.media.PlaybackDomainEvent
-import com.viel.oto.media.PlaybackSourcePreflightBlockReason
+import com.viel.oto.shared.model.PlaybackSourcePreflightBlockReason
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

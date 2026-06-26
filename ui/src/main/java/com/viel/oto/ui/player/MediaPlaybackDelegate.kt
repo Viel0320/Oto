@@ -4,7 +4,6 @@ import com.viel.oto.application.library.player.PlayerChapterItem
 import com.viel.oto.application.library.player.PlayerChapterTimeline
 import com.viel.oto.application.library.player.PlayerLibraryReadModel
 import com.viel.oto.application.playback.PlayerPlaybackController
-import com.viel.oto.media.BookPlaybackPlan
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -25,18 +24,17 @@ class MediaPlaybackDelegate(
     fun setPlaybackSpeed(speed: Float) = playbackController()?.setPlaybackSpeed(speed)
 
     /**
-     * To pass playback plan coordinates to the media engine.
+     * Polls the display cover after playback preparation.
+     * Cover recovery may finish shortly after the runtime accepts the playback request, so the UI
+     * delegate keeps the retry window without learning the media-layer playback plan shape.
      */
-    fun loadBook(
-        plan: BookPlaybackPlan,
-        playWhenReady: Boolean,
+    fun refreshCoverAfterLoad(
+        bookId: String,
         onCoverUpdate: (String?) -> Unit
     ) {
-        playbackController()?.loadPlaybackPlan(plan, playWhenReady)
-
         scope.launch {
             repeat(5) {
-                val coverPath = playerLibraryReadModel.findDisplayCoverPath(plan.bookId)
+                val coverPath = playerLibraryReadModel.findDisplayCoverPath(bookId)
                 if (coverPath != null) {
                     onCoverUpdate(coverPath)
                     return@launch

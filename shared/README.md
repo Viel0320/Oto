@@ -6,7 +6,7 @@
 
 Current shared categories are:
 
-- pure resource files under `shared/src/main/res`,
+- Android resource files under `shared/src/main/res`, including app shell, widget, UI, notification, and shared locale resources,
 - pure function policy classes under `com.viel.oto.shared.policy`,
 - pure value models under `com.viel.oto.shared.model`.
 
