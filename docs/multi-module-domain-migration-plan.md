@@ -337,6 +337,7 @@ flowchart TD
 - 已落地 8A：`:widget` 打开应用改为通过 package launcher intent，不再硬编码 `com.viel.oto.MainActivity`；新增架构测试扫描非 app 生产 Module，禁止引用 app shell 类名和 app-owned adapter 包。
 - 已落地 8B：`LibrarySceneModule` 随 home/detail/player/edit/search/recovery read model 与 command 绑定迁入 `:application`，app composition root 只聚合该领域 Module 暴露的 Koin Module。
 - 已落地 8C：`DownloadReadModelModule` 随下载状态、下载管理和缓存维护读写模型迁入 `:application`，app 不再持有该下载场景 Koin 定义。
+- 已落地 8D：`LibraryUseCaseModule` 随播放计划、进度、搜索历史和 library 管理 use case 绑定迁入 `:application`，关闭注册继续通过 `:runtime:lifecycle` 的 `GraphClosePolicy` 执行。
 
 验收：
 

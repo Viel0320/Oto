@@ -60,7 +60,7 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun libraryUseCaseModuleReceivesPlaybackStopperFromMediaModule() {
-        val libraryUseCaseModule = ArchitectureSourceRoots.appMainFile("di/LibraryUseCaseModule.kt").readText()
+        val libraryUseCaseModule = ArchitectureSourceRoots.applicationMainFile("di/LibraryUseCaseModule.kt").readText()
 
         assertTrue(libraryUseCaseModule.contains("playbackStopper = get<PlaybackStopper>()"))
         assertTrue(!libraryUseCaseModule.contains("playbackManager = data.playbackManager"))
@@ -68,8 +68,7 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun managementUseCasesReceiveManualDownloadCleanupGatewayFromDownloadModule() {
-        val sourceRoot = ArchitectureSourceRoots.appMain()
-        val libraryUseCaseModule = sourceRoot.resolve("di/LibraryUseCaseModule.kt").readText()
+        val libraryUseCaseModule = ArchitectureSourceRoots.applicationMainFile("di/LibraryUseCaseModule.kt").readText()
 
         assertTrue(libraryUseCaseModule.contains("LibraryRootManagementUseCase("))
         assertTrue(libraryUseCaseModule.contains("BookManagementUseCase("))

@@ -35,7 +35,7 @@ import org.koin.dsl.module
  * release builds keep a single factory path for each contract.
  */
 @OptIn(UnstableApi::class)
-internal object LibraryUseCaseModule {
+object LibraryUseCaseModule {
 
     val module: Module = module {
         single<PlaybackPlanGateway> {
