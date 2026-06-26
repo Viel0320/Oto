@@ -1,16 +1,15 @@
-package com.viel.oto.app.download
+package com.viel.oto.media.service
 
 import com.viel.oto.application.download.ManualDownloadNotificationGateway
 import com.viel.oto.data.entity.DownloadMetadataEntity
-import com.viel.oto.media.service.AndroidManualDownloadNotificationGateway
 
 /**
- * Adapts the extracted Android notification renderer to the application download gateway.
+ * Adapts the Android manual-download notification renderer to the application gateway contract.
  *
- * The application layer keeps its existing gateway contract; the concrete Android renderer now lives
- * in `:media:service` and is delegated through this app-side adapter.
+ * The renderer remains service-owned, while application orchestration depends only on its stable
+ * notification gateway interface.
  */
-class AppManualDownloadNotificationGateway(
+class ServiceManualDownloadNotificationGateway(
     private val delegate: AndroidManualDownloadNotificationGateway
 ) : ManualDownloadNotificationGateway {
     override suspend fun publish(metadata: DownloadMetadataEntity) {

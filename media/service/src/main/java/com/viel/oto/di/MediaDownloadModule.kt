@@ -12,10 +12,6 @@ import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.media3.exoplayer.scheduler.Requirements
 import com.viel.oto.application.download.DefaultDownloadRuntimeGateway
-import com.viel.oto.application.download.DownloadController
-import com.viel.oto.app.download.AppDownloadNotificationResources
-import com.viel.oto.app.download.AppManualDownloadActionGateway
-import com.viel.oto.app.download.AppManualDownloadNotificationGateway
 import com.viel.oto.application.download.DownloadProgressPoller
 import com.viel.oto.application.download.DownloadRuntimeInitializedFlag
 import com.viel.oto.application.download.DownloadRuntimeGateway
@@ -26,9 +22,10 @@ import com.viel.oto.application.download.RoomDownloadBookIdResolver
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.media.VfsPlaybackDataSource
-import com.viel.oto.media.service.DownloadNotificationResources
+import com.viel.oto.media.service.DownloadControllerActionGateway
 import com.viel.oto.media.service.ManualDownloadActionGateway
 import com.viel.oto.media.service.OtoDownloadService
+import com.viel.oto.media.service.ServiceManualDownloadNotificationGateway
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -36,13 +33,13 @@ import java.io.Closeable
 import java.util.concurrent.Executors
 
 /**
- * App-owned Media3 download runtime and service command adapters.
+ * Media service owned Media3 download runtime and service command bindings.
  *
- * ApplicationDownloadModule owns download orchestration, while this module keeps Android
- * DownloadService commands, app resources, and the process DownloadManager runtime in the app shell.
+ * ApplicationDownloadModule owns manual-download orchestration, while this module owns the process
+ * DownloadManager, DownloadService command gateway, and service notification-action adapters.
  */
 @OptIn(UnstableApi::class)
-internal object DownloadModule {
+object MediaDownloadModule {
 
     private const val MANUAL_CACHE_DIRECTORY = "manual_cache"
     private const val MAX_PARALLEL_DOWNLOADS = 3
@@ -64,16 +61,12 @@ internal object DownloadModule {
             }
         }
 
-        single<DownloadNotificationResources> { AppDownloadNotificationResources() }
-
         single<ManualDownloadActionGateway> {
-            AppManualDownloadActionGateway(downloadControllerProvider = { get<DownloadController>() })
+            DownloadControllerActionGateway(downloadControllerProvider = { get() })
         }
 
         single<ManualDownloadNotificationGateway> {
-            AppManualDownloadNotificationGateway(
-                delegate = get()
-            )
+            ServiceManualDownloadNotificationGateway(delegate = get())
         }
 
         single<DownloadManager> {
@@ -139,7 +132,6 @@ internal object DownloadModule {
                 }
             )
         }
-
     }
 
     private fun requirementsForWifiPolicy(wifiOnly: Boolean): Requirements =

@@ -80,7 +80,7 @@ class GraphLifecycleTest {
     fun `koin modules register closeable resources through graph close policy`() {
         val sourceRoot = resolveSourceRoot()
         val mediaPlaybackRuntimeModuleSource = resolveMediaPlaybackRuntimeModuleFile().readText()
-        val downloadModuleSource = sourceRoot.resolve("di/DownloadModule.kt").readText()
+        val downloadModuleSource = resolveMediaDownloadModuleFile().readText()
         val absSyncModuleSource = resolveAbsSyncModuleFile().readText()
         val libraryScanModuleSource = resolveLibraryScanModuleFile().readText()
         val uiEventModuleSource = sourceRoot.resolve("di/UiEventModule.kt").readText()
@@ -91,7 +91,7 @@ class GraphLifecycleTest {
             mediaPlaybackRuntimeModuleSource.contains("GraphClosePolicy.register")
         )
         assertTrue(
-            "DownloadModule must register download resources with GraphClosePolicy.",
+            "MediaDownloadModule must register download resources with GraphClosePolicy.",
             downloadModuleSource.contains("GraphClosePolicy.register")
         )
         assertTrue(
@@ -174,6 +174,21 @@ class GraphLifecycleTest {
         )
         return candidates.firstOrNull { candidate -> candidate.isFile }
             ?: error("Could not locate MediaPlaybackRuntimeModule for di lifecycle test.")
+    }
+
+    /**
+     * Resolves download runtime DI from the extracted media service module or the old app module
+     * during migration so the close-policy guard stays attached to the download runtime owner.
+     */
+    private fun resolveMediaDownloadModuleFile(): java.io.File {
+        val candidates = listOf(
+            java.io.File("media/service/src/main/java/com/viel/oto/di/MediaDownloadModule.kt"),
+            java.io.File("../media/service/src/main/java/com/viel/oto/di/MediaDownloadModule.kt"),
+            java.io.File("src/main/java/com/viel/oto/di/DownloadModule.kt"),
+            java.io.File("app/src/main/java/com/viel/oto/di/DownloadModule.kt")
+        )
+        return candidates.firstOrNull { candidate -> candidate.isFile }
+            ?: error("Could not locate MediaDownloadModule for di lifecycle test.")
     }
 
     private fun register(

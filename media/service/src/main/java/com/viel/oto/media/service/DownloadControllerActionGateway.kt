@@ -1,15 +1,14 @@
-package com.viel.oto.app.download
+package com.viel.oto.media.service
 
 import com.viel.oto.application.download.DownloadController
-import com.viel.oto.media.service.ManualDownloadActionGateway
 
 /**
- * Bridges notification action broadcasts into the application download command surface.
+ * Routes manual-download notification actions into the application download command surface.
  *
- * A provider is used so the broadcast receiver does not force DownloadController construction while
- * Koin is still creating the download graph.
+ * A provider avoids constructing DownloadController while Koin is still creating the download
+ * runtime graph for the Media3 DownloadService.
  */
-class AppManualDownloadActionGateway(
+class DownloadControllerActionGateway(
     private val downloadControllerProvider: () -> DownloadController
 ) : ManualDownloadActionGateway {
     override suspend fun pauseDownload(bookId: String) {

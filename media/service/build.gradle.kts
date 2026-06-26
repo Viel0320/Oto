@@ -37,6 +37,8 @@ dependencies {
     api(project(":data:store"))
     api(project(":media:playback"))
 
+    implementation(project(":application"))
+    implementation(project(":runtime:lifecycle"))
     implementation(project(":runtime:observability"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.media3.common)
