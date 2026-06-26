@@ -1,11 +1,14 @@
 package com.viel.oto.di
 
 import com.viel.oto.data.db.AppDatabase
+import com.viel.oto.application.usecase.BuildPlaybackPlanUseCase
 import com.viel.oto.media.PlaybackSessionTokenFactory
 import com.viel.oto.media.service.AndroidManualDownloadNotificationGateway
+import com.viel.oto.media.service.ApplicationPlaybackResumePlanProvider
 import com.viel.oto.media.service.DownloadNotificationResources
 import com.viel.oto.media.service.MediaServiceLaunchIntentFactory
 import com.viel.oto.media.service.PlaybackServiceSessionTokenFactory
+import com.viel.oto.media.service.PlaybackResumePlanProvider
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -19,6 +22,10 @@ object MediaServiceModule {
 
     val module: Module = module {
         single<PlaybackSessionTokenFactory> { PlaybackServiceSessionTokenFactory() }
+
+        single<PlaybackResumePlanProvider> {
+            ApplicationPlaybackResumePlanProvider(buildPlaybackPlanUseCase = get<BuildPlaybackPlanUseCase>())
+        }
 
         single {
             AndroidManualDownloadNotificationGateway(
