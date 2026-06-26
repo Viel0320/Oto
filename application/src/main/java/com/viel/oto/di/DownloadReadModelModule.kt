@@ -19,7 +19,7 @@ import org.koin.dsl.module
  * Kept separate from DownloadModule so UI-facing projections can change independently.
  */
 @OptIn(UnstableApi::class)
-internal object DownloadReadModelModule {
+object DownloadReadModelModule {
 
     val module: Module = module {
         single<DownloadStatusReadModel> {
