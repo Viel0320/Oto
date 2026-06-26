@@ -106,6 +106,8 @@ class MultiModuleMigrationBaselineTest {
             File("data/store/src/main/java/com/viel/oto"),
             File("../library/vfs/src/main/java/com/viel/oto"),
             File("library/vfs/src/main/java/com/viel/oto"),
+            File("../library/import/src/main/java/com/viel/oto"),
+            File("library/import/src/main/java/com/viel/oto"),
             File("../media/metadata/src/main/java/com/viel/oto"),
             File("media/metadata/src/main/java/com/viel/oto"),
             File("../work/policy/src/main/java/com/viel/oto"),

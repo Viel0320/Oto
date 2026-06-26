@@ -127,7 +127,10 @@ class ReleasePolicyTest {
             "app/src/main/java/com/viel/oto/network/UnsafeNetworkPolicy.kt"
         ).readText()
         val runtimeGates = listOf(
-            repoFile("app/src/main/java/com/viel/oto/library/LibraryRootStore.kt"),
+            repoFile(
+                "library/import/src/main/java/com/viel/oto/library/LibraryRootStore.kt",
+                "app/src/main/java/com/viel/oto/library/LibraryRootStore.kt"
+            ),
             repoFile(
                 "library/vfs/src/main/java/com/viel/oto/library/vfs/sourceProvider/webdav/WebDavConnectionTester.kt",
                 "app/src/main/java/com/viel/oto/library/vfs/sourceProvider/webdav/WebDavConnectionTester.kt"
@@ -233,6 +236,7 @@ class ReleasePolicyTest {
             "runtime/observability/src/main/java/com/viel/oto",
             "data/store/src/main/java/com/viel/oto",
             "library/vfs/src/main/java/com/viel/oto",
+            "library/import/src/main/java/com/viel/oto",
             "media/metadata/src/main/java/com/viel/oto",
             "work/policy/src/main/java/com/viel/oto"
         ).flatMap { path -> listOf(File(path), File("../$path")) }

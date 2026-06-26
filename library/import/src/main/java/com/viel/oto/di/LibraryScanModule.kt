@@ -1,7 +1,5 @@
 package com.viel.oto.di
 
-import androidx.annotation.OptIn
-import androidx.media3.common.util.UnstableApi
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.cache.CacheEvictionCoordinator
 import com.viel.oto.data.cache.RootSourceCacheEvictor
@@ -10,11 +8,10 @@ import com.viel.oto.data.cover.CoverRecoveryGateway
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.library.root.LibraryRootGatewayImpl
+import com.viel.oto.library.scan.ScanNoticeSink
 import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.library.scan.ScanSchedulerImpl
 import com.viel.oto.data.webdav.WebDavCredentialStore
-import com.viel.oto.event.AppEventSink
-import com.viel.oto.event.feedback.AppEventScanNoticeSink
 import com.viel.oto.library.LibraryRootStore
 import com.viel.oto.library.availability.AvailabilityChecker
 import com.viel.oto.library.availability.MissingBookFileRecoveryChecker
@@ -36,8 +33,7 @@ import java.io.Closeable
  * Cleanup, scheduler, and root gateway contracts are exposed from their owning definitions
  * instead of through secondary Koin providers that only redirect to implementation classes.
  */
-@OptIn(UnstableApi::class)
-internal object LibraryScanModule {
+object LibraryScanModule {
 
     val module: Module = module {
         single<RootSourceCacheEvictor> {
@@ -63,7 +59,7 @@ internal object LibraryScanModule {
                 coverRecoveryGateway = get<CoverRecoveryGateway>(),
                 vfsFileInterface = get<VfsFileInterface>(),
                 directoryListingCache = get<DirectoryListingCache>(),
-                scanNoticeSink = AppEventScanNoticeSink(get<AppEventSink>()),
+                scanNoticeSink = get<ScanNoticeSink>(),
                 database = get<AppDatabase>(),
                 rootStore = get<LibraryRootStore>(),
                 missingRecoveryChecker = get<MissingBookFileRecoveryChecker>()

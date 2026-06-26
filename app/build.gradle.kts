@@ -178,6 +178,7 @@ dependencies {
     implementation(project(":runtime:observability"))
     implementation(project(":data:store"))
     implementation(project(":library:vfs"))
+    implementation(project(":library:import"))
     implementation(project(":media:metadata"))
     implementation(project(":work:policy"))
 

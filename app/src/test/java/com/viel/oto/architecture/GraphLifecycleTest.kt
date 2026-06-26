@@ -82,7 +82,7 @@ class GraphLifecycleTest {
         val mediaModuleSource = sourceRoot.resolve("di/MediaModule.kt").readText()
         val downloadModuleSource = sourceRoot.resolve("di/DownloadModule.kt").readText()
         val absSyncModuleSource = sourceRoot.resolve("di/AbsSyncModule.kt").readText()
-        val libraryScanModuleSource = sourceRoot.resolve("di/LibraryScanModule.kt").readText()
+        val libraryScanModuleSource = resolveLibraryScanModuleFile().readText()
         val uiEventModuleSource = sourceRoot.resolve("di/UiEventModule.kt").readText()
         val coreDataModuleSource = resolveCoreDataModuleFile().readText()
 
@@ -130,6 +130,21 @@ class GraphLifecycleTest {
         )
         return candidates.firstOrNull { candidate -> candidate.isFile }
             ?: error("Could not locate CoreDataModule for di lifecycle test.")
+    }
+
+    /**
+     * Resolves LibraryScanModule from either its extracted import module or the old app location
+     * so the lifecycle guard keeps covering the module during phased Gradle extraction.
+     */
+    private fun resolveLibraryScanModuleFile(): java.io.File {
+        val candidates = listOf(
+            java.io.File("library/import/src/main/java/com/viel/oto/di/LibraryScanModule.kt"),
+            java.io.File("../library/import/src/main/java/com/viel/oto/di/LibraryScanModule.kt"),
+            java.io.File("src/main/java/com/viel/oto/di/LibraryScanModule.kt"),
+            java.io.File("app/src/main/java/com/viel/oto/di/LibraryScanModule.kt")
+        )
+        return candidates.firstOrNull { candidate -> candidate.isFile }
+            ?: error("Could not locate LibraryScanModule for di lifecycle test.")
     }
 
     private fun register(

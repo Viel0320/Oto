@@ -2,16 +2,16 @@
 
 ## 当前事实
 
-- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:media:metadata`、`:work:policy`。
-- `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 `abs`、`application`、`library`、`media`、`ui`、`widget`、`work`；`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`。
-- 本次迁移后，app 内 `library` 生产 Kotlin 文件数量为 36，app 内 `media` 生产 Kotlin 文件数量为 35；`:library:vfs` 生产 Kotlin 文件数量为 21，`:media:metadata` 生产 Kotlin 文件数量为 28、JVM 测试文件数量为 5；`:data:store` 继续维护 Room、DataStore 和持久化 gateway。
+- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:work:policy`。
+- `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 `abs`、`application`、`media`、`ui`、`widget`、`work`；`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`，scan/import/root lifecycle/availability 已提升到 `library/import/src/main/java/com/viel/oto/library`。
+- 本次迁移后，app 内 `library` 生产 Kotlin 文件已清空；`:library:vfs` 维护 VFS/source provider，`:library:import` 维护 scan/import/root lifecycle/availability，`:media:metadata` 维护 parser/manifest/cover/subtitle parser，`:data:store` 继续维护 Room、DataStore 和持久化 gateway。
 - `settings/model`、`network/policy`、`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability`、`library/vfs` 和 `media/metadata` 已是 Android library Module，继续保留 `com.viel.oto.logger`、`com.viel.oto.library.vfs`、`com.viel.oto.media.parser`、`com.viel.oto.media.manifest` 和 `com.viel.oto.media.subtitle` 包名供现有调用点使用。
 - ABS Room 持久化文件当前位于 `data/store/src/main/java/com/viel/oto/data/abs/playback` 和 `data/store/src/main/java/com/viel/oto/data/abs/sync`，`AppDatabase` 已从 `data.abs.*` 导入这些 DAO/Entity。
 - Koin 入口集中在 `OtoKoinApplication`，关闭顺序由 `GraphClosePolicy` 固定为 `media -> download -> abs -> library -> uiEvents -> data`。
 - 现有导入图仍存在阻碍继续拆模块的循环：
   - `data` 已进入 `:data:store`，当前只保留对 `shared`、`timeline`、`logger` 的窄依赖。
   - `abs` 仍直接引用 `data`、`library`、`media`、`work`。
-  - `library` 已移除对 `abs` 的生产源码直接引用，VFS 已进入 `:library:vfs`，metadata parser/manifest 已进入 `:media:metadata`，app 内剩余 library import/root/availability 代码当前仍直接引用 `data`、`media`。
+  - `library` 已移除对 `abs` 的生产源码直接引用，VFS 已进入 `:library:vfs`，metadata parser/manifest 已进入 `:media:metadata`，scan/import/root lifecycle/availability 已进入 `:library:import`。
   - `media` 直接引用 `application`、`data`、`library`、`widget`、`MainActivity`、`R`；其中 `:media:metadata` 当前仅承接 parser/manifest/cover/subtitle parser，并保留迁移期对 `:data:store` 与 `:library:vfs` 的编译依赖。
   - `logger` 已物理迁出 app，多数领域仍直接依赖具体 logger，后续需要继续收敛为窄 observability Interface。
   - `event` 直接引用 `application`、`data`、`media`、`R`。
@@ -218,10 +218,10 @@ flowchart TD
 - `:media:metadata` 已先于 `:library:import` 抽出，作为 import pipeline 的 parser/manifest 前置依赖。
 - 已新增 `:work:policy`，把 library cold-start scan 与 ABS root sync 共用的 WorkManager 唯一队列、约束和退避策略移出 app。
 - 已落地：`ScanOutcome` 改为携带 library-owned `ScanNotice`，app 侧通过 mapper 转回 `FeedbackFact`，避免 `:library:import` 依赖 app `R` 或 event delivery。
-- 新增 `:library:import`，移动 scan/import/root lifecycle/availability。
+- 已新增 `:library:import`，移动 scan/import/root lifecycle/availability，并保留对 `:data:store`、`:library:vfs`、`:media:metadata`、`:work:policy` 的显式依赖。
 - 已落地：`LibrarySourceProvider` 改为接收 source Adapter 列表；ABS Adapter 由 app composition root 注册，`library` 不再 import `AbsSourceProvider`。
 - WebDAV 继续留在 `:library:vfs`，因为它是 library source Adapter，不与 ABS protocol 合并。
-- `LibraryScanModule`、`LibraryCoverModule`、`LibraryUseCaseModule` 分别移动到所属 Module。
+- `LibraryScanModule` 已移动到 `:library:import`；`LibraryCoverModule`、`LibraryUseCaseModule` 仍留在 app，后续随 cover/application 领域拆分。
 
 验收：
 
