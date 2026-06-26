@@ -83,14 +83,23 @@ Many behaviors are source-specific. Do not assume SAF, WebDAV, ABS, cached playb
 
 Top-level areas:
 
-- `app/` - the single active Android application module.
+- `app/` - the Android application module (the only `com.android.application` module; other modules are libraries).
+- `build-logic/` - included build holding the `oto.android.library` convention plugin shared by library modules.
 - `app/src/main/java/com/viel/oto/` - production Kotlin source.
 - `app/src/test/java/com/viel/oto/` - JVM, Robolectric, architecture, ABS, parser, mapper, and policy tests.
 - `app/src/androidTest/java/com/viel/oto/` - instrumentation and Compose UI tests.
 - `app/schemas/` - exported Room schemas used by migration tests.
 - `docs/` - maintainer-facing policy and architecture documents.
 
-Confirm active modules in `settings.gradle.kts` before making module-level assumptions. This repository currently includes only `:app`.
+Confirm active modules in `settings.gradle.kts` before making module-level
+assumptions. The application lives in `:app`, with feature and foundation code
+split across Gradle library modules: `:runtime:lifecycle`,
+`:runtime:observability`, `:data:store`, `:library:vfs`, `:library:import`,
+`:media:metadata`, `:media:playback`, `:media:service`, `:abs`, `:work:policy`,
+`:application`, `:event`, `:widget`, `:shared`, and `:ui`. The shared Android
+library configuration (compile SDK, min SDK, Java, and Kotlin JVM target) is
+centralized in the `oto.android.library` convention plugin under `build-logic/`;
+each module keeps only its namespace, plugins, and module-specific settings.
 
 Main package map:
 

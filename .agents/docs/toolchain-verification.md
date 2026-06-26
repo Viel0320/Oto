@@ -21,6 +21,15 @@ Project facts from `app/build.gradle.kts`:
   `RepositoriesMode.FAIL_ON_PROJECT_REPOS`.
 - Room schemas are exported to `app/schemas`.
 
+Library modules share `compileSdk`, `minSdk`, Java 21, and the Kotlin JVM
+target through the `oto.android.library` convention plugin defined in the
+`build-logic` included build, instead of repeating those values per module. A
+module's own `build.gradle.kts` only declares its `namespace`, plugins, and
+dependencies, plus any module-specific block such as `testOptions`,
+`buildFeatures`, `sourceSets`, or KSP arguments. When changing SDK or JVM
+levels for libraries, edit the convention plugin; the `:app` application module
+still declares these values directly.
+
 Do not hardcode dependency versions in module build files unless the existing
 pattern already does so for that exact class of dependency.
 
