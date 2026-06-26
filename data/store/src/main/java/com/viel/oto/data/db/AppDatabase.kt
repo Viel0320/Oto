@@ -73,7 +73,7 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         const val VERSION = 43
-        private val MIGRATION_41_42 = object : Migration(41, 42) {
+        internal val MIGRATION_41_42 = object : Migration(41, 42) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     """

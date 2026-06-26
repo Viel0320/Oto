@@ -25,6 +25,28 @@ class AppDatabaseDownloadMetadataMigrationTest {
     )
 
     @Test
+    fun `migration 41 to 42 should rebuild bookmarks with indices and preserve existing rows`() {
+        val databasePath = RuntimeEnvironment.getApplication().getDatabasePath(BOOKMARK_MIGRATION_DATABASE).absolutePath
+
+        helper.createDatabase(databasePath, 41).apply {
+            seedBookmarkRow()
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(
+            databasePath,
+            42,
+            true,
+            AppDatabase.MIGRATION_41_42
+        )
+
+        assertEquals("Bookmark", migrated.singleString("SELECT title FROM bookmarks WHERE id = 'bookmark-1'"))
+        assertEquals(100L, migrated.singleLong("SELECT fileOffsetMs FROM bookmarks WHERE id = 'bookmark-1'"))
+        assertEquals("OK", migrated.singleString("SELECT anchorStatus FROM bookmarks WHERE id = 'bookmark-1'"))
+        migrated.close()
+    }
+
+    @Test
     fun `migration 42 to 43 should create download metadata and preserve existing rows`() {
         val databasePath = RuntimeEnvironment.getApplication().getDatabasePath(TEST_DATABASE).absolutePath
 
@@ -119,6 +141,19 @@ class AppDatabaseDownloadMetadataMigrationTest {
         )
     }
 
+    private fun SupportSQLiteDatabase.seedBookmarkRow() {
+        execSQL(
+            """
+            INSERT INTO bookmarks (
+                id, bookId, globalPositionMs, bookFileId, fileOffsetMs,
+                fileFingerprint, anchorStatus, title, createdAt
+            ) VALUES (
+                'bookmark-1', 'book-1', 100, 'file-1', 100, NULL, 'OK', 'Bookmark', 3
+            )
+            """.trimIndent()
+        )
+    }
+
     private fun SupportSQLiteDatabase.singleString(sql: String): String =
         query(sql).use { cursor ->
             check(cursor.moveToFirst()) { "Expected row for query: $sql" }
@@ -133,5 +168,6 @@ class AppDatabaseDownloadMetadataMigrationTest {
 
     private companion object {
         const val TEST_DATABASE = "download-metadata-migration"
+        const val BOOKMARK_MIGRATION_DATABASE = "bookmark-rebuild-migration"
     }
 }
