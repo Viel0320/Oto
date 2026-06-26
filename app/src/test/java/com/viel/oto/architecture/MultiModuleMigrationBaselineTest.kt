@@ -166,6 +166,7 @@ class MultiModuleMigrationBaselineTest {
             "MediaPlaybackRuntimeModule",
             "MediaPlaybackControllerModule",
             "DownloadModule",
+            "ApplicationDownloadModule",
             "DownloadReadModelModule",
             "LibraryBookGatewayModule",
             "LibraryCoverModule",
