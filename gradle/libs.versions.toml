@@ -121,8 +121,6 @@ koin-test-junit4 = { group = "io.insert-koin", name = "koin-test-junit4", versio
 android-application = { id = "com.android.application", version.ref = "agp" }
 # Android Library Modules (Enable Android runtime slices such as observability without application packaging)
 android-library = { id = "com.android.library", version.ref = "agp" }
-# Kotlin JVM Foundation Modules (Compile pure model and policy Gradle modules without Android variants)
-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 # Setup Kotlin Serialization (Add serialization plugin for Nav3 type safety) Enable compiler serialization plugin.

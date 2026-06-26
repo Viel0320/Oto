@@ -20,6 +20,6 @@
 ## Verification
 
 ```powershell
-.\gradlew.bat --no-problems-report :event:test
+.\gradlew.bat --no-problems-report :event:testDebugUnitTest
 .\gradlew.bat --no-problems-report compileDebugKotlin
 ```

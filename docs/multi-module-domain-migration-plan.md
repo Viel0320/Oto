@@ -1,11 +1,11 @@
-# Oto Gradle 多模块领域迁移计划
+# Oto Android 多模块领域迁移计划
 
 ## 当前事实
 
 - `settings.gradle.kts` 当前包含 `:app`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:media:playback`、`:media:service`、`:abs`、`:work:policy`、`:application`、`:event`、`:widget`、`:shared`、`:ui`。
 - `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 app-owned event adapter、app-owned widget adapter（`app/widget`）、app-owned playback presentation adapter 和组合根；`application` 已提升到 `application/src/main/java/com/viel/oto/application`，`event` 核心已提升到 `event/src/main/kotlin/com/viel/oto/event`，`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`，scan/import/root lifecycle/availability 已提升到 `library/import/src/main/java/com/viel/oto/library`，ABS 已提升到 `abs/src/main/java/com/viel/oto/abs`，Glance widget 已提升到 `widget/src/main/java/com/viel/oto/widget`，Compose UI、i18n、ViewModel Koin 定义和 UI feedback resource adapter 已提升到 `ui/src/main/java/com/viel/oto`。
 - 本次迁移后，app 内 `library`、`abs`、`application`、`widget`、`media`、`i18n` 和 `ui` 生产 Kotlin 文件已清空（app 只保留 app-owned adapter 与组合根）；`:library:vfs` 维护 VFS/source provider，`:library:import` 维护 scan/import/root lifecycle/availability，`:media:metadata` 维护 parser/manifest/cover/subtitle parser，`:media:playback` 维护 playback plan/controller/data source/cache/session state 和 subtitle gateway implementation，`:media:service` 维护 Media3 service、download service、audio focus 和通知 adapter，`:application` 维护 read model、command、use case、download orchestration 和 startup warmup seam，`:event` 维护 feedback delivery 核心契约，`:ui` 维护 Compose route/screen/overlay/ViewModel/theme/i18n 和资源化 feedback presentation adapter，`:abs` 维护 ABS auth、DTO、client、sync、mapping、cover cache、progress sync 和 ABS VFS Adapter，`:data:store` 继续维护 Room、DataStore 和持久化 gateway，`:widget` 维护 Glance widget render/receiver/state。
-- `:shared` 已收回纯设置模型、纯 seek-step 策略、unsafe network 纯策略和共享资源；`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability`、`library/vfs` 和 `media/metadata` 已是 Android library Module，继续保留 `com.viel.oto.logger`、`com.viel.oto.library.vfs`、`com.viel.oto.media.parser`、`com.viel.oto.media.manifest` 和 `com.viel.oto.media.subtitle` 包名供现有调用点使用。
+- `:shared` 已收回纯设置模型、纯 seek-step 策略、unsafe network 纯策略和共享资源；`:event` 与 `:runtime:lifecycle` 已统一为 Android library Module，但仍保持资源中立和平台中立的契约/策略职责；`runtime/observability`、`library/vfs` 和 `media/metadata` 已是 Android library Module，继续保留 `com.viel.oto.logger`、`com.viel.oto.library.vfs`、`com.viel.oto.media.parser`、`com.viel.oto.media.manifest` 和 `com.viel.oto.media.subtitle` 包名供现有调用点使用。
 - ABS Room 持久化文件当前位于 `data/store/src/main/java/com/viel/oto/data/abs/playback` 和 `data/store/src/main/java/com/viel/oto/data/abs/sync`，`AppDatabase` 已从 `data.abs.*` 导入这些 DAO/Entity。
 - Koin 入口集中在 `OtoKoinApplication`，关闭顺序由 `GraphClosePolicy` 固定为 `media -> download -> abs -> library -> uiEvents -> data`。
 - 现有导入图仍存在阻碍继续拆模块的循环：
@@ -16,7 +16,7 @@
   - `logger` 已物理迁出 app，多数领域仍直接依赖具体 logger，后续需要继续收敛为窄 observability Interface。
   - app-owned event adapter 仍引用 ABS、library 和 data scan/sync 输入事实；资源化 feedback message factory 与 Compose rendering adapter 已随 `:ui` 维护，`:event` 只维护反馈消息载体、交付策略和 app shell event stream。
 
-本计划先清理这些反向依赖，再把现有包提升为 Gradle Module。迁移目标不是增加一个总控 Module，而是让每个领域 Module 持有自己的 Interface、Implementation、测试和 Koin Adapter。
+本计划先清理这些反向依赖，再把现有包提升为 Android Module。迁移目标不是增加一个总控 Module，而是让每个领域 Module 持有自己的 Interface、Implementation、测试和 Koin Adapter。
 
 ## 目标模块图
 
@@ -71,7 +71,7 @@ flowchart TD
 
 ## 目标模块职责
 
-| Gradle Module | 领域职责 | Interface | Implementation | 禁止事项 |
+| Android Module | 领域职责 | Interface | Implementation | 禁止事项 |
 | --- | --- | --- | --- | --- |
 | `:app` | Android application、manifest、`MainActivity`、`OtoApplication`、版本、签名、AboutLibraries、Koin 聚合 | 应用启动和组件注册 | Activity/Application/manifest 合并 | 不放业务规则，不放特性 Koin 定义 |
 | `:runtime:lifecycle` | 关闭顺序和生命周期注册 | `GraphClosePolicy` | Closeable 注册与阶段关闭 | 不解析领域业务 |
@@ -125,7 +125,7 @@ flowchart TD
 验收：
 
 - `.\gradlew.bat --no-problems-report :shared:testDebugUnitTest`
-- `.\gradlew.bat --no-problems-report :runtime:lifecycle:test`
+- `.\gradlew.bat --no-problems-report :runtime:lifecycle:testDebugUnitTest`
 - `.\gradlew.bat --no-problems-report compileDebugKotlin`
 - `.\gradlew.bat --no-problems-report :app:testDebugUnitTest --tests "com.viel.oto.architecture.GraphLifecycleTest"`
 
@@ -153,7 +153,7 @@ flowchart TD
 
 ## 阶段 2 - 清理 data 的外向领域依赖
 
-目标：让 `data` 变成可提升为 Gradle Module 的深 Module。它的 Interface 是 gateway，Implementation 是 Room/DataStore service。
+目标：让 `data` 变成可提升为 Android library Module 的深 Module。它的 Interface 是 gateway，Implementation 是 Room/DataStore service。
 
 改动范围：
 
@@ -179,7 +179,7 @@ flowchart TD
 
 ## 阶段 3 - 提升 `:data:store`（已落地，后续维护）
 
-目标：把 Room、DataStore、gateway/service 提升为独立 Gradle Module。
+目标：把 Room、DataStore、gateway/service 提升为独立 Android library Module。
 
 改动范围：
 
@@ -291,7 +291,7 @@ flowchart TD
 - 已落地 7B：新增 `:application`，移动 read model、command、use case、download orchestration、startup warmup seam 和 application JVM tests。
 - 已落地 7B：`StartupWarmupDependencies`、`OtoStartupWarmup`、`DefaultStartupWarmupDependencies` 和 `DefaultPlayerPlaybackController` 作为 app composition root 的跨模块构造边界公开；内部 warmup 调度细节保持 module-local。
 - 已落地 7B：settings root formatter 不再 import data schema，UI 只消费 `LibraryRootSettingsSnapshot` 暴露的 settings source/status/availability 语义。
-- 已落地 7C：新增纯 Kotlin `:event`，移动 `AppEventSink`、`AppShellEvent`、`FeedbackMessage`、`FeedbackFact`、feedback outcome/identity、交付结果和 `FeedbackDeliveryPolicy`。
+- 已落地 7C：新增资源中立 Android library `:event`，移动 `AppEventSink`、`AppShellEvent`、`FeedbackMessage`、`FeedbackFact`、feedback outcome/identity、交付结果和 `FeedbackDeliveryPolicy`。
 - 已落地 7C：资源字符串工厂、`FeedbackMessage.render(Context)`、ABS sync feedback adapter、scan notice feedback adapter 和 playback domain event bridge 仍保留在 app-owned event adapter，避免 `:event` 直接依赖 Android `R`、ABS、library、media、data 或 application。
 - 已落地 7G：新增 `:ui` Android library Module，移动 Compose route/screen/overlay/ViewModel/theme/i18n、UI JVM tests 和 Compose instrumentation tests。
 - 已落地 7D：新增 `:widget` Android library Module，移动 `PlayerWidget`、`PlayerWidgetReceiver`、`PlayerWidgetActionReceiver`、`PlayerWidgetStateHelper`、`PlayerWidgetPlaybackPresentation`、`WidgetCoverArtRenderer`、`WidgetSeekStepPresentation` 和 widget drawable/layout/xml/string 资源，widget receiver 声明移入 `:widget` manifest 由 manifest merge 合入 app。
@@ -308,7 +308,7 @@ flowchart TD
 验收：
 
 - `.\gradlew.bat --no-problems-report :application:testDebugUnitTest`
-- `.\gradlew.bat --no-problems-report :event:test`
+- `.\gradlew.bat --no-problems-report :event:testDebugUnitTest`
 - `.\gradlew.bat --no-problems-report :ui:compileDebugKotlin`
 - `.\gradlew.bat --no-problems-report :widget:compileDebugKotlin`
 - `.\gradlew.bat --no-problems-report :shared:compileDebugKotlin`
@@ -359,7 +359,7 @@ flowchart TD
 
 ## 维护规则
 
-- 每个 Gradle Module 持有自己的 `build.gradle.kts`、测试目录、Koin Module 和短 README。
+- 每个 Android Module 持有自己的 `build.gradle.kts`、测试目录、Koin Module 和短 README。
 - README 只记录 Module 的 Interface、允许依赖、禁止依赖、常用验证命令。
 - 引入新 Module 时同步更新包导入架构测试。
 - 一个 Module 只有一个 Adapter 时不急着抽新的 Seam；第二个真实 Adapter 出现后再提升 Interface。
