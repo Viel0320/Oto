@@ -30,13 +30,11 @@ import kotlinx.coroutines.launch
 /**
  * Manages persistence of user configuration via Jetpack DataStore.
  */
-class AppSettingsRepository internal constructor(private val dataStore: DataStore<Preferences>) :
-    com.viel.oto.application.library.settings.AppSettingsReadModel,
-    com.viel.oto.application.library.settings.AppSettingsCommands {
+class AppSettingsRepository(private val dataStore: DataStore<Preferences>) {
 
     @Volatile
     private var _cachedSettings = AppSettings()
-    override val cachedSettings: AppSettings get() = _cachedSettings
+    val cachedSettings: AppSettings get() = _cachedSettings
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -108,7 +106,7 @@ class AppSettingsRepository internal constructor(private val dataStore: DataStor
     /**
      * Exposes a Flow of updated AppSettings from the DataStore repository.
      */
-    override val settingsFlow: Flow<AppSettings> = dataStore.data.map { preferences ->
+    val settingsFlow: Flow<AppSettings> = dataStore.data.map { preferences ->
         AppSettings(
             themeMode = preferences[PreferencesKeys.THEME_MODE]
                 ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
@@ -191,43 +189,43 @@ class AppSettingsRepository internal constructor(private val dataStore: DataStor
         }
     }
 
-    override suspend fun updateHomeFilter(filter: HomeFilter) {
+    suspend fun updateHomeFilter(filter: HomeFilter) {
         dataStore.edit { it[PreferencesKeys.HOME_FILTER] = filter.name }
     }
 
-    override suspend fun updateHomeBookStatusFilter(filter: HomeBookStatusFilter) {
+    suspend fun updateHomeBookStatusFilter(filter: HomeBookStatusFilter) {
         dataStore.edit { it[PreferencesKeys.HOME_BOOK_STATUS_FILTER] = filter.name }
     }
 
-    override suspend fun updateHomeViewStyle(style: HomeViewStyle) {
+    suspend fun updateHomeViewStyle(style: HomeViewStyle) {
         dataStore.edit { it[PreferencesKeys.HOME_VIEW_STYLE] = style.name }
     }
 
-    override suspend fun updateHomeSortRule(rule: HomeSortRule) {
+    suspend fun updateHomeSortRule(rule: HomeSortRule) {
         dataStore.edit { it[PreferencesKeys.HOME_SORT_RULE] = rule.name }
     }
 
-    override suspend fun updateHomeSortDirection(direction: HomeSortDirection) {
+    suspend fun updateHomeSortDirection(direction: HomeSortDirection) {
         dataStore.edit { it[PreferencesKeys.HOME_SORT_DIRECTION] = direction.name }
     }
 
-    override suspend fun updateGlobalSpeedEnabled(enabled: Boolean) {
+    suspend fun updateGlobalSpeedEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_GLOBAL_SPEED_ENABLED] = enabled }
     }
 
-    override suspend fun updateGlobalPlaybackSpeed(speed: Float) {
+    suspend fun updateGlobalPlaybackSpeed(speed: Float) {
         dataStore.edit { it[PreferencesKeys.GLOBAL_PLAYBACK_SPEED] = PlaybackSettingsBounds.speedOrDefault(speed) }
     }
 
-    override suspend fun updateChapterProgressMode(enabled: Boolean) {
+    suspend fun updateChapterProgressMode(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_CHAPTER_PROGRESS_MODE] = enabled }
     }
 
-    override suspend fun updateAllowInsecureTls(enabled: Boolean) {
+    suspend fun updateAllowInsecureTls(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_ALLOW_INSECURE_TLS] = enabled }
     }
 
-    override suspend fun updateCleartextTrafficAllowed(enabled: Boolean) {
+    suspend fun updateCleartextTrafficAllowed(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_CLEARTEXT_TRAFFIC_ALLOWED] = enabled }
     }
 
@@ -235,71 +233,71 @@ class AppSettingsRepository internal constructor(private val dataStore: DataStor
       * Persist skip silence preferences.
       * Custom thresholds and notification triggers are managed implicitly under system defaults.
       */
-    override suspend fun updateSkipSilenceEnabled(enabled: Boolean) {
+    suspend fun updateSkipSilenceEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_SKIP_SILENCE_ENABLED] = enabled }
     }
 
-    override suspend fun updateSleepFadeOutEnabled(enabled: Boolean) {
+    suspend fun updateSleepFadeOutEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_SLEEP_FADE_OUT_ENABLED] = enabled }
     }
 
-    override suspend fun updateShakeToResetEnabled(enabled: Boolean) {
+    suspend fun updateShakeToResetEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_SHAKE_TO_RESET_ENABLED] = enabled }
     }
 
-    override suspend fun updateSleepMode(mode: SleepMode) {
+    suspend fun updateSleepMode(mode: SleepMode) {
         dataStore.edit { it[PreferencesKeys.SLEEP_MODE] = mode.name }
     }
 
-    override suspend fun updateGlassEffectMode(mode: GlassEffectMode) {
+    suspend fun updateGlassEffectMode(mode: GlassEffectMode) {
         dataStore.edit { it[PreferencesKeys.GLASS_EFFECT_MODE] = mode.name }
     }
 
-    override suspend fun updateAutoRewindSeconds(seconds: Int) {
+    suspend fun updateAutoRewindSeconds(seconds: Int) {
         dataStore.edit { it[PreferencesKeys.AUTO_REWIND_SECONDS] = PlaybackSettingsBounds.autoRewindSecondsOrDefault(seconds) }
     }
 
-    override suspend fun updateSeekBackwardSeconds(step: SeekStepSeconds) {
+    suspend fun updateSeekBackwardSeconds(step: SeekStepSeconds) {
         dataStore.edit { it[PreferencesKeys.SEEK_BACKWARD_SECONDS] = step.seconds }
     }
 
-    override suspend fun updateSeekForwardSeconds(step: SeekStepSeconds) {
+    suspend fun updateSeekForwardSeconds(step: SeekStepSeconds) {
         dataStore.edit { it[PreferencesKeys.SEEK_FORWARD_SECONDS] = step.seconds }
     }
 
-    override suspend fun updateSubtitleSyncOffsetMs(offsetMs: Long) {
+    suspend fun updateSubtitleSyncOffsetMs(offsetMs: Long) {
         dataStore.edit { it[PreferencesKeys.SUBTITLE_SYNC_OFFSET_MS] = PlaybackSettingsBounds.subtitleSyncOffsetMsOrDefault(offsetMs) }
     }
 
-    override suspend fun updateLastPlaybackInterrupted(interrupted: Boolean) {
+    suspend fun updateLastPlaybackInterrupted(interrupted: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_LAST_PLAYBACK_INTERRUPTED] = interrupted }
     }
 
-    override suspend fun updateNotificationAvoidanceEnabled(enabled: Boolean) {
+    suspend fun updateNotificationAvoidanceEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_NOTIFICATION_AVOIDANCE_ENABLED] = enabled }
     }
 
-    override suspend fun updatePlaybackBufferMaxBytes(bytes: Long) {
+    suspend fun updatePlaybackBufferMaxBytes(bytes: Long) {
         dataStore.edit { it[PreferencesKeys.PLAYBACK_BUFFER_MAX_BYTES] = PlaybackSettingsBounds.playbackBufferBytesOrDefault(bytes) }
     }
 
-    override suspend fun updateDownloadWifiOnly(enabled: Boolean) {
+    suspend fun updateDownloadWifiOnly(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_DOWNLOAD_WIFI_ONLY] = enabled }
     }
 
-    override suspend fun updateThemeMode(mode: ThemeMode) {
+    suspend fun updateThemeMode(mode: ThemeMode) {
         dataStore.edit { it[PreferencesKeys.THEME_MODE] = mode.name }
     }
 
-    override suspend fun updateAppLanguage(language: AppLanguage) {
+    suspend fun updateAppLanguage(language: AppLanguage) {
         dataStore.edit { it[PreferencesKeys.APP_LANGUAGE] = language.name }
     }
 
-    override suspend fun updateDynamicColorEnabled(enabled: Boolean) {
+    suspend fun updateDynamicColorEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_DYNAMIC_COLOR_ENABLED] = enabled }
     }
 
-    override suspend fun updateAmoledEnabled(enabled: Boolean) {
+    suspend fun updateAmoledEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_AMOLED_ENABLED] = enabled }
     }
 

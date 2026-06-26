@@ -129,7 +129,7 @@ abstract class AppDatabase : RoomDatabase() {
          * Construct an AppDatabase bound to the supplied context without caching it globally.
          * Used by Koin module wiring so the database lifecycle is owned by the di container.
          */
-        internal fun create(context: Context): AppDatabase =
+        fun create(context: Context): AppDatabase =
             Room.databaseBuilder(
                 context.applicationContext,
                 AppDatabase::class.java,

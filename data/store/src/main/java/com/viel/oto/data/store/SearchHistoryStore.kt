@@ -25,7 +25,7 @@ data class SearchHistoryEntry(
 /**
  * Search history is lightweight UI state, so it lives in DataStore instead of the main Room database.
  */
-class SearchHistoryStore internal constructor(private val dataStore: DataStore<Preferences>) {
+class SearchHistoryStore(private val dataStore: DataStore<Preferences>) {
 
     private object PreferencesKeys {
         val ITEMS_JSON = stringPreferencesKey("items_json")

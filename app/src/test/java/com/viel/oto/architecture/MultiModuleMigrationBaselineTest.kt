@@ -101,7 +101,9 @@ class MultiModuleMigrationBaselineTest {
             File("../runtime/lifecycle/src/main/kotlin/com/viel/oto"),
             File("runtime/lifecycle/src/main/kotlin/com/viel/oto"),
             File("../runtime/observability/src/main/java/com/viel/oto"),
-            File("runtime/observability/src/main/java/com/viel/oto")
+            File("runtime/observability/src/main/java/com/viel/oto"),
+            File("../data/store/src/main/java/com/viel/oto"),
+            File("data/store/src/main/java/com/viel/oto")
         )
         return candidates
             .filter { candidate -> candidate.isDirectory }

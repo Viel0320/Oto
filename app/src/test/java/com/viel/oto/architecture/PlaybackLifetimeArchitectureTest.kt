@@ -13,7 +13,7 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun coreDataModuleDoesNotOwnPlaybackRuntimeManagers() {
-        val coreDataModule = resolveSourceRoot().resolve("di/CoreDataModule.kt").readText()
+        val coreDataModule = resolveCoreDataModuleFile().readText()
 
         assertTrue(!coreDataModule.contains("PlaybackManager"))
         assertTrue(!coreDataModule.contains("AutoRewindManager"))
@@ -180,5 +180,16 @@ class PlaybackLifetimeArchitectureTest {
         )
         return candidates.firstOrNull { candidate -> candidate.isDirectory }
             ?: error("Could not locate app source root for playback lifetime architecture test.")
+    }
+
+    private fun resolveCoreDataModuleFile(): File {
+        val candidates = listOf(
+            File("data/store/src/main/java/com/viel/oto/di/CoreDataModule.kt"),
+            File("../data/store/src/main/java/com/viel/oto/di/CoreDataModule.kt"),
+            File("src/main/java/com/viel/oto/di/CoreDataModule.kt"),
+            File("app/src/main/java/com/viel/oto/di/CoreDataModule.kt")
+        )
+        return candidates.firstOrNull { candidate -> candidate.isFile }
+            ?: error("Could not locate CoreDataModule for playback lifetime architecture test.")
     }
 }

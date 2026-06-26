@@ -59,7 +59,10 @@ class ReleasePolicyTest {
 
     @Test
     fun roomSchemaPolicyStartsAtVersion41AndRejectsDestructiveFallback() {
-        val database = repoFile("app/src/main/java/com/viel/oto/data/db/AppDatabase.kt").readText()
+        val database = repoFile(
+            "data/store/src/main/java/com/viel/oto/data/db/AppDatabase.kt",
+            "app/src/main/java/com/viel/oto/data/db/AppDatabase.kt"
+        ).readText()
         val policy = repoFile("docs/release-policy.md").readText()
         val schemaDir = repoFile("app/schemas/com.viel.oto.data.db.AppDatabase")
         val schemaFiles = schemaDir.listFiles()
@@ -221,7 +224,8 @@ class ReleasePolicyTest {
     private fun resolveProductionSourceRoots(): List<File> {
         val candidates = listOf(
             "app/src/main/java/com/viel/oto",
-            "runtime/observability/src/main/java/com/viel/oto"
+            "runtime/observability/src/main/java/com/viel/oto",
+            "data/store/src/main/java/com/viel/oto"
         ).flatMap { path -> listOf(File(path), File("../$path")) }
         return candidates
             .filter { file -> file.isDirectory }

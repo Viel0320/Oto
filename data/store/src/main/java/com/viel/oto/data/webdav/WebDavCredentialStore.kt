@@ -20,7 +20,7 @@ private const val WEB_DAV_CREDENTIALS_STORE_NAME = "webdav_credentials"
  * The migration keeps installed users' existing WebDAV roots usable after the storage backend moves
  * away from SharedPreferences, while new writes land only in the DataStore preferences file.
  */
-internal val Context.webDavCredentialDataStore: DataStore<Preferences> by preferencesDataStore(
+val Context.webDavCredentialDataStore: DataStore<Preferences> by preferencesDataStore(
     name = WEB_DAV_CREDENTIALS_STORE_NAME,
     produceMigrations = { context ->
         listOf(SharedPreferencesMigration(context, WEB_DAV_CREDENTIALS_STORE_NAME))
@@ -39,7 +39,7 @@ data class WebDavCredential(
  * Password values remain Base64 encoded only to preserve the legacy on-disk shape during migration;
  * callers must not treat that encoding as encryption or as a broader credential-security boundary.
  */
-class WebDavCredentialStore internal constructor(
+class WebDavCredentialStore(
     private val dataStore: DataStore<Preferences>
 ) {
 

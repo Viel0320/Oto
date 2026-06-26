@@ -168,12 +168,6 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
-    sourceSets {
-        // Room Schema Test Assets (Expose exported schemas to debug-only migration test runtimes)
-        // Robolectric resolves MigrationTestHelper schemas from the debug app AssetManager, while instrumentation tests read the same checked-in schema directory from the test APK.
-        getByName("debug").assets.directories.add(project.layout.projectDirectory.dir("schemas").asFile.path)
-        getByName("androidTest").assets.directories.add(project.layout.projectDirectory.dir("schemas").asFile.path)
-    }
 }
 
 dependencies {
@@ -182,6 +176,7 @@ dependencies {
     implementation(project(":network:policy"))
     implementation(project(":runtime:lifecycle"))
     implementation(project(":runtime:observability"))
+    implementation(project(":data:store"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -240,6 +235,7 @@ dependencies {
     // Room (local database)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    // Transitional KSP Processor Classpath (Keep app KSP resolvable while Moshi DTOs still live in the app module)
     ksp(libs.androidx.room.compiler)
 
     // WorkManager & DocumentFile
@@ -284,10 +280,4 @@ dependencies {
     // UI Tooling (Required as implementation to resolve Missing ComposeViewAdapter in Previews)
     implementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-}
-
-// Room Schema Exporting (Configure KSP processor arguments to specify schema export path)
-// Enables compile-time database schema dumps for version control tracking and migration audits.
-ksp {
-    arg("room.schemaLocation", "${projectDir}/schemas")
 }

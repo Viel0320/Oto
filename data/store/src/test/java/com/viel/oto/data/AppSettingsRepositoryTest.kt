@@ -25,7 +25,7 @@ class AppSettingsRepositoryTest {
 
     @Test
     fun `settings flow is initialized before cache collector starts`() {
-        val source = repoFile("app/src/main/java/com/viel/oto/data/AppSettingsRepository.kt").readText()
+        val source = repoFile("data/store/src/main/java/com/viel/oto/data/AppSettingsRepository.kt").readText()
         val settingsFlowDeclaration = source.indexOf("val settingsFlow: Flow<AppSettings>")
         val collectorInitBlock = source.indexOf("init {")
 
@@ -218,7 +218,11 @@ class AppSettingsRepositoryTest {
         )
 
     private fun repoFile(path: String): File {
-        val candidates = listOf(File(path), File("../$path"))
+        val candidates = listOf(
+            File(path),
+            File("../$path"),
+            File("src/main/java/com/viel/oto/data/AppSettingsRepository.kt")
+        )
         return candidates.firstOrNull { file -> file.exists() }
             ?: error("Could not locate $path from ${File(".").absolutePath}")
     }

@@ -15,11 +15,12 @@ class KoinModuleArchitectureTest {
 
     @Test
     fun koinModulesDoNotUseRedirectOnlyAliasProviders() {
-        val diRoot = resolveSourceRoot().resolve("di")
-        val violations = diRoot
-            .walkTopDown()
-            .filter { file -> file.isFile && file.extension == "kt" }
-            .flatMap { file -> file.findRedirectOnlyAliasProviders(diRoot) }
+        val violations = resolveDiRoots()
+            .flatMap { diRoot ->
+                diRoot.walkTopDown()
+                    .filter { file -> file.isFile && file.extension == "kt" }
+                    .flatMap { file -> file.findRedirectOnlyAliasProviders(diRoot) }
+            }
             .toList()
 
         assertTrue(
@@ -107,13 +108,21 @@ class KoinModuleArchitectureTest {
     private fun String.isRedirectOnlyResolution(): Boolean =
         redirectOnlyProviderBodyRegex.matches(trim())
 
-    private fun resolveSourceRoot(): File {
+    private fun resolveDiRoots(): List<File> {
         val candidates = listOf(
-            File("src/main/java/com/viel/oto"),
-            File("app/src/main/java/com/viel/oto")
+            File("src/main/java/com/viel/oto/di"),
+            File("app/src/main/java/com/viel/oto/di"),
+            File("data/store/src/main/java/com/viel/oto/di"),
+            File("../data/store/src/main/java/com/viel/oto/di")
         )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app source root for Koin module architecture test.")
+        return candidates
+            .filter { candidate -> candidate.isDirectory }
+            .distinctBy { candidate -> candidate.canonicalFile }
+            .also { roots ->
+                check(roots.isNotEmpty()) {
+                    "Could not locate Koin module source roots for Koin module architecture test."
+                }
+            }
     }
 
     private data class ProviderSnippet(

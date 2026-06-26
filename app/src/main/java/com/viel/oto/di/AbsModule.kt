@@ -1,7 +1,12 @@
 package com.viel.oto.di
 
+import android.content.Context
 import androidx.annotation.OptIn
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.media3.common.util.UnstableApi
+import com.viel.oto.abs.auth.AbsCredentialStore
 import com.viel.oto.abs.net.AbsApiClient
 import com.viel.oto.abs.net.RealAbsApiClient
 import com.viel.oto.abs.playback.AbsPlaybackCredentialResolver
@@ -22,8 +27,11 @@ import org.koin.dsl.module
  */
 @OptIn(UnstableApi::class)
 internal object AbsModule {
+    private val Context.absCredentialDataStore: DataStore<Preferences> by preferencesDataStore(name = "abs_credentials")
 
     val module: Module = module {
+        single { AbsCredentialStore(get<Context>().applicationContext.absCredentialDataStore) }
+
         single<AbsApiClient> {
             RealAbsApiClient(
                 appSettingsRepository = get<AppSettingsRepository>(),

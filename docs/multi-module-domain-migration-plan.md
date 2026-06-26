@@ -2,17 +2,18 @@
 
 ## 当前事实
 
-- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`。
-- `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 `abs`、`application`、`data`、`library`、`media`、`ui`、`widget`、`work`。
-- 本次静态扫描的 app Kotlin 文件数量：`ui` 128、`data` 76、`application` 72、`media` 57、`library` 49、`abs` 32、`di` 18、`event` 15、`widget` 6、`i18n` 1、`shared` 1、`timeline` 1、`work` 1。
+- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`。
+- `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 `abs`、`application`、`library`、`media`、`ui`、`widget`、`work`；`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`。
+- 本次静态扫描的 app Kotlin 文件数量：`ui` 128、`application` 73、`media` 62、`library` 55、`abs` 32、`di` 17、`event` 15、`widget` 6、`i18n` 1、`shared` 1、`work` 1；`:data:store` Kotlin 文件数量：`data` 76、`di` 1、`timeline` 1。
 - `settings/model`、`network/policy`、`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability` 已是 Android library Module，继续保留 `com.viel.oto.logger` 包名供现有调用点使用。
-- ABS Room 持久化文件当前位于 `data/abs/playback` 和 `data/abs/sync`，`AppDatabase` 已从 `data.abs.*` 导入这些 DAO/Entity。
+- ABS Room 持久化文件当前位于 `data/store/src/main/java/com/viel/oto/data/abs/playback` 和 `data/store/src/main/java/com/viel/oto/data/abs/sync`，`AppDatabase` 已从 `data.abs.*` 导入这些 DAO/Entity。
 - Koin 入口集中在 `OtoKoinApplication`，关闭顺序由 `GraphClosePolicy` 固定为 `media -> download -> abs -> library -> uiEvents -> data`。
-- 现有导入图存在阻碍直接拆模块的循环：
-  - `data` 直接引用 `abs`、`library`、`media`、`work`。
+- 现有导入图仍存在阻碍继续拆模块的循环：
+  - `data` 已进入 `:data:store`，当前只保留对 `shared`、`timeline`、`logger` 的窄依赖。
+  - `abs` 仍直接引用 `data`、`library`、`media`、`work`。
   - `library` 直接引用 `abs`、`data`、`media`。
   - `media` 直接引用 `application`、`data`、`library`、`widget`、`MainActivity`、`R`。
-  - `logger` 已物理迁出 app，但多数领域仍直接依赖具体 logger，后续需要保持为窄 observability Interface。
+  - `logger` 已物理迁出 app，多数领域仍直接依赖具体 logger，后续需要继续收敛为窄 observability Interface。
   - `event` 直接引用 `application`、`data`、`media`、`R`。
 
 本计划先清理这些反向依赖，再把现有包提升为 Gradle Module。迁移目标不是增加一个总控 Module，而是让每个领域 Module 持有自己的 Interface、Implementation、测试和 Koin Adapter。
@@ -104,9 +105,9 @@ flowchart TD
 
 验收：
 
-- `.\gradlew.bat compileDebugKotlin`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.architecture.*"`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.architecture.ReleasePolicyTest"`
+- `.\gradlew.bat --no-problems-report compileDebugKotlin`
+- `.\gradlew.bat --no-problems-report :app:testDebugUnitTest --tests "com.viel.oto.architecture.*"`
+- `.\gradlew.bat --no-problems-report :app:testDebugUnitTest --tests "com.viel.oto.architecture.ReleasePolicyTest"`
 
 回滚点：只回退测试基线和文档，业务代码保持不变。
 
@@ -124,11 +125,11 @@ flowchart TD
 
 验收：
 
-- `.\gradlew.bat :settings:model:test`
-- `.\gradlew.bat :network:policy:test`
-- `.\gradlew.bat :runtime:lifecycle:test`
-- `.\gradlew.bat compileDebugKotlin`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.architecture.GraphLifecycleTest"`
+- `.\gradlew.bat --no-problems-report :settings:model:test`
+- `.\gradlew.bat --no-problems-report :network:policy:test`
+- `.\gradlew.bat --no-problems-report :runtime:lifecycle:test`
+- `.\gradlew.bat --no-problems-report compileDebugKotlin`
+- `.\gradlew.bat --no-problems-report :app:testDebugUnitTest --tests "com.viel.oto.architecture.GraphLifecycleTest"`
 
 回滚点：回退这些基础 Module 的 include、build 文件和移动文件，不影响领域代码。
 
@@ -145,10 +146,10 @@ flowchart TD
 
 验收：
 
-- `.\gradlew.bat :runtime:observability:testDebugUnitTest`
-- `.\gradlew.bat compileDebugKotlin`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.logger.*"`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.architecture.*"`
+- `.\gradlew.bat --no-problems-report :runtime:observability:testDebugUnitTest`
+- `.\gradlew.bat --no-problems-report compileDebugKotlin`
+- `.\gradlew.bat --no-problems-report :runtime:observability:testDebugUnitTest --tests "com.viel.oto.logger.*"`
+- `.\gradlew.bat --no-problems-report :app:testDebugUnitTest --tests "com.viel.oto.architecture.*"`
 
 回滚点：只回退 logger 文件移动和 `:runtime:observability` build/include，不影响已抽出的纯 Kotlin 基础模块。
 
@@ -171,31 +172,33 @@ flowchart TD
 
 验收：
 
-- `.\gradlew.bat compileDebugKotlin`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.architecture.BookGatewaySplitArchitectureTest"`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.data.*"`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.data.db.*MigrationTest"`
+- `.\gradlew.bat --no-problems-report compileDebugKotlin`
+- `.\gradlew.bat --no-problems-report :app:testDebugUnitTest --tests "com.viel.oto.architecture.BookGatewaySplitArchitectureTest"`
+- `.\gradlew.bat --no-problems-report :data:store:testDebugUnitTest --tests "com.viel.oto.data.*"`
+- `.\gradlew.bat --no-problems-report :data:store:testDebugUnitTest --tests "com.viel.oto.data.db.*MigrationTest"`
 
 回滚点：每个包移动单独提交；Room schema 文件和迁移测试在同一阶段提交。
 
-## 阶段 3 - 提升 `:data:store`
+## 阶段 3 - 提升 `:data:store`（已落地，后续维护）
 
 目标：把 Room、DataStore、gateway/service 提升为独立 Gradle Module。
 
 改动范围：
 
-- 新增 `:data:store` Android library Module。
-- 移动 `data/` 源码、对应 JVM tests、Room KSP 配置。
+- 已新增 `:data:store` Android library Module。
+- 已移动 `data/` 源码、对应 JVM tests、Room KSP 配置。
 - schema export 仍写入现有 `app/schemas` 路径，避免迁移期间改写 release policy。
-- `CoreDataModule` 移入 `:data:store`，只暴露该 Module 的 Koin Module。
-- `:app` 和其他领域 Module 通过 Gradle dependency 使用 `:data:store`。
+- `CoreDataModule` 已移入 `:data:store`，只暴露该 Module 的 Koin Module。
+- `:app` 已通过 Gradle dependency 使用 `:data:store`。
+- `AppSettingsRepository` 保持 data-owned DataStore repository，application 设置合约由 `RepositoryAppSettingsAdapter` 在 app 侧适配。
+- app 侧暂时保留 `ksp(libs.androidx.room.compiler)` 作为 KSP processor classpath 兼容项，直到 Moshi DTO 随 ABS Module 拆出。
 
 验收：
 
-- `.\gradlew.bat :data:store:compileDebugKotlin`
-- `.\gradlew.bat :data:store:testDebugUnitTest`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.architecture.ReleasePolicyTest"`
-- `.\gradlew.bat assembleDebug`
+- `.\gradlew.bat --no-problems-report :data:store:compileDebugKotlin`
+- `.\gradlew.bat --no-problems-report :data:store:testDebugUnitTest`
+- `.\gradlew.bat --no-problems-report :app:testDebugUnitTest --tests "com.viel.oto.architecture.ReleasePolicyTest"`
+- `.\gradlew.bat --no-problems-report assembleDebug`
 
 回滚点：回退 `settings.gradle.kts` include、`:data:store` build 文件和源码移动；`app/schemas` 保持原样。
 
@@ -213,11 +216,11 @@ flowchart TD
 
 验收：
 
-- `.\gradlew.bat :library:vfs:compileDebugKotlin`
-- `.\gradlew.bat :library:import:testDebugUnitTest`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.library.*"`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.media.VfsPlaybackDataSourceTest"`
-- `.\gradlew.bat assembleDebug`
+- `.\gradlew.bat --no-problems-report :library:vfs:compileDebugKotlin`
+- `.\gradlew.bat --no-problems-report :library:import:testDebugUnitTest`
+- `.\gradlew.bat --no-problems-report :library:import:testDebugUnitTest --tests "com.viel.oto.library.*"`
+- `.\gradlew.bat --no-problems-report :media:playback:testDebugUnitTest --tests "com.viel.oto.media.VfsPlaybackDataSourceTest"`
+- `.\gradlew.bat --no-problems-report assembleDebug`
 
 回滚点：先回退 `:library:import`，再回退 `:library:vfs`，因为 import 依赖 VFS。
 
@@ -236,11 +239,11 @@ flowchart TD
 
 验收：
 
-- `.\gradlew.bat :media:metadata:testDebugUnitTest`
-- `.\gradlew.bat :media:playback:testDebugUnitTest`
-- `.\gradlew.bat :media:service:compileDebugKotlin`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.media.*"`
-- `.\gradlew.bat assembleDebug`
+- `.\gradlew.bat --no-problems-report :media:metadata:testDebugUnitTest`
+- `.\gradlew.bat --no-problems-report :media:playback:testDebugUnitTest`
+- `.\gradlew.bat --no-problems-report :media:service:compileDebugKotlin`
+- `.\gradlew.bat --no-problems-report :media:playback:testDebugUnitTest --tests "com.viel.oto.media.*"`
+- `.\gradlew.bat --no-problems-report assembleDebug`
 - 设备回归：播放、暂停、seek、后台通知、手动下载通知。
 
 回滚点：`metadata -> playback -> service` 顺序提交，service 是最后可回退层。
@@ -259,11 +262,11 @@ flowchart TD
 
 验收：
 
-- `.\gradlew.bat :abs:testDebugUnitTest`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.abs.*"`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.abs.net.AbsApiContractTest"`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.abs.sync.AbsSyncTaskCoordinatorTest"`
-- `.\gradlew.bat assembleDebug`
+- `.\gradlew.bat --no-problems-report :abs:testDebugUnitTest`
+- `.\gradlew.bat --no-problems-report :abs:testDebugUnitTest --tests "com.viel.oto.abs.*"`
+- `.\gradlew.bat --no-problems-report :abs:testDebugUnitTest --tests "com.viel.oto.abs.net.AbsApiContractTest"`
+- `.\gradlew.bat --no-problems-report :abs:testDebugUnitTest --tests "com.viel.oto.abs.sync.AbsSyncTaskCoordinatorTest"`
+- `.\gradlew.bat --no-problems-report assembleDebug`
 
 回滚点：ABS Module 回退不影响 SAF/WebDAV/local library Module。
 
@@ -282,12 +285,12 @@ flowchart TD
 
 验收：
 
-- `.\gradlew.bat :application:testDebugUnitTest`
-- `.\gradlew.bat :event:testDebugUnitTest`
-- `.\gradlew.bat :ui:compileDebugKotlin`
-- `.\gradlew.bat :widget:compileDebugKotlin`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.architecture.UiLayerArchitectureTest"`
-- `.\gradlew.bat testDebugUnitTest --tests "com.viel.oto.widget.*"`
+- `.\gradlew.bat --no-problems-report :application:testDebugUnitTest`
+- `.\gradlew.bat --no-problems-report :event:testDebugUnitTest`
+- `.\gradlew.bat --no-problems-report :ui:compileDebugKotlin`
+- `.\gradlew.bat --no-problems-report :widget:compileDebugKotlin`
+- `.\gradlew.bat --no-problems-report :app:testDebugUnitTest --tests "com.viel.oto.architecture.UiLayerArchitectureTest"`
+- `.\gradlew.bat --no-problems-report :widget:testDebugUnitTest --tests "com.viel.oto.widget.*"`
 - 设备回归：主屏、搜索、详情、设置、播放器浮层、Widget action。
 
 回滚点：`application` 先提交，`ui` 和 `widget` 分开提交。
@@ -306,11 +309,11 @@ flowchart TD
 
 验收：
 
-- `.\gradlew.bat compileDebugKotlin`
-- `.\gradlew.bat testDebugUnitTest`
-- `.\gradlew.bat lintDebug`
-- `.\gradlew.bat assembleDebug`
-- `.\gradlew.bat connectedDebugAndroidTest`
+- `.\gradlew.bat --no-problems-report compileDebugKotlin`
+- `.\gradlew.bat --no-problems-report testDebugUnitTest`
+- `.\gradlew.bat --no-problems-report lintDebug`
+- `.\gradlew.bat --no-problems-report assembleDebug`
+- `.\gradlew.bat --no-problems-report connectedDebugAndroidTest`
 
 回滚点：该阶段只改 composition root、manifest 合并和架构测试，业务领域 Module 已经独立通过验证。
 

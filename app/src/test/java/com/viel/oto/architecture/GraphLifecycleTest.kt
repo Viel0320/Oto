@@ -84,7 +84,7 @@ class GraphLifecycleTest {
         val absSyncModuleSource = sourceRoot.resolve("di/AbsSyncModule.kt").readText()
         val libraryScanModuleSource = sourceRoot.resolve("di/LibraryScanModule.kt").readText()
         val uiEventModuleSource = sourceRoot.resolve("di/UiEventModule.kt").readText()
-        val coreDataModuleSource = sourceRoot.resolve("di/CoreDataModule.kt").readText()
+        val coreDataModuleSource = resolveCoreDataModuleFile().readText()
 
         assertTrue(
             "MediaModule must register playback runtime with GraphClosePolicy.",
@@ -119,6 +119,17 @@ class GraphLifecycleTest {
         )
         return candidates.firstOrNull { candidate -> candidate.isDirectory }
             ?: error("Could not locate app source root for di lifecycle test.")
+    }
+
+    private fun resolveCoreDataModuleFile(): java.io.File {
+        val candidates = listOf(
+            java.io.File("data/store/src/main/java/com/viel/oto/di/CoreDataModule.kt"),
+            java.io.File("../data/store/src/main/java/com/viel/oto/di/CoreDataModule.kt"),
+            java.io.File("src/main/java/com/viel/oto/di/CoreDataModule.kt"),
+            java.io.File("app/src/main/java/com/viel/oto/di/CoreDataModule.kt")
+        )
+        return candidates.firstOrNull { candidate -> candidate.isFile }
+            ?: error("Could not locate CoreDataModule for di lifecycle test.")
     }
 
     private fun register(
