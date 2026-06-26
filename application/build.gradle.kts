@@ -37,10 +37,10 @@ dependencies {
     api(project(":shared"))
     api(project(":data:store"))
     api(project(":library:import"))
-    api(project(":library:vfs"))
-    api(project(":media:playback"))
     api(project(":abs"))
 
+    implementation(project(":library:vfs"))
+    implementation(project(":media:playback"))
     implementation(project(":runtime:lifecycle"))
     implementation(project(":runtime:observability"))
     implementation(libs.androidx.core.ktx)

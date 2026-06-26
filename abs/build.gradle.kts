@@ -34,12 +34,12 @@ kotlin {
 }
 
 dependencies {
-    api(project(":data:store"))
-    api(project(":library:vfs"))
     api(project(":library:import"))
-    api(project(":media:metadata"))
     api(project(":media:playback"))
 
+    implementation(project(":data:store"))
+    implementation(project(":library:vfs"))
+    implementation(project(":media:metadata"))
     implementation(project(":runtime:lifecycle"))
     implementation(project(":runtime:observability"))
     implementation(project(":shared"))

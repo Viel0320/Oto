@@ -34,9 +34,9 @@ kotlin {
 
 dependencies {
     api(project(":shared"))
-    api(project(":data:store"))
     api(project(":media:playback"))
 
+    implementation(project(":data:store"))
     implementation(project(":application"))
     implementation(project(":runtime:lifecycle"))
     implementation(project(":runtime:observability"))
