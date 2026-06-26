@@ -58,7 +58,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.shared.settings.GlassEffectMode
 import com.viel.oto.ui.common.OtoGlassTopBar
 import com.viel.oto.ui.common.OtoPopupSelector

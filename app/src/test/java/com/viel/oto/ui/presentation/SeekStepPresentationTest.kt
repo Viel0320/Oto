@@ -1,6 +1,6 @@
 package com.viel.oto.ui.presentation
 
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.shared.settings.SeekStepSeconds
 import org.junit.Assert.assertEquals
 import org.junit.Test

@@ -15,7 +15,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.shared.settings.GlassEffectMode
 import com.viel.oto.ui.common.OtoGlassTopBar
 import dev.chrisbanes.haze.HazeState

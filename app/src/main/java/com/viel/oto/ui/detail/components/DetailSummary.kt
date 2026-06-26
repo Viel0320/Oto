@@ -16,7 +16,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.text.HtmlCompat
-import com.viel.oto.R
+import com.viel.oto.shared.R
 
 /**
  * Renders the detail-page summary title and description body.

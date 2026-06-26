@@ -13,7 +13,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.LibraryReadStatus
 import com.viel.oto.shared.settings.GlassEffectMode
 import com.viel.oto.shared.settings.HomeFilter

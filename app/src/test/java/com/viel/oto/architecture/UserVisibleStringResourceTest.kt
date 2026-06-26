@@ -9,7 +9,7 @@ import javax.xml.parsers.DocumentBuilderFactory
 class UserVisibleStringResourceTest {
     @Test
     fun chineseStringResourcesDoNotContainMojibakeMarkers() {
-        val strings = repoFile("app/src/main/res/values/strings.xml").readText()
+        val strings = repoFile("shared/src/main/res/values/strings.xml").readText()
 
         val forbiddenMarkers = commonMojibakeMarkers
         forbiddenMarkers.forEach { marker ->
@@ -19,7 +19,7 @@ class UserVisibleStringResourceTest {
 
     @Test
     fun requiredFeedbackAndSettingsResourceKeysStayPresent() {
-        val strings = repoFile("app/src/main/res/values/strings.xml").readText()
+        val strings = repoFile("shared/src/main/res/values/strings.xml").readText()
 
         listOf(
             "feedback_scan_completed_with_discovered_books",
@@ -77,7 +77,7 @@ class UserVisibleStringResourceTest {
         val translatableBaseResources = baseResources.filterValues { resource -> resource.translatable }
 
         val violations = localeResourceDirs.flatMap { dir ->
-            val localeResources = readUserVisibleResources(repoFile("app/src/main/res/$dir/strings.xml"))
+            val localeResources = readUserVisibleResources(repoFile("shared/src/main/res/$dir/strings.xml"))
             val missingKeys = translatableBaseResources.keys - localeResources.keys
             val extraKeys = localeResources.keys - translatableBaseResources.keys
             val placeholderMismatches = translatableBaseResources.keys.intersect(localeResources.keys)
@@ -286,7 +286,7 @@ class UserVisibleStringResourceTest {
         invariantSeparatorsPath.removePrefix("./").removePrefix("../")
 
     companion object {
-        private const val baseStringsPath = "app/src/main/res/values/strings.xml"
+        private const val baseStringsPath = "shared/src/main/res/values/strings.xml"
 
         private val localeResourceDirs = listOf(
             "values-zh-rCN",

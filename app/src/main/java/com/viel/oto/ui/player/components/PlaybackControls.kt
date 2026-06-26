@@ -34,7 +34,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.ui.presentation.SeekStepPresentation
 import com.viel.oto.shared.settings.GlassEffectMode
 import com.viel.oto.shared.settings.PlaybackSeekStepConfig

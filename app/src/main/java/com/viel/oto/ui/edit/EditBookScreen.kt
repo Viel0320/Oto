@@ -64,7 +64,7 @@ import androidx.compose.ui.unit.sp
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
 import com.materialkolor.ktx.animateColorScheme
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.edit.EditBookDraft
 import com.viel.oto.media.parser.ImageProcessor
 import com.viel.oto.shared.settings.AppSettings

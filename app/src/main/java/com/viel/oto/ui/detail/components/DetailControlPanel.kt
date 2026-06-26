@@ -37,7 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.detail.DetailBookItem
 import com.viel.oto.shared.formatFileSize
 import com.viel.oto.shared.formatTime

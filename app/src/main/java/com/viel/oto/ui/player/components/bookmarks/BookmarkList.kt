@@ -35,7 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.player.PlayerBookmarkItem
 import com.viel.oto.shared.formatDate
 import com.viel.oto.shared.formatTime

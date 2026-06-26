@@ -36,7 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.settings.SettingsRootItem
 import com.viel.oto.shared.settings.AppLanguage
 import com.viel.oto.shared.settings.AppSettings

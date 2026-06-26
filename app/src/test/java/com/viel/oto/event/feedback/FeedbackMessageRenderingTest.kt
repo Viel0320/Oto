@@ -1,6 +1,6 @@
 package com.viel.oto.event.feedback
 
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.i18n.AppLocaleController
 import com.viel.oto.shared.settings.AppLanguage
 import org.junit.Assert.assertEquals

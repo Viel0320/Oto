@@ -1,6 +1,6 @@
 package com.viel.oto.event
 
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.event.feedback.FeedbackCategory
 import com.viel.oto.event.feedback.FeedbackContext
 import com.viel.oto.event.feedback.FeedbackMessage

@@ -72,7 +72,7 @@ import androidx.compose.ui.unit.sp
 import com.mikepenz.aboutlibraries.entity.Library
 import com.mikepenz.aboutlibraries.ui.compose.android.produceLibraries
 import com.viel.oto.BuildConfig
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.shared.settings.GlassEffectMode
 import com.viel.oto.ui.common.OtoGlassTopBar
 import com.viel.oto.ui.common.layout.AppWindowSizeClass
@@ -93,7 +93,7 @@ fun AboutLibrariesScreen(
     glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     aboutHazeState: HazeState? = null
 ) {
-    val libraries by produceLibraries(R.raw.aboutlibraries)
+    val libraries by produceLibraries(com.viel.oto.R.raw.aboutlibraries)
     val uriHandler = LocalUriHandler.current
     val layoutDirection = LocalLayoutDirection.current
     val density = LocalDensity.current

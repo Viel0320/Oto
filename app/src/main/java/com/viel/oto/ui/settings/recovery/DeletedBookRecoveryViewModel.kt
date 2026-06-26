@@ -3,7 +3,7 @@ package com.viel.oto.ui.settings.recovery
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.recovery.DeletedBookRecoveryCommands
 import com.viel.oto.application.library.recovery.DeletedBookRecoveryItem
 import com.viel.oto.application.library.recovery.DeletedBookRecoveryReadModel

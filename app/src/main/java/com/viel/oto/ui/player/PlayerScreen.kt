@@ -50,7 +50,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.shared.settings.GlassEffectMode
 import com.viel.oto.ui.common.BlurSnackbar
 import com.viel.oto.ui.common.CoverBackground

@@ -1,6 +1,6 @@
 package com.viel.oto.event.feedback
 
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.library.scan.ScanNotice
 import com.viel.oto.library.scan.ScanNoticeAccessForm

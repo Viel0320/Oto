@@ -17,7 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.home.HomeBookItem
 import com.viel.oto.shared.settings.GlassEffectMode
 import com.viel.oto.ui.common.CoverImageSourceSelector

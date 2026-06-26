@@ -1,7 +1,7 @@
 package com.viel.oto.ui.settings
 
 import android.app.Application
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.settings.AppSettingsCommands
 import com.viel.oto.application.library.settings.SettingsCredential
 import com.viel.oto.application.library.settings.SettingsRootCommands

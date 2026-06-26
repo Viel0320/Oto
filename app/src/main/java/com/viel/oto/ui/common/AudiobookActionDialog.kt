@@ -55,7 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.LibraryReadStatus
 import com.viel.oto.shared.settings.GlassEffectMode
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass

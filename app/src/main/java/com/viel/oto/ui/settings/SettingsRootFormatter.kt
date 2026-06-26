@@ -2,7 +2,7 @@ package com.viel.oto.ui.settings
 
 import android.content.Context
 import android.net.Uri
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.settings.SettingsRootItem
 import com.viel.oto.application.usecase.DuplicateLibraryRootException
 import com.viel.oto.application.usecase.DuplicateLibraryRootSource

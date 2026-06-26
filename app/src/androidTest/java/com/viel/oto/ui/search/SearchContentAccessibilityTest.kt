@@ -9,7 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.search.SearchHistoryItem
 import com.viel.oto.shared.settings.GlassEffectMode
 import com.viel.oto.ui.common.theme.OtoTheme

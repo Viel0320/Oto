@@ -3,7 +3,7 @@ package com.viel.oto.ui.home
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.LibraryReadStatus
 import com.viel.oto.application.library.home.HomeBookItem
 import com.viel.oto.application.library.home.HomeCatalogSortPolicy

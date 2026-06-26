@@ -30,7 +30,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.shared.settings.AppSettings
 import com.viel.oto.shared.settings.GlassEffectMode
 import com.viel.oto.ui.common.BlurDropdownMenu

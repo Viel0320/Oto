@@ -1,7 +1,7 @@
 package com.viel.oto.ui.presentation
 
 import android.content.Context
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.media.service.PlaybackCommandPresentation
 import com.viel.oto.shared.settings.SeekStepSeconds
 

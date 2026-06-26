@@ -74,6 +74,6 @@ class BookmarkViewModel(
     }
 
     private fun defaultBookmarkTitle(): String {
-        return application.getString(com.viel.oto.R.string.bookmark_default_title)
+        return application.getString(com.viel.oto.shared.R.string.bookmark_default_title)
     }
 }

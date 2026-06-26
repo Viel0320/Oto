@@ -40,7 +40,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.recovery.DeletedBookRecoveryItem
 import com.viel.oto.shared.settings.GlassEffectMode
 import com.viel.oto.ui.common.OtoGlassTopBar

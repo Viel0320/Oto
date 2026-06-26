@@ -116,7 +116,7 @@ class DeletedBookRecoveryViewModelTest {
         assertEquals(1, fakeEventSink.emittedFeedback.size)
         val feedbackFact = fakeEventSink.emittedFeedback.first()
         val message = feedbackFact.message as FeedbackMessage.Resource
-        assertEquals(com.viel.oto.R.string.feedback_deleted_book_recovery_restored_ready, message.resId)
+        assertEquals(com.viel.oto.shared.R.string.feedback_deleted_book_recovery_restored_ready, message.resId)
         val identity = feedbackFact.outcome.identity
         assertEquals(FeedbackCategory.RECOVERY, identity.category)
         assertEquals(FeedbackTopic.DeletedBookRecovery, identity.topic)

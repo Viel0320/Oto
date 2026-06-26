@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.settings.SettingsRootItem
 import com.viel.oto.event.feedback.FeedbackMessage
 import com.viel.oto.event.feedback.render

@@ -301,7 +301,9 @@ flowchart TD
 - 后续新增 `:ui`，移动 Compose route/screen/overlay/ViewModel/theme/i18n。
 - 已落地 7D：新增 `:widget` Android library Module，移动 `PlayerWidget`、`PlayerWidgetReceiver`、`PlayerWidgetActionReceiver`、`PlayerWidgetStateHelper`、`PlayerWidgetPlaybackPresentation`、`WidgetCoverArtRenderer`、`WidgetSeekStepPresentation` 和 widget drawable/layout/xml/string 资源，widget receiver 声明移入 `:widget` manifest 由 manifest merge 合入 app。
 - 已落地 7D：`media:service` 通过 `PlaybackWidgetStateSink` 投递快照，app composition root 持有 `AppPlaybackWidgetStateSink`（位于 app-owned `app.widget` 包）把快照路由进 widget 模块的 Glance store，`:widget` 不反向依赖 `:app`、media service 或 ui。
-- 已落地 7D：`media_session_*` 和 `playback_*_content_description` 等 app 仍引用的共享 string 保留在 app，widget 模块自带各 locale 副本；app 内 `player_widget_*` string 和 widget 专用 drawable/layout/xml 死资源已清理。
+- 已落地 7D：widget 模块自带各 locale 副本；app 内 `player_widget_*` string 和 widget 专用 drawable/layout/xml 死资源已清理。7D 暂留在 app 的共享 string 已在 7E 迁入 `:shared`。
+- 已落地 7E：`:shared` 继续维护跨层小工具，并接管 app、UI、event adapter 和测试共同引用的 user-visible string、locale 资源和共享 playback/navigation drawable；app 只保留 launcher、AboutLibraries raw 等应用壳专属资源。
+- 已落地 7E：UI、app-owned event adapter、download notification resource adapter 和相关测试改为引用 `com.viel.oto.shared.R`；架构 baseline 移除 `app/event/ui -> R` 资源边，保留明确的 `app/event/ui -> shared` 边。
 - 后续将 `ViewModelModule` 移到 `:ui`。widget receiver 由 manifest 声明，`:widget` 当前无 Koin 定义。
 - UI 继续只通过 application command/read model、event sink 和 media playback Interface 交互。
 
@@ -311,6 +313,7 @@ flowchart TD
 - `.\gradlew.bat --no-problems-report :event:test`
 - `.\gradlew.bat --no-problems-report :ui:compileDebugKotlin`
 - `.\gradlew.bat --no-problems-report :widget:compileDebugKotlin`
+- `.\gradlew.bat --no-problems-report :shared:compileDebugKotlin`
 - `.\gradlew.bat --no-problems-report :app:testDebugUnitTest --tests "com.viel.oto.architecture.UiLayerArchitectureTest"`
 - `.\gradlew.bat --no-problems-report :widget:testDebugUnitTest --tests "com.viel.oto.widget.*"`
 - 设备回归：主屏、搜索、详情、设置、播放器浮层、Widget action。

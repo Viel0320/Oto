@@ -1,7 +1,7 @@
 package com.viel.oto.event.feedback
 
 import android.content.Context
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.LibraryReadStatus
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.media.PlaybackSourcePreflightBlockReason

@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.viel.oto.R
+import com.viel.oto.shared.R
 import com.viel.oto.application.library.player.PlayerRelatedBook
 import com.viel.oto.application.library.player.PlayerRelatedSection
 import com.viel.oto.ui.common.CoverImageSourceSelector
