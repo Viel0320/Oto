@@ -161,6 +161,7 @@ class MultiModuleMigrationBaselineTest {
             "MediaModule",
             "MediaMetadataModule",
             "MediaSubtitleModule",
+            "MediaServiceModule",
             "MediaPlaybackControllerModule",
             "DownloadModule",
             "DownloadReadModelModule",

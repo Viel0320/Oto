@@ -38,6 +38,7 @@ internal object OtoKoinApplication {
                 MediaModule.module,
                 MediaMetadataModule.module,
                 MediaSubtitleModule.module,
+                MediaServiceModule.module,
                 MediaPlaybackControllerModule.module,
                 DownloadModule.module,
                 DownloadReadModelModule.module,

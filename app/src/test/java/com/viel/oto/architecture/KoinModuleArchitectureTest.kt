@@ -121,7 +121,9 @@ class KoinModuleArchitectureTest {
             File("media/metadata/src/main/java/com/viel/oto/di"),
             File("../media/metadata/src/main/java/com/viel/oto/di"),
             File("media/playback/src/main/java/com/viel/oto/di"),
-            File("../media/playback/src/main/java/com/viel/oto/di")
+            File("../media/playback/src/main/java/com/viel/oto/di"),
+            File("media/service/src/main/java/com/viel/oto/di"),
+            File("../media/service/src/main/java/com/viel/oto/di")
         )
         return candidates
             .filter { candidate -> candidate.isDirectory }

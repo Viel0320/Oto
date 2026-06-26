@@ -37,10 +37,8 @@ import com.viel.oto.application.download.RoomDownloadBookIdResolver
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.media.VfsPlaybackDataSource
-import com.viel.oto.media.service.AndroidManualDownloadNotificationGateway
 import com.viel.oto.media.service.DownloadNotificationResources
 import com.viel.oto.media.service.ManualDownloadActionGateway
-import com.viel.oto.media.service.MediaServiceLaunchIntentFactory
 import com.viel.oto.media.service.OtoDownloadService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -110,12 +108,7 @@ internal object DownloadModule {
 
         single<ManualDownloadNotificationGateway> {
             AppManualDownloadNotificationGateway(
-                delegate = AndroidManualDownloadNotificationGateway(
-                    context = get(),
-                    bookDao = get<AppDatabase>().bookDao(),
-                    launchIntentFactory = get<MediaServiceLaunchIntentFactory>(),
-                    notificationResources = get<DownloadNotificationResources>()
-                )
+                delegate = get()
             )
         }
 

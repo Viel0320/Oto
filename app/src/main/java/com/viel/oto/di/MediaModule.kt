@@ -21,12 +21,10 @@ import com.viel.oto.media.DefaultPlaybackRootLookup
 import com.viel.oto.media.PlaybackFileLookup
 import com.viel.oto.media.PlaybackManager
 import com.viel.oto.media.PlaybackRootLookup
-import com.viel.oto.media.PlaybackSessionTokenFactory
 import com.viel.oto.media.PlaybackSourcePreflight
 import com.viel.oto.media.service.MediaServiceLaunchIntentFactory
 import com.viel.oto.media.service.PlaybackCommandPresentation
 import com.viel.oto.media.service.PlaybackResumePlanProvider
-import com.viel.oto.media.service.PlaybackServiceSessionTokenFactory
 import com.viel.oto.media.service.PlaybackWidgetStateSink
 import org.koin.core.module.Module
 import org.koin.dsl.bind
@@ -73,8 +71,6 @@ internal object MediaModule {
         single<PlaybackWidgetStateSink> { AppPlaybackWidgetStateSink() }
 
         single<PlaybackResumePlanProvider> { AppPlaybackResumePlanProvider(get()) }
-
-        single<PlaybackSessionTokenFactory> { PlaybackServiceSessionTokenFactory() }
 
         single {
             PlaybackManager(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()).also { playbackManager ->
