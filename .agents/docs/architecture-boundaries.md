@@ -66,6 +66,20 @@ ViewModels.
 Parser additions belong in `media/parser/` and should be registered through
 `RangeAudioParserRouter`. Manifest behavior belongs in `media/manifest/`.
 
+The `:media:service` Gradle module is allowed to depend on `:application`. It
+hosts the Android platform implementations of application-owned contracts:
+`PlaybackResumePlanProvider` bridges the MediaSession resumption callback into
+`BuildPlaybackPlanUseCase`, and the manual-download action and notification
+gateways adapt the platform `DownloadService` to the application download
+command surface. This is dependency inversion (the platform layer implements
+interfaces owned by the application layer), not a layering violation: there is
+no reverse edge (`:application` never depends on `:media:service`), and the
+runtime position of the service layer is defined by `GraphClosePolicy`
+(media -> download -> abs -> library -> uiEvents -> data), not by the
+linear "UI -> Application -> Media" source-package summary. Treat that linear
+summary as a reading aid, not as a constraint on which platform module owns a
+contract's implementation.
+
 ## ABS Integration
 
 ABS code belongs under `abs/` and should translate remote protocol facts into
