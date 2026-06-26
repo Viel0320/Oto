@@ -114,7 +114,7 @@ interface PlayerPlaybackController {
  * Adapts media managers to the player-facing seam.
  * MediaGraph owns the singleton managers and supplies them here so UI code never resolves those singletons directly.
  */
-internal class DefaultPlayerPlaybackController(
+class DefaultPlayerPlaybackController(
     private val playbackManager: PlaybackManager,
     private val autoRewindManager: AutoRewindManager
 ) : PlayerPlaybackController {

@@ -12,7 +12,7 @@ class ApplicationUseCasePackageArchitectureTest {
 
     @Test
     fun useCasesDeclareTheApplicationPackage() {
-        val sourceRoot = resolveMainSourceRoot()
+        val sourceRoot = ArchitectureSourceRoots.applicationMain()
         val useCaseFiles = sourceRoot.resolve("application/usecase")
             .walkKotlinFiles()
 
@@ -35,10 +35,10 @@ class ApplicationUseCasePackageArchitectureTest {
 
     @Test
     fun retiredDomainUseCaseDirectoriesStayEmpty() {
-        val oldMainFiles = resolveMainSourceRoot().resolve("domain/usecase")
-            .walkKotlinFilesIfPresent()
-        val oldTestFiles = resolveTestSourceRoot().resolve("domain/usecase")
-            .walkKotlinFilesIfPresent()
+        val oldMainFiles = listOf(ArchitectureSourceRoots.appMain(), ArchitectureSourceRoots.applicationMain())
+            .flatMap { sourceRoot -> sourceRoot.resolve("domain/usecase").walkKotlinFilesIfPresent() }
+        val oldTestFiles = listOf(ArchitectureSourceRoots.appTest(), ArchitectureSourceRoots.applicationTest())
+            .flatMap { sourceRoot -> sourceRoot.resolve("domain/usecase").walkKotlinFilesIfPresent() }
 
         assertTrue(
             "The old main domain/usecase directory must not regain Kotlin files.",
@@ -52,8 +52,12 @@ class ApplicationUseCasePackageArchitectureTest {
 
     @Test
     fun sourceFilesDoNotImportRetiredDomainUseCasePackage() {
-        val guardedFiles = resolveMainSourceRoot().walkKotlinFiles() +
-            resolveTestSourceRoot().walkKotlinFiles()
+        val guardedFiles = listOf(
+            ArchitectureSourceRoots.appMain(),
+            ArchitectureSourceRoots.applicationMain(),
+            ArchitectureSourceRoots.appTest(),
+            ArchitectureSourceRoots.applicationTest()
+        ).flatMap { sourceRoot -> sourceRoot.walkKotlinFiles() }
         val retiredPackage = retiredUseCasePackage()
 
         guardedFiles.forEach { file ->
@@ -67,13 +71,14 @@ class ApplicationUseCasePackageArchitectureTest {
 
     @Test
     fun domainModelsDoNotImportDataEntities() {
-        val domainFiles = resolveMainSourceRoot().resolve("domain")
+        val sourceRoot = ArchitectureSourceRoots.appMain()
+        val domainFiles = sourceRoot.resolve("domain")
             .walkKotlinFilesIfPresent()
 
         domainFiles.forEach { file ->
             val source = file.readText()
             assertTrue(
-                "${file.toRelativeString(resolveMainSourceRoot())} must not depend on data-layer entities.",
+                "${file.toRelativeString(sourceRoot)} must not depend on data-layer entities.",
                 !source.contains("import com.viel.oto.data.entity")
             )
         }
@@ -81,24 +86,6 @@ class ApplicationUseCasePackageArchitectureTest {
 
     private fun retiredUseCasePackage(): String {
         return listOf("com.viel.oto.domain", "usecase").joinToString(".")
-    }
-
-    private fun resolveMainSourceRoot(): File {
-        val candidates = listOf(
-            File("src/main/java/com/viel/oto"),
-            File("app/src/main/java/com/viel/oto")
-        )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app main source root for usecase package architecture test.")
-    }
-
-    private fun resolveTestSourceRoot(): File {
-        val candidates = listOf(
-            File("src/test/java/com/viel/oto"),
-            File("app/src/test/java/com/viel/oto")
-        )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app test source root for usecase package architecture test.")
     }
 
     private fun File.walkKotlinFiles(): List<File> {

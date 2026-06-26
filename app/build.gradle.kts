@@ -184,6 +184,7 @@ dependencies {
     implementation(project(":media:service"))
     implementation(project(":abs"))
     implementation(project(":work:policy"))
+    implementation(project(":application"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

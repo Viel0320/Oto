@@ -23,7 +23,7 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun deletionUseCasesDoNotImportPlaybackManager() {
-        val sourceRoot = resolveSourceRoot()
+        val sourceRoot = ArchitectureSourceRoots.applicationMain()
         val useCasePaths = listOf(
             "application/usecase/BookManagementUseCase.kt",
             "application/usecase/LibraryRootManagementUseCase.kt"
@@ -44,7 +44,7 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun libraryRootManagementUseCaseKeepsEntityDeletionPrivate() {
-        val source = resolveSourceRoot()
+        val source = ArchitectureSourceRoots.applicationMain()
             .resolve("application/usecase/LibraryRootManagementUseCase.kt")
             .readText()
 
@@ -60,7 +60,7 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun libraryUseCaseModuleReceivesPlaybackStopperFromMediaModule() {
-        val libraryUseCaseModule = resolveSourceRoot().resolve("di/LibraryUseCaseModule.kt").readText()
+        val libraryUseCaseModule = ArchitectureSourceRoots.appMainFile("di/LibraryUseCaseModule.kt").readText()
 
         assertTrue(libraryUseCaseModule.contains("playbackStopper = get<PlaybackStopper>()"))
         assertTrue(!libraryUseCaseModule.contains("playbackManager = data.playbackManager"))
@@ -68,7 +68,7 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun managementUseCasesReceiveManualDownloadCleanupGatewayFromDownloadModule() {
-        val sourceRoot = resolveSourceRoot()
+        val sourceRoot = ArchitectureSourceRoots.appMain()
         val libraryUseCaseModule = sourceRoot.resolve("di/LibraryUseCaseModule.kt").readText()
 
         assertTrue(libraryUseCaseModule.contains("LibraryRootManagementUseCase("))
@@ -78,9 +78,8 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun absSettingsRootSwitchUsesLibraryRootManagementUseCase() {
-        val sourceRoot = resolveSourceRoot()
-        val settingsUseCaseModule = sourceRoot.resolve("di/SettingsUseCaseModule.kt").readText()
-        val absSettingsUseCase = sourceRoot.resolve("application/usecase/AbsSettingsConnectionUseCase.kt").readText()
+        val settingsUseCaseModule = ArchitectureSourceRoots.appMainFile("di/SettingsUseCaseModule.kt").readText()
+        val absSettingsUseCase = ArchitectureSourceRoots.applicationMainFile("application/usecase/AbsSettingsConnectionUseCase.kt").readText()
 
         assertTrue(settingsUseCaseModule.contains("libraryRootManagementUseCase = get()"))
         assertTrue(absSettingsUseCase.contains("libraryRootManagementUseCase.updateAbsLibraryRoot("))
@@ -89,7 +88,7 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun playerSceneUsesPlaybackControllerInsteadOfMediaSingletons() {
-        val sourceRoot = resolveSourceRoot()
+        val sourceRoot = ArchitectureSourceRoots.appMain()
         val guardedUiFiles = listOf(
             "ui/player/PlaybackViewModel.kt",
             "ui/player/BookmarkViewModel.kt",
@@ -116,7 +115,7 @@ class PlaybackLifetimeArchitectureTest {
             )
         }
 
-        val applicationPlaybackFiles = sourceRoot.resolve("application/playback")
+        val applicationPlaybackFiles = ArchitectureSourceRoots.applicationMain().resolve("application/playback")
             .walkTopDown()
             .filter { file -> file.isFile && file.name.endsWith(".kt") }
             .toList()
@@ -141,7 +140,7 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun coldStartRestoreBuildsRealPlaybackPlanInsteadOfPreviewOnlyState() {
-        val playbackViewModel = resolveSourceRoot().resolve("ui/player/PlaybackViewModel.kt").readText()
+        val playbackViewModel = ArchitectureSourceRoots.appMainFile("ui/player/PlaybackViewModel.kt").readText()
 
         assertTrue(
             "Cold-start restore must load the real media source without starting playback.",
@@ -157,7 +156,7 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun playerOverlayDoesNotCollectFullPlaybackStateForProgressTicks() {
-        val sourceRoot = resolveSourceRoot()
+        val sourceRoot = ArchitectureSourceRoots.appMain()
         val playerOverlay = sourceRoot.resolve("ui/player/PlayerOverlay.kt").readText()
         val playbackViewModel = sourceRoot.resolve("ui/player/PlaybackViewModel.kt").readText()
 
@@ -171,15 +170,6 @@ class PlaybackLifetimeArchitectureTest {
             !playbackViewModel.contains("playbackState.map { it.currentPosition }") &&
                 playbackViewModel.contains("private val playbackPositionState")
         )
-    }
-
-    private fun resolveSourceRoot(): File {
-        val candidates = listOf(
-            File("src/main/java/com/viel/oto"),
-            File("app/src/main/java/com/viel/oto")
-        )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app source root for playback lifetime architecture test.")
     }
 
     private fun resolveCoreDataModuleFile(): File {

@@ -9,7 +9,7 @@ import com.viel.oto.data.entity.LibraryRootEntity
  * Keeps cold-start freshness reads on persistence-only dependencies.
  * Root and sync-state lookups use DAO providers so constructing the warmup coordinator does not resolve scan scheduling, VFS, cover recovery, or ABS catalog adapters.
  */
-internal class DefaultStartupWarmupDependencies(
+class DefaultStartupWarmupDependencies(
     private val libraryRootDaoProvider: () -> LibraryRootDao,
     private val absCatalogStoreProvider: () -> AbsCatalogStore,
     private val coldStartSelfHealing: suspend () -> Unit

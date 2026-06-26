@@ -117,7 +117,9 @@ class MultiModuleMigrationBaselineTest {
             File("../abs/src/main/java/com/viel/oto"),
             File("abs/src/main/java/com/viel/oto"),
             File("../work/policy/src/main/java/com/viel/oto"),
-            File("work/policy/src/main/java/com/viel/oto")
+            File("work/policy/src/main/java/com/viel/oto"),
+            File("../application/src/main/java/com/viel/oto"),
+            File("application/src/main/java/com/viel/oto")
         )
         return candidates
             .filter { candidate -> candidate.isDirectory }
@@ -231,7 +233,6 @@ class MultiModuleMigrationBaselineTest {
             "ui->BuildConfig",
             "ui->R",
             "ui->application",
-            "ui->data",
             "ui->event",
             "ui->i18n",
             "ui->library",

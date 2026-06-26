@@ -74,6 +74,7 @@ fun LibraryDirectoriesSection(
         libraryRootDisplays.forEach { display ->
             val isWebDavRoot = display.isWebDavRoot
             val isAbsRoot = display.isAbsRoot
+            val lastError = display.lastError
             val locationLine = display.selectedLibraryText
                 ?.takeIf { it.isNotBlank() }
                 ?.let { libraryName ->
@@ -128,10 +129,10 @@ fun LibraryDirectoriesSection(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (isAbsRoot && display.lastError?.isNotBlank() == true) {
+                    if (isAbsRoot && lastError?.isNotBlank() == true) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = stringResource(R.string.settings_library_error, display.lastError),
+                            text = stringResource(R.string.settings_library_error, lastError),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -459,4 +460,3 @@ fun BackupRestoreSection(
         )
     }
 }
-

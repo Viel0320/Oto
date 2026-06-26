@@ -16,12 +16,14 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Runs with Robolectric because DownloadRequest construction uses android.net.Uri.
  * The test still fakes download boundaries, but Android URI parsing must match the runtime environment.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class DefaultDownloadControllerTest {
     @Test
     fun `download book should submit missing remote audio files in playback order`() = runBlocking {

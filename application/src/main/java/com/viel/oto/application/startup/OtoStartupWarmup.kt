@@ -6,7 +6,7 @@ import com.viel.oto.data.entity.LibraryRootEntity
  * Keep cold-start di resolution behind a narrow interface.
  * The coordinator reads only active ABS roots and freshness state until a stale root proves that deeper ABS work is needed.
  */
-internal interface StartupWarmupDependencies {
+interface StartupWarmupDependencies {
     /**
      * Return only remote roots eligible for startup progress refresh.
      * Implementations should avoid resolving scan, VFS, cover, or ABS network adapters while reading this persisted root list.
@@ -30,7 +30,7 @@ internal interface StartupWarmupDependencies {
  * Keeps cold-start background work behind a narrow application seam.
  * The application process owns when warmup runs, while this coordinator owns which domain tasks are safe to trigger at startup.
  */
-internal class OtoStartupWarmup(
+class OtoStartupWarmup(
     private val dependencies: StartupWarmupDependencies,
     private val enqueueAbsRootSync: (rootId: String) -> Unit,
     private val onAbsProgressWarmupFailure: (Throwable) -> Unit = {}

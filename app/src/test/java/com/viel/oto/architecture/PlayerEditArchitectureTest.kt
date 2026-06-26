@@ -12,7 +12,7 @@ class PlayerEditArchitectureTest {
 
     @Test
     fun playerAndEditUiCallersDoNotImportLibraryFacade() {
-        val sourceRoot = resolveSourceRoot()
+        val sourceRoot = ArchitectureSourceRoots.appMain()
         val guardedFiles = listOf(
             "ui/player/PlaybackViewModel.kt",
             "ui/player/BookmarkViewModel.kt",
@@ -33,7 +33,7 @@ class PlayerEditArchitectureTest {
 
     @Test
     fun playerViewModelsConsumePlayerSceneDependenciesOnly() {
-        val sourceRoot = resolveSourceRoot()
+        val sourceRoot = ArchitectureSourceRoots.appMain()
         val vms = listOf("PlaybackViewModel.kt", "BookmarkViewModel.kt", "PlayerSettingsViewModel.kt")
         vms.forEach { name ->
             val source = sourceRoot.resolve("ui/player/$name").readText()
@@ -58,7 +58,7 @@ class PlayerEditArchitectureTest {
 
     @Test
     fun editViewModelConsumesEditSceneDependenciesOnly() {
-        val editViewModelSource = resolveSourceRoot().resolve("ui/edit/EditBookViewModel.kt").readText()
+        val editViewModelSource = ArchitectureSourceRoots.appMainFile("ui/edit/EditBookViewModel.kt").readText()
 
         assertTrue(
             "EditBookViewModel must consume edit read and command scene interfaces.",
@@ -73,7 +73,7 @@ class PlayerEditArchitectureTest {
 
     @Test
     fun playerAndEditModulesDoNotImportTheBroadFacade() {
-        val sourceRoot = resolveSourceRoot()
+        val sourceRoot = ArchitectureSourceRoots.applicationMain()
         val moduleRoots = listOf(
             sourceRoot.resolve("application/library/player"),
             sourceRoot.resolve("application/library/edit")
@@ -93,7 +93,8 @@ class PlayerEditArchitectureTest {
 
     @Test
     fun playerReadModelAndUiExposeSceneProjectionsInsteadOfRoomEntities() {
-        val sourceRoot = resolveSourceRoot()
+        val sourceRoot = ArchitectureSourceRoots.appMain()
+        val applicationSourceRoot = ArchitectureSourceRoots.applicationMain()
         val playerInterfaceFiles = listOf(
             "application/library/player/PlayerLibraryReadModel.kt",
             "application/library/player/PlayerBookmarkCommands.kt"
@@ -111,7 +112,7 @@ class PlayerEditArchitectureTest {
         )
 
         playerInterfaceFiles.forEach { relativePath ->
-            val source = sourceRoot.resolve(relativePath).readText()
+            val source = applicationSourceRoot.resolve(relativePath).readText()
             assertTrue(
                 "$relativePath must not import Room entity packages in the player scene interface.",
                 !source.contains("import com.viel.oto.data.entity")
@@ -133,8 +134,8 @@ class PlayerEditArchitectureTest {
 
     @Test
     fun editReadModelAndUiExposeDraftsInsteadOfRoomEntities() {
-        val sourceRoot = resolveSourceRoot()
-        val readModelSource = sourceRoot.resolve("application/library/edit/EditBookReadModel.kt").readText()
+        val sourceRoot = ArchitectureSourceRoots.appMain()
+        val readModelSource = ArchitectureSourceRoots.applicationMainFile("application/library/edit/EditBookReadModel.kt").readText()
         val guardedUiFiles = listOf(
             "ui/edit/EditBookViewModel.kt",
             "ui/edit/EditBookRoute.kt",
@@ -170,12 +171,4 @@ class PlayerEditArchitectureTest {
         }
     }
 
-    private fun resolveSourceRoot(): File {
-        val candidates = listOf(
-            File("src/main/java/com/viel/oto"),
-            File("app/src/main/java/com/viel/oto")
-        )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app source root for player/edit architecture test.")
-    }
 }

@@ -11,7 +11,7 @@ import java.io.File
 class StartupWarmupArchitectureTest {
     @Test
     fun `startup warmup construction should not bind wide graph callable references`() {
-        val sourceRoot = resolveSourceRoot()
+        val sourceRoot = ArchitectureSourceRoots.appMain()
         val applicationSource = sourceRoot.resolve("OtoApplication.kt").readText()
         val createStartupWarmupBody = applicationSource
             .substringAfter("internal fun createStartupWarmup")
@@ -41,7 +41,7 @@ class StartupWarmupArchitectureTest {
 
     @Test
     fun `startup warmup adapter should read freshness without wide graph adapters`() {
-        val sourceRoot = resolveSourceRoot()
+        val sourceRoot = ArchitectureSourceRoots.applicationMain()
         val adapterSource = sourceRoot.resolve("application/startup/DefaultStartupWarmupDependencies.kt").readText()
 
         val forbiddenAdapterTypes = listOf(
@@ -67,12 +67,4 @@ class StartupWarmupArchitectureTest {
         assertTrue(adapterSource.contains("getSyncState(rootId)"))
     }
 
-    private fun resolveSourceRoot(): File {
-        val candidates = listOf(
-            File("src/main/java/com/viel/oto"),
-            File("app/src/main/java/com/viel/oto")
-        )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app source root for startup warmup architecture test.")
-    }
 }

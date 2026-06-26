@@ -12,7 +12,7 @@ class SearchSceneArchitectureTest {
 
     @Test
     fun searchViewModelConsumesSearchSceneDependenciesOnly() {
-        val searchViewModelSource = resolveSourceRoot().resolve("ui/search/SearchViewModel.kt").readText()
+        val searchViewModelSource = ArchitectureSourceRoots.appMainFile("ui/search/SearchViewModel.kt").readText()
 
         assertTrue(
             "SearchViewModel must not import the broad library facade.",
@@ -31,7 +31,7 @@ class SearchSceneArchitectureTest {
 
     @Test
     fun searchModuleDoesNotImportTheBroadFacade() {
-        val searchModuleSource = resolveSourceRoot()
+        val searchModuleSource = ArchitectureSourceRoots.applicationMain()
             .resolve("application/library/search/DefaultSearchLibraryModule.kt")
             .readText()
 
@@ -43,9 +43,10 @@ class SearchSceneArchitectureTest {
 
     @Test
     fun searchReadModelAndUiExposeSceneSnapshotsInsteadOfRoomRows() {
-        val sourceRoot = resolveSourceRoot()
-        val readModelSource = sourceRoot.resolve("application/library/search/SearchLibraryReadModel.kt").readText()
-        val commandsSource = sourceRoot.resolve("application/library/search/SearchLibraryCommands.kt").readText()
+        val sourceRoot = ArchitectureSourceRoots.appMain()
+        val applicationSourceRoot = ArchitectureSourceRoots.applicationMain()
+        val readModelSource = applicationSourceRoot.resolve("application/library/search/SearchLibraryReadModel.kt").readText()
+        val commandsSource = applicationSourceRoot.resolve("application/library/search/SearchLibraryCommands.kt").readText()
         val guardedUiFiles = listOf(
             "ui/search/SearchViewModel.kt",
             "ui/search/SearchRoute.kt",
@@ -92,12 +93,4 @@ class SearchSceneArchitectureTest {
         }
     }
 
-    private fun resolveSourceRoot(): File {
-        val candidates = listOf(
-            File("src/main/java/com/viel/oto"),
-            File("app/src/main/java/com/viel/oto")
-        )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app source root for search scene architecture test.")
-    }
 }

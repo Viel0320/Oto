@@ -7,7 +7,8 @@ import com.viel.oto.application.library.settings.SettingsRootItem
 import com.viel.oto.application.usecase.DuplicateLibraryRootException
 import com.viel.oto.application.usecase.DuplicateLibraryRootSource
 import com.viel.oto.application.usecase.LibraryRootSettingsSnapshot
-import com.viel.oto.data.db.AudiobookSchema
+import com.viel.oto.application.usecase.SettingsRootAvailabilityKind
+import com.viel.oto.application.usecase.SettingsRootStatusKind
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavConnectionTestException
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavConnectionTestFailureReason
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavEndpointValidationException
@@ -28,11 +29,9 @@ class SettingsRootFormatter(private val context: Context) {
     }
 
     fun resolveLibraryRootTitle(root: LibraryRootSettingsSnapshot): String =
-        when (root.sourceType) {
-            AudiobookSchema.LibrarySourceType.WEBDAV ->
-                root.displayName.ifBlank { "${root.sourceUri}${root.basePath}" }
-            AudiobookSchema.LibrarySourceType.ABS ->
-                root.displayName.ifBlank { "ABS ${root.basePath}" }
+        when {
+            root.isWebDavRoot -> root.displayName.ifBlank { "${root.sourceUri}${root.basePath}" }
+            root.isAbsRoot -> root.displayName.ifBlank { "ABS ${root.basePath}" }
             else -> root.displayName.ifBlank {
                 runCatching { Uri.decode(root.sourceUri).substringAfterLast(":") }
                     .getOrDefault(root.sourceUri)
@@ -41,31 +40,30 @@ class SettingsRootFormatter(private val context: Context) {
 
     fun resolveLibraryRootStatusText(root: LibraryRootSettingsSnapshot): String {
         val resId = when {
-            root.status != AudiobookSchema.LibraryRootStatus.ACTIVE ->
-                root.availabilityStatus
-                    .takeIf { status -> status != AudiobookSchema.AvailabilityStatus.UNKNOWN }
+            !root.isActive ->
+                root.availabilityKind
+                    .takeIf { status -> status != SettingsRootAvailabilityKind.UNKNOWN }
                     ?.availabilityStatusMessageRes()
-                    ?: root.status.libraryRootStatusMessageRes()
-            root.availabilityStatus != AudiobookSchema.AvailabilityStatus.UNKNOWN &&
-                root.availabilityStatus != AudiobookSchema.AvailabilityStatus.AVAILABLE ->
-                root.availabilityStatus.availabilityStatusMessageRes()
-            root.sourceType == AudiobookSchema.LibrarySourceType.ABS && root.absLastError?.isNotBlank() == true ->
+                    ?: root.statusKind.libraryRootStatusMessageRes()
+            root.hasKnownAvailability && !root.isAvailable ->
+                root.availabilityKind.availabilityStatusMessageRes()
+            root.isAbsRoot && root.absLastError?.isNotBlank() == true ->
                 R.string.settings_library_status_error
-            root.sourceType == AudiobookSchema.LibrarySourceType.ABS && root.absLastFullSyncAt != null ->
+            root.isAbsRoot && root.absLastFullSyncAt != null ->
                 R.string.settings_library_status_synced
-            root.sourceType == AudiobookSchema.LibrarySourceType.ABS ->
+            root.isAbsRoot ->
                 R.string.settings_library_status_idle
-            root.availabilityStatus != AudiobookSchema.AvailabilityStatus.UNKNOWN ->
-                root.availabilityStatus.availabilityStatusMessageRes()
-            else -> root.status.libraryRootStatusMessageRes()
+            root.hasKnownAvailability ->
+                root.availabilityKind.availabilityStatusMessageRes()
+            else -> root.statusKind.libraryRootStatusMessageRes()
         }
         return context.getString(resId)
     }
 
     fun resolveLibraryRootLocation(root: LibraryRootSettingsSnapshot): String =
-        when (root.sourceType) {
-            AudiobookSchema.LibrarySourceType.WEBDAV -> "${root.sourceUri}${root.basePath}"
-            AudiobookSchema.LibrarySourceType.ABS -> root.sourceUri
+        when {
+            root.isWebDavRoot -> "${root.sourceUri}${root.basePath}"
+            root.isAbsRoot -> root.sourceUri
             else -> formatSafDisplayPath(root.sourceUri)
         }
 
@@ -107,7 +105,7 @@ class SettingsRootFormatter(private val context: Context) {
     }
 
     fun formatSnapshot(snapshot: LibraryRootSettingsSnapshot): SettingsRootItem {
-        val isAbsRoot = snapshot.sourceType == AudiobookSchema.LibrarySourceType.ABS
+        val isAbsRoot = snapshot.isAbsRoot
         return SettingsRootItem(
             rootId = snapshot.rootId,
             sourceType = snapshot.sourceType,
@@ -156,24 +154,24 @@ class SettingsRootFormatter(private val context: Context) {
             DuplicateLibraryRootSource.SAF -> R.string.feedback_settings_connection_failed_fallback
         }
 
-    private fun AudiobookSchema.LibraryRootStatus.libraryRootStatusMessageRes(): Int =
+    private fun SettingsRootStatusKind.libraryRootStatusMessageRes(): Int =
         when (this) {
-            AudiobookSchema.LibraryRootStatus.ACTIVE -> R.string.settings_library_status_active
-            AudiobookSchema.LibraryRootStatus.REVOKED -> R.string.settings_library_status_revoked
-            AudiobookSchema.LibraryRootStatus.ERROR -> R.string.settings_library_status_error
+            SettingsRootStatusKind.ACTIVE -> R.string.settings_library_status_active
+            SettingsRootStatusKind.REVOKED -> R.string.settings_library_status_revoked
+            SettingsRootStatusKind.ERROR -> R.string.settings_library_status_error
         }
 
-    private fun AudiobookSchema.AvailabilityStatus.availabilityStatusMessageRes(): Int =
+    private fun SettingsRootAvailabilityKind.availabilityStatusMessageRes(): Int =
         when (this) {
-            AudiobookSchema.AvailabilityStatus.AVAILABLE -> R.string.settings_library_status_available
-            AudiobookSchema.AvailabilityStatus.REVOKED -> R.string.settings_library_status_revoked
-            AudiobookSchema.AvailabilityStatus.AUTH_FAILED -> R.string.settings_library_status_auth_failed
-            AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE -> R.string.settings_library_status_network_unavailable
-            AudiobookSchema.AvailabilityStatus.NOT_FOUND -> R.string.settings_library_status_not_found
-            AudiobookSchema.AvailabilityStatus.PERMISSION_DENIED -> R.string.settings_library_status_permission_denied
-            AudiobookSchema.AvailabilityStatus.SERVER_ERROR -> R.string.settings_library_status_server_error
-            AudiobookSchema.AvailabilityStatus.TIMEOUT -> R.string.settings_library_status_timeout
-            AudiobookSchema.AvailabilityStatus.UNSUPPORTED -> R.string.settings_library_status_unsupported
-            AudiobookSchema.AvailabilityStatus.UNKNOWN -> R.string.common_unknown
+            SettingsRootAvailabilityKind.AVAILABLE -> R.string.settings_library_status_available
+            SettingsRootAvailabilityKind.REVOKED -> R.string.settings_library_status_revoked
+            SettingsRootAvailabilityKind.AUTH_FAILED -> R.string.settings_library_status_auth_failed
+            SettingsRootAvailabilityKind.NETWORK_UNAVAILABLE -> R.string.settings_library_status_network_unavailable
+            SettingsRootAvailabilityKind.NOT_FOUND -> R.string.settings_library_status_not_found
+            SettingsRootAvailabilityKind.PERMISSION_DENIED -> R.string.settings_library_status_permission_denied
+            SettingsRootAvailabilityKind.SERVER_ERROR -> R.string.settings_library_status_server_error
+            SettingsRootAvailabilityKind.TIMEOUT -> R.string.settings_library_status_timeout
+            SettingsRootAvailabilityKind.UNSUPPORTED -> R.string.settings_library_status_unsupported
+            SettingsRootAvailabilityKind.UNKNOWN -> R.string.common_unknown
         }
 }

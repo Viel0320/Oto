@@ -12,7 +12,7 @@ class SettingsSceneArchitectureTest {
 
     @Test
     fun settingsViewModelConsumesSettingsRootSceneDependencies() {
-        val settingsViewModelSource = resolveSourceRoot().resolve("ui/settings/SettingsViewModel.kt").readText()
+        val settingsViewModelSource = ArchitectureSourceRoots.appMainFile("ui/settings/SettingsViewModel.kt").readText()
 
         assertTrue(
             "SettingsViewModel must not import the broad library facade.",
@@ -34,7 +34,7 @@ class SettingsSceneArchitectureTest {
             settingsViewModelSource.contains("settingsRootCommands.refreshAllRootStatuses()")
         )
         val remoteConnectionViewModelSource =
-            resolveSourceRoot().resolve("ui/libraryManagement/RemoteConnectionViewModel.kt").readText()
+            ArchitectureSourceRoots.appMainFile("ui/libraryManagement/RemoteConnectionViewModel.kt").readText()
         assertTrue(
             "RemoteConnectionViewModel must register local roots through the settings-root command surface.",
             remoteConnectionViewModelSource.contains("settingsRootCommands.addLocalRootAndScheduleSync(uri)")
@@ -56,7 +56,7 @@ class SettingsSceneArchitectureTest {
 
     @Test
     fun settingsSceneDoesNotImportLibraryRootEntity() {
-        val settingsSourceFiles = resolveSourceRoot()
+        val settingsSourceFiles = ArchitectureSourceRoots.appMain()
             .resolve("ui/settings")
             .walkTopDown()
             .filter { sourceFile -> sourceFile.isFile && sourceFile.extension == "kt" }
@@ -74,7 +74,7 @@ class SettingsSceneArchitectureTest {
 
     @Test
     fun settingsRootModuleDoesNotImportTheBroadFacade() {
-        val settingsModuleSource = resolveSourceRoot()
+        val settingsModuleSource = ArchitectureSourceRoots.applicationMain()
             .resolve("application/library/settings/DefaultSettingsRootModule.kt")
             .readText()
 
@@ -84,12 +84,4 @@ class SettingsSceneArchitectureTest {
         )
     }
 
-    private fun resolveSourceRoot(): File {
-        val candidates = listOf(
-            File("src/main/java/com/viel/oto"),
-            File("app/src/main/java/com/viel/oto")
-        )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app source root for settings scene architecture test.")
-    }
 }

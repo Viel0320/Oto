@@ -12,7 +12,7 @@ class HomeLibraryReadModelArchitectureTest {
 
     @Test
     fun libraryViewModelDependsOnHomeSceneInterfacesOnly() {
-        val libraryViewModelSource = resolveSourceRoot().resolve("ui/home/LibraryViewModel.kt").readText()
+        val libraryViewModelSource = ArchitectureSourceRoots.appMainFile("ui/home/LibraryViewModel.kt").readText()
 
         assertTrue(
             "LibraryViewModel must consume raw HomeLibraryReadModel streams instead of the full LibraryFacade bus.",
@@ -43,7 +43,7 @@ class HomeLibraryReadModelArchitectureTest {
 
     @Test
     fun homeSceneAdapterDoesNotRewrapTheFullFacade() {
-        val readModelSource = resolveSourceRoot().resolve("application/library/home/HomeLibraryReadModel.kt").readText().replace("\r\n", "\n")
+        val readModelSource = ArchitectureSourceRoots.applicationMainFile("application/library/home/HomeLibraryReadModel.kt").readText().replace("\r\n", "\n")
         val readModelInterface = readModelSource.substringAfter("interface HomeLibraryReadModel")
             .substringBefore("/**\n * Home Library Use Cases")
 
@@ -82,7 +82,7 @@ class HomeLibraryReadModelArchitectureTest {
 
     @Test
     fun homeUiConsumesHomeBookProjectionInsteadOfRoomEntities() {
-        val sourceRoot = resolveSourceRoot()
+        val sourceRoot = ArchitectureSourceRoots.appMain()
         val homeUiFiles = sourceRoot.resolve("ui/home")
             .walkTopDown()
             .filter { file -> file.isFile && file.name.endsWith(".kt") }
@@ -101,12 +101,4 @@ class HomeLibraryReadModelArchitectureTest {
         }
     }
 
-    private fun resolveSourceRoot(): File {
-        val candidates = listOf(
-            File("src/main/java/com/viel/oto"),
-            File("app/src/main/java/com/viel/oto")
-        )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app source root for home library architecture test.")
-    }
 }

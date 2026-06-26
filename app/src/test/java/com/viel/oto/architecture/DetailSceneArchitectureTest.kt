@@ -12,7 +12,7 @@ class DetailSceneArchitectureTest {
 
     @Test
     fun detailViewModelConsumesDetailSceneDependenciesOnly() {
-        val detailViewModelSource = resolveSourceRoot().resolve("ui/detail/DetailViewModel.kt").readText()
+        val detailViewModelSource = ArchitectureSourceRoots.appMainFile("ui/detail/DetailViewModel.kt").readText()
 
         assertTrue(
             "DetailViewModel must not import the broad library facade.",
@@ -31,7 +31,7 @@ class DetailSceneArchitectureTest {
 
     @Test
     fun detailViewModelDoesNotDirectlyQueryFilesRootsOrAvailability() {
-        val detailViewModelSource = resolveSourceRoot().resolve("ui/detail/DetailViewModel.kt").readText()
+        val detailViewModelSource = ArchitectureSourceRoots.appMainFile("ui/detail/DetailViewModel.kt").readText()
 
         assertTrue(
             "DetailViewModel must not directly query source files, roots, or availability gateways.",
@@ -47,7 +47,7 @@ class DetailSceneArchitectureTest {
 
     @Test
     fun newDetailModuleCodeDoesNotImportFacadeOrRoomEntities() {
-        val detailModuleRoot = resolveSourceRoot().resolve("application/library/detail")
+        val detailModuleRoot = ArchitectureSourceRoots.applicationMain().resolve("application/library/detail")
         val moduleFiles = detailModuleRoot
             .walkTopDown()
             .filter { file -> file.isFile && file.name.endsWith(".kt") }
@@ -69,7 +69,7 @@ class DetailSceneArchitectureTest {
 
     @Test
     fun detailUiCodeDoesNotUseRoomEntityBoundaryTypes() {
-        val detailUiRoot = resolveSourceRoot().resolve("ui/detail")
+        val detailUiRoot = ArchitectureSourceRoots.appMain().resolve("ui/detail")
         val uiFiles = detailUiRoot
             .walkTopDown()
             .filter { file -> file.isFile && file.name.endsWith(".kt") }
@@ -86,7 +86,7 @@ class DetailSceneArchitectureTest {
 
     @Test
     fun detailSnapshotExposesSceneItemInsteadOfRoomProjection() {
-        val snapshotSource = resolveSourceRoot()
+        val snapshotSource = ArchitectureSourceRoots.applicationMain()
             .resolve("application/library/detail/DetailSnapshot.kt")
             .readText()
 
@@ -98,15 +98,6 @@ class DetailSceneArchitectureTest {
             "DetailSnapshot must not expose Room entity or relation projection types.",
             forbiddenDetailRoomBoundaryTerms().none { term -> snapshotSource.contains(term) }
         )
-    }
-
-    private fun resolveSourceRoot(): File {
-        val candidates = listOf(
-            File("src/main/java/com/viel/oto"),
-            File("app/src/main/java/com/viel/oto")
-        )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app source root for detail scene architecture test.")
     }
 
     private fun forbiddenDetailRoomBoundaryTerms(): List<String> {

@@ -19,12 +19,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * Locks settings-scene root delegation.
  * Verifies root snapshots, root registration triggers, status refreshes, and scan scheduling without touching SettingsViewModel.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [33])
 class SettingsRootModuleTest {
 
     @Test
