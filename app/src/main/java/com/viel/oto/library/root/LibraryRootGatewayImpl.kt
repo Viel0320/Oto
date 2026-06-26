@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.net.toUri
 import androidx.room.withTransaction
-import com.viel.oto.abs.auth.AbsCredentialStore
 import com.viel.oto.data.cache.CacheEvictionCoordinator
 import com.viel.oto.data.dao.BookDao
 import com.viel.oto.data.dao.LibraryRootDao
@@ -41,7 +40,7 @@ class LibraryRootGatewayImpl(
     private val cacheEvictionCoordinator: CacheEvictionCoordinator,
     private val rootStore: LibraryRootStore,
     private val webDavCredentialStore: WebDavCredentialStore,
-    private val absCredentialStore: AbsCredentialStore,
+    private val absRootCredentialGateway: AbsRootCredentialGateway,
     private val database: AppDatabase,
     private val workflowLogSink: WorkflowLogSink
 ) : LibraryRootGateway, java.io.Closeable {
@@ -241,7 +240,7 @@ class LibraryRootGatewayImpl(
                 webDavCredentialStore.delete(cleanup.credentialId)
             }
             is PostCommitRootCleanup.DeleteAbsCredential -> {
-                absCredentialStore.delete(cleanup.credentialId)
+                absRootCredentialGateway.delete(cleanup.credentialId)
             }
             PostCommitRootCleanup.None -> Unit
         }

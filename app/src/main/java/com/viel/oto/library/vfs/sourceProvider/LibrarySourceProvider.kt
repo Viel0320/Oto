@@ -2,7 +2,6 @@ package com.viel.oto.library.vfs.sourceProvider
 
 import android.content.Context
 import android.os.ParcelFileDescriptor
-import com.viel.oto.abs.vfs.AbsSourceProvider
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.data.webdav.WebDavCredentialStore
@@ -67,25 +66,26 @@ interface LibrarySourceProvider {
  * Creates one provider per source kind while keeping source-specific persistence dependencies narrow.
  *
  * WebDAV receives only its credential store, so the provider factory does not become a general
- * settings or storage facade for unrelated source behaviors.
+ * settings or storage facade for unrelated source behaviors. Remote source providers owned by other
+ * domains are injected as ready-made adapters so this VFS module does not depend on their concrete
+ * implementations.
  */
 class LibrarySourceProviderFactory(
     private val context: Context,
     webDavCredentialStore: WebDavCredentialStore =
-        WebDavCredentialStore(context.applicationContext.webDavCredentialDataStore)
+        WebDavCredentialStore(context.applicationContext.webDavCredentialDataStore),
+    extraProviders: List<LibrarySourceProvider> = emptyList()
 ) {
     private val safProvider = SafSourceProvider(context)
     private val webDavProvider = WebDavSourceProvider(
         context = context.applicationContext,
         webDavCredentialStore = webDavCredentialStore
     )
-    private val absProvider = AbsSourceProvider(context.applicationContext)
+    private val providersByKind = (listOf(safProvider, webDavProvider) + extraProviders)
+        .associateBy { provider -> provider.kind }
 
     fun providerFor(root: LibraryRootEntity): LibrarySourceProvider =
-        when (LibrarySourceKind.from(root.sourceType)) {
-            LibrarySourceKind.SAF -> safProvider
-            LibrarySourceKind.WEBDAV -> webDavProvider
-            LibrarySourceKind.ABS -> absProvider
-            null -> throw UnsupportedOperationException("Unsupported library source type: ${root.sourceType}")
-        }
+        LibrarySourceKind.from(root.sourceType)
+            ?.let { kind -> providersByKind[kind] }
+            ?: throw UnsupportedOperationException("Unsupported library source type: ${root.sourceType}")
 }

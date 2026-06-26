@@ -11,7 +11,7 @@
 - 现有导入图仍存在阻碍继续拆模块的循环：
   - `data` 已进入 `:data:store`，当前只保留对 `shared`、`timeline`、`logger` 的窄依赖。
   - `abs` 仍直接引用 `data`、`library`、`media`、`work`。
-  - `library` 直接引用 `abs`、`data`、`media`。
+  - `library` 已移除对 `abs` 的生产源码直接引用，当前仍直接引用 `data`、`media`。
   - `media` 直接引用 `application`、`data`、`library`、`widget`、`MainActivity`、`R`。
   - `logger` 已物理迁出 app，多数领域仍直接依赖具体 logger，后续需要继续收敛为窄 observability Interface。
   - `event` 直接引用 `application`、`data`、`media`、`R`。
@@ -210,7 +210,7 @@ flowchart TD
 
 - 新增 `:library:vfs`，移动 `VirtualFileSystem`、`VfsFileInterface`、VFS cache、SAF/WebDAV source provider、remote range strategy。
 - 新增 `:library:import`，移动 scan/import/root lifecycle/availability。
-- `LibrarySourceProvider` 改为接收 source Adapter 列表；ABS Adapter 由 `:abs` 的 Koin Module 注册，`library` 不再 import `AbsSourceProvider`。
+- 已落地：`LibrarySourceProvider` 改为接收 source Adapter 列表；ABS Adapter 由 app composition root 注册，`library` 不再 import `AbsSourceProvider`。
 - WebDAV 继续留在 `:library:vfs`，因为它是 library source Adapter，不与 ABS protocol 合并。
 - `LibraryScanModule`、`LibraryCoverModule`、`LibraryUseCaseModule` 分别移动到所属 Module。
 

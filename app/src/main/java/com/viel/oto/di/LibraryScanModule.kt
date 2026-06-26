@@ -2,7 +2,6 @@ package com.viel.oto.di
 
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
-import com.viel.oto.abs.auth.AbsCredentialStore
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.cache.CacheEvictionCoordinator
 import com.viel.oto.data.cache.RootSourceCacheEvictor
@@ -18,6 +17,7 @@ import com.viel.oto.event.AppEventSink
 import com.viel.oto.library.LibraryRootStore
 import com.viel.oto.library.availability.AvailabilityChecker
 import com.viel.oto.library.availability.MissingBookFileRecoveryChecker
+import com.viel.oto.library.root.AbsRootCredentialGateway
 import com.viel.oto.library.vfs.VfsFileInterface
 import com.viel.oto.library.vfs.cache.DirectoryListingCache
 import com.viel.oto.library.vfs.cache.VfsRangeCache
@@ -81,7 +81,7 @@ internal object LibraryScanModule {
                 rootDao = get<AppDatabase>().libraryRootDao(),
                 availabilityChecker = get<AvailabilityChecker>(),
                 webDavCredentialStore = get<WebDavCredentialStore>(),
-                absCredentialStore = get<AbsCredentialStore>(),
+                absRootCredentialGateway = get<AbsRootCredentialGateway>(),
                 appSettingsRepository = get<AppSettingsRepository>()
             )
         }
@@ -95,7 +95,7 @@ internal object LibraryScanModule {
                 cacheEvictionCoordinator = get<CacheEvictionCoordinator>(),
                 rootStore = get<LibraryRootStore>(),
                 webDavCredentialStore = get<WebDavCredentialStore>(),
-                absCredentialStore = get<AbsCredentialStore>(),
+                absRootCredentialGateway = get<AbsRootCredentialGateway>(),
                 database = get<AppDatabase>(),
                 workflowLogSink = ScanWorkflowLogSink
             ).also { gateway ->

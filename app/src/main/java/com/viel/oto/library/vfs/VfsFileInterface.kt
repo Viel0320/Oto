@@ -37,9 +37,10 @@ class VfsFileInterface(
     context: Context,
     private val libraryRootDao: LibraryRootDao? = null,
     private val rootsById: Map<String, LibraryRootEntity> = emptyMap(),
-    rangeCache: VfsRangeCache? = null
+    rangeCache: VfsRangeCache? = null,
+    providerFactory: LibrarySourceProviderFactory = LibrarySourceProviderFactory(context.applicationContext)
 ) : VfsPlaybackStreamReader {
-    private val vfs = VirtualFileSystem(LibrarySourceProviderFactory(context.applicationContext))
+    private val vfs = VirtualFileSystem(providerFactory)
     private val cachedRangeReader = rangeCache?.let { cache ->
         CachedRangeReader(
             rangeCache = cache,

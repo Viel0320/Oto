@@ -197,7 +197,6 @@ class MultiModuleMigrationBaselineTest {
             "event->media",
             "i18n->logger",
             "i18n->shared",
-            "library->abs",
             "library->data",
             "library->event",
             "library->logger",

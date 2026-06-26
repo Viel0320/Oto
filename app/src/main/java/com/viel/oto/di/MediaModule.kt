@@ -3,12 +3,14 @@ package com.viel.oto.di
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import com.viel.oto.abs.vfs.AbsSourceProvider
 import com.viel.oto.application.playback.PlaybackStopper
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.library.vfs.VfsFileInterface
 import com.viel.oto.library.vfs.cache.DirectoryListingCache
 import com.viel.oto.library.vfs.cache.RoomDirectoryListingCache
 import com.viel.oto.library.vfs.cache.VfsRangeCache
+import com.viel.oto.library.vfs.sourceProvider.LibrarySourceProviderFactory
 import com.viel.oto.media.AutoRewindManager
 import com.viel.oto.media.DefaultPlaybackFileLookup
 import com.viel.oto.media.DefaultPlaybackRootLookup
@@ -41,6 +43,13 @@ internal object MediaModule {
     }
 
     val module: Module = module {
+        single {
+            LibrarySourceProviderFactory(
+                context = get<Context>().applicationContext,
+                extraProviders = listOf(get<AbsSourceProvider>())
+            )
+        }
+
         single { VfsRangeCache(get<Context>()) }
 
         single { RoomDirectoryListingCache(directoryChildCacheDao = get<AppDatabase>().directoryChildCacheDao()) } bind DirectoryListingCache::class
@@ -66,7 +75,8 @@ internal object MediaModule {
             VfsFileInterface(
                 get(),
                 libraryRootDao = get<AppDatabase>().libraryRootDao(),
-                rangeCache = get()
+                rangeCache = get(),
+                providerFactory = get<LibrarySourceProviderFactory>()
             )
         }
 

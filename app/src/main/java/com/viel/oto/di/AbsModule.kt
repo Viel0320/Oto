@@ -6,16 +6,21 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.media3.common.util.UnstableApi
+import com.viel.oto.abs.availability.AbsLibraryAvailabilityGateway
 import com.viel.oto.abs.auth.AbsCredentialStore
 import com.viel.oto.abs.net.AbsApiClient
 import com.viel.oto.abs.net.RealAbsApiClient
 import com.viel.oto.abs.playback.AbsPlaybackCredentialResolver
+import com.viel.oto.abs.root.AbsRootCredentialGatewayAdapter
 import com.viel.oto.abs.sync.AbsConnectionTester
 import com.viel.oto.abs.sync.AbsCoverCache
 import com.viel.oto.abs.sync.AbsCoverStore
+import com.viel.oto.abs.vfs.AbsSourceProvider
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.cover.RemoteCoverStore
 import com.viel.oto.data.db.AppDatabase
+import com.viel.oto.library.availability.AbsAvailabilityGateway
+import com.viel.oto.library.root.AbsRootCredentialGateway
 import org.koin.core.module.Module
 import org.koin.dsl.binds
 import org.koin.dsl.module
@@ -31,6 +36,7 @@ internal object AbsModule {
 
     val module: Module = module {
         single { AbsCredentialStore(get<Context>().applicationContext.absCredentialDataStore) }
+        single<AbsRootCredentialGateway> { AbsRootCredentialGatewayAdapter(get()) }
 
         single<AbsApiClient> {
             RealAbsApiClient(
@@ -40,6 +46,21 @@ internal object AbsModule {
         }
 
         single { AbsConnectionTester(get()) }
+        single {
+            AbsSourceProvider(
+                context = get<Context>().applicationContext,
+                credentialStore = get<AbsCredentialStore>(),
+                settingsProvider = { get<AppSettingsRepository>().cachedSettings }
+            )
+        }
+        single<AbsAvailabilityGateway> {
+            AbsLibraryAvailabilityGateway(
+                credentialStore = get(),
+                connectionTester = get(),
+                sourceProvider = get(),
+                settingsProvider = { get<AppSettingsRepository>().cachedSettings }
+            )
+        }
 
         single {
             AbsCoverCache(

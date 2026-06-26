@@ -3,6 +3,7 @@ package com.viel.oto.library.root
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.room.Room
 import com.viel.oto.abs.auth.AbsCredentialStore
+import com.viel.oto.abs.root.AbsRootCredentialGatewayAdapter
 import com.viel.oto.data.abs.playback.AbsPendingProgressSyncEntity
 import com.viel.oto.data.abs.playback.AbsPlaybackSessionEntity
 import com.viel.oto.data.abs.sync.AbsItemMirrorEntity
@@ -180,6 +181,7 @@ class LibraryRootServiceAbsDeleteTest {
         credentialStore: AbsCredentialStore
     ): LibraryRootGatewayImpl {
         val context = RuntimeEnvironment.getApplication()
+        val absRootCredentialGateway = AbsRootCredentialGatewayAdapter(credentialStore)
         /**
          * Wires memory database back into the store.
          * Instantiates LibraryRootStore using mock database DAO and credentials, and passes it into the gateway explicitly.
@@ -187,7 +189,7 @@ class LibraryRootServiceAbsDeleteTest {
         val rootStore = com.viel.oto.library.LibraryRootStore(
             context = context,
             rootDao = database.libraryRootDao(),
-            absCredentialStore = credentialStore,
+            absRootCredentialGateway = absRootCredentialGateway,
             appSettingsRepository = testSettingsRepository("abs-root-store")
         )
         return LibraryRootGatewayImpl(
@@ -203,7 +205,7 @@ class LibraryRootServiceAbsDeleteTest {
             ),
             rootStore = rootStore,
             webDavCredentialStore = testWebDavCredentialStore("abs-root-webdav-placeholder"),
-            absCredentialStore = credentialStore,
+            absRootCredentialGateway = absRootCredentialGateway,
             database = database,
             workflowLogSink = NoOpWorkflowLogSink
         )

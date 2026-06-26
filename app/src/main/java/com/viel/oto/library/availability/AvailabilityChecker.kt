@@ -2,13 +2,6 @@ package com.viel.oto.library.availability
 
 import android.content.Context
 import androidx.core.net.toUri
-import com.viel.oto.abs.auth.AbsCredentialStore
-import com.viel.oto.abs.net.AbsApiClient
-import com.viel.oto.abs.net.AbsApiError
-import com.viel.oto.abs.net.RealAbsApiClient
-import com.viel.oto.abs.sync.AbsConnectionTester
-import com.viel.oto.abs.vfs.AbsSourceProvider
-import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.BookFileEntity
@@ -31,17 +24,12 @@ data class AvailabilityResult(
 
 class AvailabilityChecker(
     private val context: Context,
-    private val absCredentialStore: AbsCredentialStore,
-    appSettingsRepository: AppSettingsRepository,
     private val database: AppDatabase,
-    absApiClient: AbsApiClient = RealAbsApiClient(
-        appSettingsRepository = appSettingsRepository,
-        credentialStore = absCredentialStore
-    )
+    providerFactory: LibrarySourceProviderFactory = LibrarySourceProviderFactory(context.applicationContext),
+    private val absAvailabilityGateway: AbsAvailabilityGateway? = null
 ) {
     private val libraryRootDao = database.libraryRootDao()
-    private val vfs = VirtualFileSystem(LibrarySourceProviderFactory(context.applicationContext))
-    private val absConnectionTester = AbsConnectionTester(absApiClient)
+    private val vfs = VirtualFileSystem(providerFactory)
 
     suspend fun checkRoot(root: LibraryRootEntity): AvailabilityResult =
         when (LibrarySourceKind.from(root.sourceType)) {
@@ -62,15 +50,7 @@ class AvailabilityChecker(
                     errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND.name
                 )
             if (LibrarySourceKind.from(root.sourceType) == LibrarySourceKind.ABS) {
-                val provider = LibrarySourceProviderFactory(context.applicationContext).providerFor(root) as AbsSourceProvider
-                return@runCatchingCancellable if (provider.checkReadable(root, file.sourcePath)) {
-                    AvailabilityResult(status = AudiobookSchema.AvailabilityStatus.AVAILABLE)
-                } else {
-                    AvailabilityResult(
-                        status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
-                        errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND.name
-                    )
-                }
+                return@runCatchingCancellable requireAbsAvailabilityGateway().checkBookFile(root, file)
             }
             val node = vfs.resolve(root, VfsPath(file.sourcePath))
             if (node != null && vfs.exists(node)) {
@@ -185,24 +165,7 @@ class AvailabilityChecker(
      * Confirms the saved token still authorizes successfully and that the configured book library ID is still returned by the server.
      */
     private suspend fun checkAbsRoot(root: LibraryRootEntity): AvailabilityResult =
-        runCatchingCancellable {
-            val credential = absCredentialStore.get(root.credentialId)
-                ?: return AvailabilityResult(
-                    status = AudiobookSchema.AvailabilityStatus.AUTH_FAILED,
-                    errorCode = "MISSING_ABS_CREDENTIAL"
-                )
-            val connection = absConnectionTester.testConnection(credential.baseUrl, credential.token)
-            val libraryStillExists = connection.bookLibraries.any { library -> library.id == root.basePath }
-            if (libraryStillExists) {
-                AvailabilityResult(status = AudiobookSchema.AvailabilityStatus.AVAILABLE)
-            } else {
-                AvailabilityResult(
-                    status = AudiobookSchema.AvailabilityStatus.NOT_FOUND,
-                    errorCode = AudiobookSchema.AvailabilityStatus.NOT_FOUND.name,
-                    message = "ABS library not found"
-                )
-            }
-        }.getOrElse { throwable -> throwable.toAvailabilityResult() }
+        requireAbsAvailabilityGateway().checkRoot(root)
 
     private fun notFoundResult(): AvailabilityResult =
         AvailabilityResult(
@@ -212,14 +175,16 @@ class AvailabilityChecker(
 
     private fun Throwable.toAvailabilityResult(): AvailabilityResult {
         val webDavError = this as? WebDavException
-        val absError = this as? AbsApiError
-        val status = webDavError?.availabilityStatus
-            ?: absError?.availabilityStatus
-            ?: AudiobookSchema.AvailabilityStatus.UNKNOWN
         return AvailabilityResult(
-            status = status,
-            errorCode = webDavError?.availabilityStatus?.name ?: absError?.code ?: this::class.java.simpleName,
+            status = webDavError?.availabilityStatus ?: AudiobookSchema.AvailabilityStatus.UNKNOWN,
+            errorCode = webDavError?.availabilityStatus?.name ?: this::class.java.simpleName,
             message = localizedMessage ?: message
         )
     }
+
+    /**
+     * Returns the ABS availability adapter only for ABS source checks.
+     */
+    private fun requireAbsAvailabilityGateway(): AbsAvailabilityGateway =
+        requireNotNull(absAvailabilityGateway) { "AvailabilityChecker requires AbsAvailabilityGateway for ABS roots." }
 }

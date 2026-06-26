@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.core.net.toUri
-import com.viel.oto.abs.auth.AbsCredentialStore
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.dao.LibraryRootDao
 import com.viel.oto.data.db.AudiobookSchema
@@ -13,6 +12,7 @@ import com.viel.oto.data.webdav.WebDavCredentialStore
 import com.viel.oto.data.webdav.webDavCredentialDataStore
 import com.viel.oto.library.availability.AvailabilityChecker
 import com.viel.oto.library.availability.LibraryRootAvailabilityUpdate
+import com.viel.oto.library.root.AbsRootCredentialGateway
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavEndpointValidationException
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavEndpointValidationReason
 import com.viel.oto.logger.SecureLog
@@ -30,7 +30,7 @@ class LibraryRootStore(
     private val availabilityChecker: AvailabilityChecker? = null,
     private val webDavCredentialStore: WebDavCredentialStore =
         WebDavCredentialStore(context.applicationContext.webDavCredentialDataStore),
-    private val absCredentialStore: AbsCredentialStore? = null,
+    private val absRootCredentialGateway: AbsRootCredentialGateway? = null,
     private val appSettingsRepository: AppSettingsRepository
 ) {
 
@@ -124,10 +124,9 @@ class LibraryRootStore(
         libraryId: String,
         displayName: String
     ): LibraryRootEntity = withContext(Dispatchers.IO) {
-        val credential = requireNotNull(requireAbsCredentialStore().get(credentialId)) {
+        val normalizedBaseUrl = requireNotNull(requireAbsRootCredentialGateway().baseUrlFor(credentialId)) {
             "ABS_CREDENTIAL_NOT_FOUND:$credentialId"
         }
-        val normalizedBaseUrl = credential.baseUrl
         UnsafeNetworkPolicy.requireCleartextHttpAllowed(
             url = normalizedBaseUrl,
             settings = appSettingsRepository.cachedSettings,
@@ -346,18 +345,18 @@ class LibraryRootStore(
         displayName: String
     ): LibraryRootEntity = withContext(Dispatchers.IO) {
         val existing = rootDao.getRootById(id) ?: throw IllegalArgumentException("Root not found: $id")
-        val credential = requireNotNull(requireAbsCredentialStore().get(credentialId)) {
+        val normalizedBaseUrl = requireNotNull(requireAbsRootCredentialGateway().baseUrlFor(credentialId)) {
             "ABS_CREDENTIAL_NOT_FOUND:$credentialId"
         }
         UnsafeNetworkPolicy.requireCleartextHttpAllowed(
-            url = credential.baseUrl,
+            url = normalizedBaseUrl,
             settings = appSettingsRepository.cachedSettings,
             operation = "ABS root update"
         )
         val resolvedDisplayName = displayName.ifBlank { libraryId }
         val updated = LibraryRootLifecyclePolicy.markBindingRefreshed(
             existing.copy(
-                sourceUri = credential.baseUrl,
+                sourceUri = normalizedBaseUrl,
                 basePath = libraryId,
                 credentialId = credentialId,
                 displayName = resolvedDisplayName
@@ -393,10 +392,10 @@ class LibraryRootStore(
         requireNotNull(availabilityChecker) { "LibraryRootStore requires AvailabilityChecker to refresh root statuses." }
 
     /**
-     * Returns the injected ABS credential store only for ABS root mutation paths.
+     * Returns the injected ABS credential gateway only for ABS root mutation paths.
      */
-    private fun requireAbsCredentialStore(): AbsCredentialStore =
-        requireNotNull(absCredentialStore) { "LibraryRootStore requires AbsCredentialStore for ABS root mutations." }
+    private fun requireAbsRootCredentialGateway(): AbsRootCredentialGateway =
+        requireNotNull(absRootCredentialGateway) { "LibraryRootStore requires AbsRootCredentialGateway for ABS root mutations." }
 }
 
 internal fun mergeAbsRoot(

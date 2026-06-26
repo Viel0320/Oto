@@ -20,6 +20,7 @@ import com.viel.oto.data.book.ChapterGatewayImpl
 import com.viel.oto.data.cleanup.RemotePlaybackCleanupGateway
 import com.viel.oto.data.cleanup.RemotePlaybackCleanupGatewayImpl
 import com.viel.oto.data.db.AppDatabase
+import com.viel.oto.library.availability.AbsAvailabilityGateway
 import com.viel.oto.library.availability.AvailabilityChecker
 import com.viel.oto.library.availability.LibraryFileAvailabilityProbe
 import com.viel.oto.library.availability.MissingBookFileRecoveryChecker
@@ -40,9 +41,8 @@ internal object LibraryBookGatewayModule {
         single {
             AvailabilityChecker(
                 context = get(),
-                absCredentialStore = get(),
-                appSettingsRepository = get(),
-                database = get<AppDatabase>()
+                database = get<AppDatabase>(),
+                absAvailabilityGateway = get<AbsAvailabilityGateway>()
             )
         }
 
