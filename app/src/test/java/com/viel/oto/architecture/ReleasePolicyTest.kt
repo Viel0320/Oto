@@ -233,7 +233,8 @@ class ReleasePolicyTest {
             "runtime/observability/src/main/java/com/viel/oto",
             "data/store/src/main/java/com/viel/oto",
             "library/vfs/src/main/java/com/viel/oto",
-            "media/metadata/src/main/java/com/viel/oto"
+            "media/metadata/src/main/java/com/viel/oto",
+            "work/policy/src/main/java/com/viel/oto"
         ).flatMap { path -> listOf(File(path), File("../$path")) }
         return candidates
             .filter { file -> file.isDirectory }

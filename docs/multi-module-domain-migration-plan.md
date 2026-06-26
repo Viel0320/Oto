@@ -2,7 +2,7 @@
 
 ## 当前事实
 
-- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:media:metadata`。
+- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:media:metadata`、`:work:policy`。
 - `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 `abs`、`application`、`library`、`media`、`ui`、`widget`、`work`；`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`。
 - 本次迁移后，app 内 `library` 生产 Kotlin 文件数量为 36，app 内 `media` 生产 Kotlin 文件数量为 35；`:library:vfs` 生产 Kotlin 文件数量为 21，`:media:metadata` 生产 Kotlin 文件数量为 28、JVM 测试文件数量为 5；`:data:store` 继续维护 Room、DataStore 和持久化 gateway。
 - `settings/model`、`network/policy`、`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability`、`library/vfs` 和 `media/metadata` 已是 Android library Module，继续保留 `com.viel.oto.logger`、`com.viel.oto.library.vfs`、`com.viel.oto.media.parser`、`com.viel.oto.media.manifest` 和 `com.viel.oto.media.subtitle` 包名供现有调用点使用。
@@ -26,6 +26,7 @@ flowchart TD
     ui[":ui"]
     widget[":widget"]
     event[":event"]
+    workPolicy[":work:policy"]
     application[":application"]
     data[":data:store"]
     libraryVfs[":library:vfs"]
@@ -66,7 +67,9 @@ flowchart TD
     abs --> libraryVfs
     abs --> mediaMetadata
     abs --> network
+    abs --> workPolicy
     network --> settings
+    libraryImport --> workPolicy
 ```
 
 ## 目标模块职责
@@ -82,6 +85,7 @@ flowchart TD
 | `:library:vfs` | SAF/WebDAV/VFS 文件访问 | `VirtualFileSystem`、`VfsFileInterface`、source provider Interface | SAF/WebDAV Adapter、range/cache Adapter | 不直接引用 ABS Adapter |
 | `:library:import` | 扫描、导入、root lifecycle、availability | 扫描命令、导入结果、root lifecycle Interface | Import pipeline、scan runner、availability checker | 不持有播放器 runtime |
 | `:media:metadata` | CUE/M3U8/音频 metadata、cover、subtitle 解析 | parser/router、manifest model | parser Implementation | 不访问 Room、PlaybackService、Widget |
+| `:work:policy` | WorkManager 唯一队列、约束、退避和冷启动去重策略 | `WorkSchedulingPolicy`、`UniqueWorkSchedulingPolicy` | 可测试的 WorkManager policy 值模型 | 不持有 Worker、不执行 enqueue、不读取数据库 |
 | `:media:playback` | playback plan、preflight、VFS playback data source、progress sync coordination | playback plan/player controller Interface | Media3-adjacent playback Implementation | 不引用 `MainActivity`、Widget、Compose |
 | `:media:service` | MediaSession service、foreground notification、manual download service | Android service entrypoints | Service、notification Adapter | 不直接更新 Widget 状态 |
 | `:abs` | AudiobookShelf anti-corruption layer | ABS auth/catalog/progress/source Adapter Interface | DTO、Moshi、API client、sync、ABS VFS Adapter | 不泄漏原始 ABS DTO 到 UI 或通用 library |
@@ -121,7 +125,7 @@ flowchart TD
 - 保持 `:network:policy` 管理 `UnsafeNetworkPolicy`，并只依赖 `:settings:model`。
 - 保持 `:runtime:lifecycle` 管理 `GraphClosePolicy`。
 - `:runtime:observability` 继续单独维护，因为 logger Implementation 依赖 Android `Log`，不和纯 Kotlin 基础模块糅在一起。
-- `work/WorkSchedulingPolicy.kt` 暂不进入基础 Module，因为它仍依赖 `AudiobookSchema.ScanTrigger` 和 AndroidX WorkManager 类型。
+- `work/WorkSchedulingPolicy.kt` 已作为 `:work:policy` Android library Module 独立维护，因为 library import 和 ABS sync 都需要共享 WorkManager 队列语义。
 
 验收：
 
@@ -212,6 +216,7 @@ flowchart TD
 - 已移动 `FileRef`、`FileIdentity` 和 `RemoteAvailabilityMappingPolicy` 到 `:library:vfs`，让 WebDAV、ABS 和 metadata/import 调用点继续使用稳定坐标模型与远程错误映射。
 - 已为 WebDAV provider/tester 增加 settings provider 注入点，模块测试不再依赖 app composition root 或 DataStore 缓存预热。
 - `:media:metadata` 已先于 `:library:import` 抽出，作为 import pipeline 的 parser/manifest 前置依赖。
+- 已新增 `:work:policy`，把 library cold-start scan 与 ABS root sync 共用的 WorkManager 唯一队列、约束和退避策略移出 app。
 - 新增 `:library:import`，移动 scan/import/root lifecycle/availability。
 - 已落地：`LibrarySourceProvider` 改为接收 source Adapter 列表；ABS Adapter 由 app composition root 注册，`library` 不再 import `AbsSourceProvider`。
 - WebDAV 继续留在 `:library:vfs`，因为它是 library source Adapter，不与 ABS protocol 合并。

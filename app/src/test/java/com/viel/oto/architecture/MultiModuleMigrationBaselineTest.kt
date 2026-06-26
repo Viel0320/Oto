@@ -107,7 +107,9 @@ class MultiModuleMigrationBaselineTest {
             File("../library/vfs/src/main/java/com/viel/oto"),
             File("library/vfs/src/main/java/com/viel/oto"),
             File("../media/metadata/src/main/java/com/viel/oto"),
-            File("media/metadata/src/main/java/com/viel/oto")
+            File("media/metadata/src/main/java/com/viel/oto"),
+            File("../work/policy/src/main/java/com/viel/oto"),
+            File("work/policy/src/main/java/com/viel/oto")
         )
         return candidates
             .filter { candidate -> candidate.isDirectory }

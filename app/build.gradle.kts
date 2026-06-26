@@ -179,6 +179,7 @@ dependencies {
     implementation(project(":data:store"))
     implementation(project(":library:vfs"))
     implementation(project(":media:metadata"))
+    implementation(project(":work:policy"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
