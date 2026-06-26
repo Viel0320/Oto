@@ -12,7 +12,7 @@ class SettingsSceneArchitectureTest {
 
     @Test
     fun settingsViewModelConsumesSettingsRootSceneDependencies() {
-        val settingsViewModelSource = ArchitectureSourceRoots.appMainFile("ui/settings/SettingsViewModel.kt").readText()
+        val settingsViewModelSource = ArchitectureSourceRoots.uiMainFile("ui/settings/SettingsViewModel.kt").readText()
 
         assertTrue(
             "SettingsViewModel must not import the broad library facade.",
@@ -34,7 +34,7 @@ class SettingsSceneArchitectureTest {
             settingsViewModelSource.contains("settingsRootCommands.refreshAllRootStatuses()")
         )
         val remoteConnectionViewModelSource =
-            ArchitectureSourceRoots.appMainFile("ui/libraryManagement/RemoteConnectionViewModel.kt").readText()
+            ArchitectureSourceRoots.uiMainFile("ui/libraryManagement/RemoteConnectionViewModel.kt").readText()
         assertTrue(
             "RemoteConnectionViewModel must register local roots through the settings-root command surface.",
             remoteConnectionViewModelSource.contains("settingsRootCommands.addLocalRootAndScheduleSync(uri)")

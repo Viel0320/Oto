@@ -12,7 +12,7 @@ class SearchSceneArchitectureTest {
 
     @Test
     fun searchViewModelConsumesSearchSceneDependenciesOnly() {
-        val searchViewModelSource = ArchitectureSourceRoots.appMainFile("ui/search/SearchViewModel.kt").readText()
+        val searchViewModelSource = ArchitectureSourceRoots.uiMainFile("ui/search/SearchViewModel.kt").readText()
 
         assertTrue(
             "SearchViewModel must not import the broad library facade.",
@@ -43,7 +43,7 @@ class SearchSceneArchitectureTest {
 
     @Test
     fun searchReadModelAndUiExposeSceneSnapshotsInsteadOfRoomRows() {
-        val sourceRoot = ArchitectureSourceRoots.appMain()
+        val sourceRoot = ArchitectureSourceRoots.uiMain()
         val applicationSourceRoot = ArchitectureSourceRoots.applicationMain()
         val readModelSource = applicationSourceRoot.resolve("application/library/search/SearchLibraryReadModel.kt").readText()
         val commandsSource = applicationSourceRoot.resolve("application/library/search/SearchLibraryCommands.kt").readText()

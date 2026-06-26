@@ -30,6 +30,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.mikepenz.aboutlibraries.entity.Developer
+import com.mikepenz.aboutlibraries.entity.Library
+import com.mikepenz.aboutlibraries.entity.License
 import com.viel.oto.shared.R
 import com.viel.oto.shared.settings.GlassEffectMode
 import com.viel.oto.ui.common.theme.OtoTheme
@@ -86,6 +89,8 @@ class StableBoundsAccessibilityTest {
             OtoTheme(dynamicColor = false) {
                 AboutLibrariesScreen(
                     onBack = {},
+                    appVersionName = "test",
+                    libraries = listOf(testLibrary()),
                     glassEffectMode = GlassEffectMode.Material
                 )
             }
@@ -193,6 +198,30 @@ class StableBoundsAccessibilityTest {
                 kotlin.math.abs(green - expected.green) < 0.01f &&
                 kotlin.math.abs(blue - expected.blue) < 0.01f &&
                 kotlin.math.abs(alpha - expected.alpha) < 0.01f
+
+        /**
+         * Supplies a minimal generated-license row so the UI-module test does not depend on
+         * app-owned AboutLibraries raw resources after the Compose UI extraction.
+         */
+        private fun testLibrary(): Library = Library(
+            uniqueId = "androidx.activity:activity",
+            artifactVersion = "1.0.0",
+            name = "Activity",
+            description = "Android activity integration",
+            website = "https://developer.android.com/jetpack/androidx/releases/activity",
+            developers = listOf(Developer(name = "AndroidX", organisationUrl = null)),
+            organization = null,
+            scm = null,
+            licenses = setOf(
+                License(
+                    name = "Apache License 2.0",
+                    url = "https://www.apache.org/licenses/LICENSE-2.0",
+                    spdxId = "Apache-2.0",
+                    licenseContent = "Apache License 2.0",
+                    hash = "apache-2.0"
+                )
+            )
+        )
 
         private fun Modifier.androidxComposeUiTestTag(tag: String): Modifier =
             this.testTag(tag)

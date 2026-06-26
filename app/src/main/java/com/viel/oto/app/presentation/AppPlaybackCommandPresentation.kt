@@ -1,9 +1,10 @@
-package com.viel.oto.ui.presentation
+package com.viel.oto.app.presentation
 
 import android.content.Context
-import com.viel.oto.shared.R
 import com.viel.oto.media.service.PlaybackCommandPresentation
+import com.viel.oto.shared.R
 import com.viel.oto.shared.settings.SeekStepSeconds
+import com.viel.oto.ui.presentation.SeekStepPresentation
 
 /**
  * Resolves MediaSession command presentation from app resources.

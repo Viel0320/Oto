@@ -1,4 +1,4 @@
-package com.viel.oto.di
+package com.viel.oto.ui.di
 
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
@@ -17,11 +17,13 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 /**
- * ViewModel definitions for every screen.
- * Each ViewModel receives its dependency-view interface through constructor injection.
+ * UI-owned Koin definitions for every screen ViewModel.
+ *
+ * The app shell imports this module as a composition-root contribution while the
+ * ViewModel classes and their constructor wiring remain owned by the UI module.
  */
 @OptIn(UnstableApi::class)
-internal object ViewModelModule {
+object ViewModelModule {
 
     val module: Module = module {
         viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get()) }

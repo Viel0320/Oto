@@ -12,7 +12,7 @@ class DetailSceneArchitectureTest {
 
     @Test
     fun detailViewModelConsumesDetailSceneDependenciesOnly() {
-        val detailViewModelSource = ArchitectureSourceRoots.appMainFile("ui/detail/DetailViewModel.kt").readText()
+        val detailViewModelSource = ArchitectureSourceRoots.uiMainFile("ui/detail/DetailViewModel.kt").readText()
 
         assertTrue(
             "DetailViewModel must not import the broad library facade.",
@@ -31,7 +31,7 @@ class DetailSceneArchitectureTest {
 
     @Test
     fun detailViewModelDoesNotDirectlyQueryFilesRootsOrAvailability() {
-        val detailViewModelSource = ArchitectureSourceRoots.appMainFile("ui/detail/DetailViewModel.kt").readText()
+        val detailViewModelSource = ArchitectureSourceRoots.uiMainFile("ui/detail/DetailViewModel.kt").readText()
 
         assertTrue(
             "DetailViewModel must not directly query source files, roots, or availability gateways.",

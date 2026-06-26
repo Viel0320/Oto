@@ -2,7 +2,6 @@ package com.viel.oto.architecture
 
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 /**
  * Pins feedback rendering to the Compose locale boundary.
@@ -31,12 +30,6 @@ class ShellFeedbackLocalizationArchitectureTest {
         )
     }
 
-    private fun resolveSourceRoot(): File {
-        val candidates = listOf(
-            File("src/main/java/com/viel/oto"),
-            File("app/src/main/java/com/viel/oto")
-        )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app source root for shell feedback localization test.")
-    }
+    private fun resolveSourceRoot() =
+        ArchitectureSourceRoots.uiMain()
 }

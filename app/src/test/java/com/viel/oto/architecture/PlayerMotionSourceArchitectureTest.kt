@@ -3,7 +3,6 @@ package com.viel.oto.architecture
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 /**
  * Locks direct playback away from mini-player motion.
@@ -75,12 +74,6 @@ class PlayerMotionSourceArchitectureTest {
         assertFalse(playerCoverSource.contains("effectiveGesturesEnabled"))
     }
 
-    private fun resolveSourceRoot(): File {
-        val candidates = listOf(
-            File("src/main/java/com/viel/oto"),
-            File("app/src/main/java/com/viel/oto")
-        )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app source root for player motion architecture test.")
-    }
+    private fun resolveSourceRoot() =
+        ArchitectureSourceRoots.uiMain()
 }

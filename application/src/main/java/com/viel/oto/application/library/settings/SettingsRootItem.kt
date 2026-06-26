@@ -1,5 +1,6 @@
 package com.viel.oto.application.library.settings
 
+import com.viel.oto.application.usecase.SettingsRootSourceKind
 import com.viel.oto.data.db.AudiobookSchema
 
 /**
@@ -21,12 +22,19 @@ data class SettingsRootItem(
     val importedBookCount: Int,
     val lastError: String? = null
 ) {
+    val sourceKind: SettingsRootSourceKind
+        get() = when (sourceType) {
+            AudiobookSchema.LibrarySourceType.SAF -> SettingsRootSourceKind.SAF
+            AudiobookSchema.LibrarySourceType.WEBDAV -> SettingsRootSourceKind.WEB_DAV
+            AudiobookSchema.LibrarySourceType.ABS -> SettingsRootSourceKind.ABS
+        }
+
     val isAbsRoot: Boolean
-        get() = sourceType == AudiobookSchema.LibrarySourceType.ABS
+        get() = sourceKind == SettingsRootSourceKind.ABS
     val isWebDavRoot: Boolean
-        get() = sourceType == AudiobookSchema.LibrarySourceType.WEBDAV
+        get() = sourceKind == SettingsRootSourceKind.WEB_DAV
     val isSafRoot: Boolean
-        get() = sourceType == AudiobookSchema.LibrarySourceType.SAF
+        get() = sourceKind == SettingsRootSourceKind.SAF
 }
 
 data class SettingsCredential(

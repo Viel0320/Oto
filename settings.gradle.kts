@@ -59,3 +59,6 @@ include(":widget")
 
 // Stage 7E Shared Module (Owns cross-layer utilities and the consolidated user-visible resource catalog)
 include(":shared")
+
+// Stage 7G UI Module (Owns Compose routes, screens, overlays, ViewModels, theme, and locale UI support)
+include(":ui")

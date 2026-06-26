@@ -12,7 +12,7 @@ class PlayerEditArchitectureTest {
 
     @Test
     fun playerAndEditUiCallersDoNotImportLibraryFacade() {
-        val sourceRoot = ArchitectureSourceRoots.appMain()
+        val sourceRoot = ArchitectureSourceRoots.uiMain()
         val guardedFiles = listOf(
             "ui/player/PlaybackViewModel.kt",
             "ui/player/BookmarkViewModel.kt",
@@ -33,7 +33,7 @@ class PlayerEditArchitectureTest {
 
     @Test
     fun playerViewModelsConsumePlayerSceneDependenciesOnly() {
-        val sourceRoot = ArchitectureSourceRoots.appMain()
+        val sourceRoot = ArchitectureSourceRoots.uiMain()
         val vms = listOf("PlaybackViewModel.kt", "BookmarkViewModel.kt", "PlayerSettingsViewModel.kt")
         vms.forEach { name ->
             val source = sourceRoot.resolve("ui/player/$name").readText()
@@ -58,7 +58,7 @@ class PlayerEditArchitectureTest {
 
     @Test
     fun editViewModelConsumesEditSceneDependenciesOnly() {
-        val editViewModelSource = ArchitectureSourceRoots.appMainFile("ui/edit/EditBookViewModel.kt").readText()
+        val editViewModelSource = ArchitectureSourceRoots.uiMainFile("ui/edit/EditBookViewModel.kt").readText()
 
         assertTrue(
             "EditBookViewModel must consume edit read and command scene interfaces.",
@@ -93,7 +93,7 @@ class PlayerEditArchitectureTest {
 
     @Test
     fun playerReadModelAndUiExposeSceneProjectionsInsteadOfRoomEntities() {
-        val sourceRoot = ArchitectureSourceRoots.appMain()
+        val sourceRoot = ArchitectureSourceRoots.uiMain()
         val applicationSourceRoot = ArchitectureSourceRoots.applicationMain()
         val playerInterfaceFiles = listOf(
             "application/library/player/PlayerLibraryReadModel.kt",
@@ -134,7 +134,7 @@ class PlayerEditArchitectureTest {
 
     @Test
     fun editReadModelAndUiExposeDraftsInsteadOfRoomEntities() {
-        val sourceRoot = ArchitectureSourceRoots.appMain()
+        val sourceRoot = ArchitectureSourceRoots.uiMain()
         val readModelSource = ArchitectureSourceRoots.applicationMainFile("application/library/edit/EditBookReadModel.kt").readText()
         val guardedUiFiles = listOf(
             "ui/edit/EditBookViewModel.kt",

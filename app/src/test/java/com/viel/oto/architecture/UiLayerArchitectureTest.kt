@@ -2,7 +2,6 @@ package com.viel.oto.architecture
 
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 class UiLayerArchitectureTest {
     /**
@@ -46,12 +45,6 @@ class UiLayerArchitectureTest {
     /**
      * Resolves the production source root from both repository-level and module-level Gradle test working directories.
      */
-    private fun resolveSourceRoot(): File {
-        val candidates = listOf(
-            File("src/main/java/com/viel/oto"),
-            File("app/src/main/java/com/viel/oto")
-        )
-        return candidates.firstOrNull { candidate -> candidate.exists() }
-            ?: error("Unable to locate app source root from ${File(".").absolutePath}")
-    }
+    private fun resolveSourceRoot() =
+        ArchitectureSourceRoots.uiMain()
 }

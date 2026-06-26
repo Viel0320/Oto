@@ -1,7 +1,7 @@
 package com.viel.oto.event.feedback
 
 import com.viel.oto.shared.R
-import com.viel.oto.data.db.AudiobookSchema
+import com.viel.oto.application.usecase.SettingsRootSourceKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
@@ -82,7 +82,7 @@ class LibraryAccessFeedbackFactsTest {
     fun `root removed maps source type to the user-visible access form`() {
         val identity = LibraryAccessFeedbackFacts.rootRemoved(
             rootId = "root-1",
-            sourceType = AudiobookSchema.LibrarySourceType.ABS,
+            sourceKind = SettingsRootSourceKind.ABS,
             playbackWasStopped = true
         ).outcome.identity
 

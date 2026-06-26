@@ -299,7 +299,7 @@ class RemoteConnectionViewModel(
                             rootId = inspection.reason.rootId,
                             detailMessage = FeedbackMessages.libraryRootUnavailableSync(
                                 rootName = inspection.reason.rootName,
-                                availabilityStatus = inspection.reason.availabilityStatus,
+                                availabilityStatus = inspection.reason.availabilityKind,
                                 fallbackCode = inspection.reason.fallbackCode
                             )
                         )
@@ -335,7 +335,7 @@ class RemoteConnectionViewModel(
             appEventSink.emitFeedback(
                 LibraryAccessFeedbackFacts.rootRemoved(
                     rootId = root.rootId,
-                    sourceType = root.sourceType,
+                    sourceKind = root.sourceKind,
                     playbackWasStopped = playbackWasStopped
                 )
             )

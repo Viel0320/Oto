@@ -2,7 +2,6 @@ package com.viel.oto.architecture
 
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 /**
  * Pins the custom Home filter control boundary.
@@ -50,12 +49,6 @@ class HomeFilterChipArchitectureTest {
         }
     }
 
-    private fun resolveSourceRoot(): File {
-        val candidates = listOf(
-            File("src/main/java/com/viel/oto"),
-            File("app/src/main/java/com/viel/oto")
-        )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app source root for Home filter chip architecture test.")
-    }
+    private fun resolveSourceRoot() =
+        ArchitectureSourceRoots.uiMain()
 }

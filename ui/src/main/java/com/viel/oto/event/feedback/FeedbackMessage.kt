@@ -3,7 +3,7 @@ package com.viel.oto.event.feedback
 import android.content.Context
 import com.viel.oto.shared.R
 import com.viel.oto.application.library.LibraryReadStatus
-import com.viel.oto.data.db.AudiobookSchema
+import com.viel.oto.application.usecase.SettingsRootAvailabilityKind
 import com.viel.oto.media.PlaybackSourcePreflightBlockReason
 
 /**
@@ -24,26 +24,26 @@ object FeedbackMessages {
 
     fun libraryRootUnavailableSync(
         rootName: String,
-        availabilityStatus: AudiobookSchema.AvailabilityStatus,
+        availabilityStatus: SettingsRootAvailabilityKind,
         fallbackCode: String
     ): FeedbackMessage {
         val args = listOf(rootName)
         return when (availabilityStatus) {
-            AudiobookSchema.AvailabilityStatus.REVOKED ->
+            SettingsRootAvailabilityKind.REVOKED ->
                 FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_revoked, args)
-            AudiobookSchema.AvailabilityStatus.AUTH_FAILED ->
+            SettingsRootAvailabilityKind.AUTH_FAILED ->
                 FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_auth_failed, args)
-            AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE ->
+            SettingsRootAvailabilityKind.NETWORK_UNAVAILABLE ->
                 FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_network_unavailable, args)
-            AudiobookSchema.AvailabilityStatus.TIMEOUT ->
+            SettingsRootAvailabilityKind.TIMEOUT ->
                 FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_timeout, args)
-            AudiobookSchema.AvailabilityStatus.NOT_FOUND ->
+            SettingsRootAvailabilityKind.NOT_FOUND ->
                 FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_not_found, args)
-            AudiobookSchema.AvailabilityStatus.PERMISSION_DENIED ->
+            SettingsRootAvailabilityKind.PERMISSION_DENIED ->
                 FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_permission_denied, args)
-            AudiobookSchema.AvailabilityStatus.SERVER_ERROR ->
+            SettingsRootAvailabilityKind.SERVER_ERROR ->
                 FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_server_error, args)
-            AudiobookSchema.AvailabilityStatus.UNSUPPORTED ->
+            SettingsRootAvailabilityKind.UNSUPPORTED ->
                 FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_unsupported, args)
             else ->
                 FeedbackMessage.Resource(R.string.feedback_sync_root_unavailable_status_code, listOf(rootName, fallbackCode))

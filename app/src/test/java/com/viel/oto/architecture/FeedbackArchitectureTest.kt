@@ -204,12 +204,6 @@ class FeedbackArchitectureTest {
     private fun productionSources(): List<File> =
         sourceRoot().walkTopDown().filter { file -> file.isFile && file.extension == "kt" }.toList()
 
-    private fun sourceRoot(): File {
-        val candidates = listOf(
-            File("src/main/java/com/viel/oto"),
-            File("app/src/main/java/com/viel/oto")
-        )
-        return candidates.firstOrNull { candidate -> candidate.isDirectory }
-            ?: error("Could not locate app source root for feedback architecture test.")
-    }
+    private fun sourceRoot(): File =
+        ArchitectureSourceRoots.uiMain()
 }

@@ -1,5 +1,7 @@
 package com.viel.oto.event.feedback
 
+import com.viel.oto.application.usecase.SettingsRootAvailabilityKind
+import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.event.AppEventSink
 import com.viel.oto.library.availability.LibraryRootAvailabilityUpdate
 import com.viel.oto.library.scan.ScanNotice
@@ -46,7 +48,7 @@ fun LibraryRootAvailabilityUpdate.toRootUnavailableFeedbackMessage(): FeedbackMe
     val rootName = root.displayName.ifBlank { root.sourceUri }
     return FeedbackMessages.libraryRootUnavailableSync(
         rootName = rootName,
-        availabilityStatus = availability.status,
+        availabilityStatus = availability.status.toSettingsRootAvailabilityKind(),
         fallbackCode = availability.errorCode ?: availability.status.name
     )
 }
@@ -60,7 +62,7 @@ private fun ScanNoticeMessage.toFeedbackMessage(): FeedbackMessage =
         ScanNoticeMessage.UnavailableRootsNone -> FeedbackMessages.libraryRootsUnavailableNone()
         is ScanNoticeMessage.UnavailableRoot -> FeedbackMessages.libraryRootUnavailableSync(
             rootName = rootName,
-            availabilityStatus = availabilityStatus,
+            availabilityStatus = availabilityStatus.toSettingsRootAvailabilityKind(),
             fallbackCode = fallbackCode
         )
         is ScanNoticeMessage.UnavailableRootCount -> FeedbackMessages.libraryRootsUnavailableSync(rootCount)
@@ -90,4 +92,18 @@ private fun ScanNoticeAccessForm.toFeedbackAccessForm(): LibraryAccessForm =
         ScanNoticeAccessForm.LOCAL_FOLDER -> LibraryAccessForm.LOCAL_FOLDER
         ScanNoticeAccessForm.WEBDAV -> LibraryAccessForm.WEBDAV
         ScanNoticeAccessForm.AUDIOBOOKSHELF -> LibraryAccessForm.AudiobookShelf
+    }
+
+private fun AudiobookSchema.AvailabilityStatus.toSettingsRootAvailabilityKind(): SettingsRootAvailabilityKind =
+    when (this) {
+        AudiobookSchema.AvailabilityStatus.AVAILABLE -> SettingsRootAvailabilityKind.AVAILABLE
+        AudiobookSchema.AvailabilityStatus.REVOKED -> SettingsRootAvailabilityKind.REVOKED
+        AudiobookSchema.AvailabilityStatus.AUTH_FAILED -> SettingsRootAvailabilityKind.AUTH_FAILED
+        AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE -> SettingsRootAvailabilityKind.NETWORK_UNAVAILABLE
+        AudiobookSchema.AvailabilityStatus.NOT_FOUND -> SettingsRootAvailabilityKind.NOT_FOUND
+        AudiobookSchema.AvailabilityStatus.PERMISSION_DENIED -> SettingsRootAvailabilityKind.PERMISSION_DENIED
+        AudiobookSchema.AvailabilityStatus.SERVER_ERROR -> SettingsRootAvailabilityKind.SERVER_ERROR
+        AudiobookSchema.AvailabilityStatus.TIMEOUT -> SettingsRootAvailabilityKind.TIMEOUT
+        AudiobookSchema.AvailabilityStatus.UNSUPPORTED -> SettingsRootAvailabilityKind.UNSUPPORTED
+        AudiobookSchema.AvailabilityStatus.UNKNOWN -> SettingsRootAvailabilityKind.UNKNOWN
     }

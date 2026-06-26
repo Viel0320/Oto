@@ -1,6 +1,6 @@
 package com.viel.oto.event.feedback
 
-import com.viel.oto.data.db.AudiobookSchema
+import com.viel.oto.application.usecase.SettingsRootSourceKind
 
 /**
  * Command-owner fact factory for library access outcomes.
@@ -125,12 +125,12 @@ object LibraryAccessFeedbackFacts {
     /** A registered root was deregistered from the library. */
     fun rootRemoved(
         rootId: String,
-        sourceType: AudiobookSchema.LibrarySourceType,
+        sourceKind: SettingsRootSourceKind,
         playbackWasStopped: Boolean
     ): FeedbackFact =
         rootChangeFact(
             message = FeedbackMessages.settingsLibraryRootRemoved(playbackWasStopped),
-            context = libraryRootContext(rootId, accessFormOf(sourceType)),
+            context = libraryRootContext(rootId, accessFormOf(sourceKind)),
             severity = FeedbackSeverity.COMPLETED
         )
 
@@ -227,12 +227,12 @@ object LibraryAccessFeedbackFacts {
     fun libraryRootContext(rootId: String, accessForm: LibraryAccessForm): FeedbackContext.LibraryRoot =
         FeedbackContext.LibraryRoot(rootId, accessForm)
 
-    /** Maps a persisted source type to the user-visible access form. */
-    fun accessFormOf(sourceType: AudiobookSchema.LibrarySourceType): LibraryAccessForm =
-        when (sourceType) {
-            AudiobookSchema.LibrarySourceType.SAF -> LibraryAccessForm.LOCAL_FOLDER
-            AudiobookSchema.LibrarySourceType.WEBDAV -> LibraryAccessForm.WEBDAV
-            AudiobookSchema.LibrarySourceType.ABS -> LibraryAccessForm.AudiobookShelf
+    /** Maps an application source kind to the user-visible access form. */
+    fun accessFormOf(sourceKind: SettingsRootSourceKind): LibraryAccessForm =
+        when (sourceKind) {
+            SettingsRootSourceKind.SAF -> LibraryAccessForm.LOCAL_FOLDER
+            SettingsRootSourceKind.WEB_DAV -> LibraryAccessForm.WEBDAV
+            SettingsRootSourceKind.ABS -> LibraryAccessForm.AudiobookShelf
         }
 
     private fun connectionTestFact(

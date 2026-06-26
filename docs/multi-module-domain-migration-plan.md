@@ -2,9 +2,9 @@
 
 ## 当前事实
 
-- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:media:playback`、`:media:service`、`:abs`、`:work:policy`、`:application`、`:event`、`:widget`。
-- `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 app-owned event adapter、app-owned widget adapter（`app/widget`）、`i18n`、`ui` 和组合根；`application` 已提升到 `application/src/main/java/com/viel/oto/application`，`event` 核心已提升到 `event/src/main/kotlin/com/viel/oto/event`，`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`，scan/import/root lifecycle/availability 已提升到 `library/import/src/main/java/com/viel/oto/library`，ABS 已提升到 `abs/src/main/java/com/viel/oto/abs`，Glance widget 已提升到 `widget/src/main/java/com/viel/oto/widget`。
-- 本次迁移后，app 内 `library`、`abs`、`application` 和 `widget` 生产 Kotlin 文件已清空（app 只保留 `app/widget` 下的 `AppPlaybackWidgetStateSink` adapter）；`:library:vfs` 维护 VFS/source provider，`:library:import` 维护 scan/import/root lifecycle/availability，`:media:metadata` 维护 parser/manifest/cover/subtitle parser，`:media:playback` 维护 playback plan/controller/data source/cache/session state 和 subtitle gateway，`:media:service` 维护 Media3 service、download service、audio focus 和通知 adapter，`:application` 维护 read model、command、use case、download orchestration 和 startup warmup seam，`:event` 维护 feedback delivery 核心契约，`:abs` 维护 ABS auth、DTO、client、sync、mapping、cover cache、progress sync 和 ABS VFS Adapter，`:data:store` 继续维护 Room、DataStore 和持久化 gateway，`:widget` 维护 Glance widget render/receiver/state。
+- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:media:playback`、`:media:service`、`:abs`、`:work:policy`、`:application`、`:event`、`:widget`、`:shared`、`:ui`。
+- `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 app-owned event adapter、app-owned widget adapter（`app/widget`）、app-owned playback presentation adapter 和组合根；`application` 已提升到 `application/src/main/java/com/viel/oto/application`，`event` 核心已提升到 `event/src/main/kotlin/com/viel/oto/event`，`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`，scan/import/root lifecycle/availability 已提升到 `library/import/src/main/java/com/viel/oto/library`，ABS 已提升到 `abs/src/main/java/com/viel/oto/abs`，Glance widget 已提升到 `widget/src/main/java/com/viel/oto/widget`，Compose UI、i18n、ViewModel Koin 定义和 UI feedback resource adapter 已提升到 `ui/src/main/java/com/viel/oto`。
+- 本次迁移后，app 内 `library`、`abs`、`application`、`widget`、`i18n` 和 `ui` 生产 Kotlin 文件已清空（app 只保留 app-owned adapter 与组合根）；`:library:vfs` 维护 VFS/source provider，`:library:import` 维护 scan/import/root lifecycle/availability，`:media:metadata` 维护 parser/manifest/cover/subtitle parser，`:media:playback` 维护 playback plan/controller/data source/cache/session state 和 subtitle gateway，`:media:service` 维护 Media3 service、download service、audio focus 和通知 adapter，`:application` 维护 read model、command、use case、download orchestration 和 startup warmup seam，`:event` 维护 feedback delivery 核心契约，`:ui` 维护 Compose route/screen/overlay/ViewModel/theme/i18n 和资源化 feedback presentation adapter，`:abs` 维护 ABS auth、DTO、client、sync、mapping、cover cache、progress sync 和 ABS VFS Adapter，`:data:store` 继续维护 Room、DataStore 和持久化 gateway，`:widget` 维护 Glance widget render/receiver/state。
 - `settings/model`、`network/policy`、`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability`、`library/vfs` 和 `media/metadata` 已是 Android library Module，继续保留 `com.viel.oto.logger`、`com.viel.oto.library.vfs`、`com.viel.oto.media.parser`、`com.viel.oto.media.manifest` 和 `com.viel.oto.media.subtitle` 包名供现有调用点使用。
 - ABS Room 持久化文件当前位于 `data/store/src/main/java/com/viel/oto/data/abs/playback` 和 `data/store/src/main/java/com/viel/oto/data/abs/sync`，`AppDatabase` 已从 `data.abs.*` 导入这些 DAO/Entity。
 - Koin 入口集中在 `OtoKoinApplication`，关闭顺序由 `GraphClosePolicy` 固定为 `media -> download -> abs -> library -> uiEvents -> data`。
@@ -14,7 +14,7 @@
   - `library` 已移除对 `abs` 的生产源码直接引用，VFS 已进入 `:library:vfs`，metadata parser/manifest 已进入 `:media:metadata`，scan/import/root lifecycle/availability 已进入 `:library:import`。
   - `media` 已拆出 `:media:metadata`、`:media:playback` 和 `:media:service`；app 内剩余 `media/subtitle` implementation 仍等待后续 app/runtime adapter 收口。
   - `logger` 已物理迁出 app，多数领域仍直接依赖具体 logger，后续需要继续收敛为窄 observability Interface。
-  - app-owned event adapter 仍引用 `application`、`data`、`media`、`R`，`:event` 只维护反馈消息载体、交付策略和 app shell event stream。
+  - app-owned event adapter 仍引用 ABS、library 和 data scan/sync 输入事实；资源化 feedback message factory 与 Compose rendering adapter 已随 `:ui` 维护，`:event` 只维护反馈消息载体、交付策略和 app shell event stream。
 
 本计划先清理这些反向依赖，再把现有包提升为 Gradle Module。迁移目标不是增加一个总控 Module，而是让每个领域 Module 持有自己的 Interface、Implementation、测试和 Koin Adapter。
 
@@ -298,7 +298,7 @@ flowchart TD
 - 已落地 7B：settings root formatter 不再 import data schema，UI 只消费 `LibraryRootSettingsSnapshot` 暴露的 settings source/status/availability 语义。
 - 已落地 7C：新增纯 Kotlin `:event`，移动 `AppEventSink`、`AppShellEvent`、`FeedbackMessage`、`FeedbackFact`、feedback outcome/identity、交付结果和 `FeedbackDeliveryPolicy`。
 - 已落地 7C：资源字符串工厂、`FeedbackMessage.render(Context)`、ABS sync feedback adapter、scan notice feedback adapter 和 playback domain event bridge 仍保留在 app-owned event adapter，避免 `:event` 直接依赖 Android `R`、ABS、library、media、data 或 application。
-- 后续新增 `:ui`，移动 Compose route/screen/overlay/ViewModel/theme/i18n。
+- 已落地 7G：新增 `:ui` Android library Module，移动 Compose route/screen/overlay/ViewModel/theme/i18n、UI JVM tests 和 Compose instrumentation tests。
 - 已落地 7D：新增 `:widget` Android library Module，移动 `PlayerWidget`、`PlayerWidgetReceiver`、`PlayerWidgetActionReceiver`、`PlayerWidgetStateHelper`、`PlayerWidgetPlaybackPresentation`、`WidgetCoverArtRenderer`、`WidgetSeekStepPresentation` 和 widget drawable/layout/xml/string 资源，widget receiver 声明移入 `:widget` manifest 由 manifest merge 合入 app。
 - 已落地 7D：`media:service` 通过 `PlaybackWidgetStateSink` 投递快照，app composition root 持有 `AppPlaybackWidgetStateSink`（位于 app-owned `app.widget` 包）把快照路由进 widget 模块的 Glance store，`:widget` 不反向依赖 `:app`、media service 或 ui。
 - 已落地 7D：widget 模块自带各 locale 副本；app 内 `player_widget_*` string 和 widget 专用 drawable/layout/xml 死资源已清理。7D 暂留在 app 的共享 string 已在 7E 迁入 `:shared`。
@@ -306,7 +306,8 @@ flowchart TD
 - 已落地 7E：UI、app-owned event adapter、download notification resource adapter 和相关测试改为引用 `com.viel.oto.shared.R`；架构 baseline 移除 `app/event/ui -> R` 资源边，保留明确的 `app/event/ui -> shared` 边。
 - 已落地 7F 预备切片：`MainActivity` 作为 app shell 读取 `BuildConfig.VERSION_NAME` 和 AboutLibraries raw 资源，并把版本号和已解析 license 列表传入 `OtoApp`；`AboutLibrariesScreen` 不再 import app `BuildConfig` 或 app `R`。
 - 已落地 7F 预备切片：架构 baseline 移除 `ui -> BuildConfig`，后续 `:ui` 抽取只需要继续处理 UI 对 app composition root、DI 和 app-owned adapter 的剩余引用。
-- 后续将 `ViewModelModule` 移到 `:ui`。widget receiver 由 manifest 声明，`:widget` 当前无 Koin 定义。
+- 已落地 7G：`ViewModelModule` 归 `:ui` 维护，app composition root 只导入 `com.viel.oto.ui.di.ViewModelModule`；widget receiver 由 manifest 声明，`:widget` 当前无 Koin 定义。
+- 已落地 7G：UI feedback resource factory 和 `FeedbackMessage.render(Context)` 归 `:ui` 维护，并通过 application 层 `SettingsRootAvailabilityKind`、`SettingsRootSourceKind` 避免 `:ui` 直接 import data schema。
 - UI 继续只通过 application command/read model、event sink 和 media playback Interface 交互。
 
 验收：

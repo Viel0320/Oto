@@ -111,7 +111,7 @@ class UserVisibleStringResourceTest {
 
     @Test
     fun settingsComponentCopyUsesResourceLookups() {
-        val violations = kotlinSourceFiles(repoFile("app/src/main/java/com/viel/oto/ui/settings/components"))
+        val violations = kotlinSourceFiles(repoFile("ui/src/main/java/com/viel/oto/ui/settings/components"))
             .flatMap { file ->
                 val text = file.readText(Charsets.UTF_8).substringBefore("@Preview")
                 settingsComponentHardCodedCopyRegex.findAll(text).map { match ->
@@ -130,7 +130,7 @@ class UserVisibleStringResourceTest {
 
     @Test
     fun editScreenSavePathDoesNotPersistEnglishUnknownFallback() {
-        val source = repoFile("app/src/main/java/com/viel/oto/ui/edit/EditBookScreen.kt")
+        val source = repoFile("ui/src/main/java/com/viel/oto/ui/edit/EditBookScreen.kt")
             .readText(Charsets.UTF_8)
             .substringBefore("@Preview")
 
@@ -187,16 +187,16 @@ class UserVisibleStringResourceTest {
 
     private fun guardedSourceFiles(): List<File> =
         listOf(
-            "app/src/main/java/com/viel/oto/ui/settings/SleepTimerManager.kt",
-            "app/src/main/java/com/viel/oto/ui/settings/components/SettingsSections.kt",
-            "app/src/main/java/com/viel/oto/ui/settings/SettingsViewModel.kt",
-            "app/src/main/java/com/viel/oto/ui/player/PlaybackViewModel.kt",
-            "app/src/main/java/com/viel/oto/ui/player/BookmarkViewModel.kt",
-            "app/src/main/java/com/viel/oto/ui/player/PlayerSettingsViewModel.kt",
-            "app/src/main/java/com/viel/oto/ui/player/components/PlaybackControls.kt",
-            "app/src/main/java/com/viel/oto/ui/player/components/RelatedBooksView.kt",
-            "app/src/main/java/com/viel/oto/ui/home/LibraryViewModel.kt",
-            "app/src/main/java/com/viel/oto/ui/player/components/ChapterList.kt",
+            "ui/src/main/java/com/viel/oto/ui/settings/SleepTimerManager.kt",
+            "ui/src/main/java/com/viel/oto/ui/settings/components/SettingsSections.kt",
+            "ui/src/main/java/com/viel/oto/ui/settings/SettingsViewModel.kt",
+            "ui/src/main/java/com/viel/oto/ui/player/PlaybackViewModel.kt",
+            "ui/src/main/java/com/viel/oto/ui/player/BookmarkViewModel.kt",
+            "ui/src/main/java/com/viel/oto/ui/player/PlayerSettingsViewModel.kt",
+            "ui/src/main/java/com/viel/oto/ui/player/components/PlaybackControls.kt",
+            "ui/src/main/java/com/viel/oto/ui/player/components/RelatedBooksView.kt",
+            "ui/src/main/java/com/viel/oto/ui/home/LibraryViewModel.kt",
+            "ui/src/main/java/com/viel/oto/ui/player/components/ChapterList.kt",
             "widget/src/main/java/com/viel/oto/widget/PlayerWidget.kt",
             "media/service/src/main/java/com/viel/oto/media/service/PlaybackService.kt",
             "abs/src/main/java/com/viel/oto/abs/sync/AbsSyncTaskCoordinator.kt",
@@ -207,13 +207,13 @@ class UserVisibleStringResourceTest {
 
     private fun detailComponentSourceFiles(): List<File> =
         listOf(
-            "app/src/main/java/com/viel/oto/ui/detail/components/DetailHeader.kt",
-            "app/src/main/java/com/viel/oto/ui/detail/components/DetailControlPanel.kt"
+            "ui/src/main/java/com/viel/oto/ui/detail/components/DetailHeader.kt",
+            "ui/src/main/java/com/viel/oto/ui/detail/components/DetailControlPanel.kt"
         ).map(::repoFile)
 
     private fun relatedBooksComponentSourceFiles(): List<File> =
         listOf(
-            "app/src/main/java/com/viel/oto/ui/player/components/RelatedBooksView.kt"
+            "ui/src/main/java/com/viel/oto/ui/player/components/RelatedBooksView.kt"
         ).map(::repoFile)
 
     private data class ForbiddenPattern(
@@ -313,17 +313,17 @@ class UserVisibleStringResourceTest {
         )
 
         private val commonMojibakeMarkers = listOf(
-            "锛",
-            "绛",
-            "瀹",
-            "濯",
-            "脗",
-            "脙",
-            "芒",
-            "鐗",
-            "杩",
-            "鍓",
-            "閿",
+            "髞?",
+            "扈?",
+            "轢?",
+            "豼?",
+            "閼?",
+            "閼?",
+            "闃?",
+            "髏?",
+            "譚?",
+            "骰?",
+            "髢?",
             "\uFFFD"
         )
 

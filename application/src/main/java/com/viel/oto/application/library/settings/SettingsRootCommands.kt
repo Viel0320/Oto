@@ -1,6 +1,7 @@
 package com.viel.oto.application.library.settings
 
 import android.net.Uri
+import com.viel.oto.application.usecase.SettingsRootAvailabilityKind
 import com.viel.oto.data.db.AudiobookSchema
 
 /**
@@ -29,7 +30,21 @@ data class SettingsAbsSyncBlockedReason(
     val rootName: String,
     val availabilityStatus: AudiobookSchema.AvailabilityStatus,
     val fallbackCode: String
-)
+) {
+    val availabilityKind: SettingsRootAvailabilityKind
+        get() = when (availabilityStatus) {
+            AudiobookSchema.AvailabilityStatus.AVAILABLE -> SettingsRootAvailabilityKind.AVAILABLE
+            AudiobookSchema.AvailabilityStatus.REVOKED -> SettingsRootAvailabilityKind.REVOKED
+            AudiobookSchema.AvailabilityStatus.AUTH_FAILED -> SettingsRootAvailabilityKind.AUTH_FAILED
+            AudiobookSchema.AvailabilityStatus.NETWORK_UNAVAILABLE -> SettingsRootAvailabilityKind.NETWORK_UNAVAILABLE
+            AudiobookSchema.AvailabilityStatus.NOT_FOUND -> SettingsRootAvailabilityKind.NOT_FOUND
+            AudiobookSchema.AvailabilityStatus.PERMISSION_DENIED -> SettingsRootAvailabilityKind.PERMISSION_DENIED
+            AudiobookSchema.AvailabilityStatus.SERVER_ERROR -> SettingsRootAvailabilityKind.SERVER_ERROR
+            AudiobookSchema.AvailabilityStatus.TIMEOUT -> SettingsRootAvailabilityKind.TIMEOUT
+            AudiobookSchema.AvailabilityStatus.UNSUPPORTED -> SettingsRootAvailabilityKind.UNSUPPORTED
+            AudiobookSchema.AvailabilityStatus.UNKNOWN -> SettingsRootAvailabilityKind.UNKNOWN
+        }
+}
 
 /**
  * Scene-level root management surface.

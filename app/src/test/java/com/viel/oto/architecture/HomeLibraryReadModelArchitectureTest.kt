@@ -12,7 +12,7 @@ class HomeLibraryReadModelArchitectureTest {
 
     @Test
     fun libraryViewModelDependsOnHomeSceneInterfacesOnly() {
-        val libraryViewModelSource = ArchitectureSourceRoots.appMainFile("ui/home/LibraryViewModel.kt").readText()
+        val libraryViewModelSource = ArchitectureSourceRoots.uiMainFile("ui/home/LibraryViewModel.kt").readText()
 
         assertTrue(
             "LibraryViewModel must consume raw HomeLibraryReadModel streams instead of the full LibraryFacade bus.",
@@ -82,7 +82,7 @@ class HomeLibraryReadModelArchitectureTest {
 
     @Test
     fun homeUiConsumesHomeBookProjectionInsteadOfRoomEntities() {
-        val sourceRoot = ArchitectureSourceRoots.appMain()
+        val sourceRoot = ArchitectureSourceRoots.uiMain()
         val homeUiFiles = sourceRoot.resolve("ui/home")
             .walkTopDown()
             .filter { file -> file.isFile && file.name.endsWith(".kt") }

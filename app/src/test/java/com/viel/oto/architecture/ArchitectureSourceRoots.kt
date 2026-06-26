@@ -23,6 +23,18 @@ internal object ArchitectureSourceRoots {
         )
     )
 
+    /**
+     * Resolves the extracted UI module so architecture guards keep following Compose code after it
+     * leaves the app source set.
+     */
+    fun uiMain(): File = resolveRequiredRoot(
+        description = "ui main source root",
+        candidates = listOf(
+            File("../ui/src/main/java/com/viel/oto"),
+            File("ui/src/main/java/com/viel/oto")
+        )
+    )
+
     fun appTest(): File = resolveRequiredRoot(
         description = "app test source root",
         candidates = listOf(
@@ -66,6 +78,8 @@ internal object ArchitectureSourceRoots {
     fun appMainFile(relativePath: String): File = appMain().resolve(relativePath)
 
     fun applicationMainFile(relativePath: String): File = applicationMain().resolve(relativePath)
+
+    fun uiMainFile(relativePath: String): File = uiMain().resolve(relativePath)
 
     fun eventMainFile(relativePath: String): File = eventMain().resolve(relativePath)
 

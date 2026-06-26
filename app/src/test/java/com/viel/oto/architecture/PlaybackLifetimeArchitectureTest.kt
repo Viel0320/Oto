@@ -88,7 +88,7 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun playerSceneUsesPlaybackControllerInsteadOfMediaSingletons() {
-        val sourceRoot = ArchitectureSourceRoots.appMain()
+        val sourceRoot = ArchitectureSourceRoots.uiMain()
         val guardedUiFiles = listOf(
             "ui/player/PlaybackViewModel.kt",
             "ui/player/BookmarkViewModel.kt",
@@ -133,14 +133,14 @@ class PlaybackLifetimeArchitectureTest {
             }
         )
 
-        val mediaPlaybackControllerModule = sourceRoot.resolve("di/MediaPlaybackControllerModule.kt").readText()
+        val mediaPlaybackControllerModule = ArchitectureSourceRoots.appMainFile("di/MediaPlaybackControllerModule.kt").readText()
 
         assertTrue(mediaPlaybackControllerModule.contains("PlayerPlaybackController"))
     }
 
     @Test
     fun coldStartRestoreBuildsRealPlaybackPlanInsteadOfPreviewOnlyState() {
-        val playbackViewModel = ArchitectureSourceRoots.appMainFile("ui/player/PlaybackViewModel.kt").readText()
+        val playbackViewModel = ArchitectureSourceRoots.uiMainFile("ui/player/PlaybackViewModel.kt").readText()
 
         assertTrue(
             "Cold-start restore must load the real media source without starting playback.",
@@ -156,7 +156,7 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun playerOverlayDoesNotCollectFullPlaybackStateForProgressTicks() {
-        val sourceRoot = ArchitectureSourceRoots.appMain()
+        val sourceRoot = ArchitectureSourceRoots.uiMain()
         val playerOverlay = sourceRoot.resolve("ui/player/PlayerOverlay.kt").readText()
         val playbackViewModel = sourceRoot.resolve("ui/player/PlaybackViewModel.kt").readText()
 
