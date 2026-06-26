@@ -193,7 +193,7 @@ flowchart TD
 - schema export 仍写入现有 `app/schemas` 路径，避免迁移期间改写 release policy。
 - `CoreDataModule` 已移入 `:data:store`，只暴露该 Module 的 Koin Module。
 - `:app` 已通过 Gradle dependency 使用 `:data:store`。
-- `AppSettingsRepository` 保持 data-owned DataStore repository，application 设置合约由 `RepositoryAppSettingsAdapter` 在 app 侧适配。
+- `AppSettingsRepository` 保持 data-owned DataStore repository，application 设置合约由 `RepositoryAppSettingsAdapter` 在 `:application` 侧适配。
 - app 侧暂时保留 `ksp(libs.androidx.room.compiler)` 作为 KSP processor classpath 兼容项，直到 Moshi DTO 随 ABS Module 拆出。
 
 验收：
@@ -340,6 +340,7 @@ flowchart TD
 - 已落地 8D：`LibraryUseCaseModule` 随播放计划、进度、搜索历史和 library 管理 use case 绑定迁入 `:application`，关闭注册继续通过 `:runtime:lifecycle` 的 `GraphClosePolicy` 执行。
 - 已落地 8E：`AppMediaServiceLaunchIntentFactory` 从 app `di` 包迁入 app-owned playback adapter 包；`MediaModule` 只绑定 `MediaServiceLaunchIntentFactory` 契约，不再直接命名 `MainActivity`。
 - 已落地 8F：`MediaPlaybackControllerModule` 随 `PlayerPlaybackController` 场景绑定迁入 `:application`；app composition root 继续聚合同名 Koin Module，不再持有播放器场景控制器定义。
+- 已落地 8G：`CoreSettingsModule` 随 settings read/command Adapter 迁入 `:application`；`DownloadRuntimeInitializedFlag` 作为 application download seam 暴露给 app 下载 runtime 更新，settings 命令不再由 app `di` 持有。
 
 验收：
 

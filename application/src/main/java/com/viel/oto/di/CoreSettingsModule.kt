@@ -2,6 +2,7 @@ package com.viel.oto.di
 
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import com.viel.oto.application.download.DownloadRuntimeInitializedFlag
 import com.viel.oto.application.download.DownloadRuntimeGateway
 import com.viel.oto.application.library.settings.AppSettingsCommands
 import com.viel.oto.application.library.settings.AppSettingsReadModel
@@ -19,7 +20,7 @@ import org.koin.dsl.module
  * contracts, then wraps commands that need to notify an already-created download runtime.
  */
 @OptIn(UnstableApi::class)
-internal object CoreSettingsModule {
+object CoreSettingsModule {
 
     val module: Module = module {
         single { RepositoryAppSettingsAdapter(get<AppSettingsRepository>()) } bind AppSettingsReadModel::class
@@ -31,13 +32,4 @@ internal object CoreSettingsModule {
             )
         }
     }
-}
-
-/**
- * Lazy flag that mirrors DownloadGraph.isDownloadRuntimeInitialized.
- * Exposed as a Koin single so DownloadAwareAppSettingsCommands can observe download runtime state.
- */
-internal class DownloadRuntimeInitializedFlag {
-    @Volatile
-    var value: Boolean = false
 }

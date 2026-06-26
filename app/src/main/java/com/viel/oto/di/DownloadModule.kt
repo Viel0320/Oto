@@ -23,6 +23,7 @@ import com.viel.oto.app.download.AppManualDownloadNotificationGateway
 import com.viel.oto.application.download.DownloadProgressPoller
 import com.viel.oto.application.download.DownloadRecoveryService
 import com.viel.oto.application.download.DownloadRequestRepairer
+import com.viel.oto.application.download.DownloadRuntimeInitializedFlag
 import com.viel.oto.application.download.DownloadRuntimeGateway
 import com.viel.oto.application.download.DownloadSyncListener
 import com.viel.oto.application.download.DownloadSyncService
