@@ -1,6 +1,8 @@
 @file:Suppress("UnstableApiUsage")
 
 pluginManagement {
+    // Convention Plugins (Shared Android library, Kotlin JVM target, and test wiring live in build-logic)
+    includeBuild("build-logic")
     repositories {
         google {
             content {

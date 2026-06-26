@@ -1,34 +1,16 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
-    alias(libs.plugins.android.library)
+    id("oto.android.library")
 }
 
 // Media Service Module (Owns Media3 services, foreground notifications, audio focus, and service adapters)
 android {
     namespace = "com.viel.oto.media.service"
-    compileSdk = 37
-
-    defaultConfig {
-        minSdk = 33
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
-    }
 
     testOptions {
         unitTests {
             // Service policy tests stay on JVM while Android resources are packaged for Robolectric-ready cases.
             isIncludeAndroidResources = true
         }
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_21)
     }
 }
 

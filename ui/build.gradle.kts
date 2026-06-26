@@ -1,7 +1,5 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
-    alias(libs.plugins.android.library)
+    id("oto.android.library")
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
@@ -9,16 +7,9 @@ plugins {
 // UI Module (Owns Compose routes, screens, overlays, ViewModels, theme, and app locale UI support)
 android {
     namespace = "com.viel.oto.ui"
-    compileSdk = 37
 
     defaultConfig {
-        minSdk = 33
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
     }
 
     buildFeatures {
@@ -30,12 +21,6 @@ android {
             // UI resource tests exercise Compose/resource-backed formatting on the JVM.
             isIncludeAndroidResources = true
         }
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_21)
     }
 }
 

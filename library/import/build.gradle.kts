@@ -1,34 +1,16 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
-    alias(libs.plugins.android.library)
+    id("oto.android.library")
 }
 
 // Library Import Module (Owns scanning, import orchestration, source-root lifecycle, and availability checks)
 android {
     namespace = "com.viel.oto.library.importing"
-    compileSdk = 37
-
-    defaultConfig {
-        minSdk = 33
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
-    }
 
     testOptions {
         unitTests {
             // Library root and scan tests exercise Android context, URI, WorkManager, and DataStore behavior through Robolectric.
             isIncludeAndroidResources = true
         }
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_21)
     }
 }
 

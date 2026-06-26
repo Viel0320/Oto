@@ -42,6 +42,9 @@ koin = "4.2.2"
 
 
 [libraries]
+# Gradle Plugin Artifacts For build-logic Convention Plugins (Let precompiled script plugins apply AGP and Kotlin without hardcoded versions)
+android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
+kotlin-gradlePlugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

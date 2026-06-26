@@ -1,35 +1,17 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
-    alias(libs.plugins.android.library)
+    id("oto.android.library")
     alias(libs.plugins.ksp)
 }
 
 // ABS Module (Owns AudiobookShelf protocol mapping, sync, auth, progress, cover cache, and VFS adapter)
 android {
     namespace = "com.viel.oto.abs"
-    compileSdk = 37
-
-    defaultConfig {
-        minSdk = 33
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
-    }
 
     testOptions {
         unitTests {
             // ABS tests exercise DataStore, Android context, WorkManager-facing worker seams, and protocol resources through Robolectric-ready JVM tests.
             isIncludeAndroidResources = true
         }
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_21)
     }
 }
 
