@@ -1,6 +1,5 @@
 package com.viel.oto.event.feedback
 
-import com.viel.oto.R
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -123,7 +122,7 @@ class FeedbackDeliveryPolicyTest {
         severity: FeedbackSeverity,
         lifecycle: FeedbackLifecycle
     ) = FeedbackFact(
-        message = FeedbackMessages.playbackBookmarkCreated(),
+        message = testMessage(),
         outcome = FeedbackOutcome(
             identity = FeedbackAggregationIdentity(
                 category = FeedbackCategory.PLAYBACK_CONTROL,
@@ -136,7 +135,7 @@ class FeedbackDeliveryPolicyTest {
     )
 
     private fun downloadFinal(severity: FeedbackSeverity) = FeedbackFact(
-        message = FeedbackMessage.Resource(R.string.feedback_download_cache_deleted),
+        message = testMessage(),
         outcome = FeedbackOutcome(
             identity = FeedbackAggregationIdentity(
                 category = FeedbackCategory.DOWNLOAD_CACHE,
@@ -151,5 +150,8 @@ class FeedbackDeliveryPolicyTest {
     companion object {
         private const val HOLD = 350L
         private const val MERGE = 1_000L
+        private const val TEST_MESSAGE_KEY = 1
     }
+
+    private fun testMessage() = FeedbackMessage.Resource(TEST_MESSAGE_KEY)
 }

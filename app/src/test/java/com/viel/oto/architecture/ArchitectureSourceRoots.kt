@@ -39,9 +39,35 @@ internal object ArchitectureSourceRoots {
         )
     )
 
+    /**
+     * Resolves the extracted event module so architecture guards keep scanning feedback delivery
+     * contracts after they leave the app source set.
+     */
+    fun eventMain(): File = resolveRequiredRoot(
+        description = "event main source root",
+        candidates = listOf(
+            File("../event/src/main/kotlin/com/viel/oto"),
+            File("event/src/main/kotlin/com/viel/oto")
+        )
+    )
+
+    /**
+     * Resolves event module tests for future guards that compare production and test feedback roots
+     * during staged extraction.
+     */
+    fun eventTest(): File = resolveRequiredRoot(
+        description = "event test source root",
+        candidates = listOf(
+            File("../event/src/test/kotlin/com/viel/oto"),
+            File("event/src/test/kotlin/com/viel/oto")
+        )
+    )
+
     fun appMainFile(relativePath: String): File = appMain().resolve(relativePath)
 
     fun applicationMainFile(relativePath: String): File = applicationMain().resolve(relativePath)
+
+    fun eventMainFile(relativePath: String): File = eventMain().resolve(relativePath)
 
     private fun resolveRequiredRoot(description: String, candidates: List<File>): File =
         candidates.firstOrNull { candidate -> candidate.isDirectory }

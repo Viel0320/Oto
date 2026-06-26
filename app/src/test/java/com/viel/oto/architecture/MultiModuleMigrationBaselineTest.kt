@@ -119,7 +119,9 @@ class MultiModuleMigrationBaselineTest {
             File("../work/policy/src/main/java/com/viel/oto"),
             File("work/policy/src/main/java/com/viel/oto"),
             File("../application/src/main/java/com/viel/oto"),
-            File("application/src/main/java/com/viel/oto")
+            File("application/src/main/java/com/viel/oto"),
+            File("../event/src/main/kotlin/com/viel/oto"),
+            File("event/src/main/kotlin/com/viel/oto")
         )
         return candidates
             .filter { candidate -> candidate.isDirectory }

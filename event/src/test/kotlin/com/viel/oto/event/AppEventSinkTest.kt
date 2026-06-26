@@ -7,12 +7,11 @@ import com.viel.oto.event.feedback.FeedbackContext
 import com.viel.oto.event.feedback.FeedbackDeliveryResult
 import com.viel.oto.event.feedback.FeedbackFact
 import com.viel.oto.event.feedback.FeedbackLifecycle
-import com.viel.oto.event.feedback.FeedbackMessages
+import com.viel.oto.event.feedback.FeedbackMessage
 import com.viel.oto.event.feedback.FeedbackOutcome
 import com.viel.oto.event.feedback.FeedbackRenderMode
 import com.viel.oto.event.feedback.FeedbackSeverity
 import com.viel.oto.event.feedback.FeedbackTopic
-import com.viel.oto.event.feedback.RecoveryFeedbackFacts
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -94,7 +93,7 @@ class AppEventSinkTest {
         backgroundScope.launch { sink.events.toList(received) }
         runCurrent()
 
-        val result = sink.emitFeedback(RecoveryFeedbackFacts.trackUnavailable("book-1", 2))
+        val result = sink.emitFeedback(dialogFinal())
         runCurrent()
 
         assertTrue(result is FeedbackDeliveryResult.Delivered)
@@ -110,8 +109,8 @@ class AppEventSinkTest {
         backgroundScope.launch { sink.events.toList(received) }
         runCurrent()
 
-        assertTrue(sink.emitFeedback(RecoveryFeedbackFacts.trackUnavailable("book-1", 2)) is FeedbackDeliveryResult.Delivered)
-        assertTrue(sink.emitFeedback(RecoveryFeedbackFacts.trackUnavailable("book-1", 2)) is FeedbackDeliveryResult.Merged)
+        assertTrue(sink.emitFeedback(dialogFinal()) is FeedbackDeliveryResult.Delivered)
+        assertTrue(sink.emitFeedback(dialogFinal()) is FeedbackDeliveryResult.Merged)
         runCurrent()
 
         assertEquals(1, received.size)
@@ -143,7 +142,7 @@ class AppEventSinkTest {
     private fun speedFinal() = playbackControl(FeedbackLifecycle.FINAL)
 
     private fun playbackControl(lifecycle: FeedbackLifecycle) = FeedbackFact(
-        message = FeedbackMessages.playbackBookmarkCreated(),
+        message = testMessage(),
         outcome = FeedbackOutcome(
             identity = FeedbackAggregationIdentity(
                 category = FeedbackCategory.PLAYBACK_CONTROL,
@@ -156,7 +155,7 @@ class AppEventSinkTest {
     )
 
     private fun downloadFinal() = FeedbackFact(
-        message = FeedbackMessages.playbackBookmarkCreated(),
+        message = testMessage(),
         outcome = FeedbackOutcome(
             identity = FeedbackAggregationIdentity(
                 category = FeedbackCategory.DOWNLOAD_CACHE,
@@ -168,8 +167,22 @@ class AppEventSinkTest {
         )
     )
 
+    private fun dialogFinal() = FeedbackFact(
+        message = FeedbackMessage.PlaybackTrackUnavailable(bookId = "book-1", queueIndex = 2),
+        outcome = FeedbackOutcome(
+            identity = FeedbackAggregationIdentity(
+                category = FeedbackCategory.RECOVERY,
+                topic = FeedbackTopic.PlaybackContentAvailability,
+                context = FeedbackContext.PlaybackContent(bookId = "book-1", queueIndex = 2)
+            ),
+            severity = FeedbackSeverity.BLOCKED,
+            lifecycle = FeedbackLifecycle.FINAL
+        ),
+        renderMode = FeedbackRenderMode.DIALOG
+    )
+
     private fun dialogProvisional() = FeedbackFact(
-        message = FeedbackMessages.playbackBookmarkCreated(),
+        message = testMessage(),
         outcome = FeedbackOutcome(
             identity = FeedbackAggregationIdentity(
                 category = FeedbackCategory.RECOVERY,
@@ -181,4 +194,10 @@ class AppEventSinkTest {
         ),
         renderMode = FeedbackRenderMode.DIALOG
     )
+
+    private fun testMessage() = FeedbackMessage.Resource(TEST_MESSAGE_KEY)
+
+    private companion object {
+        const val TEST_MESSAGE_KEY = 1
+    }
 }

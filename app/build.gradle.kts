@@ -185,6 +185,7 @@ dependencies {
     implementation(project(":abs"))
     implementation(project(":work:policy"))
     implementation(project(":application"))
+    implementation(project(":event"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

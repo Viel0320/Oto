@@ -2,9 +2,9 @@
 
 ## 当前事实
 
-- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:media:playback`、`:media:service`、`:abs`、`:work:policy`、`:application`。
-- `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 `event`、`i18n`、`ui`、`widget` 和 app-owned adapter；`application` 已提升到 `application/src/main/java/com/viel/oto/application`，`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`，scan/import/root lifecycle/availability 已提升到 `library/import/src/main/java/com/viel/oto/library`，ABS 已提升到 `abs/src/main/java/com/viel/oto/abs`。
-- 本次迁移后，app 内 `library`、`abs` 和 `application` 生产 Kotlin 文件已清空；`:library:vfs` 维护 VFS/source provider，`:library:import` 维护 scan/import/root lifecycle/availability，`:media:metadata` 维护 parser/manifest/cover/subtitle parser，`:media:playback` 维护 playback plan/controller/data source/cache/session state 和 subtitle gateway，`:media:service` 维护 Media3 service、download service、audio focus 和通知 adapter，`:application` 维护 read model、command、use case、download orchestration 和 startup warmup seam，`:abs` 维护 ABS auth、DTO、client、sync、mapping、cover cache、progress sync 和 ABS VFS Adapter，`:data:store` 继续维护 Room、DataStore 和持久化 gateway。
+- `settings.gradle.kts` 当前包含 `:app`、`:settings:model`、`:network:policy`、`:runtime:lifecycle`、`:runtime:observability`、`:data:store`、`:library:vfs`、`:library:import`、`:media:metadata`、`:media:playback`、`:media:service`、`:abs`、`:work:policy`、`:application`、`:event`。
+- `app/src/main/java/com/viel/oto/` 已经按领域包组织，主要包包括 app-owned event adapter、`i18n`、`ui`、`widget` 和组合根；`application` 已提升到 `application/src/main/java/com/viel/oto/application`，`event` 核心已提升到 `event/src/main/kotlin/com/viel/oto/event`，`data` 已提升到 `data/store/src/main/java/com/viel/oto/data`，scan/import/root lifecycle/availability 已提升到 `library/import/src/main/java/com/viel/oto/library`，ABS 已提升到 `abs/src/main/java/com/viel/oto/abs`。
+- 本次迁移后，app 内 `library`、`abs` 和 `application` 生产 Kotlin 文件已清空；`:library:vfs` 维护 VFS/source provider，`:library:import` 维护 scan/import/root lifecycle/availability，`:media:metadata` 维护 parser/manifest/cover/subtitle parser，`:media:playback` 维护 playback plan/controller/data source/cache/session state 和 subtitle gateway，`:media:service` 维护 Media3 service、download service、audio focus 和通知 adapter，`:application` 维护 read model、command、use case、download orchestration 和 startup warmup seam，`:event` 维护 feedback delivery 核心契约，`:abs` 维护 ABS auth、DTO、client、sync、mapping、cover cache、progress sync 和 ABS VFS Adapter，`:data:store` 继续维护 Room、DataStore 和持久化 gateway。
 - `settings/model`、`network/policy`、`runtime/lifecycle` 已是纯 Kotlin Module；`runtime/observability`、`library/vfs` 和 `media/metadata` 已是 Android library Module，继续保留 `com.viel.oto.logger`、`com.viel.oto.library.vfs`、`com.viel.oto.media.parser`、`com.viel.oto.media.manifest` 和 `com.viel.oto.media.subtitle` 包名供现有调用点使用。
 - ABS Room 持久化文件当前位于 `data/store/src/main/java/com/viel/oto/data/abs/playback` 和 `data/store/src/main/java/com/viel/oto/data/abs/sync`，`AppDatabase` 已从 `data.abs.*` 导入这些 DAO/Entity。
 - Koin 入口集中在 `OtoKoinApplication`，关闭顺序由 `GraphClosePolicy` 固定为 `media -> download -> abs -> library -> uiEvents -> data`。
@@ -14,7 +14,7 @@
   - `library` 已移除对 `abs` 的生产源码直接引用，VFS 已进入 `:library:vfs`，metadata parser/manifest 已进入 `:media:metadata`，scan/import/root lifecycle/availability 已进入 `:library:import`。
   - `media` 已拆出 `:media:metadata`、`:media:playback` 和 `:media:service`；app 内剩余 `media/subtitle` implementation 仍等待后续 app/runtime adapter 收口。
   - `logger` 已物理迁出 app，多数领域仍直接依赖具体 logger，后续需要继续收敛为窄 observability Interface。
-  - `event` 直接引用 `application`、`data`、`media`、`R`。
+  - app-owned event adapter 仍引用 `application`、`data`、`media`、`R`，`:event` 只维护反馈消息载体、交付策略和 app shell event stream。
 
 本计划先清理这些反向依赖，再把现有包提升为 Gradle Module。迁移目标不是增加一个总控 Module，而是让每个领域 Module 持有自己的 Interface、Implementation、测试和 Koin Adapter。
 
@@ -54,7 +54,6 @@ flowchart TD
     application --> libraryImport
     application --> mediaPlayback
     application --> abs
-    event --> settings
     data --> settings
     data --> observability
     libraryImport --> libraryVfs
@@ -90,7 +89,7 @@ flowchart TD
 | `:media:service` | MediaSession service、foreground notification、manual download service | Android service entrypoints | Service、notification Adapter | 不直接更新 Widget 状态 |
 | `:abs` | AudiobookShelf anti-corruption layer | ABS auth/catalog/progress/source Adapter Interface | DTO、Moshi、API client、sync、ABS VFS Adapter | 不泄漏原始 ABS DTO 到 UI 或通用 library |
 | `:application` | read model、command、use case、download orchestration | 场景级命令和读模型 | use case/read model Implementation | 不依赖 Compose、Android service、raw network DTO |
-| `:event` | one-shot feedback 和领域反馈事实 | `AppEventSink`、feedback facts | feedback delivery Adapter | 不直接引用 Android `R` 作为领域事实 |
+| `:event` | one-shot feedback 核心契约 | `AppEventSink`、`AppShellEvent`、`FeedbackMessage`、feedback outcome/identity | `DefaultAppEventSink`、`FeedbackDeliveryPolicy` | 不直接引用 Android `R`、media、ABS、library、data、application |
 | `:ui` | Compose route/screen/overlay/ViewModel/theme/i18n | screen state、actions、route | Compose Implementation | 不绕过 application/data gateway |
 | `:widget` | Glance widget 和 widget action receiver | widget render state、action entrypoints | Glance UI、receiver Adapter | 不直接操纵播放器 Implementation |
 
@@ -297,7 +296,8 @@ flowchart TD
 - 已落地 7B：新增 `:application`，移动 read model、command、use case、download orchestration、startup warmup seam 和 application JVM tests。
 - 已落地 7B：`StartupWarmupDependencies`、`OtoStartupWarmup`、`DefaultStartupWarmupDependencies` 和 `DefaultPlayerPlaybackController` 作为 app composition root 的跨模块构造边界公开；内部 warmup 调度细节保持 module-local。
 - 已落地 7B：settings root formatter 不再 import data schema，UI 只消费 `LibraryRootSettingsSnapshot` 暴露的 settings source/status/availability 语义。
-- 后续新增 `:event`，移动 `AppEventSink` 和 feedback facts；资源字符串映射放在 `:ui` 或 `:app` presentation Adapter。
+- 已落地 7C：新增纯 Kotlin `:event`，移动 `AppEventSink`、`AppShellEvent`、`FeedbackMessage`、`FeedbackFact`、feedback outcome/identity、交付结果和 `FeedbackDeliveryPolicy`。
+- 已落地 7C：资源字符串工厂、`FeedbackMessage.render(Context)`、ABS sync feedback adapter、scan notice feedback adapter 和 playback domain event bridge 仍保留在 app-owned event adapter，避免 `:event` 直接依赖 Android `R`、ABS、library、media、data 或 application。
 - 后续新增 `:ui`，移动 Compose route/screen/overlay/ViewModel/theme/i18n。
 - 后续新增 `:widget`，移动 Glance widget、widget receiver、widget render state。
 - 后续将 `ViewModelModule` 移到 `:ui`，Widget Koin 定义移到 `:widget`。
@@ -306,14 +306,14 @@ flowchart TD
 验收：
 
 - `.\gradlew.bat --no-problems-report :application:testDebugUnitTest`
-- `.\gradlew.bat --no-problems-report :event:testDebugUnitTest`
+- `.\gradlew.bat --no-problems-report :event:test`
 - `.\gradlew.bat --no-problems-report :ui:compileDebugKotlin`
 - `.\gradlew.bat --no-problems-report :widget:compileDebugKotlin`
 - `.\gradlew.bat --no-problems-report :app:testDebugUnitTest --tests "com.viel.oto.architecture.UiLayerArchitectureTest"`
 - `.\gradlew.bat --no-problems-report :widget:testDebugUnitTest --tests "com.viel.oto.widget.*"`
 - 设备回归：主屏、搜索、详情、设置、播放器浮层、Widget action。
 
-回滚点：`application` 先提交，`ui` 和 `widget` 分开提交。
+回滚点：`application`、`event`、`ui` 和 `widget` 分开提交，按最近阶段单独回退。
 
 ## 阶段 8 - 收口 app shell 和发布策略
 

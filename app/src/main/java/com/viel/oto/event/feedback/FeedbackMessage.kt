@@ -1,79 +1,16 @@
 package com.viel.oto.event.feedback
 
 import android.content.Context
-import androidx.annotation.PluralsRes
-import androidx.annotation.StringRes
 import com.viel.oto.R
 import com.viel.oto.application.library.LibraryReadStatus
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.media.PlaybackSourcePreflightBlockReason
 
 /**
- * Shared source for app-shell feedback rendering.
+ * Centralizes the Android resource keys used by feedback producers.
  *
- * Callers emit one stable message source plus formatting or routing arguments. Android resource
- * resolution and render-mode-specific rendering stay in the app shell, so the same message can be
- * consumed as either a Toast or a Dialog without duplicating producer facts.
- */
-sealed interface FeedbackMessage {
-    /**
-     * Fallback rendering mode for message producers.
-     *
-     * Most feedback renders as Toast by default. Fact factories only override this when a specific
-     * workflow requires strong in-app interaction.
-     */
-    val defaultRenderMode: FeedbackRenderMode
-        get() = FeedbackRenderMode.TOAST
-
-
-    /**
-     * Defers localized text lookup to the rendering layer.
-     *
-     * The resource ID is the stable message key and the argument list contains only primitive display
-     * values so tests can assert feedback facts without depending on localized strings.
-     */
-    data class Resource(
-        @field:StringRes val resId: Int,
-        val args: List<Any> = emptyList()
-    ) : FeedbackMessage
-
-    /**
-     * Defers counted localized text lookup to Android plural rules.
-     *
-     * The quantity drives resource selection while args supply the formatted values, keeping producers on
-     * language-neutral facts and allowing locales with complex plural forms to render correctly.
-     */
-    data class Quantity(
-        @field:PluralsRes val resId: Int,
-        val quantity: Int,
-        val args: List<Any> = listOf(quantity)
-    ) : FeedbackMessage
-
-    /**
-     * Combines localized fragments into one feedback fact.
-     *
-     * Scan summaries can keep each phrase resource-backed while still emitting one message source.
-     */
-    data class Composite(val parts: List<FeedbackMessage>) : FeedbackMessage
-
-    /**
-     * Identifies a failed queue item for Toast or Dialog rendering.
-     *
-     * Toast rendering resolves this to the short unavailable-track copy; Dialog rendering uses the same
-     * payload to open the app-owned recovery confirmation.
-     */
-    data class PlaybackTrackUnavailable(
-        val bookId: String,
-        val queueIndex: Int,
-        val bookTitle: String? = null
-    ) : FeedbackMessage
-}
-
-/**
- * Centralizes the resource keys used by feedback producers.
- *
- * This object keeps playback and settings feedback names stable while allowing the app shell to render
- * the final localized text or strong-interaction dialog elsewhere from the same message source.
+ * This app-owned adapter keeps playback and settings feedback names stable while the extracted event
+ * module owns only the message carrier and delivery contract.
  */
 object FeedbackMessages {
     fun messageSeparator(): FeedbackMessage =

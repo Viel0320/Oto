@@ -50,3 +50,6 @@ include(":work:policy")
 include(":library:import")
 // Stage 7A Application Module (Owns read models, commands, use cases, and download orchestration)
 include(":application")
+
+// Stage 7C Event Module (Owns feedback delivery contracts without Android resources)
+include(":event")
