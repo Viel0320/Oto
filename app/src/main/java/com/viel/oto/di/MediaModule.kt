@@ -15,13 +15,7 @@ import com.viel.oto.library.vfs.cache.DirectoryListingCache
 import com.viel.oto.library.vfs.cache.RoomDirectoryListingCache
 import com.viel.oto.library.vfs.cache.VfsRangeCache
 import com.viel.oto.library.vfs.sourceProvider.LibrarySourceProviderFactory
-import com.viel.oto.media.AutoRewindManager
-import com.viel.oto.media.DefaultPlaybackFileLookup
-import com.viel.oto.media.DefaultPlaybackRootLookup
-import com.viel.oto.media.PlaybackFileLookup
 import com.viel.oto.media.PlaybackManager
-import com.viel.oto.media.PlaybackRootLookup
-import com.viel.oto.media.PlaybackSourcePreflight
 import com.viel.oto.media.service.MediaServiceLaunchIntentFactory
 import com.viel.oto.media.service.PlaybackCommandPresentation
 import com.viel.oto.media.service.PlaybackResumePlanProvider
@@ -29,26 +23,15 @@ import com.viel.oto.media.service.PlaybackWidgetStateSink
 import org.koin.core.module.Module
 import org.koin.dsl.bind
 import org.koin.dsl.module
-import java.io.Closeable
 
 /**
- * VFS, playback runtime, and playback-file infrastructure.
- * Replaces MediaGraph with Koin-managed single definitions and registers the playback runtime for
- * ordered shutdown.
+ * VFS composition and app-owned playback service adapters.
  *
  * DirectoryListingCache is bound from the Room implementation definition to avoid a second
  * provider whose only job is resolving the concrete cache back out of Koin.
  */
 @OptIn(UnstableApi::class)
 internal object MediaModule {
-
-    private class PlaybackRuntimeHolder(
-        private val playbackManager: PlaybackManager
-    ) : Closeable {
-        override fun close() {
-            runCatching { playbackManager.release() }
-        }
-    }
 
     val module: Module = module {
         single {
@@ -62,8 +45,6 @@ internal object MediaModule {
 
         single { RoomDirectoryListingCache(directoryChildCacheDao = get<AppDatabase>().directoryChildCacheDao()) } bind DirectoryListingCache::class
 
-        single { AutoRewindManager(get(), get(), get(), get()) }
-
         single<MediaServiceLaunchIntentFactory> { AppMediaServiceLaunchIntentFactory() }
 
         single<PlaybackCommandPresentation> { AppPlaybackCommandPresentation() }
@@ -71,21 +52,6 @@ internal object MediaModule {
         single<PlaybackWidgetStateSink> { AppPlaybackWidgetStateSink() }
 
         single<PlaybackResumePlanProvider> { AppPlaybackResumePlanProvider(get()) }
-
-        single {
-            PlaybackManager(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()).also { playbackManager ->
-                GraphClosePolicy.register(
-                    stage = GraphClosePolicy.Stage.Media,
-                    closeable = PlaybackRuntimeHolder(playbackManager)
-                )
-            }
-        }
-
-        single<PlaybackFileLookup> { DefaultPlaybackFileLookup(get<AppDatabase>().bookDao()) }
-
-        single<PlaybackRootLookup> { DefaultPlaybackRootLookup(get<AppDatabase>().libraryRootDao()) }
-
-        single { PlaybackSourcePreflight(get<AppDatabase>().libraryRootDao()) }
 
         single {
             VfsFileInterface(

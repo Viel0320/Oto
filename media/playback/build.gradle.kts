@@ -42,6 +42,7 @@ dependencies {
     api(libs.androidx.media3.session)
 
     implementation(project(":network:policy"))
+    implementation(project(":runtime:lifecycle"))
     implementation(project(":runtime:observability"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.koin.android)

@@ -79,7 +79,7 @@ class GraphLifecycleTest {
     @Test
     fun `koin modules register closeable resources through graph close policy`() {
         val sourceRoot = resolveSourceRoot()
-        val mediaModuleSource = sourceRoot.resolve("di/MediaModule.kt").readText()
+        val mediaPlaybackRuntimeModuleSource = resolveMediaPlaybackRuntimeModuleFile().readText()
         val downloadModuleSource = sourceRoot.resolve("di/DownloadModule.kt").readText()
         val absSyncModuleSource = resolveAbsSyncModuleFile().readText()
         val libraryScanModuleSource = resolveLibraryScanModuleFile().readText()
@@ -87,8 +87,8 @@ class GraphLifecycleTest {
         val coreDataModuleSource = resolveCoreDataModuleFile().readText()
 
         assertTrue(
-            "MediaModule must register playback runtime with GraphClosePolicy.",
-            mediaModuleSource.contains("GraphClosePolicy.register")
+            "MediaPlaybackRuntimeModule must register playback runtime with GraphClosePolicy.",
+            mediaPlaybackRuntimeModuleSource.contains("GraphClosePolicy.register")
         )
         assertTrue(
             "DownloadModule must register download resources with GraphClosePolicy.",
@@ -159,6 +159,21 @@ class GraphLifecycleTest {
         )
         return candidates.firstOrNull { candidate -> candidate.isFile }
             ?: error("Could not locate LibraryScanModule for di lifecycle test.")
+    }
+
+    /**
+     * Resolves playback runtime DI from the extracted playback module or the old app module during
+     * migration so the close-policy guard stays attached to the playback owner.
+     */
+    private fun resolveMediaPlaybackRuntimeModuleFile(): java.io.File {
+        val candidates = listOf(
+            java.io.File("media/playback/src/main/java/com/viel/oto/di/MediaPlaybackRuntimeModule.kt"),
+            java.io.File("../media/playback/src/main/java/com/viel/oto/di/MediaPlaybackRuntimeModule.kt"),
+            java.io.File("src/main/java/com/viel/oto/di/MediaModule.kt"),
+            java.io.File("app/src/main/java/com/viel/oto/di/MediaModule.kt")
+        )
+        return candidates.firstOrNull { candidate -> candidate.isFile }
+            ?: error("Could not locate MediaPlaybackRuntimeModule for di lifecycle test.")
     }
 
     private fun register(
