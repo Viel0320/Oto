@@ -2,8 +2,8 @@
 
 ## Interface
 
-- Owns playback plan models, plan materialization, VFS playback URIs, Media3 controller runtime, progress persistence coordination, and playback recovery policies.
-- Exposes `PlaybackManager`, `PlaybackPlanGateway`, `PlaybackSourcePreflight`, `PlaybackDomainEventSink`, `PlaybackSessionTokenFactory`, and `RemotePlaybackSessionSyncGateway`.
+- Owns playback plan models, plan materialization, VFS playback URIs, Media3 controller runtime, progress persistence coordination, sidecar subtitle loading, and playback recovery policies.
+- Exposes `PlaybackManager`, `PlaybackPlanGateway`, `PlaybackSourcePreflight`, `SubtitleGateway`, `PlaybackDomainEventSink`, `PlaybackSessionTokenFactory`, and `RemotePlaybackSessionSyncGateway`.
 - Keeps Android service class selection and ABS protocol session sync behind app-side adapters.
 
 ## Allowed Dependencies
