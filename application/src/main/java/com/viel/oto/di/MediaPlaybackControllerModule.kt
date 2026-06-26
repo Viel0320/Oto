@@ -3,6 +3,7 @@ package com.viel.oto.di
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.viel.oto.application.playback.DefaultPlayerPlaybackController
+import com.viel.oto.application.playback.PlaybackStopper
 import com.viel.oto.application.playback.PlayerPlaybackController
 import com.viel.oto.media.AutoRewindManager
 import com.viel.oto.media.PlaybackManager
@@ -22,6 +23,17 @@ object MediaPlaybackControllerModule {
                 playbackManager = get<PlaybackManager>(),
                 autoRewindManager = get<AutoRewindManager>()
             )
+        }
+
+        single<PlaybackStopper> {
+            object : PlaybackStopper {
+                override val currentPlayingBookId: String?
+                    get() = get<PlaybackManager>().currentPlayingBookId
+
+                override suspend fun stopPlayback() {
+                    get<PlaybackManager>().stopPlayback()
+                }
+            }
         }
     }
 }

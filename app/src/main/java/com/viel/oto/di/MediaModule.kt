@@ -8,9 +8,7 @@ import com.viel.oto.app.playback.AppMediaServiceLaunchIntentFactory
 import com.viel.oto.app.playback.AppPlaybackResumePlanProvider
 import com.viel.oto.app.presentation.AppPlaybackCommandPresentation
 import com.viel.oto.app.widget.AppPlaybackWidgetStateSink
-import com.viel.oto.application.playback.PlaybackStopper
 import com.viel.oto.library.vfs.sourceProvider.LibrarySourceProviderFactory
-import com.viel.oto.media.PlaybackManager
 import com.viel.oto.media.service.MediaServiceLaunchIntentFactory
 import com.viel.oto.media.service.PlaybackCommandPresentation
 import com.viel.oto.media.service.PlaybackResumePlanProvider
@@ -39,16 +37,5 @@ internal object MediaModule {
         single<PlaybackWidgetStateSink> { AppPlaybackWidgetStateSink() }
 
         single<PlaybackResumePlanProvider> { AppPlaybackResumePlanProvider(get()) }
-
-        single<PlaybackStopper> {
-            object : PlaybackStopper {
-                override val currentPlayingBookId: String?
-                    get() = get<PlaybackManager>().currentPlayingBookId
-
-                override suspend fun stopPlayback() {
-                    get<PlaybackManager>().stopPlayback()
-                }
-            }
-        }
     }
 }

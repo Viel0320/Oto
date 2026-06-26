@@ -346,6 +346,7 @@ flowchart TD
 - 已落地 8J：`MediaServiceModule` 由 `:media:service` 维护 service-owned `PlaybackSessionTokenFactory` 与 Android manual download notification renderer；app 只继续提供资源、launch intent 和 action command Adapter。
 - 已落地 8K：`MediaPlaybackRuntimeModule` 由 `:media:playback` 维护 `PlaybackManager`、auto rewind、playback lookup 和 source preflight 绑定；app `MediaModule` 继续只处理 VFS composition、app-owned playback service Adapter 和 application `PlaybackStopper` Adapter。
 - 已落地 8L：`LibraryVfsModule` 由 `:library:vfs` 维护 VFS cache、directory listing cache 和 `VfsFileInterface` 绑定；app `MediaModule` 仅保留 ABS source provider composition、app-owned playback service Adapter 和 application `PlaybackStopper` Adapter。
+- 已落地 8M：`PlaybackStopper` 绑定随播放器场景控制器迁入 `:application` 的 `MediaPlaybackControllerModule`；app `MediaModule` 不再持有 application playback contract。
 
 验收：
 
