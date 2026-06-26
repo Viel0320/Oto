@@ -65,7 +65,8 @@ class CacheEvictionCoordinatorTest {
             appCacheDir = appCacheDir,
             bookDao = fakeBookDao(emptyList()),
             directoryCacheDao = FakeDirectoryCacheDao(),
-            directoryChildCacheDao = FakeDirectoryChildCacheDao()
+            directoryChildCacheDao = FakeDirectoryChildCacheDao(),
+            rootSourceCacheEvictor = NoOpRootSourceCacheEvictor
         )
 
         val summary = coordinator.evictBeforeRootDelete(sampleRoot("root-1"))
@@ -88,7 +89,8 @@ class CacheEvictionCoordinatorTest {
                 bookPath = BookCoverCachePaths(coverPath = cover.absolutePath, thumbnailPath = thumbnail.absolutePath)
             ),
             directoryCacheDao = FakeDirectoryCacheDao(),
-            directoryChildCacheDao = FakeDirectoryChildCacheDao()
+            directoryChildCacheDao = FakeDirectoryChildCacheDao(),
+            rootSourceCacheEvictor = NoOpRootSourceCacheEvictor
         )
 
         coordinator.clearBookCoverCache("book-1")

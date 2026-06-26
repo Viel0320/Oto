@@ -10,6 +10,7 @@ import com.viel.oto.data.abs.sync.AbsItemMirrorEntity
 import com.viel.oto.data.abs.sync.AbsSyncStateEntity
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.cache.CacheEvictionCoordinator
+import com.viel.oto.data.cache.NoOpRootSourceCacheEvictor
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.BookEntity
@@ -201,7 +202,8 @@ class LibraryRootServiceAbsDeleteTest {
                 context = context,
                 bookDao = database.bookDao(),
                 directoryCacheDao = database.directoryCacheDao(),
-                directoryChildCacheDao = database.directoryChildCacheDao()
+                directoryChildCacheDao = database.directoryChildCacheDao(),
+                rootSourceCacheEvictor = NoOpRootSourceCacheEvictor
             ),
             rootStore = rootStore,
             webDavCredentialStore = testWebDavCredentialStore("abs-root-webdav-placeholder"),

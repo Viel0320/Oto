@@ -18,14 +18,14 @@ class CacheEvictionCoordinator internal constructor(
     private val bookDao: BookDao,
     private val directoryCacheDao: DirectoryCacheDao,
     private val directoryChildCacheDao: DirectoryChildCacheDao,
-    private val rootSourceCacheEvictor: RootSourceCacheEvictor = NoOpRootSourceCacheEvictor
+    private val rootSourceCacheEvictor: RootSourceCacheEvictor
 ) : LibraryResourceCleanupGateway {
     constructor(
         context: Context,
         bookDao: BookDao,
         directoryCacheDao: DirectoryCacheDao,
         directoryChildCacheDao: DirectoryChildCacheDao,
-        rootSourceCacheEvictor: RootSourceCacheEvictor = NoOpRootSourceCacheEvictor
+        rootSourceCacheEvictor: RootSourceCacheEvictor
     ) : this(
         appCacheDir = context.applicationContext.cacheDir,
         bookDao = bookDao,
