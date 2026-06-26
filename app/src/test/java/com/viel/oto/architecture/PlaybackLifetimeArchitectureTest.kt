@@ -77,7 +77,7 @@ class PlaybackLifetimeArchitectureTest {
 
     @Test
     fun absSettingsRootSwitchUsesLibraryRootManagementUseCase() {
-        val settingsUseCaseModule = ArchitectureSourceRoots.appMainFile("di/SettingsUseCaseModule.kt").readText()
+        val settingsUseCaseModule = ArchitectureSourceRoots.applicationMainFile("di/SettingsUseCaseModule.kt").readText()
         val absSettingsUseCase = ArchitectureSourceRoots.applicationMainFile("application/usecase/AbsSettingsConnectionUseCase.kt").readText()
 
         assertTrue(settingsUseCaseModule.contains("libraryRootManagementUseCase = get()"))

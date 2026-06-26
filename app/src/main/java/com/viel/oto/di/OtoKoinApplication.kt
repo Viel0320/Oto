@@ -3,6 +3,7 @@ package com.viel.oto.di
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import com.viel.oto.ui.di.SettingsUiModule
 import com.viel.oto.ui.di.ViewModelModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.GlobalContext
@@ -53,6 +54,7 @@ internal object OtoKoinApplication {
                 AbsModule.module,
                 AbsSyncModule.module,
                 SettingsUseCaseModule.module,
+                SettingsUiModule.module,
                 ViewModelModule.module
             )
         }

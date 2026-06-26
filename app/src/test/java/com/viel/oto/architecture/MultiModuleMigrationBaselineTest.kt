@@ -176,6 +176,7 @@ class MultiModuleMigrationBaselineTest {
             "AbsModule",
             "AbsSyncModule",
             "SettingsUseCaseModule",
+            "SettingsUiModule",
             "ViewModelModule"
         )
 

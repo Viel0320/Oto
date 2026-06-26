@@ -348,6 +348,7 @@ flowchart TD
 - 已落地 8L：`LibraryVfsModule` 由 `:library:vfs` 维护 VFS cache、directory listing cache 和 `VfsFileInterface` 绑定；app `MediaModule` 仅保留 ABS source provider composition、app-owned playback service Adapter 和 application `PlaybackStopper` Adapter。
 - 已落地 8M：`PlaybackStopper` 绑定随播放器场景控制器迁入 `:application` 的 `MediaPlaybackControllerModule`；app `MediaModule` 不再持有 application playback contract。
 - 已落地 8N：`ApplicationDownloadModule` 由 `:application` 维护 manual download selector、sync、polling、cleanup 和 controller 绑定；app `DownloadModule` 保留 Media3 DownloadManager runtime、DownloadService command Adapter 和 app-owned notification/action Adapter。
+- 已落地 8O：`SettingsUseCaseModule` 迁入 `:application` 维护 settings query、maintenance、connection test、backup/restore 和 conflict use case 绑定；`SettingsUiModule` 由 `:ui` 维护资源化 `SettingsRootFormatter` 绑定，app 只聚合两个领域 Module。
 
 验收：
 

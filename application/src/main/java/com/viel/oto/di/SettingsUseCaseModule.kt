@@ -24,20 +24,19 @@ import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.library.root.LibraryRootGateway
 import com.viel.oto.library.scan.ScanScheduler
 import com.viel.oto.library.vfs.sourceProvider.webdav.WebDavConnectionTester
-import com.viel.oto.ui.settings.SettingsRootFormatter
 import org.koin.core.module.Module
 import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**
- * Settings-scoped use cases: query, format, maintenance, ABS connection, WebDAV test, root module,
- * export/import, and progress conflict resolution.
+ * Application-owned settings use case, root-scene, connection-test, backup, and conflict bindings.
  *
- * Scene read and command contracts are bound from one SettingsRoot module instance so release builds
- * do not create redirect-only Koin providers for the same object.
+ * UI presentation stays outside this module: settings formatters and Android resource-backed copy
+ * are contributed by the UI module so application bindings only expose structured commands and
+ * read models.
  */
 @OptIn(UnstableApi::class)
-internal object SettingsUseCaseModule {
+object SettingsUseCaseModule {
 
     val module: Module = module {
         single {
@@ -50,8 +49,6 @@ internal object SettingsUseCaseModule {
                 absCredentialStore = get()
             )
         }
-
-        single { SettingsRootFormatter(get()) }
 
         single {
             SettingsLibraryMaintenanceUseCase(
