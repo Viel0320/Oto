@@ -55,16 +55,6 @@
     <string name="settings_language_russian">Русский</string>
     <string name="settings_language_spanish">Español</string>
     <string name="settings_language_portuguese">Português</string>
-    <string name="player_widget_name">Oto</string>
-    <string name="player_widget_description">2x2 Desktop-Player-Widget</string>
-    <string name="player_widget_empty_subtitle">Bereit zum Abspielen</string>
-    <string name="player_widget_cover_description">Aktuelles Hörbuchcover</string>
-    <string name="player_widget_play_pause">Abspielen oder pausieren</string>
-    <string name="player_widget_fallback_author">Hörbuchplayer</string>
-    <string name="player_widget_background_cover_description">Hintergrundcover</string>
-    <string name="player_widget_background_placeholder_description">Hintergrundplatzhalter</string>
-    <string name="player_widget_seek_backward_description">Zurückspulen</string>
-    <string name="player_widget_seek_forward_description">Vorspulen</string>
     <string name="feedback_playback_cleartext_blocked">Klartext-HTTP-Wiedergabe wurde aus
         Sicherheitsgründen blockiert. Aktivieren Sie sie zuerst in den Einstellungen.</string>
     <string name="feedback_playback_initial_media_load_failed">Medienquelle konnte nicht geladen

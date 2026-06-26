@@ -53,3 +53,6 @@ include(":application")
 
 // Stage 7C Event Module (Owns feedback delivery contracts without Android resources)
 include(":event")
+
+// Stage 7D Widget Module (Owns Glance widget rendering, state, and receivers)
+include(":widget")

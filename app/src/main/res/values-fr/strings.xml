@@ -56,16 +56,6 @@
     <string name="settings_language_russian">Русский</string>
     <string name="settings_language_spanish">Español</string>
     <string name="settings_language_portuguese">Português</string>
-    <string name="player_widget_name">Lecteur Oto</string>
-    <string name="player_widget_description">Widget lecteur 2x2 pour le bureau</string>
-    <string name="player_widget_empty_subtitle">Prêt à lire</string>
-    <string name="player_widget_cover_description">Couverture du livre audio actuel</string>
-    <string name="player_widget_play_pause">Lire ou mettre en pause</string>
-    <string name="player_widget_fallback_author">Lecteur de livres audio</string>
-    <string name="player_widget_background_cover_description">Couverture en arrière-plan</string>
-    <string name="player_widget_background_placeholder_description">Espace réservé en arrière-plan</string>
-    <string name="player_widget_seek_backward_description">Reculer</string>
-    <string name="player_widget_seek_forward_description">Avancer</string>
     <string name="feedback_playback_cleartext_blocked">La sécurité a bloqué la lecture HTTP non
         chiffrée. Activez-la d’abord dans les paramètres.</string>
     <string name="feedback_playback_initial_media_load_failed">Échec du chargement de la source

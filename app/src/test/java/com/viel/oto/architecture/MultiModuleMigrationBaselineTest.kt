@@ -189,6 +189,7 @@ class MultiModuleMigrationBaselineTest {
             "app->logger",
             "app->media",
             "app->ui",
+            "app->widget",
             "application->abs",
             "application->data",
             "application->library",
@@ -208,7 +209,6 @@ class MultiModuleMigrationBaselineTest {
             "di->logger",
             "di->media",
             "di->ui",
-            "di->widget",
             "event->R",
             "event->application",
             "event->abs",
@@ -242,12 +242,6 @@ class MultiModuleMigrationBaselineTest {
             "ui->media",
             "ui->network",
             "ui->shared",
-            "widget->MainActivity",
-            "widget->R",
-            "widget->logger",
-            "widget->media",
-            "widget->ui",
-            "widget->shared",
             "work->data"
         )
     }

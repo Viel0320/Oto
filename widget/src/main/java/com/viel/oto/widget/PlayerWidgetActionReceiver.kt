@@ -9,7 +9,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.viel.oto.logger.SecureLog
-import com.viel.oto.media.service.PlaybackService
 
 /**
  * Non-exported broadcast receiver for desktop widget playback actions.
@@ -25,6 +24,8 @@ class PlayerWidgetActionReceiver : BroadcastReceiver() {
         const val ACTION_PLAY_PAUSE = "com.viel.oto.widget.ACTION_PLAY_PAUSE"
         const val ACTION_REWIND = "com.viel.oto.widget.ACTION_REWIND"
         const val ACTION_FORWARD = "com.viel.oto.widget.ACTION_FORWARD"
+
+        private const val PLAYBACK_SERVICE_CLASS_NAME = "com.viel.oto.media.service.PlaybackService"
     }
 
     @OptIn(UnstableApi::class)
@@ -37,10 +38,7 @@ class PlayerWidgetActionReceiver : BroadcastReceiver() {
             try {
                 val appContext = context.applicationContext
 
-                val sessionToken = SessionToken(
-                    appContext,
-                    ComponentName(appContext, PlaybackService::class.java)
-                )
+                val sessionToken = playbackSessionToken(appContext)
 
                 val controllerFuture = MediaController.Builder(appContext, sessionToken).buildAsync()
 
@@ -77,4 +75,16 @@ class PlayerWidgetActionReceiver : BroadcastReceiver() {
             }
         }
     }
+
+    /**
+     * Resolves the app-owned MediaSessionService by manifest class name.
+     *
+     * The receiver owns widget command entrypoints, but the service implementation stays in
+     * `:media:service`; using a component string keeps this module off that implementation classpath.
+     */
+    private fun playbackSessionToken(context: Context): SessionToken =
+        SessionToken(
+            context,
+            ComponentName(context.packageName, PLAYBACK_SERVICE_CLASS_NAME)
+        )
 }

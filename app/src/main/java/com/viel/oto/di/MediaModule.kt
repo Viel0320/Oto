@@ -26,7 +26,7 @@ import com.viel.oto.media.service.PlaybackResumePlanProvider
 import com.viel.oto.media.service.PlaybackServiceSessionTokenFactory
 import com.viel.oto.media.service.PlaybackWidgetStateSink
 import com.viel.oto.ui.presentation.AppPlaybackCommandPresentation
-import com.viel.oto.widget.AppPlaybackWidgetStateSink
+import com.viel.oto.app.widget.AppPlaybackWidgetStateSink
 import org.koin.core.module.Module
 import org.koin.dsl.bind
 import org.koin.dsl.module

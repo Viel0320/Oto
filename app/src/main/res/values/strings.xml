@@ -59,16 +59,6 @@
     <string name="settings_language_spanish">Spanish</string>
     <string name="settings_language_portuguese">Portuguese</string>
 
-    <string name="player_widget_name">Oto</string>
-    <string name="player_widget_description">2x2 desktop player widget</string>
-    <string name="player_widget_empty_subtitle">Ready to play</string>
-    <string name="player_widget_cover_description">Current audiobook cover</string>
-    <string name="player_widget_play_pause">Play or pause</string>
-    <string name="player_widget_fallback_author">Audiobook player</string>
-    <string name="player_widget_background_cover_description">Background Cover</string>
-    <string name="player_widget_background_placeholder_description">Background Placeholder</string>
-    <string name="player_widget_seek_backward_description">Seek Backward</string>
-    <string name="player_widget_seek_forward_description">Seek Forward</string>
 
     <string name="feedback_playback_cleartext_blocked">Security blocked cleartext HTTP playback.
         Enable it in settings first.</string>

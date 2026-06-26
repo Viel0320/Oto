@@ -23,6 +23,9 @@ misc.xml
 deploymentTargetDropDown.xml
 render.experimental.xml
 
+# Eclipse / Gradle Buildship output dirs (IDE-generated source mirrors)
+bin/
+
 # Keystore files
 *.jks
 *.keystore
@@ -46,3 +49,4 @@ google-services.json
 /.mimocode/
 .idea/*
 /.agents/.skills
+.skills/

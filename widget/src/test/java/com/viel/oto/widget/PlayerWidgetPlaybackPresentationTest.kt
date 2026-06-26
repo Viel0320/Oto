@@ -1,6 +1,5 @@
 package com.viel.oto.widget
 
-import com.viel.oto.R
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

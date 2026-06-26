@@ -1,15 +1,17 @@
-package com.viel.oto.widget
+package com.viel.oto.app.widget
 
 import android.content.Context
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import com.viel.oto.media.service.PlaybackWidgetSnapshot
 import com.viel.oto.media.service.PlaybackWidgetStateSink
+import com.viel.oto.widget.PlayerWidget
+import com.viel.oto.widget.PlayerWidgetStateHelper
 
 /**
- * Routes playback snapshots from the service module into the app-owned Glance widget store.
+ * Routes playback snapshots from the service module into the extracted Glance widget store.
  *
- * Widget identity, Glance APIs, and render state remain in the app/widget layer; the service module
- * only emits the normalized snapshot that was already computed for playback.
+ * The app composition root owns this adapter while media service and widget remain separate modules:
+ * service emits a normalized snapshot, and widget owns Glance ids, storage, and render invalidation.
  */
 class AppPlaybackWidgetStateSink : PlaybackWidgetStateSink {
     override suspend fun update(context: Context, snapshot: PlaybackWidgetSnapshot) {

@@ -55,16 +55,6 @@
     <string name="settings_language_russian">Русский</string>
     <string name="settings_language_spanish">Español</string>
     <string name="settings_language_portuguese">Português</string>
-    <string name="player_widget_name">Reproductor Oto</string>
-    <string name="player_widget_description">Widget de reproductor de escritorio 2x2</string>
-    <string name="player_widget_empty_subtitle">Listo para reproducir</string>
-    <string name="player_widget_cover_description">Portada del audiolibro actual</string>
-    <string name="player_widget_play_pause">Reproducir o pausar</string>
-    <string name="player_widget_fallback_author">Reproductor de audiolibros</string>
-    <string name="player_widget_background_cover_description">Portada de fondo</string>
-    <string name="player_widget_background_placeholder_description">Marcador de fondo</string>
-    <string name="player_widget_seek_backward_description">Retroceder</string>
-    <string name="player_widget_seek_forward_description">Avanzar</string>
     <string name="feedback_playback_cleartext_blocked">La seguridad bloqueó la reproducción HTTP sin
         cifrar. Actívala primero en ajustes.</string>
     <string name="feedback_playback_initial_media_load_failed">No se pudo cargar la fuente

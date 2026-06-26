@@ -1,6 +1,7 @@
 package com.viel.oto.widget
 
 import android.content.Context
+import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
@@ -39,9 +40,6 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import com.viel.oto.MainActivity
-import com.viel.oto.R
-import com.viel.oto.ui.presentation.SeekStepPresentation
 import com.viel.oto.shared.settings.SeekStepSeconds
 
 /**
@@ -106,9 +104,7 @@ class PlayerWidget : GlanceAppWidget() {
         backwardStep: SeekStepSeconds,
         forwardStep: SeekStepSeconds
     ) {
-        val openAppIntent = Intent(context, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        }
+        val openAppIntent = widgetOpenAppIntent(context)
 
         Box(
             modifier = GlanceModifier
@@ -179,8 +175,8 @@ class PlayerWidget : GlanceAppWidget() {
                         action = PlayerWidgetActionReceiver.ACTION_REWIND
                     }
                     Image(
-                        provider = ImageProvider(SeekStepPresentation.backwardIcon(backwardStep)),
-                        contentDescription = context.getString(SeekStepPresentation.backwardLabel(backwardStep)),
+                        provider = ImageProvider(WidgetSeekStepPresentation.backwardIcon(backwardStep)),
+                        contentDescription = context.getString(WidgetSeekStepPresentation.backwardLabel(backwardStep)),
                         modifier = GlanceModifier
                             .size(24.dp)
                             .clickable(actionSendBroadcast(rewindIntent)),
@@ -216,8 +212,8 @@ class PlayerWidget : GlanceAppWidget() {
                         action = PlayerWidgetActionReceiver.ACTION_FORWARD
                     }
                     Image(
-                        provider = ImageProvider(SeekStepPresentation.forwardIcon(forwardStep)),
-                        contentDescription = context.getString(SeekStepPresentation.forwardLabel(forwardStep)),
+                        provider = ImageProvider(WidgetSeekStepPresentation.forwardIcon(forwardStep)),
+                        contentDescription = context.getString(WidgetSeekStepPresentation.forwardLabel(forwardStep)),
                         modifier = GlanceModifier
                             .size(24.dp)
                             .clickable(actionSendBroadcast(forwardIntent)),
@@ -226,5 +222,21 @@ class PlayerWidget : GlanceAppWidget() {
                 }
             }
         }
+    }
+
+    /**
+     * Opens the host app without a compile-time dependency on the application module.
+     *
+     * The widget module is delivered through the app manifest merge, so the runtime package name can
+     * differ between debug and release builds while the activity class name remains stable.
+     */
+    private fun widgetOpenAppIntent(context: Context): Intent =
+        Intent().apply {
+            component = ComponentName(context.packageName, MAIN_ACTIVITY_CLASS_NAME)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
+
+    private companion object {
+        const val MAIN_ACTIVITY_CLASS_NAME = "com.viel.oto.MainActivity"
     }
 }

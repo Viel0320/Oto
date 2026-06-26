@@ -53,16 +53,6 @@
     <string name="settings_language_russian">Русский</string>
     <string name="settings_language_spanish">Español</string>
     <string name="settings_language_portuguese">Português</string>
-    <string name="player_widget_name">Плеер Oto</string>
-    <string name="player_widget_description">Виджет настольного плеера 2x2</string>
-    <string name="player_widget_empty_subtitle">Готово к воспроизведению</string>
-    <string name="player_widget_cover_description">Обложка текущей аудиокниги</string>
-    <string name="player_widget_play_pause">Воспроизвести или поставить на паузу</string>
-    <string name="player_widget_fallback_author">Плеер аудиокниг</string>
-    <string name="player_widget_background_cover_description">Фоновая обложка</string>
-    <string name="player_widget_background_placeholder_description">Фоновый заполнитель</string>
-    <string name="player_widget_seek_backward_description">Назад</string>
-    <string name="player_widget_seek_forward_description">Вперед</string>
     <string name="feedback_playback_cleartext_blocked">Незашифрованное HTTP-воспроизведение
         заблокировано безопасностью. Сначала включите его в настройках.</string>
     <string name="feedback_playback_initial_media_load_failed">Не удалось загрузить источник медиа:

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <receiver
+            android:name="com.viel.oto.widget.PlayerWidgetReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/player_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name="com.viel.oto.widget.PlayerWidgetActionReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.viel.oto.widget.ACTION_REWIND" />
+                <action android:name="com.viel.oto.widget.ACTION_FORWARD" />
+                <action android:name="com.viel.oto.widget.ACTION_PLAY_PAUSE" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

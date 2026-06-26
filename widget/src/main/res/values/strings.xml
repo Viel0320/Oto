@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_widget_name">Oto</string>
+    <string name="player_widget_description">2x2 desktop player widget</string>
+    <string name="player_widget_empty_subtitle">Ready to play</string>
+    <string name="player_widget_cover_description">Current audiobook cover</string>
+    <string name="player_widget_play_pause">Play or pause</string>
+    <string name="player_widget_fallback_author">Audiobook player</string>
+    <string name="player_widget_background_cover_description">Background Cover</string>
+    <string name="player_widget_background_placeholder_description">Background Placeholder</string>
+    <string name="player_widget_seek_backward_description">Seek Backward</string>
+    <string name="player_widget_seek_forward_description">Seek Forward</string>
+    <string name="media_session_rewind_10">Rewind 10 seconds</string>
+    <string name="media_session_rewind_20">Rewind 20 seconds</string>
+    <string name="media_session_rewind_30">Rewind 30 seconds</string>
+    <string name="media_session_forward_10">Forward 10 seconds</string>
+    <string name="media_session_forward_20">Forward 20 seconds</string>
+    <string name="media_session_forward_30">Forward 30 seconds</string>
+    <string name="playback_play_content_description">Play</string>
+    <string name="playback_pause_content_description">Pause</string>
+</resources>

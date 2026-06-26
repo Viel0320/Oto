@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_widget_name">Reproductor Oto</string>
+    <string name="player_widget_description">Widget de reproductor de escritorio 2x2</string>
+    <string name="player_widget_empty_subtitle">Listo para reproducir</string>
+    <string name="player_widget_cover_description">Portada del audiolibro actual</string>
+    <string name="player_widget_play_pause">Reproducir o pausar</string>
+    <string name="player_widget_fallback_author">Reproductor de audiolibros</string>
+    <string name="player_widget_background_cover_description">Portada de fondo</string>
+    <string name="player_widget_background_placeholder_description">Marcador de fondo</string>
+    <string name="player_widget_seek_backward_description">Retroceder</string>
+    <string name="player_widget_seek_forward_description">Avanzar</string>
+    <string name="media_session_rewind_10">Retroceder 10 segundos</string>
+    <string name="media_session_rewind_20">Retroceder 20 segundos</string>
+    <string name="media_session_rewind_30">Retroceder 30 segundos</string>
+    <string name="media_session_forward_10">Avanzar 10 segundos</string>
+    <string name="media_session_forward_20">Avanzar 20 segundos</string>
+    <string name="media_session_forward_30">Avanzar 30 segundos</string>
+    <string name="playback_play_content_description">Reproducir</string>
+    <string name="playback_pause_content_description">Pausar</string>
+</resources>
