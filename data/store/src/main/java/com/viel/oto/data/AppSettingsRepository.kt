@@ -23,14 +23,16 @@ import com.viel.oto.shared.model.ThemeMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.io.Closeable
 
 /**
  * Manages persistence of user configuration via Jetpack DataStore.
  */
-class AppSettingsRepository(private val dataStore: DataStore<Preferences>) {
+class AppSettingsRepository(private val dataStore: DataStore<Preferences>) : Closeable {
 
     @Volatile
     private var _cachedSettings = AppSettings()
@@ -299,6 +301,10 @@ class AppSettingsRepository(private val dataStore: DataStore<Preferences>) {
 
     suspend fun updateAmoledEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_AMOLED_ENABLED] = enabled }
+    }
+
+    override fun close() {
+        scope.cancel()
     }
 
     companion object {

@@ -41,7 +41,14 @@ object CoreDataModule {
                 )
             }
         }
-        single { AppSettingsRepository(get(named("appSettings"))) }
+        single {
+            AppSettingsRepository(get(named("appSettings"))).also { repo ->
+                GraphClosePolicy.register(
+                    stage = GraphClosePolicy.Stage.Data,
+                    closeable = repo
+                )
+            }
+        }
         single { SearchHistoryStore(get(named("searchHistory"))) }
         single { WebDavCredentialStore(get(named("webDavCredentials"))) }
     }
