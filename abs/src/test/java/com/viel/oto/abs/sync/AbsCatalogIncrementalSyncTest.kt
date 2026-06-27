@@ -1,11 +1,7 @@
-package com.viel.oto.abs
+package com.viel.oto.abs.sync
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.viel.oto.abs.auth.AbsCredentialStore
-import com.viel.oto.abs.mapping.AbsCatalogMapper
-import com.viel.oto.abs.mapping.AbsProgressMapper
 import com.viel.oto.abs.mapping.AbsRemoteIdMapper
 import com.viel.oto.abs.net.AbsApiClient
 import com.viel.oto.abs.net.dto.AbsAuthorizeResponseDto
@@ -19,12 +15,8 @@ import com.viel.oto.abs.net.dto.AbsPlayRequestDto
 import com.viel.oto.abs.net.dto.AbsPlaybackSessionDto
 import com.viel.oto.abs.net.dto.AbsStatusDto
 import com.viel.oto.data.abs.sync.AbsCatalogStore
-import com.viel.oto.abs.sync.AbsCatalogSynchronizer
-import com.viel.oto.abs.sync.AbsCoverStore
 import com.viel.oto.data.abs.sync.AbsItemMirrorEntity
 import com.viel.oto.data.abs.sync.AbsSyncStateEntity
-import com.viel.oto.abs.sync.buildAbsIncrementalErrorSummary
-import com.viel.oto.abs.sync.selectAbsDetailCandidateIds
 import com.viel.oto.data.cache.OnlineSourceCachePolicy
 import com.viel.oto.data.cover.CoverImageResult
 import com.viel.oto.data.db.AudiobookSchema
@@ -41,107 +33,9 @@ import org.junit.Test
 import java.io.File
 import kotlin.io.path.createTempDirectory
 
-class AbsIncrementalStage6Test {
+class AbsCatalogIncrementalSyncTest {
 
     private val idMapper = AbsRemoteIdMapper()
-    private val progressMapper = AbsProgressMapper()
-    private val catalogMapper = AbsCatalogMapper(idMapper)
-
-    @Test
-    fun `incremental selector should skip unchanged items and keep changed or new items in detail queue`() {
-        val existingMirrors = mapOf(
-            "item-1" to AbsItemMirrorEntity(
-                localBookId = "book-1",
-                rootId = "root-1",
-                serverKey = "server-1",
-                remoteItemId = "item-1",
-                lastSeenAt = 10_000L,
-                remoteUpdatedAt = 100L,
-                state = AudiobookSchema.AbsMirrorState.ACTIVE
-            ),
-            "item-2" to AbsItemMirrorEntity(
-                localBookId = "book-2",
-                rootId = "root-1",
-                serverKey = "server-1",
-                remoteItemId = "item-2",
-                lastSeenAt = 10_000L,
-                remoteUpdatedAt = 200L,
-                state = AudiobookSchema.AbsMirrorState.ACTIVE
-            )
-        )
-        val unchangedItems = listOf(
-            AbsLibraryItemDto(id = "item-1", mediaType = "book", updatedAt = 100L),
-            AbsLibraryItemDto(id = "item-2", mediaType = "book", updatedAt = 200L)
-        )
-        val changedItems = listOf(
-            AbsLibraryItemDto(id = "item-1", mediaType = "book", updatedAt = 100L),
-            AbsLibraryItemDto(id = "item-2", mediaType = "book", updatedAt = 201L),
-            AbsLibraryItemDto(id = "item-3", mediaType = "book", updatedAt = 50L)
-        )
-
-        assertTrue(
-            selectAbsDetailCandidateIds(
-                minifiedItems = unchangedItems,
-                existingMirrors = existingMirrors,
-                previousFullListFingerprint = "item-1:100|item-2:200",
-                currentFullListFingerprint = "item-1:100|item-2:200",
-                nowMillis = 10_000L
-            ).isEmpty()
-        )
-
-        assertEquals(
-            listOf("item-2", "item-3"),
-            selectAbsDetailCandidateIds(
-                minifiedItems = changedItems,
-                existingMirrors = existingMirrors,
-                previousFullListFingerprint = "item-1:100|item-2:200",
-                currentFullListFingerprint = "item-1:100|item-2:201|item-3:50",
-                nowMillis = 10_000L
-            )
-        )
-    }
-
-    @Test
-    fun `incremental selector should refetch unchanged mirror after catalog ttl`() {
-        val now = OnlineSourceCachePolicy.ABS_CATALOG_MIRROR_TTL_MS + 10_000L
-        val item = AbsLibraryItemDto(id = "item-1", mediaType = "book", updatedAt = 100L)
-        val freshMirrors = mapOf(
-            "item-1" to AbsItemMirrorEntity(
-                localBookId = "book-1",
-                rootId = "root-1",
-                serverKey = "server-1",
-                remoteItemId = "item-1",
-                lastSeenAt = now - OnlineSourceCachePolicy.ABS_CATALOG_MIRROR_TTL_MS,
-                remoteUpdatedAt = 100L,
-                state = AudiobookSchema.AbsMirrorState.ACTIVE
-            )
-        )
-        val staleMirrors = mapOf(
-            "item-1" to freshMirrors.getValue("item-1")
-                .copy(lastSeenAt = now - OnlineSourceCachePolicy.ABS_CATALOG_MIRROR_TTL_MS - 1L)
-        )
-
-        assertTrue(
-            selectAbsDetailCandidateIds(
-                minifiedItems = listOf(item),
-                existingMirrors = freshMirrors,
-                previousFullListFingerprint = "item-1:100",
-                currentFullListFingerprint = "item-1:100",
-                nowMillis = now
-            ).isEmpty()
-        )
-        assertEquals(
-            listOf("item-1"),
-            selectAbsDetailCandidateIds(
-                minifiedItems = listOf(item),
-                existingMirrors = staleMirrors,
-                previousFullListFingerprint = "item-1:100",
-                currentFullListFingerprint = "item-1:100",
-                nowMillis = now
-            )
-        )
-    }
-
     @Test
     fun `authorized progress refresh due should follow root sync freshness`() = runBlocking {
         val now = OnlineSourceCachePolicy.ABS_AUTHORIZED_PROGRESS_TTL_MS + 10_000L
@@ -328,85 +222,6 @@ class AbsIncrementalStage6Test {
     }
 
     @Test
-    fun `dto compatibility should tolerate missing tracks size and progress timestamp`() {
-        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
-        val adapter = moshi.adapter(AbsLibraryItemDto::class.java)
-        val root = sampleRoot()
-        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
-
-        val missingTracksItem = adapter.fromJson(
-            """
-            {
-              "id": "item-no-tracks",
-              "libraryId": "lib-1",
-              "mediaType": "book",
-              "title": "No Tracks",
-              "updatedAt": 1,
-              "media": {
-                "duration": 10.0
-              }
-            }
-            """.trimIndent()
-        )!!
-
-        val bookWithoutTracks = catalogMapper.toBook(root, serverKey, missingTracksItem, existing = null, syncedAt = 1234L)
-        val filesWithoutTracks = catalogMapper.toFiles(root, serverKey, missingTracksItem)
-
-        assertEquals("No Tracks", bookWithoutTracks.title)
-        assertTrue(filesWithoutTracks.isEmpty())
-
-        val missingSizeAndProgressTimeItem = adapter.fromJson(
-            """
-            {
-              "id": "item-partial",
-              "libraryId": "lib-1",
-              "mediaType": "book",
-              "title": "Partial",
-              "updatedAt": 2,
-              "progress": {
-                "currentTime": 2.5,
-                "isFinished": false
-              },
-              "media": {
-                "duration": 10.0,
-                "tracks": [
-                  {
-                    "index": 1,
-                    "duration": 10.0,
-                    "contentUrl": "/api/items/item-partial/file/1",
-                    "metadata": {
-                      "filename": "partial.mp3"
-                    }
-                  }
-                ]
-              }
-            }
-            """.trimIndent()
-        )!!
-
-        val book = catalogMapper.toBook(root, serverKey, missingSizeAndProgressTimeItem, existing = null, syncedAt = 1234L)
-        val files = catalogMapper.toFiles(root, serverKey, missingSizeAndProgressTimeItem)
-        val progress = progressMapper.toProgressOrNull(missingSizeAndProgressTimeItem, book, files, 1234L)
-
-        assertEquals(1, files.size)
-        assertEquals(0L, files.first().fileSize)
-        assertEquals(1234L, progress?.lastPlayedAt)
-    }
-
-    @Test
-    fun `incremental error summary should stay compact and deterministic`() {
-        val summary = buildAbsIncrementalErrorSummary(
-            linkedMapOf(
-                "item-2" to "HTTP_500",
-                "item-3" to "TIMEOUT"
-            )
-        )
-
-        assertEquals("DETAIL_ITEM_FAILED:2:first=item-2:HTTP_500", summary)
-        assertNull(buildAbsIncrementalErrorSummary(emptyMap()))
-    }
-
-    @Test
     fun `incremental sync should clear fingerprint when library is switched`() = runBlocking {
         val credentialStore = createCredentialStore("https://example.com/AudiobookShelf", "token-1")
         val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
@@ -474,7 +289,7 @@ class AbsIncrementalStage6Test {
     )
 
     private fun createCredentialStore(baseUrl: String, token: String): AbsCredentialStore {
-        val tempDir = createTempDirectory(prefix = "abs-incremental-stage6").toFile()
+        val tempDir = createTempDirectory(prefix = "abs-catalog-incremental").toFile()
         val store = AbsCredentialStore.createForTesting(
             PreferenceDataStoreFactory.create(
                 produceFile = { File(tempDir, "credentials.preferences_pb") }

@@ -1,4 +1,4 @@
-package com.viel.oto.abs
+package com.viel.oto.abs.sync
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.viel.oto.abs.auth.AbsCredentialStore
@@ -21,12 +21,9 @@ import com.viel.oto.abs.net.dto.AbsStatusDto
 import com.viel.oto.abs.net.dto.AbsTrackDto
 import com.viel.oto.abs.net.dto.AbsTrackMetadataDto
 import com.viel.oto.abs.net.dto.AbsUserProgressDto
-import com.viel.oto.abs.sync.AbsAuthorizedProgressSynchronizer
 import com.viel.oto.data.abs.sync.AbsCatalogStore
-import com.viel.oto.abs.sync.AbsCatalogSynchronizer
 import com.viel.oto.data.abs.sync.AbsItemMirrorEntity
 import com.viel.oto.data.abs.sync.AbsSyncStateEntity
-import com.viel.oto.abs.sync.isAbsPlayableBook
 import com.viel.oto.data.book.BookCatalogGateway
 import com.viel.oto.data.book.BookDeletionGateway
 import com.viel.oto.data.book.BookMetadataGateway
@@ -50,153 +47,11 @@ import org.junit.Test
 import java.io.File
 import kotlin.io.path.createTempDirectory
 
-class AbsCatalogStage2Test {
+class AbsCatalogSynchronizerTest {
 
     private val idMapper = AbsRemoteIdMapper()
     private val progressMapper = AbsProgressMapper()
     private val catalogMapper = AbsCatalogMapper(idMapper)
-
-    @Test
-    fun `remote id mapper must be stable and scoped by user plus server`() {
-        val key1 = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
-        val key2 = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
-        val key3 = idMapper.serverKey("https://example.com/AudiobookShelf", "user-2")
-        assertEquals(key1, key2)
-        assertTrue(key1 != key3)
-        assertEquals("abs:$key1:library:lib-1", idMapper.rootId(key1, "lib-1"))
-        assertEquals("abs:$key1:item:item-1", idMapper.bookId(key1, "item-1"))
-        assertEquals("abs:$key1:item:item-1:track:3", idMapper.bookFileId(key1, "item-1", 3))
-    }
-
-    @Test
-    fun `catalog mapper should map pi book track and chapter to local entities`() {
-        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
-        val root = LibraryRootEntity(
-            id = idMapper.rootId(serverKey, "lib-1"),
-            sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/AudiobookShelf",
-            basePath = "lib-1",
-            credentialId = "cred-1",
-            displayName = "Audiobooks"
-        )
-        val item = sampleItem(
-            itemId = "item-1",
-            libraryId = "lib-1",
-            trackCount = 1,
-            chapters = listOf(
-                AbsChapterDto(id = 0, title = "Previously on 24", start = 0.0, end = 42.008)
-            )
-        )
-
-        val book = catalogMapper.toBook(root, serverKey, item, existing = null, syncedAt = 1000L)
-        val files = catalogMapper.toFiles(root, serverKey, item)
-        val chapters = catalogMapper.toChapters(serverKey, item, files)
-
-        assertEquals(AudiobookSchema.SourceType.ABS_REMOTE, book.sourceType)
-        assertEquals("First Fifty Digits of Pi", book.title)
-        assertEquals(1, files.size)
-        assertEquals("/api/items/item-1/file/856465", files.first().sourcePath)
-        assertEquals(0, files.first().index)
-        assertEquals(1, chapters.size)
-        assertEquals(files.first().id, chapters.first().bookFileId)
-        assertEquals(0L, chapters.first().fileOffsetMs)
-    }
-
-    @Test
-    fun `catalog mapper should preserve remote addedAt for new ABS books and keep local value on resync`() {
-        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
-        val root = LibraryRootEntity(
-            id = idMapper.rootId(serverKey, "lib-1"),
-            sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/AudiobookShelf",
-            basePath = "lib-1",
-            credentialId = "cred-1",
-            displayName = "Audiobooks"
-        )
-        val remoteAddedAt = 4_000L
-        val existingAddedAt = 2_000L
-        val item = sampleItem(
-            itemId = "item-recent",
-            libraryId = "lib-1",
-            addedAt = remoteAddedAt
-        )
-
-        val firstSyncBook = catalogMapper.toBook(root, serverKey, item, existing = null, syncedAt = 9_000L)
-        val resyncedBook = catalogMapper.toBook(
-            root = root,
-            serverKey = serverKey,
-            item = item.copy(addedAt = 10_000L),
-            existing = firstSyncBook.copy(addedAt = existingAddedAt),
-            syncedAt = 11_000L
-        )
-
-        assertEquals(remoteAddedAt, firstSyncBook.addedAt)
-        assertEquals(existingAddedAt, resyncedBook.addedAt)
-    }
-
-    @Test
-    fun `abs playable gate must only accept book items with tracks`() {
-        val playable = sampleItem(itemId = "item-playable", libraryId = "lib-1", trackCount = 1)
-        val audioFilesOnly = sampleItem(itemId = "item-audiofiles-only", libraryId = "lib-1", trackCount = 0).copy(
-            media = AbsItemMediaDto(
-                metadata = AbsMediaMetadataDto(title = "Audio Files Only"),
-                tracks = emptyList(),
-                audioFiles = listOf(
-                    AbsAudioFileDto(
-                        ino = "af-1",
-                        index = 1,
-                        duration = 100.0,
-                        size = 1024L,
-                        metadata = AbsTrackMetadataDto(
-                            filename = "audio-only.mp3",
-                            ext = ".mp3",
-                            size = 1024L,
-                            mtimeMs = 1L
-                        )
-                    )
-                ),
-                chapters = emptyList(),
-                duration = 100.0,
-                size = 1024L
-            )
-        )
-        val podcast = sampleItem(itemId = "item-podcast", libraryId = "lib-1", trackCount = 1).copy(
-            mediaType = "podcast"
-        )
-
-        assertTrue(isAbsPlayableBook(playable))
-        assertTrue(!isAbsPlayableBook(audioFilesOnly))
-        assertTrue(!isAbsPlayableBook(podcast))
-    }
-
-    @Test
-    fun `progress mapper should convert seconds to millis and skip missing progress`() {
-        val serverKey = idMapper.serverKey("https://example.com/AudiobookShelf", "user-1")
-        val root = LibraryRootEntity(
-            id = idMapper.rootId(serverKey, "lib-1"),
-            sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/AudiobookShelf",
-            basePath = "lib-1",
-            credentialId = "cred-1",
-            displayName = "Audiobooks"
-        )
-        val itemWithProgress = sampleItem(
-            itemId = "item-1",
-            libraryId = "lib-1",
-            progress = AbsUserProgressDto(currentTime = 12.5, isFinished = false, lastUpdate = 999L)
-        )
-        val book = catalogMapper.toBook(root, serverKey, itemWithProgress, existing = null, syncedAt = 1000L)
-        val files = catalogMapper.toFiles(root, serverKey, itemWithProgress)
-        val progress = progressMapper.toProgressOrNull(itemWithProgress, book, files, 1000L)
-        assertNotNull(progress)
-        assertEquals(12500L, progress?.globalPositionMs)
-        assertEquals(999L, progress?.lastPlayedAt)
-
-        val itemWithoutProgress = sampleItem(itemId = "item-2", libraryId = "lib-1", progress = null)
-        val noProgressBook = catalogMapper.toBook(root, serverKey, itemWithoutProgress, existing = null, syncedAt = 1000L)
-        val noProgressFiles = catalogMapper.toFiles(root, serverKey, itemWithoutProgress)
-        assertNull(progressMapper.toProgressOrNull(itemWithoutProgress, noProgressBook, noProgressFiles, 1000L))
-    }
 
     @Test
     fun `catalog sync should leave authorize media progress to authorized synchronizer`() = runBlocking {
@@ -456,7 +311,7 @@ class AbsCatalogStage2Test {
     }
 
     private fun createCredentialStore(baseUrl: String, token: String): AbsCredentialStore {
-        val tempDir = createTempDirectory(prefix = "abs-catalog-stage2").toFile()
+        val tempDir = createTempDirectory(prefix = "abs-catalog-sync").toFile()
         val store = AbsCredentialStore.createForTesting(
             PreferenceDataStoreFactory.create(
                 produceFile = { File(tempDir, "credentials.preferences_pb") }

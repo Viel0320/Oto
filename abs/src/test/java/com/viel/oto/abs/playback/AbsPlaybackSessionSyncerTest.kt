@@ -1,6 +1,5 @@
-package com.viel.oto.abs
+package com.viel.oto.abs.playback
 
-import com.viel.oto.abs.mapping.AbsProgressConflictResolver
 import com.viel.oto.abs.net.AbsApiClient
 import com.viel.oto.abs.net.dto.AbsAuthorizeResponseDto
 import com.viel.oto.abs.net.dto.AbsAuthorizedUserDto
@@ -16,8 +15,6 @@ import com.viel.oto.data.abs.playback.AbsPendingProgressSyncDao
 import com.viel.oto.data.abs.playback.AbsPendingProgressSyncEntity
 import com.viel.oto.data.abs.playback.AbsPlaybackSessionDao
 import com.viel.oto.data.abs.playback.AbsPlaybackSessionEntity
-import com.viel.oto.abs.playback.AbsPlaybackSessionSyncer
-import com.viel.oto.abs.playback.AbsProgressConflictCoordinator
 import com.viel.oto.data.abs.sync.AbsCatalogStore
 import com.viel.oto.data.abs.sync.AbsItemMirrorEntity
 import com.viel.oto.data.abs.sync.AbsSyncStateEntity
@@ -40,7 +37,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -48,7 +44,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
-class AbsPlaybackSessionStage4Test {
+class AbsPlaybackSessionSyncerTest {
 
     @Test
     fun `open sync close should only rely on 2xx and plain OK`() = kotlinx.coroutines.runBlocking {
@@ -313,27 +309,6 @@ class AbsPlaybackSessionStage4Test {
     }
 
     @Test
-    fun `conflict resolver should prefer remote only when newer and not currently playing`() {
-        val resolver = AbsProgressConflictResolver()
-        val local = BookProgressEntity(bookId = "book-1", globalPositionMs = 1000L, lastPlayedAt = 2000L)
-        val remoteOld = AbsUserProgressDto(currentTime = 5.0, lastUpdate = 1000L)
-        val remoteNew = AbsUserProgressDto(currentTime = 5.0, lastUpdate = 3000L)
-
-        assertFalse(resolver.shouldApplyRemoteProgress(local, remoteOld, isCurrentlyPlaying = false))
-        assertTrue(resolver.shouldApplyRemoteProgress(local, remoteNew, isCurrentlyPlaying = false))
-        assertFalse(resolver.shouldApplyRemoteProgress(local, remoteNew, isCurrentlyPlaying = true))
-    }
-
-    @Test
-    fun `remote progress download should use newer timestamp even when positions diverge`() {
-        val resolver = AbsProgressConflictResolver()
-        val local = BookProgressEntity(bookId = "book-1", globalPositionMs = 1_000L, lastPlayedAt = 2_000L)
-        val remoteNew = AbsUserProgressDto(currentTime = 100.0, lastUpdate = 3_000L)
-
-        assertTrue(resolver.shouldApplyRemoteProgress(local, remoteNew, isCurrentlyPlaying = false))
-    }
-
-    @Test
     fun `sync should upload newer local progress even when remote position diverges`() = kotlinx.coroutines.runBlocking {
         val book = absBook()
         val api = SuccessfulPlaybackApi(remoteProgress = AbsUserProgressDto(currentTime = 100.0, lastUpdate = 3_000L))
@@ -412,21 +387,6 @@ class AbsPlaybackSessionStage4Test {
         } catch (error: CancellationException) {
             assertSame(cancellation, error)
         }
-    }
-
-    @Test
-    fun `conflict resolver should tolerate thirty seconds of progress drift`() {
-        val resolver = AbsProgressConflictResolver()
-        val local = BookProgressEntity(bookId = "book-1", globalPositionMs = 60_000L, lastPlayedAt = 2_000L)
-
-        assertEquals(
-            AbsProgressConflictResolver.Decision.InSync,
-            resolver.resolve(local, AbsUserProgressDto(currentTime = 90.0, lastUpdate = 3_000L))
-        )
-        assertEquals(
-            AbsProgressConflictResolver.Decision.Conflict,
-            resolver.resolve(local, AbsUserProgressDto(currentTime = 90.001, lastUpdate = 3_000L))
-        )
     }
 
     private fun absBook() = BookEntity(

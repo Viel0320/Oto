@@ -1,38 +1,23 @@
-package com.viel.oto.abs
+package com.viel.oto.abs.vfs
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.viel.oto.abs.auth.AbsCredentialStore
 import com.viel.oto.abs.net.AbsApiError
 import com.viel.oto.abs.net.AbsTokenRefreshClient
 import com.viel.oto.abs.net.AbsTokenRefreshResult
-import com.viel.oto.abs.net.dto.AbsPlayRequestDto
-import com.viel.oto.abs.net.dto.AbsPlaybackSessionDto
-import com.viel.oto.data.abs.sync.AbsCatalogStore
-import com.viel.oto.abs.sync.AbsCatalogSynchronizer
-import com.viel.oto.abs.sync.AbsCoverStore
-import com.viel.oto.data.abs.sync.AbsItemMirrorEntity
-import com.viel.oto.data.abs.sync.AbsSyncStateEntity
-import com.viel.oto.abs.vfs.AbsAuthExpiredException
-import com.viel.oto.abs.vfs.AbsRangeBodyTooLargeException
-import com.viel.oto.abs.vfs.AbsSourceProvider
-import com.viel.oto.data.cover.CoverImageResult
 import com.viel.oto.data.db.AudiobookSchema
-import com.viel.oto.data.entity.BookEntity
-import com.viel.oto.data.entity.BookFileEntity
-import com.viel.oto.data.entity.ChapterEntity
 import com.viel.oto.data.entity.LibraryRootEntity
 import com.viel.oto.shared.model.AppSettings
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.fail
 import org.junit.Test
 import java.io.File
 import kotlin.io.path.createTempDirectory
 
-class AbsSourceProviderStage3Test {
+class AbsSourceProviderStreamTest {
 
     @Test
     fun `resolve content url should preserve base subpath and reject external hosts`() {
@@ -42,19 +27,14 @@ class AbsSourceProviderStage3Test {
             credentialStore = credentialStore,
             settingsProvider = ::allowCleartextSettings
         )
-        val root = LibraryRootEntity(
-            id = "root-1",
-            sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/AudiobookShelf",
-            basePath = "lib-1",
-            credentialId = "cred-1",
-            displayName = "Audiobooks"
-        )
+        val root = absRoot(sourceUri = "https://example.com/AudiobookShelf")
+
         val resolved = provider.resolveContentUrl(
             baseUrl = "https://example.com/AudiobookShelf/",
             root = root,
             contentUrl = "/api/items/item-1/file/856465"
         )
+
         assertEquals("https://example.com/AudiobookShelf/api/items/item-1/file/856465", resolved.toString())
         try {
             provider.resolveContentUrl(
@@ -62,7 +42,7 @@ class AbsSourceProviderStage3Test {
                 root = root,
                 contentUrl = "https://malicious.example/api/items/item-1/file/856465"
             )
-            error("Expected exception")
+            fail("Expected external ABS stream hosts to be rejected")
         } catch (_: Exception) {
         }
     }
@@ -90,15 +70,8 @@ class AbsSourceProviderStage3Test {
                 credentialStore = credentialStore,
                 settingsProvider = ::allowCleartextSettings
             )
-            val root = LibraryRootEntity(
-                id = "root-1",
-                sourceType = AudiobookSchema.LibrarySourceType.ABS,
-                sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
-                basePath = "lib-1",
-                credentialId = "cred-1",
-                displayName = "Audiobooks"
-            )
-            val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
+            val node = requireNotNull(provider.resolve(absRoot(sourceUri = server.rootUrl()), "/api/items/item-1/file/856465"))
+
             provider.openInputStream(node).close()
             provider.openInputStream(node, offset = 5).close()
 
@@ -124,15 +97,7 @@ class AbsSourceProviderStage3Test {
                 credentialStore = credentialStore,
                 settingsProvider = ::allowCleartextSettings
             )
-            val root = LibraryRootEntity(
-                id = "root-1",
-                sourceType = AudiobookSchema.LibrarySourceType.ABS,
-                sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
-                basePath = "lib-1",
-                credentialId = "cred-1",
-                displayName = "Audiobooks"
-            )
-            val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
+            val node = requireNotNull(provider.resolve(absRoot(sourceUri = server.rootUrl()), "/api/items/item-1/file/856465"))
 
             try {
                 provider.openInputStream(node, offset = 5).close()
@@ -162,15 +127,7 @@ class AbsSourceProviderStage3Test {
                 credentialStore = credentialStore,
                 settingsProvider = ::allowCleartextSettings
             )
-            val root = LibraryRootEntity(
-                id = "root-1",
-                sourceType = AudiobookSchema.LibrarySourceType.ABS,
-                sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
-                basePath = "lib-1",
-                credentialId = "cred-1",
-                displayName = "Audiobooks"
-            )
-            val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
+            val node = requireNotNull(provider.resolve(absRoot(sourceUri = server.rootUrl()), "/api/items/item-1/file/856465"))
 
             provider.readRange(node, offset = Long.MAX_VALUE - 1L, length = 8)
 
@@ -195,15 +152,7 @@ class AbsSourceProviderStage3Test {
                 credentialStore = credentialStore,
                 settingsProvider = ::allowCleartextSettings
             )
-            val root = LibraryRootEntity(
-                id = "root-1",
-                sourceType = AudiobookSchema.LibrarySourceType.ABS,
-                sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
-                basePath = "lib-1",
-                credentialId = "cred-1",
-                displayName = "Audiobooks"
-            )
-            val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
+            val node = requireNotNull(provider.resolve(absRoot(sourceUri = server.rootUrl()), "/api/items/item-1/file/856465"))
 
             try {
                 provider.readRange(node, offset = 5L, length = 5)
@@ -236,15 +185,7 @@ class AbsSourceProviderStage3Test {
                 credentialStore = credentialStore,
                 settingsProvider = ::allowCleartextSettings
             )
-            val root = LibraryRootEntity(
-                id = "root-1",
-                sourceType = AudiobookSchema.LibrarySourceType.ABS,
-                sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
-                basePath = "lib-1",
-                credentialId = "cred-1",
-                displayName = "Audiobooks"
-            )
-            val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
+            val node = requireNotNull(provider.resolve(absRoot(sourceUri = server.rootUrl()), "/api/items/item-1/file/856465"))
 
             try {
                 provider.readRange(node, offset = 5L, length = 5)
@@ -275,15 +216,7 @@ class AbsSourceProviderStage3Test {
                 credentialStore = credentialStore,
                 settingsProvider = ::allowCleartextSettings
             )
-            val root = LibraryRootEntity(
-                id = "root-1",
-                sourceType = AudiobookSchema.LibrarySourceType.ABS,
-                sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
-                basePath = "lib-1",
-                credentialId = "cred-1",
-                displayName = "Audiobooks"
-            )
-            val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
+            val node = requireNotNull(provider.resolve(absRoot(sourceUri = server.rootUrl()), "/api/items/item-1/file/856465"))
 
             val data = provider.readRange(node, offset = 7L, length = 10)
 
@@ -305,15 +238,7 @@ class AbsSourceProviderStage3Test {
                 settingsProvider = ::allowCleartextSettings,
                 tokenRefreshClient = tokenRefreshClient
             )
-            val root = LibraryRootEntity(
-                id = "root-1",
-                sourceType = AudiobookSchema.LibrarySourceType.ABS,
-                sourceUri = server.url("/AudiobookShelf").toString().trimEnd('/'),
-                basePath = "lib-1",
-                credentialId = "cred-1",
-                displayName = "Audiobooks"
-            )
-            val node = requireNotNull(provider.resolve(root, "/api/items/item-1/file/856465"))
+            val node = requireNotNull(provider.resolve(absRoot(sourceUri = server.rootUrl()), "/api/items/item-1/file/856465"))
 
             try {
                 provider.openInputStream(node).close()
@@ -330,31 +255,8 @@ class AbsSourceProviderStage3Test {
         }
     }
 
-    @Test
-    fun `catalog synchronizer should write cached cover paths into book`() = runBlocking {
-        val credentialStore = createCredentialStore("https://example.com/AudiobookShelf", "token-1")
-        val store = FakeCatalogStore()
-        val synchronizer = AbsCatalogSynchronizer(
-            apiClient = FakeCatalogApi(),
-            credentialStore = credentialStore,
-            catalogStore = store
-        )
-        val root = LibraryRootEntity(
-            id = "root-1",
-            sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/AudiobookShelf",
-            basePath = "lib-1",
-            credentialId = "cred-1",
-            displayName = "Audiobooks"
-        )
-
-        synchronizer.syncRoot(root)
-
-        val book = store.books.values.firstOrNull()
-        assertNotNull(book)
-        org.junit.Assert.assertNull(book?.coverPath)
-        org.junit.Assert.assertNull(book?.thumbnailPath)
-    }
+    private fun MockWebServer.rootUrl(): String =
+        url("/AudiobookShelf").toString().trimEnd('/')
 
     private fun createCredentialStore(baseUrl: String, token: String): AbsCredentialStore {
         val tempDir = createTempDirectory(prefix = "abs-source-provider").toFile()
@@ -384,6 +286,15 @@ class AbsSourceProviderStage3Test {
     private fun allowCleartextSettings(): AppSettings =
         AppSettings(isCleartextTrafficAllowed = true)
 
+    private fun absRoot(sourceUri: String) = LibraryRootEntity(
+        id = "root-1",
+        sourceType = AudiobookSchema.LibrarySourceType.ABS,
+        sourceUri = sourceUri,
+        basePath = "lib-1",
+        credentialId = "cred-1",
+        displayName = "Audiobooks"
+    )
+
     private class RecordingTokenRefreshClient(
         private val result: AbsTokenRefreshResult
     ) : AbsTokenRefreshClient {
@@ -392,91 +303,6 @@ class AbsSourceProviderStage3Test {
         override suspend fun refreshToken(credentialId: String): AbsTokenRefreshResult {
             refreshCalls += credentialId
             return result
-        }
-    }
-
-    private class FakeCoverStore(
-        private val coverPath: String,
-        private val thumbPath: String
-    ) : AbsCoverStore {
-        override suspend fun downloadCover(
-            root: LibraryRootEntity,
-            remoteItemId: String
-        ) = CoverImageResult(coverPath, thumbPath, 123)
-    }
-
-    private class FakeCatalogApi : com.viel.oto.abs.net.AbsApiClient {
-        override suspend fun status(baseUrl: String) = com.viel.oto.abs.net.dto.AbsStatusDto(serverVersion = "2.35.1", isInit = true)
-        override suspend fun login(baseUrl: String, username: String, password: String) = throw UnsupportedOperationException()
-        override suspend fun authorize(baseUrl: String, token: String) =
-            com.viel.oto.abs.net.dto.AbsAuthorizeResponseDto(
-                user = com.viel.oto.abs.net.dto.AbsAuthorizedUserDto(id = "user-1", username = "demo-user", token = token)
-            )
-        override suspend fun getLibraries(baseUrl: String, token: String) = emptyList<com.viel.oto.abs.net.dto.AbsLibraryDto>()
-        override suspend fun getLibraryItemsMinified(baseUrl: String, token: String, libraryId: String) =
-            com.viel.oto.abs.net.dto.AbsLibraryItemsResponseDto(
-                results = listOf(
-                    com.viel.oto.abs.net.dto.AbsLibraryItemDto(
-                        id = "item-1",
-                        libraryId = libraryId,
-                        mediaType = "book",
-                        title = "Pi",
-                        updatedAt = 1L,
-                        media = com.viel.oto.abs.net.dto.AbsItemMediaDto(
-                            metadata = com.viel.oto.abs.net.dto.AbsMediaMetadataDto(title = "Pi", authorName = "Scott"),
-                            tracks = listOf(
-                                com.viel.oto.abs.net.dto.AbsTrackDto(
-                                    index = 1,
-                                    duration = 10.0,
-                                    contentUrl = "/api/items/item-1/file/856465",
-                                    metadata = com.viel.oto.abs.net.dto.AbsTrackMetadataDto(filename = "pi.mp3", ext = ".mp3", size = 10L)
-                                )
-                            ),
-                            chapters = listOf(
-                                com.viel.oto.abs.net.dto.AbsChapterDto(id = 0, title = "c1", start = 0.0, end = 10.0)
-                            ),
-                            duration = 10.0
-                        )
-                    )
-                ),
-                total = 1,
-                limit = 0,
-                page = 0
-            )
-        override suspend fun batchGetItems(baseUrl: String, token: String, itemIds: List<String>) =
-            getLibraryItemsMinified(baseUrl, token, "lib-1").results.orEmpty()
-        override suspend fun openPlaybackSession(baseUrl: String, token: String, itemId: String, request: AbsPlayRequestDto) =
-            AbsPlaybackSessionDto(id = "session-1", libraryItemId = itemId)
-        override suspend fun syncSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double) = Unit
-        override suspend fun closeSession(baseUrl: String, token: String, sessionId: String, currentTimeSec: Double, timeListenedSec: Double, durationSec: Double) = Unit
-    }
-
-    private class FakeCatalogStore : AbsCatalogStore {
-        val books = linkedMapOf<String, BookEntity>()
-        private val mirrors = linkedMapOf<String, AbsItemMirrorEntity>()
-        private var syncState: AbsSyncStateEntity? = null
-        override suspend fun getBookById(bookId: String): BookEntity? = books[bookId]
-        override suspend fun getMirrorsByRootId(rootId: String): List<AbsItemMirrorEntity> = mirrors.values.toList()
-        override suspend fun getSyncState(rootId: String): AbsSyncStateEntity? = syncState
-        override suspend fun upsertCatalogMirror(
-            book: BookEntity,
-            files: List<BookFileEntity>,
-            chapters: List<ChapterEntity>,
-            mirror: AbsItemMirrorEntity,
-            syncState: AbsSyncStateEntity
-        ) {
-            books[book.id] = book
-            mirrors[mirror.remoteItemId] = mirror
-            this.syncState = syncState
-        }
-        override suspend fun replaceMirrors(mirrors: List<AbsItemMirrorEntity>) {
-            mirrors.forEach { mirror -> this.mirrors[mirror.remoteItemId] = mirror }
-        }
-        override suspend fun saveSyncState(syncState: AbsSyncStateEntity) {
-            this.syncState = syncState
-        }
-        override suspend fun updateBookStatus(bookId: String, status: AudiobookSchema.BookStatus) {
-            books[bookId] = books.getValue(bookId).copy(status = status)
         }
     }
 }

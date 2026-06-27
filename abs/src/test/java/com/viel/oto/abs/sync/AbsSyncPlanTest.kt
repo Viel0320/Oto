@@ -1,12 +1,12 @@
-package com.viel.oto.abs
+package com.viel.oto.abs.sync
 
-import com.viel.oto.abs.sync.AbsSyncPlan
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class AbsStage5LogicTest {
+class AbsSyncPlanTest {
+
     @Test
     fun `large library plan should require confirmation only above ten thousand`() {
         val small = AbsSyncPlan(totalItems = 3000, batchSize = 20, requiresConfirmation = false)

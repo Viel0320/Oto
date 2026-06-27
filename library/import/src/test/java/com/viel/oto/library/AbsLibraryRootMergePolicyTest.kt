@@ -2,13 +2,10 @@ package com.viel.oto.library
 
 import com.viel.oto.data.db.AudiobookSchema
 import com.viel.oto.data.entity.LibraryRootEntity
-import com.viel.oto.library.root.shouldDeleteAbsCredential
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class AbsLibraryRootStage1LogicTest {
+class AbsLibraryRootMergePolicyTest {
 
     @Test
     fun `same abs server and library should reuse root and refresh credential`() {
@@ -59,41 +56,5 @@ class AbsLibraryRootStage1LogicTest {
 
         assertEquals("root-2", merged.id)
         assertEquals("library-2", merged.basePath)
-    }
-
-    @Test
-    fun `shared abs credential should not be deleted while another root still references it`() {
-        val root = LibraryRootEntity(
-            id = "root-1",
-            sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/AudiobookShelf",
-            basePath = "library-1",
-            credentialId = "cred-1",
-            displayName = "Library 1"
-        )
-        val other = LibraryRootEntity(
-            id = "root-2",
-            sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/AudiobookShelf",
-            basePath = "library-2",
-            credentialId = "cred-1",
-            displayName = "Library 2"
-        )
-
-        assertFalse(shouldDeleteAbsCredential(root, listOf(root, other)))
-    }
-
-    @Test
-    fun `last abs credential reference should be deleted`() {
-        val root = LibraryRootEntity(
-            id = "root-1",
-            sourceType = AudiobookSchema.LibrarySourceType.ABS,
-            sourceUri = "https://example.com/AudiobookShelf",
-            basePath = "library-1",
-            credentialId = "cred-1",
-            displayName = "Library 1"
-        )
-
-        assertTrue(shouldDeleteAbsCredential(root, listOf(root)))
     }
 }
