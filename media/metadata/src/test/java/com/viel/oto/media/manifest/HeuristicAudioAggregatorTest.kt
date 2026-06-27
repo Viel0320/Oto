@@ -70,8 +70,7 @@ class HeuristicAudioAggregatorTest {
 
     @Test
     fun `three files with blank albums but sequential names aggregate`() {
-        // Uses a digit-free extension so the trailing number reflects the real chapter sequence
-        // rather than the extension digits (see the mp3-masking test below).
+        // Uses a digit-free extension to keep the base sequential branch easy to read.
         val files = listOf(
             ref(name = "chapter1.flac", album = ""),
             ref(name = "chapter2.flac", album = ""),
@@ -82,17 +81,18 @@ class HeuristicAudioAggregatorTest {
     }
 
     @Test
-    fun `sequential mp3 names do not aggregate because the extension digit masks the sequence`() {
-        // Suspicious production edge: hasSequentialNames takes the LAST digit run of the full
-        // displayName, which for ".mp3" is always "3". So genuinely sequential .mp3 files all
-        // resolve to 3,3,3 and fail the monotonic check. Documented here, not a test of intent.
+    fun `sequential names ignore numeric audio extensions`() {
+        // Regression coverage for extension stripping: the sequence detector must read the
+        // chapter number from the filename stem, not the numeric token embedded in mp3/m4a/mp4.
         val files = listOf(
             ref(name = "chapter1.mp3", album = ""),
             ref(name = "chapter2.mp3", album = ""),
-            ref(name = "chapter3.mp3", album = "")
+            ref(name = "chapter3.mp3", album = ""),
+            ref(name = "chapter4.m4a", album = ""),
+            ref(name = "chapter5.mp4", album = "")
         )
 
-        assertFalse(HeuristicAudioAggregator.shouldAggregate(files))
+        assertTrue(HeuristicAudioAggregator.shouldAggregate(files))
     }
 
     @Test

@@ -77,10 +77,19 @@ object HeuristicAudioAggregator {
 
     private fun hasSequentialNames(names: List<String>): Boolean {
         val regex = Regex("(\\d+)")
-        val numbers = names.mapNotNull { regex.findAll(it).lastOrNull()?.value?.toIntOrNull() }
+        val numbers = names.mapNotNull { name ->
+            regex.findAll(sequenceComparableName(name)).lastOrNull()?.value?.toIntOrNull()
+        }
         if (numbers.size != names.size) return false
         return numbers.zipWithNext().all { (a, b) -> b == a + 1 || b > a }
     }
+
+    /**
+     * Removes the filename extension before sequence detection so codec suffixes such as mp3,
+     * m4a, or mp4 cannot replace the chapter number as the last numeric token.
+     */
+    private fun sequenceComparableName(name: String): String =
+        name.substringBeforeLast('.', missingDelimiterValue = name)
 
     private fun generatedBookTitle(files: List<AudioMetadataRef>): String {
         val parentName = files.first().file.parentSourcePath.substringAfterLast('/').ifBlank { "Generated audiobook" }
