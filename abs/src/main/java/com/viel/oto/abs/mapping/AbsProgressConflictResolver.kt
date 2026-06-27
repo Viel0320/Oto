@@ -10,8 +10,6 @@ class AbsProgressConflictResolver {
      * Keeps comparison rules outside transport/session classes so upload and playback prompts share the same behavior.
      */
     enum class Decision {
-        RemoteMissing,
-        LocalMissing,
         InSync,
         Conflict
     }
@@ -26,22 +24,24 @@ class AbsProgressConflictResolver {
 
     /**
      * Compares positions after converting ABS seconds into local milliseconds.
-     * Returns Conflict whenever both sides have meaningful progress and their positions diverge beyond the drift threshold.
+     * Missing local rows and missing remote position fields are normalized to an unfinished 0ms checkpoint
+     * so "not started" participates in the same arbitration rules as any other position.
      */
     fun resolve(
         local: BookProgressEntity?,
         remote: AbsUserProgressDto?,
         localReadStatus: AudiobookSchema.ReadStatus? = null
     ): Decision {
-        val remotePositionMs = remote?.resolvedPositionMs() ?: return Decision.RemoteMissing
-        if (local == null) return Decision.LocalMissing
-        if (hasFinishedConflict(localReadStatus, remote.isFinished)) return Decision.Conflict
-        return resolvePositions(local, remotePositionMs)
+        val localPositionMs = local.normalizedPositionMs()
+        val remotePositionMs = remote.normalizedPositionMs()
+        if (hasFinishedConflict(local, localReadStatus, remote?.isFinished)) return Decision.Conflict
+        return resolvePositions(localPositionMs, remotePositionMs)
     }
 
     /**
      * Compares already-mapped local progress entities.
-     * Playback prompts use this overload after the remote DTO has been converted into the same unit model as Room progress.
+     * Playback prompts use this overload after the remote DTO has been converted into the same unit model as Room progress,
+     * while still treating a missing candidate as an explicit 0ms "not started" checkpoint.
      */
     fun resolveLocalCandidates(
         local: BookProgressEntity?,
@@ -49,24 +49,28 @@ class AbsProgressConflictResolver {
         localReadStatus: AudiobookSchema.ReadStatus? = null,
         remoteIsFinished: Boolean? = null
     ): Decision {
-        if (remote == null) return Decision.RemoteMissing
-        if (local == null) return Decision.LocalMissing
-        if (hasFinishedConflict(localReadStatus, remoteIsFinished)) return Decision.Conflict
-        return resolvePositions(local, remote.globalPositionMs)
+        val localPositionMs = local.normalizedPositionMs()
+        val remotePositionMs = remote.normalizedPositionMs()
+        if (hasFinishedConflict(local, localReadStatus, remoteIsFinished)) return Decision.Conflict
+        return resolvePositions(localPositionMs, remotePositionMs)
     }
 
     /**
-     * Treats completed-vs-incomplete disagreement as a user-visible conflict.
-     * A nearly identical timestamp can still represent different semantic progress when one side marks the book finished and the other does not.
+     * Compares finished state only when both sides expose a concrete completion flag.
+     * A missing local progress row is deliberately treated as unfinished even if stale book metadata says FINISHED.
      */
-    private fun hasFinishedConflict(localReadStatus: AudiobookSchema.ReadStatus?, remoteIsFinished: Boolean?): Boolean {
+    private fun hasFinishedConflict(
+        local: BookProgressEntity?,
+        localReadStatus: AudiobookSchema.ReadStatus?,
+        remoteIsFinished: Boolean?
+    ): Boolean {
         if (remoteIsFinished == null || localReadStatus == null) return false
-        val localIsFinished = localReadStatus == AudiobookSchema.ReadStatus.FINISHED
+        val localIsFinished = local != null && localReadStatus == AudiobookSchema.ReadStatus.FINISHED
         return localIsFinished != remoteIsFinished
     }
 
-    private fun resolvePositions(local: BookProgressEntity, remotePositionMs: Long): Decision {
-        val deltaMs = kotlin.math.abs(local.globalPositionMs - remotePositionMs)
+    private fun resolvePositions(localPositionMs: Long, remotePositionMs: Long): Decision {
+        val deltaMs = kotlin.math.abs(localPositionMs - remotePositionMs)
         return if (deltaMs <= POSITION_CONFLICT_THRESHOLD_MS) {
             Decision.InSync
         } else {
@@ -83,14 +87,12 @@ class AbsProgressConflictResolver {
         if (remote == null) return false
         if (isCurrentlyPlaying) return false
         return when (resolve(local, remote, localReadStatus)) {
-            Decision.LocalMissing -> true
             Decision.InSync -> {
                 val remoteUpdatedAt = remote.lastUpdate ?: return false
                 val localUpdatedAt = local?.lastPlayedAt ?: return true
                 remoteUpdatedAt > localUpdatedAt
             }
             Decision.Conflict -> isRemoteNewerThanLocal(local, remote)
-            Decision.RemoteMissing -> false
         }
     }
 
@@ -105,21 +107,26 @@ class AbsProgressConflictResolver {
     ): Boolean =
         when (resolve(local, remote, localReadStatus)) {
             Decision.Conflict -> isLocalNewerThanRemote(local, remote)
-            Decision.RemoteMissing,
-            Decision.InSync,
-            Decision.LocalMissing -> true
+            Decision.InSync -> true
         }
 
     /**
      * Supports both absolute seconds and ratio-duration ABS payloads.
-     * authorize.user.mediaProgress can be the startup sync source, so conflict checks must understand the same progress shapes as the mapper.
+     * Missing remote position data is an explicit not-started checkpoint rather than an absent candidate.
      */
-    private fun AbsUserProgressDto.resolvedPositionMs(): Long? {
-        val currentTimeSec = currentTime ?: progress?.let { ratio ->
-            duration?.let { totalDurationSec -> ratio * totalDurationSec }
-        } ?: return null
+    private fun AbsUserProgressDto?.normalizedPositionMs(): Long {
+        val remote = this ?: return 0L
+        val currentTimeSec = remote.currentTime ?: remote.progress?.let { ratio ->
+            remote.duration?.let { totalDurationSec -> ratio * totalDurationSec }
+        } ?: return 0L
         return (currentTimeSec * 1000.0).toLong().coerceAtLeast(0L)
     }
+
+    /**
+     * Treats a missing local progress row as a stable not-started checkpoint for conflict comparison.
+     */
+    private fun BookProgressEntity?.normalizedPositionMs(): Long =
+        this?.globalPositionMs?.coerceAtLeast(0L) ?: 0L
 
     private fun isRemoteNewerThanLocal(local: BookProgressEntity?, remote: AbsUserProgressDto?): Boolean {
         val remoteUpdatedAt = remote?.lastUpdate ?: return false

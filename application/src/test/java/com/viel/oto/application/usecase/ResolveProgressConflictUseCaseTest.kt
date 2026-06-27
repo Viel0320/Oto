@@ -85,8 +85,8 @@ class ResolveProgressConflictUseCaseTest {
     }
 
     @Test
-    fun `missing local progress maps to apply remote and converts the snapshot`() = runBlocking {
-        // No local progress -> resolver LocalMissing -> ApplyRemote.
+    fun `missing local progress maps to not started in a conflict snapshot`() = runBlocking {
+        // Missing local progress is normalized to 0ms, so a far-away remote position asks the user.
         val catalog = FakeBookCatalogGateway(
             book = book(
                 id = REMOTE_BOOK_ID,
@@ -103,11 +103,11 @@ class ResolveProgressConflictUseCaseTest {
 
         val result = useCase.preparePlayback(REMOTE_BOOK_ID)
 
-        val applyRemote = result as ResolveProgressConflictUseCase.PlaybackDecisionResult.ApplyRemote
-        val snapshot = applyRemote.conflict
+        val askUser = result as ResolveProgressConflictUseCase.PlaybackDecisionResult.AskUser
+        val snapshot = askUser.conflict
         assertEquals(REMOTE_BOOK_ID, snapshot.bookId)
         assertEquals("Remote Title", snapshot.bookTitle)
-        assertNull(snapshot.localPositionMs)
+        assertEquals(0L, snapshot.localPositionMs)
         assertEquals(120_000L, snapshot.remotePositionMs)
         assertNull(snapshot.localUpdatedAt)
         assertEquals(777L, snapshot.remoteUpdatedAt)
@@ -149,6 +149,25 @@ class ResolveProgressConflictUseCaseTest {
     }
 
     @Test
+    fun `remote finished unknown remains nullable in conflict snapshot`() = runBlocking {
+        val catalog = FakeBookCatalogGateway(
+            book = book(id = REMOTE_BOOK_ID, sourceType = AudiobookSchema.SourceType.ABS_REMOTE)
+        )
+        val progress = FakeProgressGateway(
+            local = localProgress(globalPositionMs = 0L, lastPlayedAt = 1L)
+        )
+        val api = FakeAbsApiClient(
+            remote = remoteDto(currentTimeSec = 100.0, isFinished = null, lastUpdate = 2L)
+        )
+        val useCase = createUseCase(catalog = catalog, progress = progress, api = api)
+
+        val result = useCase.preparePlayback(REMOTE_BOOK_ID)
+
+        val askUser = result as ResolveProgressConflictUseCase.PlaybackDecisionResult.AskUser
+        assertNull(askUser.conflict.remoteFinished)
+    }
+
+    @Test
     fun `divergent positions beyond threshold map to ask user`() = runBlocking {
         val catalog = FakeBookCatalogGateway(
             book = book(id = REMOTE_BOOK_ID, sourceType = AudiobookSchema.SourceType.ABS_REMOTE)
@@ -178,10 +197,10 @@ class ResolveProgressConflictUseCaseTest {
         )
         val useCase = createUseCase(catalog = catalog, progress = progress, metadata = metadata, api = api)
 
-        val applyRemote = useCase.preparePlayback(REMOTE_BOOK_ID)
-            as ResolveProgressConflictUseCase.PlaybackDecisionResult.ApplyRemote
+        val askUser = useCase.preparePlayback(REMOTE_BOOK_ID)
+            as ResolveProgressConflictUseCase.PlaybackDecisionResult.AskUser
 
-        useCase.acceptRemoteProgress(applyRemote.conflict)
+        useCase.acceptRemoteProgress(askUser.conflict)
 
         val saved = progress.savedProgress
         assertEquals(REMOTE_BOOK_ID, saved?.bookId)

@@ -12,15 +12,19 @@ class ResolveProgressConflictUseCase(
         data class AskUser(val conflict: ConflictSnapshot) : PlaybackDecisionResult
     }
 
+    /**
+     * UI-facing conflict projection using local progress units.
+     * A missing local progress row is normalized to an unfinished 0ms checkpoint, while remote completion remains nullable to preserve ABS "unknown" semantics.
+     */
     data class ConflictSnapshot(
         val bookId: String,
         val bookTitle: String,
-        val localPositionMs: Long?,
+        val localPositionMs: Long,
         val remotePositionMs: Long,
         val localUpdatedAt: Long?,
         val remoteUpdatedAt: Long?,
         val localFinished: Boolean,
-        val remoteFinished: Boolean,
+        val remoteFinished: Boolean?,
         internal val rawConflict: AbsProgressConflictCoordinator.ProgressConflict
     )
 
@@ -43,12 +47,12 @@ class ResolveProgressConflictUseCase(
     private fun AbsProgressConflictCoordinator.ProgressConflict.toSnapshot() = ConflictSnapshot(
         bookId = book.id,
         bookTitle = book.title,
-        localPositionMs = localProgress?.globalPositionMs,
-        remotePositionMs = remoteProgress.globalPositionMs,
+        localPositionMs = localProgress?.globalPositionMs?.coerceAtLeast(0L) ?: 0L,
+        remotePositionMs = remoteProgress.globalPositionMs.coerceAtLeast(0L),
         localUpdatedAt = localProgress?.lastPlayedAt,
         remoteUpdatedAt = remoteProgress.lastPlayedAt,
-        localFinished = book.readStatus == AudiobookSchema.ReadStatus.FINISHED,
-        remoteFinished = remoteIsFinished == true,
+        localFinished = localProgress != null && book.readStatus == AudiobookSchema.ReadStatus.FINISHED,
+        remoteFinished = remoteIsFinished,
         rawConflict = this
     )
 }

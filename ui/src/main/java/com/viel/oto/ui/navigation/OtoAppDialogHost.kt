@@ -127,7 +127,6 @@ fun OtoAppDialogHost(
             },
             body = {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    val noneText = stringResource(R.string.abs_progress_none)
                     val localProgressLabel = stringResource(R.string.abs_progress_local_label)
                     val localUpdatedLabel = stringResource(R.string.abs_progress_local_updated_label)
                     val remoteProgressLabel = stringResource(R.string.abs_progress_remote_label)
@@ -143,7 +142,7 @@ fun OtoAppDialogHost(
                     Text(
                         text = buildString {
                             append(localProgressLabel)
-                            append(absProgressConflictState.localPositionMs?.let(::formatTime) ?: noneText)
+                            append(formatTime(absProgressConflictState.localPositionMs))
                             append(absFinishedSuffix(absProgressConflictState.localFinished, finishedSuffix))
                             absProgressConflictState.localUpdatedAt?.let { updatedAt ->
                                 append("\n")
@@ -222,7 +221,7 @@ fun OtoAppDialogHost(
 /**
  * Adds a compact semantic marker beside progress positions.
  *
- * Keeps the dialog text construction readable while making completed-vs-incomplete conflicts visible to users.
+ * Keeps the dialog text construction readable while preserving ABS's unknown finished state as no suffix.
  */
-private fun absFinishedSuffix(isFinished: Boolean, finishedSuffix: String): String =
-    if (isFinished) finishedSuffix else ""
+private fun absFinishedSuffix(isFinished: Boolean?, finishedSuffix: String): String =
+    if (isFinished == true) finishedSuffix else ""

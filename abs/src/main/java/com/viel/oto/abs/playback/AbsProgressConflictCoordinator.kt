@@ -62,7 +62,7 @@ class AbsProgressConflictCoordinator(
 
     /**
      * Fetches remote progress before playback starts.
-     * Returns AskUser only when both sides contain divergent positions beyond the shared conflict threshold.
+     * Returns AskUser when the normalized local-vs-remote checkpoints diverge beyond the shared conflict threshold.
      */
     suspend fun preparePlayback(bookId: String): PlaybackDecision {
         val book = bookCatalogGateway.getBookById(bookId) ?: return PlaybackDecision.ContinueLocal
@@ -76,8 +76,6 @@ class AbsProgressConflictCoordinator(
                 remoteIsFinished = conflict.remoteIsFinished
             )
         ) {
-            AbsProgressConflictResolver.Decision.LocalMissing -> PlaybackDecision.ApplyRemote(conflict)
-            AbsProgressConflictResolver.Decision.RemoteMissing -> PlaybackDecision.ContinueLocal
             AbsProgressConflictResolver.Decision.InSync -> PlaybackDecision.ContinueLocal
             AbsProgressConflictResolver.Decision.Conflict -> PlaybackDecision.AskUser(conflict)
         }

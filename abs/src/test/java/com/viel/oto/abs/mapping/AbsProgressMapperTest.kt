@@ -52,6 +52,30 @@ class AbsProgressMapperTest {
         assertNull(mapper.toProgressOrNull(sampleItem(itemId = "item-2", progress = null), book, files, 1000L))
     }
 
+    @Test
+    fun `progress mapper treats missing position fields as not started`() {
+        val book = BookEntity(
+            id = "book-1",
+            rootId = "root-1",
+            sourceType = AudiobookSchema.SourceType.ABS_REMOTE,
+            title = "Book"
+        )
+        val remote = AbsUserProgressDto(
+            currentTime = null,
+            progress = null,
+            duration = 100.0,
+            isFinished = false,
+            lastUpdate = 999L
+        )
+
+        val progress = mapper.toProgress(remote, book, files = emptyList(), syncedAt = 1000L)
+
+        assertEquals(0L, progress.globalPositionMs)
+        assertEquals(0L, progress.positionInFileMs)
+        assertEquals(0, progress.currentFileIndex)
+        assertNull(progress.bookFileId)
+    }
+
     private fun sampleItem(itemId: String, progress: AbsUserProgressDto?): AbsLibraryItemDto =
         AbsLibraryItemDto(
             id = itemId,

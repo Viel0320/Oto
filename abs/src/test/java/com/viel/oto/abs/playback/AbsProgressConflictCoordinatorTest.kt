@@ -78,20 +78,31 @@ class AbsProgressConflictCoordinatorTest {
     }
 
     @Test
-    fun `local missing applies remote`() = runBlocking {
+    fun `local missing asks user when remote is beyond not-started threshold`() = runBlocking {
         val book = absRemoteBook()
-        // remote present, no local progress -> Decision.LocalMissing -> ApplyRemote
+        // Missing local progress is a 0ms checkpoint, so a far-away remote position becomes a conflict.
         val api = FakeApiClient(progress = AbsUserProgressDto(currentTime = 600.0, lastUpdate = 99L))
         val coordinator = coordinator(api = api, books = listOf(book), localProgress = null)
 
         val decision = coordinator.preparePlayback(book.id)
 
-        assertTrue(decision is AbsProgressConflictCoordinator.PlaybackDecision.ApplyRemote)
-        val conflict = (decision as AbsProgressConflictCoordinator.PlaybackDecision.ApplyRemote).conflict
+        assertTrue(decision is AbsProgressConflictCoordinator.PlaybackDecision.AskUser)
+        val conflict = (decision as AbsProgressConflictCoordinator.PlaybackDecision.AskUser).conflict
         assertEquals(book.id, conflict.book.id)
         assertEquals("item-1", conflict.remoteItemId)
         // remote currentTime 600s -> 600_000ms
         assertEquals(600_000L, conflict.remoteProgress.globalPositionMs)
+    }
+
+    @Test
+    fun `local missing and near-start remote continues local`() = runBlocking {
+        val book = absRemoteBook()
+        val api = FakeApiClient(progress = AbsUserProgressDto(currentTime = 10.0, lastUpdate = 99L))
+        val coordinator = coordinator(api = api, books = listOf(book), localProgress = null)
+
+        val decision = coordinator.preparePlayback(book.id)
+
+        assertTrue(decision is AbsProgressConflictCoordinator.PlaybackDecision.ContinueLocal)
     }
 
     @Test

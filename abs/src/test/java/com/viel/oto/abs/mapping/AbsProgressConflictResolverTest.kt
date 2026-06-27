@@ -22,34 +22,42 @@ class AbsProgressConflictResolverTest {
     // region resolve()
 
     @Test
-    fun `resolve returns RemoteMissing when remote is null`() {
+    fun `resolve treats missing remote progress as not started`() {
         assertEquals(
-            AbsProgressConflictResolver.Decision.RemoteMissing,
+            AbsProgressConflictResolver.Decision.InSync,
             resolver.resolve(local = localProgress(0L), remote = null)
+        )
+        assertEquals(
+            AbsProgressConflictResolver.Decision.Conflict,
+            resolver.resolve(local = localProgress(30_001L), remote = null)
         )
     }
 
     @Test
-    fun `resolve returns RemoteMissing when remote has no resolvable position`() {
-        // currentTime null, and progress or duration missing means resolvedPositionMs is null.
+    fun `resolve treats remote payload without a position as not started`() {
+        // Missing currentTime and incomplete ratio-duration data both normalize to a 0ms remote checkpoint.
         val remoteNoTime = AbsUserProgressDto(progress = 0.5, duration = null)
         assertEquals(
-            AbsProgressConflictResolver.Decision.RemoteMissing,
+            AbsProgressConflictResolver.Decision.InSync,
             resolver.resolve(local = localProgress(1_000L), remote = remoteNoTime)
         )
         val remoteNoProgress = AbsUserProgressDto(progress = null, duration = 100.0)
         assertEquals(
-            AbsProgressConflictResolver.Decision.RemoteMissing,
-            resolver.resolve(local = localProgress(1_000L), remote = remoteNoProgress)
+            AbsProgressConflictResolver.Decision.Conflict,
+            resolver.resolve(local = localProgress(30_001L), remote = remoteNoProgress)
         )
     }
 
     @Test
-    fun `resolve returns LocalMissing when local is null but remote resolvable`() {
+    fun `resolve treats missing local progress as not started`() {
         val remote = AbsUserProgressDto(currentTime = 10.0)
         assertEquals(
-            AbsProgressConflictResolver.Decision.LocalMissing,
+            AbsProgressConflictResolver.Decision.InSync,
             resolver.resolve(local = null, remote = remote)
+        )
+        assertEquals(
+            AbsProgressConflictResolver.Decision.Conflict,
+            resolver.resolve(local = null, remote = AbsUserProgressDto(currentTime = 40.001))
         )
     }
 
@@ -74,6 +82,19 @@ class AbsProgressConflictResolverTest {
         assertEquals(
             AbsProgressConflictResolver.Decision.InSync,
             resolver.resolve(local = localProgress(10_000L), remote = remote, localReadStatus = null)
+        )
+    }
+
+    @Test
+    fun `resolve treats missing local progress as unfinished for finished checks`() {
+        val remote = AbsUserProgressDto(currentTime = 0.0, isFinished = false)
+        assertEquals(
+            AbsProgressConflictResolver.Decision.InSync,
+            resolver.resolve(
+                local = null,
+                remote = remote,
+                localReadStatus = AudiobookSchema.ReadStatus.FINISHED
+            )
         )
     }
 
@@ -127,18 +148,26 @@ class AbsProgressConflictResolverTest {
     // region resolveLocalCandidates()
 
     @Test
-    fun `resolveLocalCandidates returns RemoteMissing when remote null`() {
+    fun `resolveLocalCandidates treats remote null as not started`() {
         assertEquals(
-            AbsProgressConflictResolver.Decision.RemoteMissing,
+            AbsProgressConflictResolver.Decision.InSync,
             resolver.resolveLocalCandidates(local = localProgress(0L), remote = null)
+        )
+        assertEquals(
+            AbsProgressConflictResolver.Decision.Conflict,
+            resolver.resolveLocalCandidates(local = localProgress(30_001L), remote = null)
         )
     }
 
     @Test
-    fun `resolveLocalCandidates returns LocalMissing when local null`() {
+    fun `resolveLocalCandidates treats local null as not started`() {
         assertEquals(
-            AbsProgressConflictResolver.Decision.LocalMissing,
+            AbsProgressConflictResolver.Decision.InSync,
             resolver.resolveLocalCandidates(local = null, remote = localProgress(5_000L))
+        )
+        assertEquals(
+            AbsProgressConflictResolver.Decision.Conflict,
+            resolver.resolveLocalCandidates(local = null, remote = localProgress(30_001L))
         )
     }
 
@@ -227,8 +256,20 @@ class AbsProgressConflictResolverTest {
 
     @Test
     fun `shouldApplyRemoteProgress applies when local missing`() {
-        val remote = AbsUserProgressDto(currentTime = 100.0)
+        val remote = AbsUserProgressDto(currentTime = 100.0, lastUpdate = 2_000L)
         assertTrue(
+            resolver.shouldApplyRemoteProgress(
+                local = null,
+                remote = remote,
+                isCurrentlyPlaying = false
+            )
+        )
+    }
+
+    @Test
+    fun `shouldApplyRemoteProgress does not apply missing-local conflicts without remote timestamp`() {
+        val remote = AbsUserProgressDto(currentTime = 100.0, lastUpdate = null)
+        assertFalse(
             resolver.shouldApplyRemoteProgress(
                 local = null,
                 remote = remote,

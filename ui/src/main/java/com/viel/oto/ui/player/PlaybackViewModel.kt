@@ -88,12 +88,12 @@ class PlaybackViewModel(
     data class AbsProgressConflictDialogState(
         val show: Boolean = false,
         val bookTitle: String = "",
-        val localPositionMs: Long? = null,
+        val localPositionMs: Long = 0L,
         val remotePositionMs: Long = 0L,
         val localUpdatedAt: Long? = null,
         val remoteUpdatedAt: Long? = null,
         val localFinished: Boolean = false,
-        val remoteFinished: Boolean = false
+        val remoteFinished: Boolean? = null
     )
 
     private data class PendingAbsProgressLoadRequest(
