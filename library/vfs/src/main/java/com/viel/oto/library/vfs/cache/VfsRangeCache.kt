@@ -6,8 +6,10 @@ import com.viel.oto.data.runCatchingCancellable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.Closeable
 import java.io.File
 
 /**
@@ -20,7 +22,7 @@ class VfsRangeCache(
     private val maxBlockBytes: Int = MAX_BLOCK_BYTES,
     private val maxTotalBytes: Long = MAX_TOTAL_BYTES,
     private val currentTimeMillis: () -> Long = { System.currentTimeMillis() }
-) {
+) : Closeable {
     /**
      * Non-blocking Eviction Scope: Asynchronous runner for trim tasks to keep disk cleanups off the main write flow.
      */
@@ -131,6 +133,10 @@ class VfsRangeCache(
                 totalBytes -= length
             }
         }
+    }
+
+    override fun close() {
+        evictionScope.cancel()
     }
 
     private companion object {

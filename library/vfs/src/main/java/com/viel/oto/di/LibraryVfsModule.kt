@@ -23,7 +23,14 @@ import org.koin.dsl.module
 object LibraryVfsModule {
 
     val module: Module = module {
-        single { VfsRangeCache(get<Context>()) }
+        single {
+            VfsRangeCache(get<Context>()).also { cache ->
+                GraphClosePolicy.register(
+                    stage = GraphClosePolicy.Stage.Library,
+                    closeable = cache
+                )
+            }
+        }
 
         single {
             RoomDirectoryListingCache(directoryChildCacheDao = get<AppDatabase>().directoryChildCacheDao())

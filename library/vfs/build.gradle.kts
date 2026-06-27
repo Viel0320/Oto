@@ -17,6 +17,7 @@ android {
 dependencies {
     api(project(":data:store"))
 
+    implementation(project(":runtime:lifecycle"))
     implementation(project(":runtime:observability"))
     implementation(project(":shared"))
     implementation(libs.androidx.core.ktx)
