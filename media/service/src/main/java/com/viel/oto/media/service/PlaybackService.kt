@@ -596,8 +596,9 @@ class PlaybackService : MediaSessionService(), KoinComponent {
 
     override fun onDestroy() {
         widgetUpdateJob?.cancel()
+        serviceScope.cancel()
 
-        serviceScope.launch {
+        kotlinx.coroutines.runBlocking(Dispatchers.IO) {
             playbackWidgetStateSink.update(
                 context = this@PlaybackService,
                 snapshot = PlaybackWidgetSnapshot(
@@ -610,7 +611,6 @@ class PlaybackService : MediaSessionService(), KoinComponent {
                 )
             )
         }
-        serviceScope.cancel()
         audioFocusManager.reset()
         notificationSession?.run {
             release()
