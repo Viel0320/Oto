@@ -128,8 +128,13 @@ class RangeAudioParserSupportTest {
     }
 
     @Test
-    fun `normalizeYear falls back to the trimmed original when no four-digit run exists`() {
-        assertEquals("99", RangeAudioParserSupport.normalizeYear("  99  "))
+    fun `normalizeYear returns empty when no standalone four-digit token exists`() {
+        assertEquals("", RangeAudioParserSupport.normalizeYear("  99  "))
+    }
+
+    @Test
+    fun `normalizeYear rejects longer numeric runs`() {
+        assertEquals("", RangeAudioParserSupport.normalizeYear("123456"))
     }
 
     @Test

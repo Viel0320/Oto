@@ -36,8 +36,6 @@ class TimeUtilsTest {
     }
 
     // --- formatTime -----------------------------------------------------------------------------
-    // NOTE: production always emits a fixed-width "%02d:%02d:%02d" (HH:MM:SS) shape and performs
-    // NO negative coercion. This differs from the task description ("0:05", coerce to 0).
 
     @Test
     fun `formatTime renders zero as full width clock`() {
@@ -46,19 +44,16 @@ class TimeUtilsTest {
 
     @Test
     fun `formatTime under one minute keeps hour and minute fields`() {
-        // 5 seconds -> 00:00:05 (description expected "0:05")
         assertEquals("00:00:05", formatTime(5_000L))
     }
 
     @Test
     fun `formatTime under one hour zero pads minutes and seconds`() {
-        // 5m09s -> 00:05:09 (description expected "5:09")
         assertEquals("00:05:09", formatTime(309_000L))
     }
 
     @Test
     fun `formatTime at or above one hour shows hours field`() {
-        // 1h05m09s -> 01:05:09 (description expected "1:05:09"; hours are zero padded too)
         assertEquals("01:05:09", formatTime(3_909_000L))
     }
 
@@ -75,42 +70,40 @@ class TimeUtilsTest {
     }
 
     @Test
-    fun `formatTime does not coerce negative input`() {
-        // -1s -> totalSeconds = -1 -> "%02d" of -1 is "-1"; no clamping happens in production.
-        assertEquals("00:00:-1", formatTime(-1_000L))
+    fun `formatTime clamps negative input to zero`() {
+        assertEquals("00:00:00", formatTime(-1_000L))
     }
 
     // --- formatCompactDuration ------------------------------------------------------------------
-    // NOTE: production has NO seconds component. It only renders "<h>h <m>m" or "<m>m".
-    // This contradicts the task description ("0s", "45s", "5m 9s").
 
     @Test
-    fun `formatCompactDuration zero renders zero minutes`() {
-        assertEquals("0m", formatCompactDuration(0L))
+    fun `formatCompactDuration zero renders zero seconds`() {
+        assertEquals("0s", formatCompactDuration(0L))
     }
 
     @Test
-    fun `formatCompactDuration sub minute truncates to zero minutes`() {
-        // 45s -> 0m (no seconds support; description expected "45s")
-        assertEquals("0m", formatCompactDuration(45_000L))
+    fun `formatCompactDuration sub minute shows seconds`() {
+        assertEquals("45s", formatCompactDuration(45_000L))
     }
 
     @Test
-    fun `formatCompactDuration under one hour shows only minutes`() {
-        // 5m09s -> 5m (seconds dropped; description expected "5m 9s")
-        assertEquals("5m", formatCompactDuration(309_000L))
+    fun `formatCompactDuration under one hour shows minutes and seconds`() {
+        assertEquals("5m 9s", formatCompactDuration(309_000L))
+    }
+
+    @Test
+    fun `formatCompactDuration exact minute omits zero seconds`() {
+        assertEquals("5m", formatCompactDuration(300_000L))
     }
 
     @Test
     fun `formatCompactDuration with hours shows hours and minutes only`() {
-        // 1h05m -> 1h 5m
         assertEquals("1h 5m", formatCompactDuration(3_900_000L))
     }
 
     @Test
-    fun `formatCompactDuration negative truncates toward zero`() {
-        // integer division toward zero -> "0m"
-        assertEquals("0m", formatCompactDuration(-1_000L))
+    fun `formatCompactDuration negative clamps to zero seconds`() {
+        assertEquals("0s", formatCompactDuration(-1_000L))
     }
 
     // --- formatFileSize -------------------------------------------------------------------------

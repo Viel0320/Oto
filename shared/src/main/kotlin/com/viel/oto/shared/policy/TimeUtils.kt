@@ -10,7 +10,7 @@ import kotlin.math.pow
  * Formats playback positions as a fixed-width clock value for shared UI surfaces.
  */
 fun formatTime(ms: Long): String {
-    val totalSeconds = ms / 1000
+    val totalSeconds = ms.coerceAtLeast(0L) / 1000
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
@@ -18,12 +18,19 @@ fun formatTime(ms: Long): String {
 }
 
 /**
- * Formats longer durations as a compact hour/minute summary for dense list rows.
+ * Formats durations as a compact summary for dense list rows.
  */
 fun formatCompactDuration(ms: Long): String {
-    val hours = ms / 3_600_000
-    val minutes = (ms % 3_600_000) / 60_000
-    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+    val totalSeconds = ms.coerceAtLeast(0L) / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return when {
+        hours > 0 -> "${hours}h ${minutes}m"
+        minutes > 0 && seconds > 0 -> "${minutes}m ${seconds}s"
+        minutes > 0 -> "${minutes}m"
+        else -> "${seconds}s"
+    }
 }
 
 /**

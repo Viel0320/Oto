@@ -84,8 +84,11 @@ internal object RangeAudioParserSupport {
             ?.toIntOrNull()
             ?.takeIf { it > 0 }
 
+    /**
+     * Extracts only standalone four-digit year tokens so longer catalog numbers cannot masquerade as dates.
+     */
     fun normalizeYear(value: String?): String =
-        Regex("\\d{4}").find(value.orEmpty())?.value ?: value.orEmpty().trim()
+        Regex("(?<![A-Za-z0-9])\\d{4}(?![A-Za-z0-9])").find(value.orEmpty())?.value.orEmpty()
 
     fun mergeFirstNonBlank(vararg values: String?): String =
         values.firstOrNull { !it.isNullOrBlank() }?.trim().orEmpty()
