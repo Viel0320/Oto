@@ -13,18 +13,18 @@
                 android:name="leftShape"
                 android:fillColor="#FFFFFFFF"
                 android:strokeColor="#FFFFFFFF"
-                android:strokeWidth="6"
+                android:strokeWidth="4"
                 android:strokeLineCap="round"
                 android:strokeLineJoin="round"
-                android:pathData="M15,14L24,18.5L24,29.5L15,34Z" />
+                android:pathData="M17.771,13.476L25.5,17.938L25.5,30.062L17.771,34.524Q15,36.124 15,32.924L15,15.076Q15,11.876 17.771,13.476Z" />
             <path
                 android:name="rightShape"
                 android:fillColor="#FFFFFFFF"
                 android:strokeColor="#FFFFFFFF"
-                android:strokeWidth="6"
+                android:strokeWidth="4"
                 android:strokeLineCap="round"
                 android:strokeLineJoin="round"
-                android:pathData="M24,18.5L35,24L35,24L24,29.5Z" />
+                android:pathData="M25.5,17.938L33.229,22.4Q36,24 33.229,25.6L25.5,30.062Z" />
         </vector>
     </aapt:attr>
 
@@ -35,8 +35,8 @@
                 android:startOffset="120"
                 android:interpolator="@android:interpolator/fast_out_slow_in"
                 android:propertyName="pathData"
-                android:valueFrom="M15,14L24,18.5L24,29.5L15,34Z"
-                android:valueTo="M16,14L16,14L16,34L16,34Z"
+                android:valueFrom="M17.771,13.476L25.5,17.938L25.5,30.062L17.771,34.524Q15,36.124 15,32.924L15,15.076Q15,11.876 17.771,13.476Z"
+                android:valueTo="M16,14L16,14L16,34L16,34Q16,34 16,34L16,14Q16,14 16,14Z"
                 android:valueType="pathType" />
         </aapt:attr>
     </target>
@@ -48,8 +48,8 @@
                 android:startOffset="120"
                 android:interpolator="@android:interpolator/fast_out_slow_in"
                 android:propertyName="pathData"
-                android:valueFrom="M24,18.5L35,24L35,24L24,29.5Z"
-                android:valueTo="M32,14L32,14L32,34L32,34Z"
+                android:valueFrom="M25.5,17.938L33.229,22.4Q36,24 33.229,25.6L25.5,30.062Z"
+                android:valueTo="M32,14L32,14Q32,14 32,14L32,34Z"
                 android:valueType="pathType" />
         </aapt:attr>
     </target>

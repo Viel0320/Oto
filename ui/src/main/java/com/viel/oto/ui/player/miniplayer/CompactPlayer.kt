@@ -259,7 +259,7 @@ fun CompactMediaPlayer(
                 ) {
                     IconButton(
                         onClick = actions.onPlayPauseClick,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         val playPauseImage = AnimatedImageVector.animatedVectorResource(R.drawable.avd_play_pause)
                         val playPausePainter = rememberAnimatedVectorPainter(
