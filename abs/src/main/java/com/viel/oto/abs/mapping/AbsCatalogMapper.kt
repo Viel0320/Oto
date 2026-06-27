@@ -91,21 +91,37 @@ class AbsCatalogMapper(
             }
     }
 
+    /**
+     * Maps ABS chapter offsets onto generated local file rows.
+     * Track spans bind to files by the stable mapper-generated file id first, avoiding accidental chapter drift when callers pass files in a different order.
+     */
     fun toChapters(serverKey: String, item: AbsLibraryItemDto, files: List<BookFileEntity>): List<ChapterEntity> {
         if (files.isEmpty()) return emptyList()
         val tracks = item.media?.tracks.orEmpty().sortedBy { it.index ?: Int.MAX_VALUE }
         if (tracks.isEmpty()) return emptyList()
         val itemId = item.id ?: throw com.viel.oto.abs.net.AbsApiError(code = "MALFORMED_ITEM", message = "item.id missing")
         val bookId = idMapper.bookId(serverKey, itemId)
-        val trackSpans = tracks.mapIndexed { listIndex, track ->
+        val filesById = files.associateBy { file -> file.id }
+        val filesBySourceIdentity = files.associateBy { file -> file.sourceIdentity }
+        val trackSpans = tracks.mapIndexedNotNull { listIndex, track ->
+            val trackIndex = track.index ?: (listIndex + 1)
+            val file = resolveTrackFile(
+                serverKey = serverKey,
+                itemId = itemId,
+                trackIndex = trackIndex,
+                contentUrl = track.contentUrl,
+                filesById = filesById,
+                filesBySourceIdentity = filesBySourceIdentity
+            ) ?: return@mapIndexedNotNull null
             val startMs = ((track.startOffset ?: trackSpanStart(tracks, listIndex)) * 1000.0).toLong()
             val durationMs = ((track.duration ?: 0.0) * 1000.0).toLong()
             TrackSpan(
-                file = files[listIndex],
+                file = file,
                 startMs = startMs,
                 endExclusiveMs = startMs + durationMs
             )
         }
+        if (trackSpans.isEmpty()) return emptyList()
         return item.media?.chapters.orEmpty()
             .sortedBy { it.start ?: Double.MAX_VALUE }
             .mapIndexed { chapterIndex, chapter ->
@@ -134,6 +150,23 @@ class AbsCatalogMapper(
 
     private fun trackSpanStart(tracks: List<AbsTrackDto>, index: Int): Double =
         tracks.take(index).sumOf { track -> track.duration ?: 0.0 }
+
+    /**
+     * Resolves the local file row for a remote track without depending on caller-provided list order.
+     * Source identity remains a fallback for rows produced by this mapper before the chapter pass receives them.
+     */
+    private fun resolveTrackFile(
+        serverKey: String,
+        itemId: String,
+        trackIndex: Int,
+        contentUrl: String?,
+        filesById: Map<String, BookFileEntity>,
+        filesBySourceIdentity: Map<String, BookFileEntity>
+    ): BookFileEntity? {
+        val expectedFileId = idMapper.bookFileId(serverKey, itemId, trackIndex)
+        return filesById[expectedFileId]
+            ?: contentUrl?.let { url -> filesBySourceIdentity["$itemId:$trackIndex:$url"] }
+    }
 
     private data class TrackSpan(
         val file: BookFileEntity,

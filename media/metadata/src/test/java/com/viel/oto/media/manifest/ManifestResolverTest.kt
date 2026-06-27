@@ -55,6 +55,17 @@ class ManifestResolverTest {
     }
 
     @Test
+    fun `residual encoded slash after one decode is rejected`() {
+        assertNull(ManifestResolver.sameDirectoryFileName("sub%252Ftrack01.mp3"))
+        assertNull(ManifestResolver.sameDirectoryFileName("sub%255Ctrack01.mp3"))
+    }
+
+    @Test
+    fun `residual encoded parent traversal after one decode is rejected`() {
+        assertNull(ManifestResolver.sameDirectoryFileName("%252E%252E%252Fsecret.mp3"))
+    }
+
+    @Test
     fun `leading dot-slash current directory segment is filtered then name accepted`() {
         // "." segments are dropped, leaving a single real file name.
         assertEquals("track01.mp3", ManifestResolver.sameDirectoryFileName("./track01.mp3"))

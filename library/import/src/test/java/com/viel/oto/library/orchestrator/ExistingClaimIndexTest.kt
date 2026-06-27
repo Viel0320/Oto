@@ -75,16 +75,29 @@ class ExistingClaimIndexTest {
     }
 
     @Test
-    fun `find with same parent path ignoring case returns hit`() {
+    fun `find with same parent path returns hit`() {
         val file = bookFile(id = "f1", sourcePath = "Folder/Sub/a.mp3", sourceIdentity = "sid-1")
         val index = ExistingClaimIndex.from(listOf(file))
 
         val found = index.find(
             FileIdentity(rootId = "root-1", sourcePath = "Folder/Sub/a.mp3", sourceIdentity = ""),
-            currentParentSourcePath = "FOLDER/SUB"
+            currentParentSourcePath = "Folder/Sub"
         )
 
         assertEquals(file, found)
+    }
+
+    @Test
+    fun `find with same parent path differing only by case returns null`() {
+        val file = bookFile(id = "f1", sourcePath = "Folder/Sub/a.mp3", sourceIdentity = "sid-1")
+        val index = ExistingClaimIndex.from(listOf(file))
+
+        val found = index.find(
+            FileIdentity(rootId = "root-1", sourcePath = "Folder/Sub/a.mp3", sourceIdentity = ""),
+            currentParentSourcePath = "folder/sub"
+        )
+
+        assertNull(found)
     }
 
     @Test

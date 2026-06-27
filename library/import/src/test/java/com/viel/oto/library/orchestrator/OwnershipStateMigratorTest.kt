@@ -185,6 +185,33 @@ class OwnershipStateMigratorTest {
     }
 
     @Test
+    fun `remap progress prefers sourceIdentity over exact path`() {
+        val newFiles = listOf(
+            bookFile(id = "path-match", index = 0, sourcePath = "dir/original.mp3", sourceIdentity = "sid-other", durationMs = 1_000L),
+            bookFile(id = "identity-match", index = 1, sourcePath = "dir/renamed.mp3", sourceIdentity = "sid-1", durationMs = 1_000L)
+        )
+        val oldFiles = listOf(
+            bookFile(id = "old1", index = 0, sourcePath = "dir/original.mp3", sourceIdentity = "sid-1", bookId = "old-book")
+        )
+        val prog = progress(bookFileId = "old1", positionInFileMs = 300L, lastPlayedAt = 1L)
+
+        val result = migrator.migrate(
+            OwnershipStateMigrationInput(
+                draft = draftOf(newFiles),
+                oldBooks = emptyList(),
+                oldFiles = oldFiles,
+                oldProgresses = listOf(prog),
+                oldBookmarks = emptyList()
+            )
+        )
+
+        val migrated = result.progress!!
+        assertEquals("identity-match", migrated.bookFileId)
+        assertEquals(1, migrated.currentFileIndex)
+        assertEquals(1_300L, migrated.globalPositionMs)
+    }
+
+    @Test
     fun `remap progress matches new file by fingerprint when path and identity differ`() {
         val newFiles = listOf(
             bookFile(id = "nf1", index = 0, sourcePath = "dir/x.mp3", sourceIdentity = "sid-new", fingerprint = "fp-shared")

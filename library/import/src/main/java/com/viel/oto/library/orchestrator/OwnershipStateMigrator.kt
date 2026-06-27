@@ -115,15 +115,16 @@ internal class OwnershipStateMigrator {
         )
     }
 
+    /**
+     * Finds the replacement anchor using durable identity before exact path.
+     * Source identity and fingerprints survive many path reshuffles, while sourcePath remains a precise fallback for sources without stronger identifiers.
+     */
     private fun findMatchingNewFile(
         oldFile: BookFileEntity?,
         fallbackFingerprint: String?,
         newAudioFiles: List<BookFileEntity>
     ): BookFileEntity? {
         if (oldFile != null) {
-            newAudioFiles.firstOrNull { candidate ->
-                candidate.rootId == oldFile.rootId && candidate.sourcePath == oldFile.sourcePath
-            }?.let { return it }
             if (oldFile.sourceIdentity.isNotBlank()) {
                 newAudioFiles.firstOrNull { candidate ->
                     candidate.rootId == oldFile.rootId && candidate.sourceIdentity == oldFile.sourceIdentity
@@ -132,6 +133,12 @@ internal class OwnershipStateMigrator {
             oldFile.fingerprint?.takeIf { it.isNotBlank() }?.let { fingerprint ->
                 newAudioFiles.firstOrNull { it.fingerprint == fingerprint }?.let { return it }
             }
+            fallbackFingerprint?.takeIf { it.isNotBlank() }?.let { fingerprint ->
+                newAudioFiles.firstOrNull { it.fingerprint == fingerprint }?.let { return it }
+            }
+            newAudioFiles.firstOrNull { candidate ->
+                candidate.rootId == oldFile.rootId && candidate.sourcePath == oldFile.sourcePath
+            }?.let { return it }
         }
         return fallbackFingerprint
             ?.takeIf { it.isNotBlank() }

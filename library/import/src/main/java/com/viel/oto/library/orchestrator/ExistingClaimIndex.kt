@@ -14,7 +14,7 @@ class ExistingClaimIndex private constructor(
      * Localized conflict check.
      * When an optional currentParentSourcePath is provided, the query is scoped within the same VFS folder.
      * Ownership conflict is only registered if the occupied file shares the exact parent directory as the target file.
-     * Identical files in different physical directories do not trigger conflicts, ensuring localized claim behavior.
+     * The parent comparison stays case-sensitive because VFS sources such as WebDAV and ABS can expose case-sensitive paths.
      *
      * @param identity Physical identity of the target file being claimed
      * @param currentParentSourcePath The VFS parent directory path of the target file
@@ -26,7 +26,7 @@ class ExistingClaimIndex private constructor(
 
         val foundParent = found.sourcePath.substringBeforeLast('/', missingDelimiterValue = "")
 
-        return if (foundParent.equals(currentParentSourcePath, ignoreCase = true)) {
+        return if (foundParent == currentParentSourcePath) {
             found
         } else {
             null

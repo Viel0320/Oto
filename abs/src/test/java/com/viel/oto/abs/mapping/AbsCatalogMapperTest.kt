@@ -230,6 +230,31 @@ class AbsCatalogMapperTest {
     }
 
     @Test
+    fun `toChapters binds tracks by generated file id when files are not in track order`() {
+        val item = AbsLibraryItemDto(
+            id = "item-1",
+            media = AbsItemMediaDto(
+                metadata = AbsMediaMetadataDto(title = "Title"),
+                tracks = listOf(
+                    AbsTrackDto(index = 0, duration = 10.0, contentUrl = "/api/a"),
+                    AbsTrackDto(index = 1, duration = 20.0, contentUrl = "/api/b")
+                ),
+                chapters = listOf(
+                    AbsChapterDto(id = 0, title = "Ch2", start = 15.0, end = 20.0)
+                )
+            )
+        )
+        val files = mapper.toFiles(root(), serverKey, item)
+        val filesOutOfOrder = listOf(files[1], files[0])
+
+        val chapters = mapper.toChapters(serverKey, item, filesOutOfOrder)
+
+        assertEquals(1, chapters.size)
+        assertEquals(files[1].id, chapters[0].bookFileId)
+        assertEquals(5_000L, chapters[0].fileOffsetMs)
+    }
+
+    @Test
     fun `toChapters returns empty when no tracks`() {
         val item = AbsLibraryItemDto(
             id = "item-1",
