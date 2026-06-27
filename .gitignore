@@ -42,7 +42,7 @@ google-services.json
 /.idea/
 /.cursor/
 /.vscode/
-/.kotlin/
+.kotlin/
 /.kiro/
 /.claude/
 /.codex/
