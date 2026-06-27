@@ -175,7 +175,7 @@ fun OtoApp(
         val bookmarkViewModel: BookmarkViewModel = koinViewModel()
         val playerSettingsViewModel: PlayerSettingsViewModel = koinViewModel()
         LaunchedEffect(playbackViewModel, playerSettingsViewModel) {
-            playbackViewModel.onUndoSeekVisibilityChanged = { visible ->
+            playbackViewModel.undoSeekVisible.collect { visible ->
                 playerSettingsViewModel.setUndoSeekVisible(visible)
             }
         }

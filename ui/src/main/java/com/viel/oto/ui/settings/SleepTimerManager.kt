@@ -216,6 +216,7 @@ class SleepTimerManager(
         currentMetadata: () -> BookMetadataState,
         isShakeReset: Boolean = false
     ) {
+        unregisterShakeListener()
         sleepTimerJob?.cancel()
         onTimerSelectedMinutesChanged(minutes)
 

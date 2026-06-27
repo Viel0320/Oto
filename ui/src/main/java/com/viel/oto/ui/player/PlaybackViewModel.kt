@@ -22,9 +22,13 @@ import com.viel.oto.ui.settings.PlayerSettingsState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -110,7 +114,7 @@ class PlaybackViewModel(
         scope = externalScope
     )
 
-    private var onCoverUpdateCallback: ((String?) -> Unit)? = null
+
 
     /**
      * Prepared media metadata for the currently selected playback target.
@@ -302,9 +306,12 @@ class PlaybackViewModel(
         _playbackSeekStepConfig = config
     }
 
-    var onUndoSeekVisibilityChanged: ((Boolean) -> Unit)? = null
-    private var onFullPlayerMinimized: (() -> Unit)? = null
-    private var onMiniPlayerHiddenChanged: ((Boolean) -> Unit)? = null
+    private val _undoSeekVisible = MutableSharedFlow<Boolean>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    val undoSeekVisible: SharedFlow<Boolean> = _undoSeekVisible.asSharedFlow()
 
     init {
         observePlaybackController()
@@ -377,7 +384,7 @@ class PlaybackViewModel(
                     val bookId = mediaIdentity.bookId
                     val bookFileId = mediaIdentity.fileId
                     _currentBookId.value = bookId
-                    onMiniPlayerHiddenChanged?.invoke(false)
+
 
                     subtitleLoadJob?.cancel()
                     _currentSubtitles.value = emptyList()
@@ -455,7 +462,7 @@ class PlaybackViewModel(
         subtitleLoadJob?.cancel()
         _currentBookId.value = id
         _currentSubtitles.value = emptyList()
-        onUndoSeekVisibilityChanged?.invoke(false)
+        _undoSeekVisible.tryEmit(false)
 
         val playbackPlanStart = SystemClock.elapsedRealtime()
         val preparedPlan = prepareBookPlaybackUseCase.invoke(id, playWhenReady)
@@ -474,7 +481,7 @@ class PlaybackViewModel(
                 fileCount = preparedPlan.fileCount,
                 startPosition = preparedPlan.startGlobalPositionMs
             )
-            playbackDelegate.refreshCoverAfterLoad(id) { onCoverUpdateCallback?.invoke(it) }
+            playbackDelegate.refreshCoverAfterLoad(id) { }
         } else {
             val totalCost = SystemClock.elapsedRealtime() - loadBookRequestStart
             com.viel.oto.logger.PlaybackTimingLogger.logLoadBookNoPlan(
@@ -541,8 +548,6 @@ class PlaybackViewModel(
             _currentBookId.value = null
             _currentSubtitles.value = emptyList()
             playbackController.pause()
-            onFullPlayerMinimized?.invoke()
-            onMiniPlayerHiddenChanged?.invoke(true)
         }
     }
 
@@ -570,14 +575,14 @@ class PlaybackViewModel(
     fun seekTo(positionMs: Long, allowUndo: Boolean = false) {
         if (allowUndo) {
             lastSeekPosition = currentPlaybackSnapshot().currentPosition
-            onUndoSeekVisibilityChanged?.invoke(true)
+            _undoSeekVisible.tryEmit(true)
             undoJob?.cancel()
             undoJob = externalScope.launch {
                 delay(3000.milliseconds)
-                onUndoSeekVisibilityChanged?.invoke(false)
+                _undoSeekVisible.tryEmit(false)
             }
         } else {
-            onUndoSeekVisibilityChanged?.invoke(false)
+            _undoSeekVisible.tryEmit(false)
             undoJob?.cancel()
         }
         playbackDelegate.seekTo(positionMs)
@@ -610,7 +615,7 @@ class PlaybackViewModel(
 
     fun undoSeek() {
         seekTo(lastSeekPosition, allowUndo = false)
-        onUndoSeekVisibilityChanged?.invoke(false)
+        _undoSeekVisible.tryEmit(false)
     }
 
     fun skipForward() {
