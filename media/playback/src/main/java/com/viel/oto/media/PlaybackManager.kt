@@ -63,6 +63,7 @@ class PlaybackManager(
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
     private var pendingPlayWhenReady = false
+    private var isCurrentPlanPrepared = false
 
     private val _playbackState = MutableStateFlow(Player.STATE_IDLE)
     val playbackState = _playbackState.asStateFlow()
@@ -289,6 +290,7 @@ class PlaybackManager(
                 }
                 this@PlaybackManager.currentPlan = finalPlan
                 this@PlaybackManager.pendingPlayWhenReady = playWhenReady
+                this@PlaybackManager.isCurrentPlanPrepared = false
                 if (previousBookId != finalPlan.bookId) {
                     scheduleAbsSessionTransition(previousAbsSessionSnapshot, finalPlan.bookId)
                 }
@@ -317,7 +319,6 @@ class PlaybackManager(
         mediaController?.let { controller ->
             val controllerDispatchStart = SystemClock.elapsedRealtime()
             controller.setMediaItems(mediaItems, fileIndex, positionInFile)
-            controller.prepare()
             val controllerDispatchCost = SystemClock.elapsedRealtime() - controllerDispatchStart
             val totalApplyCost = SystemClock.elapsedRealtime() - applyPlanStart
             com.viel.oto.logger.PlaybackTimingLogger.logApplyPlan(
@@ -331,6 +332,7 @@ class PlaybackManager(
             )
             if (pendingPlayWhenReady) {
                 pendingPlayWhenReady = false
+                prepareCurrentPlanIfNeeded(controller)
                 controller.play()
                 com.viel.oto.logger.PlaybackTimingLogger.logAutoplayConsumed(plan.bookId)
             }
@@ -347,7 +349,9 @@ class PlaybackManager(
 
     fun play() {
         scope.launch {
-            mediaController?.play()
+            val controller = mediaController ?: return@launch
+            prepareCurrentPlanIfNeeded(controller)
+            controller.play()
             currentPlan?.bookId?.let { bookId -> scheduleAbsSessionOpen(bookId) }
         }
     }
@@ -384,6 +388,7 @@ class PlaybackManager(
                 val targetGlobal = globalPositionMs.coerceIn(0L, totalDuration.coerceAtLeast(0L))
                 val (fileIndex, positionInFile) = PositionMapper.globalToFilePosition(targetGlobal, files)
                 controller.seekTo(fileIndex, positionInFile)
+                prepareCurrentPlanIfNeeded(controller)
                 controller.play()
                 _currentPosition.value = targetGlobal
                 _bufferedPosition.value = targetGlobal
@@ -466,6 +471,7 @@ class PlaybackManager(
             _duration.value = 0L
             _isPlaying.value = false
             _playbackState.value = Player.STATE_IDLE
+            isCurrentPlanPrepared = false
             capturedSnapshot
         }
         scheduleAbsSessionClose(snapshot)
@@ -564,6 +570,7 @@ class PlaybackManager(
                 mediaController?.let { controller ->
                     controller.seekTo(nextIndex, 0L)
                     controller.prepare()
+                    isCurrentPlanPrepared = true
                     controller.play()
                 }
             } else {
@@ -572,6 +579,19 @@ class PlaybackManager(
                 playbackEventSink.emit(PlaybackDomainEvent.NoAvailableTrackAfterFailure(bookTitle))
             }
         }
+    }
+
+    /**
+     * Defers expensive Media3 preparation until audible playback is requested.
+     *
+     * Cold-start restoration still installs the real media queue for player surfaces, but avoiding
+     * prepare while paused prevents ExoPlayer from allocating the full target buffer and starting
+     * decoder/audio-track work before the user presses play.
+     */
+    private fun prepareCurrentPlanIfNeeded(controller: MediaController) {
+        if (currentPlan == null || isCurrentPlanPrepared) return
+        controller.prepare()
+        isCurrentPlanPrepared = true
     }
 
     private fun executeOnMain(action: () -> Unit) {
