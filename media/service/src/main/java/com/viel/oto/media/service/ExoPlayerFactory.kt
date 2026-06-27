@@ -20,13 +20,11 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
 import androidx.media3.extractor.ts.AdtsExtractor
-import com.viel.oto.data.AppSettingsRepository
+import com.viel.oto.library.vfs.VfsPlaybackStreamReader
 import com.viel.oto.media.PlaybackFileLookup
 import com.viel.oto.media.PlaybackRootLookup
 import com.viel.oto.media.VfsPlaybackDataSource
 import com.viel.oto.media.cache.ManualCachePlaybackDataSource
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.get
 
 /**
  * Constructs and configures highly optimized ExoPlayer media engine instances.
@@ -34,13 +32,15 @@ import org.koin.core.component.get
  * Decouples complex multi-track and custom focus logic from the playback service domain, adhering to Single Responsibility Principle.
  */
 @OptIn(UnstableApi::class)
-object ExoPlayerFactory : KoinComponent {
+object ExoPlayerFactory {
 
     /**
      * Builds and configures an optimized ExoPlayer instance tailored for audiobook playback.
      * Keeps audio rendering on the native Media3 pipeline without exposing AudioSink internals.
      * Streaming VFS items use the configured byte target, while direct local/cache items use
      * Media3's local-playback branch with no intentional pre-buffer beyond decoder startup needs.
+     * Dependencies are supplied by the service composition root so this Media3 factory remains a
+     * pure object and does not reach into the global Koin context from inside player construction.
      *
      * @param context Application runtime context
      * @param listener Global playback status and exception event observer
@@ -51,10 +51,13 @@ object ExoPlayerFactory : KoinComponent {
     fun createExoPlayer(
         context: Context,
         listener: Player.Listener,
-        isAutomaticAudioFocusAllowed: Boolean
+        isAutomaticAudioFocusAllowed: Boolean,
+        playbackBufferMaxBytes: Long,
+        manualCache: Cache,
+        playbackFileLookup: PlaybackFileLookup,
+        playbackRootLookup: PlaybackRootLookup,
+        playbackStreamReader: VfsPlaybackStreamReader
     ): ExoPlayer {
-
-        val settings = get<AppSettingsRepository>().cachedSettings
 
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMsForStreaming(
@@ -71,7 +74,7 @@ object ExoPlayerFactory : KoinComponent {
             )
             .setPrioritizeTimeOverSizeThresholdsForStreaming(false)
             .setPrioritizeTimeOverSizeThresholdsForLocalPlayback(true)
-            .setTargetBufferBytes(settings.playbackBufferMaxBytes.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
+            .setTargetBufferBytes(playbackBufferMaxBytes.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
             .build()
 
         val renderersFactory = object : DefaultRenderersFactory(context) {
@@ -106,10 +109,13 @@ object ExoPlayerFactory : KoinComponent {
             .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
 
         val manualCacheDataSourceFactory = ManualCachePlaybackDataSource.Factory(
-            manualCache = get<Cache>(),
-            upstreamDataSourceFactory = VfsPlaybackDataSource.Factory(context),
-            playbackFileLookup = get<PlaybackFileLookup>(),
-            playbackRootLookup = get<PlaybackRootLookup>()
+            manualCache = manualCache,
+            upstreamDataSourceFactory = VfsPlaybackDataSource.Factory(
+                fileLookup = playbackFileLookup,
+                fileReader = playbackStreamReader
+            ),
+            playbackFileLookup = playbackFileLookup,
+            playbackRootLookup = playbackRootLookup
         )
         val mediaSourceFactory = DefaultMediaSourceFactory(manualCacheDataSourceFactory, extractorsFactory)
 

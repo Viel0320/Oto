@@ -1,6 +1,5 @@
 package com.viel.oto.media
 
-import android.content.Context
 import android.net.Uri
 import android.os.SystemClock
 import androidx.annotation.OptIn
@@ -11,7 +10,6 @@ import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSourceException
 import androidx.media3.datasource.DataSpec
-import com.viel.oto.library.vfs.VfsFileInterface
 import com.viel.oto.library.vfs.VfsPlaybackStreamReader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -20,8 +18,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.get
 import java.io.IOException
 import java.io.InputStream
 import java.io.InterruptedIOException
@@ -188,17 +184,14 @@ class VfsPlaybackDataSource internal constructor(
         }
     }
 
+    /**
+     * Media3 creates DataSource instances outside Koin, so the composition root supplies the
+     * playback lookup and stream reader explicitly before this factory enters the player pipeline.
+     */
     class Factory(
-        context: Context,
-        private val injectedFileLookup: PlaybackFileLookup? = null,
-        private val injectedFileReader: VfsPlaybackStreamReader? = null
-    ) : DataSource.Factory, KoinComponent {
-        private val fileLookup: PlaybackFileLookup by lazy {
-            injectedFileLookup ?: get<PlaybackFileLookup>()
-        }
-        private val fileReader: VfsPlaybackStreamReader by lazy {
-            injectedFileReader ?: get<VfsFileInterface>()
-        }
+        private val fileLookup: PlaybackFileLookup,
+        private val fileReader: VfsPlaybackStreamReader
+    ) : DataSource.Factory {
 
         override fun createDataSource(): DataSource =
             VfsPlaybackDataSource(

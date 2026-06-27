@@ -11,6 +11,7 @@ import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.cache.Cache
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
@@ -27,12 +28,15 @@ import com.viel.oto.data.book.ChapterGateway
 import com.viel.oto.data.entity.BookFileEntity
 import com.viel.oto.data.progress.ProgressGateway
 import com.viel.oto.logger.PlaybackWorkflowLogger
+import com.viel.oto.library.vfs.VfsPlaybackStreamReader
 import com.viel.oto.media.AutoRewindManager
 import com.viel.oto.media.NotificationProgressPlayer
+import com.viel.oto.media.PlaybackFileLookup
 import com.viel.oto.media.PlaybackDomainEvent
 import com.viel.oto.media.PlaybackDomainEventSink
 import com.viel.oto.media.PlaybackMediaId
 import com.viel.oto.media.PlaybackPlanBuilder
+import com.viel.oto.media.PlaybackRootLookup
 import com.viel.oto.media.PlaybackSourcePreflight
 import com.viel.oto.media.session.PlaybackSessionErrorDecision
 import com.viel.oto.media.session.PlaybackSessionState
@@ -73,6 +77,10 @@ class PlaybackService : MediaSessionService(), KoinComponent {
     private val injectedLaunchIntentFactory: MediaServiceLaunchIntentFactory by inject()
     private val injectedPlaybackWidgetStateSink: PlaybackWidgetStateSink by inject()
     private val injectedPlaybackCommandPresentation: PlaybackCommandPresentation by inject()
+    private val injectedManualCache: Cache by inject()
+    private val injectedPlaybackFileLookup: PlaybackFileLookup by inject()
+    private val injectedPlaybackRootLookup: PlaybackRootLookup by inject()
+    private val injectedVfsPlaybackStreamReader: VfsPlaybackStreamReader by inject()
     private val autoRewindManager: AutoRewindManager by inject()
 
     private var widgetUpdateJob: Job? = null
@@ -219,7 +227,12 @@ class PlaybackService : MediaSessionService(), KoinComponent {
                     updateWidgetState()
                 }
             },
-            isAutomaticAudioFocusAllowed = true
+            isAutomaticAudioFocusAllowed = true,
+            playbackBufferMaxBytes = settingsRepository.cachedSettings.playbackBufferMaxBytes,
+            manualCache = injectedManualCache,
+            playbackFileLookup = injectedPlaybackFileLookup,
+            playbackRootLookup = injectedPlaybackRootLookup,
+            playbackStreamReader = injectedVfsPlaybackStreamReader
         )
         this.player = playerInstance
 

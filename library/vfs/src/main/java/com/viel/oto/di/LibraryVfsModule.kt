@@ -3,6 +3,7 @@ package com.viel.oto.di
 import android.content.Context
 import com.viel.oto.data.db.AppDatabase
 import com.viel.oto.library.vfs.VfsFileInterface
+import com.viel.oto.library.vfs.VfsPlaybackStreamReader
 import com.viel.oto.library.vfs.cache.DirectoryListingCache
 import com.viel.oto.library.vfs.cache.RoomDirectoryListingCache
 import com.viel.oto.library.vfs.cache.VfsRangeCache
@@ -16,6 +17,8 @@ import org.koin.dsl.module
  *
  * The app shell still contributes the LibrarySourceProviderFactory because ABS is an external source
  * adapter, while this module owns the reusable VFS readers and cache definitions.
+ * VfsFileInterface is also bound to the playback stream contract so Media3 callers can depend on
+ * the narrow reader interface instead of the concrete VFS facade.
  */
 object LibraryVfsModule {
 
@@ -33,6 +36,6 @@ object LibraryVfsModule {
                 rangeCache = get(),
                 providerFactory = get<LibrarySourceProviderFactory>()
             )
-        }
+        } bind VfsPlaybackStreamReader::class
     }
 }

@@ -21,6 +21,8 @@ import com.viel.oto.application.download.ManualDownloadNotificationGateway
 import com.viel.oto.application.download.RoomDownloadBookIdResolver
 import com.viel.oto.data.AppSettingsRepository
 import com.viel.oto.data.db.AppDatabase
+import com.viel.oto.library.vfs.VfsPlaybackStreamReader
+import com.viel.oto.media.PlaybackFileLookup
 import com.viel.oto.media.VfsPlaybackDataSource
 import com.viel.oto.media.service.DownloadControllerActionGateway
 import com.viel.oto.media.service.ManualDownloadActionGateway
@@ -74,7 +76,10 @@ object MediaDownloadModule {
             val data = get<AppDatabase>()
             val settings = get<AppSettingsRepository>().cachedSettings
             val scope = get<CoroutineScope>(DownloadScopeQualifier)
-            val downloadDataSourceFactory = VfsPlaybackDataSource.Factory(appContext, get())
+            val downloadDataSourceFactory = VfsPlaybackDataSource.Factory(
+                fileLookup = get<PlaybackFileLookup>(),
+                fileReader = get<VfsPlaybackStreamReader>()
+            )
             DownloadManager(
                 appContext,
                 get(),
