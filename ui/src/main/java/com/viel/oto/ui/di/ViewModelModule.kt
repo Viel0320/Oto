@@ -14,6 +14,7 @@ import com.viel.oto.ui.settings.SettingsViewModel
 import com.viel.oto.ui.settings.recovery.DeletedBookRecoveryViewModel
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
+import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 /**
@@ -21,20 +22,49 @@ import org.koin.dsl.module
  *
  * The app shell imports this module as a composition-root contribution while the
  * ViewModel classes and their constructor wiring remain owned by the UI module.
+ * Constructor references keep regular registrations readable, while ViewModels with non-DI
+ * lifecycle override hooks keep explicit constructors so Koin never resolves those hooks.
  */
 @OptIn(UnstableApi::class)
 object ViewModelModule {
 
     val module: Module = module {
-        viewModel { LibraryViewModel(get(), get(), get(), get(), get(), get()) }
-        viewModel { PlaybackViewModel(get(), get(), get(), get(), get(), get(), get()) }
-        viewModel { BookmarkViewModel(get(), get(), get()) }
-        viewModel { PlayerSettingsViewModel(get(), get(), get(), get(), get()) }
-        viewModel { DetailViewModel(get(), get(), get(), get(), get()) }
-        viewModel { EditBookViewModel(get(), get()) }
-        viewModel { SearchViewModel(get(), get()) }
-        viewModel { SettingsViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-        viewModel { RemoteConnectionViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-        viewModel { DeletedBookRecoveryViewModel(get(), get(), get()) }
+        viewModelOf(::LibraryViewModel)
+        viewModel {
+            PlaybackViewModel(
+                playbackController = get(),
+                playerLibraryReadModel = get(),
+                prepareBookPlaybackUseCase = get(),
+                resolveProgressConflictUseCase = get(),
+                appEventSink = get(),
+                settingsReadModel = get(),
+                settingsCommands = get(),
+                rawExternalScope = null
+            )
+        }
+        viewModel {
+            BookmarkViewModel(
+                application = get(),
+                bookmarkCommands = get(),
+                appEventSink = get(),
+                rawExternalScope = null
+            )
+        }
+        viewModel {
+            PlayerSettingsViewModel(
+                application = get(),
+                settingsReadModel = get(),
+                settingsCommands = get(),
+                appEventSink = get(),
+                playerPlaybackController = get(),
+                rawExternalScope = null
+            )
+        }
+        viewModelOf(::DetailViewModel)
+        viewModelOf(::EditBookViewModel)
+        viewModelOf(::SearchViewModel)
+        viewModelOf(::SettingsViewModel)
+        viewModelOf(::RemoteConnectionViewModel)
+        viewModelOf(::DeletedBookRecoveryViewModel)
     }
 }
