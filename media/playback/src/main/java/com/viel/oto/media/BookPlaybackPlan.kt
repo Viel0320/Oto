@@ -20,6 +20,7 @@ data class BookPlaybackPlan(
     val startGlobalPositionMs: Long = 0L,
     val bufferPolicy: PlaybackBufferPolicy = PlaybackBufferPolicy.Buffered
 ) {
+    val totalDurationMs: Long = files.sumOf { it.durationMs }
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is BookPlaybackPlan) return false

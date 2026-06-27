@@ -85,7 +85,7 @@ class ProgressSyncTracker(
         if (plan != null && plan.files.isNotEmpty() && player.currentMediaItem != null) {
             val fileIndex = player.currentMediaItemIndex.coerceIn(0, plan.files.lastIndex)
             val positionInFile = player.currentPosition.coerceAtLeast(0L)
-            val totalDur = plan.files.sumOf { it.durationMs }
+            val totalDur = plan.totalDurationMs
             val globalPos = PositionMapper.fileToGlobalPosition(fileIndex, positionInFile, plan.files)
                 .coerceIn(0L, totalDur.coerceAtLeast(0L))
             val bufferedInFile = player.bufferedPosition
