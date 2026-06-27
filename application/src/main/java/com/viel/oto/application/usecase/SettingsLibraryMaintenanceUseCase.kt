@@ -21,13 +21,13 @@ class SettingsLibraryMaintenanceUseCase(
     /**
      * Replaces one SAF root and queues only that root for user-priority reconciliation.
      *
-     * Cache eviction and missing-file recovery remain scoped to the edited root before the scan lane
-     * revalidates the directory contents.
+     * Cache eviction and missing-file recovery follow the persisted root returned by the gateway, because
+     * edit mode can reuse an already registered SAF root when the picker returns the same tree identity.
      */
     suspend fun updateSafRootAndScheduleSync(id: String, newUri: Uri) = withContext(Dispatchers.IO) {
-        libraryRootGateway.updateSafLibraryRoot(id, newUri)
-        clearRootCacheAndRecover(rootId = id)
-        scanScheduler.scheduleLibrarySync("USER", rootIds = setOf(id))
+        val updatedRoot = libraryRootGateway.updateSafLibraryRoot(id, newUri)
+        clearRootCacheAndRecover(rootId = updatedRoot.id)
+        scanScheduler.scheduleLibrarySync("USER", rootIds = setOf(updatedRoot.id))
     }
 
     /**

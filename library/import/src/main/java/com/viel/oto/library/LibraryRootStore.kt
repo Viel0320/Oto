@@ -44,7 +44,7 @@ class LibraryRootStore(
             resolveSafDisplayName(uri)
         }
         rootDao.getAllRootsOnce()
-            .firstOrNull { existing -> existing.isSameRoot(normalizedUri) }
+            .firstOrNull { existing -> existing.matchesSafTreeUri(normalizedUri) }
             ?.let { existing ->
                 rootDao.updateRootGrantState(
                     id = existing.id,
@@ -182,10 +182,6 @@ class LibraryRootStore(
         return LibraryRootAvailabilityUpdate(root = updatedRoot, availability = availability)
     }
 
-    private fun LibraryRootEntity.isSameRoot(candidateTreeUri: String): Boolean =
-        sourceType == AudiobookSchema.LibrarySourceType.SAF &&
-            (sourceUri == candidateTreeUri || treeDocumentId(sourceUri) == treeDocumentId(candidateTreeUri))
-
     private fun LibraryRootEntity.isSameWebDavRoot(candidateEndpoint: String, candidateBasePath: String): Boolean =
         sourceType == AudiobookSchema.LibrarySourceType.WEBDAV &&
             sourceUri == candidateEndpoint &&
@@ -222,9 +218,6 @@ class LibraryRootStore(
     private fun String.toWebDavDisplayNameFallback(): String =
         trim('/').ifBlank { "WebDAV" }
 
-    private fun treeDocumentId(sourceUri: String): String =
-        Uri.decode(sourceUri).substringAfter("/tree/", missingDelimiterValue = sourceUri)
-
     /**
      * Derives a readable label from a tree URI.
      *
@@ -248,38 +241,70 @@ class LibraryRootStore(
     }
 
     /**
-     * Relocate local directory.
-     * Replaces permission trees and updates source URI for existing SAF root records.
+     * Relocate or re-authorize one local directory.
+     * Reuses an already registered SAF root when the picker returns the same tree document ID, so edit-mode recovery follows the same identity rule as adding a local root.
      *
      * @param id Target root record ID
      * @param newUri The new folder tree URI
      * @return Updated library root record
      */
     suspend fun updateSafRoot(id: String, newUri: Uri): LibraryRootEntity = withContext(Dispatchers.IO) {
-        val existing = rootDao.getRootById(id) ?: throw IllegalArgumentException("Root not found: $id")
+        val roots = rootDao.getAllRootsOnce()
+        val existing = roots.firstOrNull { root -> root.id == id } ?: throw IllegalArgumentException("Root not found: $id")
+        val normalizedUri = newUri.normalizeScheme().toString()
+        val displayName = resolveSafDisplayName(newUri)
+        val updated = resolveSafRootEditTarget(
+            editingRoot = existing,
+            roots = roots,
+            normalizedUri = normalizedUri,
+            displayName = displayName,
+            now = System.currentTimeMillis()
+        )
+        if (updated.id == existing.id) {
+            replaceSafReadPermission(existing.sourceUri, normalizedUri, newUri)
+        } else {
+            takeSafReadPermission(newUri)
+        }
+        rootDao.insertRoot(updated)
+        updated
+    }
+
+    /**
+     * Refreshes a SAF permission without dropping the old grant before a different new grant succeeds.
+     * When Android returns the exact same tree URI, the old persisted grant must be released first so the picker result can re-authorize a revoked binding.
+     */
+    private fun replaceSafReadPermission(oldSourceUri: String, normalizedNewUri: String, newUri: Uri) {
+        if (oldSourceUri == normalizedNewUri) {
+            releaseSafReadPermission(oldSourceUri)
+            takeSafReadPermission(newUri)
+            return
+        }
+        takeSafReadPermission(newUri)
+        releaseSafReadPermission(oldSourceUri)
+    }
+
+    /**
+     * Persists the read grant returned by the system picker for the selected tree.
+     */
+    private fun takeSafReadPermission(uri: Uri) {
+        context.contentResolver.takePersistableUriPermission(
+            uri,
+            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+        )
+    }
+
+    /**
+     * Releases stale SAF grants on a best-effort basis after a root is rebound.
+     */
+    private fun releaseSafReadPermission(sourceUri: String) {
         try {
-            val oldUri = existing.sourceUri.toUri()
             context.contentResolver.releasePersistableUriPermission(
-                oldUri,
+                sourceUri.toUri(),
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
         } catch (e: Exception) {
-            SecureLog.error("LibraryRootStore", "Failed to release old SAF permission for root $id", e)
+            SecureLog.error("LibraryRootStore", "Failed to release old SAF permission for rootUri=$sourceUri", e)
         }
-        context.contentResolver.takePersistableUriPermission(
-            newUri,
-            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-        )
-        val normalizedUri = newUri.normalizeScheme().toString()
-        val displayName = resolveSafDisplayName(newUri).ifBlank { existing.displayName }
-        val updated = LibraryRootLifecyclePolicy.markBindingRefreshed(
-            existing.copy(
-                sourceUri = normalizedUri,
-                displayName = displayName.ifBlank { existing.displayName }
-            )
-        )
-        rootDao.insertRoot(updated)
-        updated
     }
 
     /**
@@ -428,3 +453,35 @@ internal fun mergeAbsRoot(
             status = AudiobookSchema.LibraryRootStatus.ACTIVE
         )
 }
+
+/**
+ * Selects the persisted SAF root that should receive an edit-mode tree grant.
+ * Edit mode must reuse a registered root with the same Android tree document ID instead of blindly rebinding the row that launched the picker.
+ */
+internal fun resolveSafRootEditTarget(
+    editingRoot: LibraryRootEntity,
+    roots: List<LibraryRootEntity>,
+    normalizedUri: String,
+    displayName: String,
+    now: Long
+): LibraryRootEntity {
+    val target = roots.firstOrNull { root -> root.matchesSafTreeUri(normalizedUri) } ?: editingRoot
+    return LibraryRootLifecyclePolicy.markBindingRefreshed(
+        target.copy(
+            sourceUri = normalizedUri,
+            displayName = displayName.ifBlank { target.displayName },
+            grantedAt = now
+        )
+    )
+}
+
+/**
+ * Compares SAF roots by persisted URI first and Android tree document ID second.
+ * Android can return equivalent tree URIs with different string forms, so root identity cannot rely only on exact URI text.
+ */
+internal fun LibraryRootEntity.matchesSafTreeUri(candidateTreeUri: String): Boolean =
+    sourceType == AudiobookSchema.LibrarySourceType.SAF &&
+        (sourceUri == candidateTreeUri || treeDocumentId(sourceUri) == treeDocumentId(candidateTreeUri))
+
+private fun treeDocumentId(sourceUri: String): String =
+    Uri.decode(sourceUri).substringAfter("/tree/", missingDelimiterValue = sourceUri)

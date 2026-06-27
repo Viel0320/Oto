@@ -32,6 +32,60 @@ import kotlin.io.path.createTempDirectory
 class LibraryRootStoreTest {
 
     @Test
+    fun `saf edit target should reuse registered root with same tree identity`() {
+        val editingRoot = safRoot(
+            id = "editing-root",
+            sourceUri = "content://com.android.externalstorage.documents/tree/primary%3AOld"
+        )
+        val reusableRoot = safRoot(
+            id = "reusable-root",
+            sourceUri = "content://com.android.externalstorage.documents/tree/primary%3AAudiobooks",
+            status = AudiobookSchema.LibraryRootStatus.REVOKED,
+            availabilityStatus = AudiobookSchema.AvailabilityStatus.REVOKED,
+            availabilityErrorCode = "REVOKED"
+        )
+
+        val updated = resolveSafRootEditTarget(
+            editingRoot = editingRoot,
+            roots = listOf(editingRoot, reusableRoot),
+            normalizedUri = "content://com.android.externalstorage.documents/tree/primary%3AAudiobooks",
+            displayName = "Audiobooks",
+            now = 1234L
+        )
+
+        assertEquals("reusable-root", updated.id)
+        assertEquals("Audiobooks", updated.displayName)
+        assertEquals(1234L, updated.grantedAt)
+        assertEquals(AudiobookSchema.LibraryRootStatus.ACTIVE, updated.status)
+        assertEquals(AudiobookSchema.AvailabilityStatus.UNKNOWN, updated.availabilityStatus)
+        assertEquals(0L, updated.lastAvailabilityCheckedAt)
+        assertNull(updated.lastAvailabilityErrorCode)
+    }
+
+    @Test
+    fun `saf edit target should update edited root when no reusable tree exists`() {
+        val editingRoot = safRoot(
+            id = "editing-root",
+            sourceUri = "content://com.android.externalstorage.documents/tree/primary%3AOld",
+            displayName = "Old"
+        )
+
+        val updated = resolveSafRootEditTarget(
+            editingRoot = editingRoot,
+            roots = listOf(editingRoot),
+            normalizedUri = "content://com.android.externalstorage.documents/tree/primary%3ANew",
+            displayName = "New",
+            now = 5678L
+        )
+
+        assertEquals("editing-root", updated.id)
+        assertEquals("content://com.android.externalstorage.documents/tree/primary%3ANew", updated.sourceUri)
+        assertEquals("New", updated.displayName)
+        assertEquals(5678L, updated.grantedAt)
+        assertEquals(AudiobookSchema.LibraryRootStatus.ACTIVE, updated.status)
+    }
+
+    @Test
     fun `webdav endpoint normalization should reject userinfo credentials`() = runBlocking {
         val credentialStore = testCredentialStore("webdav-userinfo")
         val rootDao = RecordingLibraryRootDao(initialRoots = emptyList())
@@ -296,6 +350,25 @@ class LibraryRootStoreTest {
                 credentialId = credentialId,
                 displayName = "Remote Library",
                 status = AudiobookSchema.LibraryRootStatus.ACTIVE
+            )
+
+        private fun safRoot(
+            id: String,
+            sourceUri: String,
+            displayName: String = "Local Library",
+            status: AudiobookSchema.LibraryRootStatus = AudiobookSchema.LibraryRootStatus.ACTIVE,
+            availabilityStatus: AudiobookSchema.AvailabilityStatus = AudiobookSchema.AvailabilityStatus.UNKNOWN,
+            availabilityErrorCode: String? = null
+        ): LibraryRootEntity =
+            LibraryRootEntity(
+                id = id,
+                sourceType = AudiobookSchema.LibrarySourceType.SAF,
+                sourceUri = sourceUri,
+                displayName = displayName,
+                status = status,
+                availabilityStatus = availabilityStatus,
+                lastAvailabilityCheckedAt = if (availabilityErrorCode == null) 0L else 42L,
+                lastAvailabilityErrorCode = availabilityErrorCode
             )
     }
 }
