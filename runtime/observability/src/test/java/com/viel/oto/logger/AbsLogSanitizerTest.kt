@@ -9,8 +9,8 @@ import org.junit.Test
  * Branch and boundary coverage for the credential-redaction logic in [AbsLogSanitizer].
  *
  * Expected values follow the real regex pipeline in AbsLogSupport.kt and its ordering:
- * embedded http(s) url stripping -> Bearer -> JSON token -> JSON password ->
- * Authorization header -> token/password query params.
+ * embedded http(s) url stripping -> Bearer -> sensitive JSON fields ->
+ * Authorization header -> sensitive key-value pairs.
  */
 class AbsLogSanitizerTest {
 
@@ -62,6 +62,21 @@ class AbsLogSanitizerTest {
         assertFalse(result.contains("abc123"))
     }
 
+    @Test
+    fun `sanitizeText redacts sensitive json scalar fields`() {
+        val result = AbsLogSanitizer.sanitizeText(
+            "{\"access_token\":123,\"api_key\":true,\"sig\":null}"
+        )
+
+        assertEquals(
+            "{\"access_token\":\"<redacted>\",\"api_key\":\"<redacted>\",\"sig\":\"<redacted>\"}",
+            result
+        )
+        assertFalse(result.contains("123"))
+        assertFalse(result.contains("true"))
+        assertFalse(result.contains("null"))
+    }
+
     // ---- Authorization header ----
 
     @Test
@@ -92,6 +107,23 @@ class AbsLogSanitizerTest {
         val result = AbsLogSanitizer.sanitizeText("login password=hunter2&user=demo")
         assertEquals("login password=<redacted>&user=demo", result)
         assertFalse(result.contains("hunter2"))
+    }
+
+    @Test
+    fun `sanitizeText redacts expanded sensitive key-value parameters`() {
+        val result = AbsLogSanitizer.sanitizeText(
+            "access_token=tok refresh_token=ref api_key=key apikey=compact api-key=dash secret=s signature=sign"
+        )
+
+        assertEquals(
+            "access_token=<redacted> refresh_token=<redacted> api_key=<redacted> " +
+                "apikey=<redacted> api-key=<redacted> secret=<redacted> signature=<redacted>",
+            result
+        )
+        assertFalse(result.contains("=tok"))
+        assertFalse(result.contains("=ref"))
+        assertFalse(result.contains("compact"))
+        assertFalse(result.contains("=sign"))
     }
 
     @Test

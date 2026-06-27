@@ -7,7 +7,7 @@ import android.util.Log
  *
  * Design Goals:
  * 1. Ensure all ABS loggers share the same clock timing and sanitization logic to keep logging formats consistent.
- * 2. Redact sensitive values like authorization tokens, passwords, Bearer headers, and query parameters before writing to Logcat.
+ * 2. Redact sensitive values like authorization tokens, API keys, signatures, passwords, Bearer headers, and query parameters before writing to Logcat.
  * 3. Compact excessively long URLs, source paths, and item IDs to avoid flooding Logcat.
  */
 internal object AbsLogClock {
@@ -20,13 +20,18 @@ internal object AbsLogClock {
  * Utility to redact sensitive information in log text.
  *
  * Uses pure string operations without relying on Android runtime classes to facilitate standard JVM unit testing for credential leaks.
+ * The same sensitive key set is applied to JSON-like fields and query-like key-value fragments so debug logs are no narrower than release diagnostics.
  */
 object AbsLogSanitizer {
+    private const val SENSITIVE_KEY_PATTERN =
+        "token|access_token|refresh_token|api[_-]?key|apikey|password|passwd|pwd|secret|sig|signature"
+
     private val bearerRegex = Regex("Bearer\\s+\\S+", RegexOption.IGNORE_CASE)
-    private val tokenJsonRegex = Regex("\"token\"\\s*:\\s*\"[^\"]*\"", RegexOption.IGNORE_CASE)
-    private val passwordJsonRegex = Regex("\"password\"\\s*:\\s*\"[^\"]*\"", RegexOption.IGNORE_CASE)
     private val authorizationRegex = Regex("(Authorization\\s*[:=]\\s*Bearer\\s+)(\\S+)", RegexOption.IGNORE_CASE)
-    private val tokenQueryRegex = Regex("((?:token|password)=)([^&#\\s]+)", RegexOption.IGNORE_CASE)
+    private val sensitiveJsonRegex =
+        Regex("\"($SENSITIVE_KEY_PATTERN)\"\\s*:\\s*(\"(?:\\\\.|[^\"])*\"|[+-]?\\d+(?:\\.\\d+)?|true|false|null)", RegexOption.IGNORE_CASE)
+    private val sensitiveKeyValueRegex =
+        Regex("\\b($SENSITIVE_KEY_PATTERN)(\\s*[=:]\\s*)([^&#\\s,;)}\\]\"']+)", RegexOption.IGNORE_CASE)
     private val embeddedHttpUrlRegex = Regex("https?://\\S+", RegexOption.IGNORE_CASE)
 
     fun sanitizeText(raw: String?): String {
@@ -34,10 +39,13 @@ object AbsLogSanitizer {
         return value
             .replace(embeddedHttpUrlRegex) { matchResult -> stripEmbeddedUrlSecrets(matchResult.value) }
             .replace(bearerRegex, "Bearer <redacted>")
-            .replace(tokenJsonRegex, "\"token\":\"<redacted>\"")
-            .replace(passwordJsonRegex, "\"password\":\"<redacted>\"")
+            .replace(sensitiveJsonRegex) { matchResult ->
+                "\"${matchResult.groupValues[1].lowercase()}\":\"<redacted>\""
+            }
             .replace(authorizationRegex, "$1<redacted>")
-            .replace(tokenQueryRegex, "$1<redacted>")
+            .replace(sensitiveKeyValueRegex) { matchResult ->
+                "${matchResult.groupValues[1]}${matchResult.groupValues[2]}<redacted>"
+            }
     }
 
     /**

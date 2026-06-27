@@ -117,6 +117,18 @@ class ImportUserDataUseCaseTest {
         assertTrue(result.exceptionOrNull() is SecurityException)
     }
 
+    @Test
+    fun `execute rejects routed database entries that climb above the sandbox`() = runBlocking {
+        val archive = zipBytes(
+            "database/../../../tmp/evil" to "pwned".toByteArray(Charsets.UTF_8)
+        )
+
+        val result = useCase.execute(ByteArrayInputStream(archive))
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is SecurityException)
+    }
+
     private fun manifest(
         databaseVersion: Int,
         appName: String = "Oto"

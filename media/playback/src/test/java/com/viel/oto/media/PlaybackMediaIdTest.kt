@@ -2,36 +2,41 @@ package com.viel.oto.media
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
  * Branch/boundary coverage for [PlaybackMediaId].
  *
  * Real API under test:
- *   - compose(bookId, fileId): String  -> "oto-mid:v1:<bookId.length>:<bookId><fileId>"
+ *   - compose(bookId, fileId): String  -> "oto-mid:v1:<bookId.length>:<bookId><fileId>:<checksum>"
  *   - parse(mediaId: String?): Parts?
  *
- * Expected values were derived by stepping through parseV1 against the PREFIX
- * "oto-mid:v1:" (length 11, so indexOf(':') starts at index 11).
+ * Expected parse boundaries follow the PREFIX "oto-mid:v1:" and the final checksum separator.
  */
 class PlaybackMediaIdTest {
 
     // ---- compose format ------------------------------------------------------
 
     @Test
-    fun `compose emits length-prefixed v1 schema`() {
-        assertEquals("oto-mid:v1:6:book-1file-1", PlaybackMediaId.compose("book-1", "file-1"))
+    fun `compose emits length-prefixed v1 schema with checksum`() {
+        val mediaId = PlaybackMediaId.compose("book-1", "file-1")
+
+        assertTrue(Regex("oto-mid:v1:6:book-1file-1:[0-9a-f]{16}").matches(mediaId))
     }
 
     @Test
     fun `compose with colon-bearing ids records book length`() {
-        // bookId "a:b" length = 3 -> "oto-mid:v1:3:a:bc:d:e"
-        assertEquals("oto-mid:v1:3:a:bc:d:e", PlaybackMediaId.compose("a:b", "c:d:e"))
+        val mediaId = PlaybackMediaId.compose("a:b", "c:d:e")
+
+        assertTrue(Regex("oto-mid:v1:3:a:bc:d:e:[0-9a-f]{16}").matches(mediaId))
     }
 
     @Test
     fun `compose with empty book id uses zero length`() {
-        assertEquals("oto-mid:v1:0:file", PlaybackMediaId.compose("", "file"))
+        val mediaId = PlaybackMediaId.compose("", "file")
+
+        assertTrue(Regex("oto-mid:v1:0:file:[0-9a-f]{16}").matches(mediaId))
     }
 
     // ---- successful round-trips ---------------------------------------------
@@ -92,6 +97,11 @@ class PlaybackMediaIdTest {
         assertNull(PlaybackMediaId.parse("oto-mid:v1:3abc"))
     }
 
+    @Test
+    fun `parse without checksum returns null`() {
+        assertNull(PlaybackMediaId.parse("oto-mid:v1:6:book-1file-1"))
+    }
+
     // ---- length segment is not an integer (toIntOrNull) ---------------------
 
     @Test
@@ -103,38 +113,41 @@ class PlaybackMediaIdTest {
 
     @Test
     fun `parse with zero length returns null`() {
-        // bookIdLength == 0 -> bookIdLength <= 0 branch
-        assertNull(PlaybackMediaId.parse("oto-mid:v1:0:file"))
+        val mediaId = PlaybackMediaId.compose("", "file")
+
+        assertNull(PlaybackMediaId.parse(mediaId))
     }
 
     @Test
     fun `parse with negative length returns null`() {
         // "-1" parses as -1 -> bookIdLength <= 0 branch
-        assertNull(PlaybackMediaId.parse("oto-mid:v1:-1:abcd"))
+        assertNull(PlaybackMediaId.parse("oto-mid:v1:-1:abcd:0123456789abcdef"))
     }
 
     // ---- bookIdEnd > length --------------------------------------------------
 
     @Test
     fun `parse with length exceeding remaining text returns null`() {
-        // bookIdLength = 9 but only 2 chars remain -> bookIdEnd > mediaId.length
-        assertNull(PlaybackMediaId.parse("oto-mid:v1:9:ab"))
+        // bookIdLength = 9 but only 2 payload chars remain before the checksum separator.
+        assertNull(PlaybackMediaId.parse("oto-mid:v1:9:ab:0123456789abcdef"))
     }
 
     // ---- bookId blank --------------------------------------------------------
 
     @Test
     fun `parse with whitespace-only book id returns null`() {
-        // bookId "   " is non-empty but blank -> bookId.isBlank() branch
-        assertNull(PlaybackMediaId.parse("oto-mid:v1:3:   file"))
+        val mediaId = PlaybackMediaId.compose("   ", "file")
+
+        assertNull(PlaybackMediaId.parse(mediaId))
     }
 
     // ---- fileId blank --------------------------------------------------------
 
     @Test
     fun `parse with empty file id returns null`() {
-        // length exactly consumes the rest, leaving fileId == "" -> fileId.isBlank()
-        assertNull(PlaybackMediaId.parse("oto-mid:v1:4:book"))
+        val mediaId = PlaybackMediaId.compose("book", "")
+
+        assertNull(PlaybackMediaId.parse(mediaId))
     }
 
     @Test
@@ -148,5 +161,31 @@ class PlaybackMediaIdTest {
     fun `compose with empty book id does not round trip`() {
         val mediaId = PlaybackMediaId.compose("", "file")
         assertNull(PlaybackMediaId.parse(mediaId))
+    }
+
+    // ---- checksum integrity --------------------------------------------------
+
+    @Test
+    fun `parse rejects a changed payload with the original checksum`() {
+        val mediaId = PlaybackMediaId.compose("book-1", "file-1")
+        val tampered = mediaId.replace("file-1", "file-2")
+
+        assertNull(PlaybackMediaId.parse(tampered))
+    }
+
+    @Test
+    fun `parse rejects a retargeted book length boundary`() {
+        val mediaId = PlaybackMediaId.compose("book", "file")
+        val tampered = mediaId.replace("oto-mid:v1:4:", "oto-mid:v1:3:")
+
+        assertNull(PlaybackMediaId.parse(tampered))
+    }
+
+    @Test
+    fun `parse rejects a changed checksum`() {
+        val mediaId = PlaybackMediaId.compose("book-1", "file-1")
+        val tampered = mediaId.dropLast(1) + if (mediaId.last() == '0') "1" else "0"
+
+        assertNull(PlaybackMediaId.parse(tampered))
     }
 }
