@@ -8,7 +8,9 @@ import com.viel.oto.logger.SecureLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -20,24 +22,29 @@ class ManualDownloadNotificationActionReceiver : BroadcastReceiver(), KoinCompon
         val bookId = intent.getStringExtra(EXTRA_BOOK_ID)?.takeIf { value -> value.isNotBlank() } ?: return
         if (action !in SUPPORTED_ACTIONS) return
         val pendingResult = goAsync()
-        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+        val receiverScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        receiverScope.launch {
             try {
-                when (action) {
-                    ACTION_PAUSE_DOWNLOAD -> downloadActionGateway.pauseDownload(bookId)
-                    ACTION_RESUME_DOWNLOAD -> downloadActionGateway.resumeDownload(bookId)
-                    ACTION_RETRY_DOWNLOAD -> downloadActionGateway.retryDownload(bookId)
-                    ACTION_CANCEL_DOWNLOAD -> downloadActionGateway.cancelDownload(bookId)
+                withTimeout(RECEIVER_TIMEOUT_MS) {
+                    when (action) {
+                        ACTION_PAUSE_DOWNLOAD -> downloadActionGateway.pauseDownload(bookId)
+                        ACTION_RESUME_DOWNLOAD -> downloadActionGateway.resumeDownload(bookId)
+                        ACTION_RETRY_DOWNLOAD -> downloadActionGateway.retryDownload(bookId)
+                        ACTION_CANCEL_DOWNLOAD -> downloadActionGateway.cancelDownload(bookId)
+                    }
                 }
             } catch (error: Exception) {
                 SecureLog.error(TAG, "Manual download notification action failed: ${error.message}", error)
             } finally {
                 pendingResult.finish()
+                receiverScope.cancel()
             }
         }
     }
 
     companion object {
         private const val TAG = "ManualDownloadNotificationActionReceiver"
+        private const val RECEIVER_TIMEOUT_MS = 9_000L
         private const val EXTRA_BOOK_ID = "com.viel.oto.extra.MANUAL_DOWNLOAD_BOOK_ID"
         private const val ACTION_PAUSE_DOWNLOAD = "com.viel.oto.download.action.PAUSE"
         private const val ACTION_RESUME_DOWNLOAD = "com.viel.oto.download.action.RESUME"
