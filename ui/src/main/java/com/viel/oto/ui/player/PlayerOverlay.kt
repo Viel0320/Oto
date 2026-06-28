@@ -29,13 +29,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
-import com.materialkolor.ktx.animateColorScheme
 import com.viel.oto.media.parser.ImageProcessor
 import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.CoverImageSourceSelector
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.oto.ui.common.theme.LocalAmoled
 import com.viel.oto.ui.common.theme.LocalDarkTheme
+import com.viel.oto.ui.common.theme.OtoExpressiveThemeLayer
 import com.viel.oto.ui.common.uiPerformanceTrace
 import com.viel.oto.ui.motion.LocalAnimatedVisibilityScope
 import com.viel.oto.ui.motion.LocalMini2PlayerSourceCover
@@ -265,8 +265,8 @@ fun PlayerOverlay(
                             }
                         }
 
-                        MaterialTheme(
-                            colorScheme = animateColorScheme(coverColorScheme ?: currentColorScheme),
+                        OtoExpressiveThemeLayer(
+                            colorScheme = coverColorScheme ?: currentColorScheme,
                             content = contentBlock
                         )
                     }
@@ -346,8 +346,8 @@ private fun MiniPlayerContent(
         }
     }
 
-    MaterialTheme(
-        colorScheme = animateColorScheme(dynamicColorScheme ?: MaterialTheme.colorScheme),
+    OtoExpressiveThemeLayer(
+        colorScheme = dynamicColorScheme ?: MaterialTheme.colorScheme,
         content = contentBlock
     )
 }

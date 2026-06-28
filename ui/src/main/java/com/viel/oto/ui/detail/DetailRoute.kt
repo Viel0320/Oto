@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,12 +16,12 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
-import com.materialkolor.ktx.animateColorScheme
 import com.viel.oto.application.library.LibraryReadStatus
 import com.viel.oto.media.parser.ImageProcessor
 import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.theme.LocalAmoled
 import com.viel.oto.ui.common.theme.LocalDarkTheme
+import com.viel.oto.ui.common.theme.OtoExpressiveThemeLayer
 import com.viel.oto.ui.common.uiPerformanceTrace
 import dev.chrisbanes.haze.HazeState
 
@@ -126,7 +125,7 @@ fun DetailRoute(
         }
 
         if (detailColorScheme != null) {
-            MaterialTheme(colorScheme = animateColorScheme(detailColorScheme), content = screenBlock)
+            OtoExpressiveThemeLayer(colorScheme = detailColorScheme, content = screenBlock)
         } else {
             screenBlock()
         }

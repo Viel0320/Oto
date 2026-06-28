@@ -63,10 +63,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
-import com.materialkolor.ktx.animateColorScheme
-import com.viel.oto.shared.R
 import com.viel.oto.application.library.edit.EditBookDraft
 import com.viel.oto.media.parser.ImageProcessor
+import com.viel.oto.shared.R
 import com.viel.oto.shared.model.AppSettings
 import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.CoverBackground
@@ -75,6 +74,7 @@ import com.viel.oto.ui.common.layout.AppWindowSizeClass
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.oto.ui.common.theme.LocalAmoled
 import com.viel.oto.ui.common.theme.LocalDarkTheme
+import com.viel.oto.ui.common.theme.OtoExpressiveThemeLayer
 import com.viel.oto.ui.common.theme.OtoTheme
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
@@ -567,7 +567,7 @@ fun EditBookScreen(
     }
 
     if (editColorScheme != null) {
-        MaterialTheme(colorScheme = animateColorScheme(editColorScheme), content = contentBlock)
+        OtoExpressiveThemeLayer(colorScheme = editColorScheme, content = contentBlock)
     } else {
         contentBlock()
     }

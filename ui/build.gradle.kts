@@ -24,6 +24,12 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        optIn.add("androidx.compose.material3.ExperimentalMaterial3ExpressiveApi")
+    }
+}
+
 dependencies {
     implementation(project(":runtime:observability"))
     implementation(project(":application"))
@@ -41,7 +47,7 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
+    implementation(libs.androidx.material3.expressive)
     implementation(libs.androidx.compose.material3.windowsize)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.animation.graphics)
