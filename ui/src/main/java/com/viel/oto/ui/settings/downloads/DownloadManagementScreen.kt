@@ -28,7 +28,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -49,13 +49,13 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.viel.oto.shared.R
 import com.viel.oto.application.download.BookCacheState
 import com.viel.oto.application.download.BookCacheStatus
 import com.viel.oto.application.download.ManualDownloadDisplayTextPolicy
 import com.viel.oto.application.download.ManualDownloadTaskItem
-import com.viel.oto.shared.policy.formatFileSize
+import com.viel.oto.shared.R
 import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.shared.policy.formatFileSize
 import com.viel.oto.ui.common.OtoGlassTopBar
 import com.viel.oto.ui.settings.SettingsTemplateDialog
 import dev.chrisbanes.haze.HazeState
@@ -290,7 +290,7 @@ private fun DownloadTaskRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                LinearProgressIndicator(
+                LinearWavyProgressIndicator(
                     progress = { status.progressPercent / 100f },
                     modifier = Modifier
                         .fillMaxWidth()

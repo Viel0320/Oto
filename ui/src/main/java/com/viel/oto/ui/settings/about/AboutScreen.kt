@@ -36,10 +36,10 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -221,7 +221,7 @@ private fun LoadingLicensesContent(contentPadding: PaddingValues) {
             .padding(contentPadding),
         contentAlignment = Alignment.Center
     ) {
-        CircularProgressIndicator()
+        LoadingIndicator()
     }
 }
 

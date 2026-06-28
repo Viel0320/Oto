@@ -14,8 +14,9 @@ import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -28,9 +29,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.viel.oto.shared.R
 import com.viel.oto.application.download.BookCacheState
 import com.viel.oto.application.download.BookCacheStatus
+import com.viel.oto.shared.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -172,16 +173,14 @@ private fun DownloadStatusIcon(
         contentAlignment = Alignment.Center
     ) {
         when {
-            isQueued -> CircularProgressIndicator(
+            isQueued -> LoadingIndicator(
                 modifier = Modifier.size(progressSize),
-                color = iconTint,
-                strokeWidth = 2.dp
+                color = iconTint
             )
-            isDownloading -> CircularProgressIndicator(
+            isDownloading -> CircularWavyProgressIndicator(
                 progress = { animatedProgress },
                 modifier = Modifier.size(progressSize),
-                color = iconTint,
-                strokeWidth = 2.dp
+                color = iconTint
             )
         }
         Icon(
