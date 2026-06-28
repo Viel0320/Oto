@@ -4,10 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +22,7 @@ import dev.chrisbanes.haze.HazeState
  * Provides the common dialog container, padding rhythm, optional header slots, optional body slot, and trailing action row.
  * Page-level DialogHost components should derive concrete dialogs from this template while keeping business state and click handling outside the shared shell.
  */
+@Suppress("DEPRECATION")
 @Composable
 fun OtoDialogTemplate(
     onDismissRequest: () -> Unit,
@@ -39,7 +40,9 @@ fun OtoDialogTemplate(
     icon: (@Composable () -> Unit)? = null,
     title: (@Composable () -> Unit)? = null,
     body: (@Composable ColumnScope.() -> Unit)? = null,
-    actions: (@Composable RowScope.() -> Unit)? = null
+    confirmButton: (@Composable () -> Unit)? = null,
+    dismissButton: (@Composable () -> Unit)? = null,
+    actions: (@Composable ButtonGroupScope.() -> Unit)? = null
 ) {
     BlurDialog(
         onDismissRequest = onDismissRequest,
@@ -62,12 +65,19 @@ fun OtoDialogTemplate(
             body?.invoke(this)
 
             if (actions != null) {
-                Row(
+                ButtonGroup(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(actionsSpacing, Alignment.End),
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.spacedBy(actionsSpacing, Alignment.End)
                 ) {
                     actions()
+                }
+            } else if (confirmButton != null || dismissButton != null) {
+                ButtonGroup(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(actionsSpacing, Alignment.End)
+                ) {
+                    dismissButton?.invoke()
+                    confirmButton?.invoke()
                 }
             }
         }
