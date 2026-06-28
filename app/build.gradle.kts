@@ -52,10 +52,10 @@ android {
             println("Warning: Could not load keystore.properties file: ${e.message}")
         }
     }
-    val storeFile = properties.getProperty("storeFile") ?: System.getenv("KEYSTORE_FILE")
-    val storePassword = properties.getProperty("storePassword") ?: System.getenv("KEYSTORE_PASSWORD")
-    val keyAlias = properties.getProperty("keyAlias") ?: System.getenv("KEY_ALIAS")
-    val keyPassword = properties.getProperty("keyPassword") ?: System.getenv("KEY_PASSWORD")
+    val storeFile = properties.getProperty("KEYSTORE_FILE") ?: System.getenv("KEYSTORE_FILE")
+    val storePassword = properties.getProperty("KEYSTORE_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD")
+    val keyAlias = properties.getProperty("KEY_ALIAS") ?: System.getenv("KEY_ALIAS")
+    val keyPassword = properties.getProperty("KEY_PASSWORD") ?: System.getenv("KEY_PASSWORD")
     val hasCustomSigning = storeFile != null && storePassword != null && keyAlias != null && keyPassword != null
 
     defaultConfig {
