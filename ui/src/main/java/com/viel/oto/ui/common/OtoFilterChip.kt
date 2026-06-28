@@ -55,7 +55,7 @@ fun OtoFilterChip(
 ) {
     val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
     val chipShape = MaterialTheme.shapes.small
-    val colors = aPlayerFilterChipColors(selected = selected, isBlur = isBlur)
+    val colors = FilterChipColors(selected = selected, isBlur = isBlur)
     val interactionSource = remember { MutableInteractionSource() }
     val choiceStateDescription = stringResource(
         if (selected) {
@@ -160,7 +160,7 @@ private data class OtoFilterChipColors(
 )
 
 @Composable
-private fun aPlayerFilterChipColors(
+private fun FilterChipColors(
     selected: Boolean,
     isBlur: Boolean
 ): OtoFilterChipColors {

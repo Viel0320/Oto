@@ -29,7 +29,7 @@ import com.viel.oto.shared.model.SleepMode
 import com.viel.oto.shared.model.ThemeMode
 import com.viel.oto.ui.common.OtoPopupSelector
 import com.viel.oto.ui.common.OtoPopupWidth
-import com.viel.oto.ui.common.aPlayerTextPopupItem
+import com.viel.oto.ui.common.TextPopupItem
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import dev.chrisbanes.haze.HazeState
 
@@ -249,7 +249,7 @@ private fun <T : Any> SettingsDropdownControl(
     val selectedIndex = options.indexOfFirst { option -> option.value == selectedValue }
         .takeIf { index -> index >= 0 }
     val items = options.map { option ->
-        aPlayerTextPopupItem(
+        TextPopupItem(
             key = option.value,
             label = option.label
         )

@@ -63,7 +63,7 @@ import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.OtoGlassTopBar
 import com.viel.oto.ui.common.OtoPopupSelector
 import com.viel.oto.ui.common.OtoPopupWidth
-import com.viel.oto.ui.common.aPlayerTextPopupItem
+import com.viel.oto.ui.common.TextPopupItem
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -621,7 +621,7 @@ private fun RemoteProtocolPortRow(
     ) {
         OtoPopupSelector(
             items = protocols.map { option ->
-                aPlayerTextPopupItem(key = option, label = option.uppercase())
+                TextPopupItem(key = option, label = option.uppercase())
             },
             expanded = protocolExpanded,
             onExpandedChange = onProtocolExpandedChange,

@@ -115,7 +115,7 @@ class OtoPopupItem(
  * Keeps callers from writing a slot lambda for the dominant case while still producing a full
  * [OtoPopupItem] so the count slot stays optional and the row stays customizable elsewhere.
  */
-fun aPlayerTextPopupItem(
+fun TextPopupItem(
     key: Any,
     label: String,
     count: Int? = null,
