@@ -244,7 +244,6 @@ fun PlayerLandscapePhone(
                     settings = settings,
                     actions = actions,
                     buttonColor = animatedBgColor,
-                    glassEffectMode = glassEffectMode,
                     hazeState = chapterSheetHazeState,
                     modifier = Modifier.fillMaxWidth()
                 )

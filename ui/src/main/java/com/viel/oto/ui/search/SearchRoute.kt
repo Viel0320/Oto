@@ -5,7 +5,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.uiPerformanceTrace
 import dev.chrisbanes.haze.HazeState
 
@@ -20,7 +19,6 @@ fun SearchRoute(
     modifier: Modifier = Modifier,
     searchViewModel: SearchViewModel,
     hazeState: HazeState? = null,
-    glassEffectMode: GlassEffectMode,
     activeSearchDetailBookId: String? = null,
     onNavigateToDetail: (String) -> Unit,
     onLoadBook: (String) -> Unit,
@@ -38,7 +36,6 @@ fun SearchRoute(
         visible = isVisible,
         onBack = dismissSearchOverlay,
         hazeState = hazeState,
-        glassEffectMode = glassEffectMode,
         modifier = modifier.uiPerformanceTrace(
             node = "SearchRoute",
             route = "Search",
@@ -68,8 +65,7 @@ fun SearchRoute(
             },
             onLoadBook = onLoadBook,
             onNavigateToPlayer = onNavigateToPlayer,
-            hazeState = hazeState,
-            glassEffectMode = glassEffectMode
+            hazeState = hazeState
         )
     }
 }

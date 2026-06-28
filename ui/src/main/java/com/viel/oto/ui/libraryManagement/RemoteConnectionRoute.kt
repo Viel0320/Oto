@@ -20,7 +20,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.ui.common.theme.LocalGlassEffectMode
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -34,10 +34,10 @@ import dev.chrisbanes.haze.HazeState
 @Composable
 fun RemoteConnectionRoute(
     remoteConnectionViewModel: RemoteConnectionViewModel,
-    glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     hazeState: HazeState? = null
 ) {
+    val glassEffectMode = LocalGlassEffectMode.current
     val form by remoteConnectionViewModel.form.collectAsStateWithLifecycle()
     val visible = form.source != RemoteConnectionSource.None
 

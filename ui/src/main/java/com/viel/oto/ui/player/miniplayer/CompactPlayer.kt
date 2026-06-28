@@ -43,11 +43,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.viel.oto.shared.R
-import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.CoverImage
 import com.viel.oto.ui.common.CoverImageVariant
 import com.viel.oto.ui.common.formatPeopleSubtitle
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
+import com.viel.oto.ui.common.theme.LocalHazeState
+import com.viel.oto.ui.common.theme.LocalIsBlur
 import com.viel.oto.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.oto.ui.motion.LocalSharedTransitionScope
 import com.viel.oto.ui.motion.SharedElementKeys
@@ -74,7 +75,6 @@ fun CompactMediaPlayer(
     actions: MiniPlayerActions = MiniPlayerActions(),
     hazeState: HazeState? = null,
     onClick: () -> Unit = {},
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
 
     val sharedTransitionScope = LocalSharedTransitionScope.current
@@ -135,7 +135,7 @@ fun CompactMediaPlayer(
         Modifier
     }
 
-    val isBlurMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+    val isBlurMode = LocalIsBlur.current && (hazeState ?: LocalHazeState.current) != null
     val unknownText = stringResource(R.string.common_unknown)
     val unknownTitle = stringResource(R.string.common_unknown_title)
     val coverContentDescription = stringResource(R.string.media_cover_content_description)
@@ -175,8 +175,7 @@ fun CompactMediaPlayer(
                         .fillMaxWidth()
                         .height(4.dp),
                     showKnob = false,
-                    enableProgressSemantics = false,
-                    glassEffectMode = glassEffectMode
+                    enableProgressSemantics = false
                 )
             }
 

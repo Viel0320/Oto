@@ -31,7 +31,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.viel.oto.shared.R
-import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.ui.common.theme.LocalHazeState
+import com.viel.oto.ui.common.theme.LocalIsBlur
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -50,12 +51,11 @@ fun OtoFilterChip(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     hazeState: HazeState? = null
 ) {
-    val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+    val isBlur = LocalIsBlur.current && (hazeState ?: LocalHazeState.current) != null
     val chipShape = MaterialTheme.shapes.small
-    val colors = FilterChipColors(selected = selected, isBlur = isBlur)
+    val colors = filterChipColors(selected = selected, isBlur = isBlur)
     val interactionSource = remember { MutableInteractionSource() }
     val choiceStateDescription = stringResource(
         if (selected) {
@@ -160,7 +160,7 @@ private data class OtoFilterChipColors(
 )
 
 @Composable
-private fun FilterChipColors(
+private fun filterChipColors(
     selected: Boolean,
     isBlur: Boolean
 ): OtoFilterChipColors {

@@ -56,6 +56,7 @@ import com.viel.oto.ui.common.BlurSnackbar
 import com.viel.oto.ui.common.CoverBackground
 import com.viel.oto.ui.common.CoverImageSourceSelector
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
+import com.viel.oto.ui.common.theme.LocalGlassEffectMode
 import com.viel.oto.ui.common.uiPerformanceTrace
 import com.viel.oto.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.oto.ui.motion.LocalSharedTransitionScope
@@ -91,7 +92,6 @@ fun PlayerScreen(
     settingsViewModel: PlayerSettingsViewModel,
     actions: PlayerActions,
     navigationActions: PlayerNavigationActions,
-    glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     hazeState: HazeState? = null,
     coverColor: Color?,
@@ -99,6 +99,7 @@ fun PlayerScreen(
     renderFloatingSurfaces: Boolean = true,
     safeDrawingPadding: PaddingValues
 ) {
+    val glassEffectMode = LocalGlassEffectMode.current
 
     val seekUndoActionText = stringResource(R.string.player_seek_undo_action)
     val seekUndoMessageText = stringResource(R.string.player_seek_undo_message)
@@ -493,8 +494,7 @@ fun PlayerScreen(
                 metadata = metadata,
                 settings = settings,
                 actions = actions,
-                hazeState = floatingHazeState,
-                glassEffectMode = glassEffectMode
+                hazeState = floatingHazeState
             )
         }
     }
@@ -507,9 +507,9 @@ fun PlayerFloatingSurfaceHost(
     metadata: BookMetadataState,
     settings: PlayerSettingsState,
     actions: PlayerActions,
-    hazeState: HazeState?,
-    glassEffectMode: GlassEffectMode
+    hazeState: HazeState?
 ) {
+    val glassEffectMode = LocalGlassEffectMode.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
 
     PlaybackPositionChapterListSheetStateful(

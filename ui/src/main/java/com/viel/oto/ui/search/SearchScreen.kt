@@ -56,13 +56,14 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.viel.oto.shared.R
 import com.viel.oto.application.library.search.SearchHistoryItem
 import com.viel.oto.application.library.search.SearchResultSnapshot
-import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.shared.R
 import com.viel.oto.ui.common.CoverImageSourceSelector
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.oto.ui.common.theme.LocalDarkTheme
+import com.viel.oto.ui.common.theme.LocalHazeState
+import com.viel.oto.ui.common.theme.LocalIsBlur
 import com.viel.oto.ui.common.theme.OtoTheme
 import com.viel.oto.ui.home.components.ListItem
 import com.viel.oto.ui.motion.SharedElementKeys
@@ -93,8 +94,7 @@ fun SearchScreen(
     onNavigateToDetail: (String) -> Unit,
     onLoadBook: (String) -> Unit,
     onNavigateToPlayer: () -> Unit,
-    hazeState: HazeState? = null,
-    glassEffectMode: GlassEffectMode
+    hazeState: HazeState? = null
 ) {
     SearchContent(
         query = query,
@@ -113,7 +113,6 @@ fun SearchScreen(
         onNavigateToPlayer = onNavigateToPlayer,
         autoFocus = true,
         hazeState = hazeState,
-        glassEffectMode = glassEffectMode,
         modifier = modifier
     )
 }
@@ -143,7 +142,6 @@ fun SearchContent(
     onLoadBook: (String) -> Unit,
     onNavigateToPlayer: () -> Unit,
     hazeState: HazeState? = null,
-    glassEffectMode: GlassEffectMode,
     autoFocus: Boolean = true,
 ) {
     val searchPlaceholderText = stringResource(R.string.search_placeholder, SEARCH_DIRECTIVE_HINT)
@@ -183,7 +181,7 @@ fun SearchContent(
         }
     }
 
-    val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+    val isBlur = LocalIsBlur.current && (hazeState ?: LocalHazeState.current) != null
 
     Scaffold(
         modifier = modifier
@@ -575,7 +573,6 @@ fun SearchScreenEmptyPreview() {
             onLoadBook = {},
             onNavigateToPlayer = {},
             hazeState = null,
-            glassEffectMode = GlassEffectMode.Material,
             autoFocus = false
         )
     }
@@ -613,7 +610,6 @@ fun SearchScreenResultsPreview() {
             onLoadBook = {},
             onNavigateToPlayer = {},
             hazeState = null,
-            glassEffectMode = GlassEffectMode.Material,
             autoFocus = false
         )
     }

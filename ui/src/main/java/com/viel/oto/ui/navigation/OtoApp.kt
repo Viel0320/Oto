@@ -162,7 +162,8 @@ fun OtoApp(
         OtoTheme(
             darkTheme = isDarkTheme,
             dynamicColor = isDynamicColorEnabled,
-            amoled = isAmoledEnabled
+            amoled = isAmoledEnabled,
+            glassEffectMode = activeGlassEffectMode
         ) {
         val navigationState = rememberNavigationState(
             startRoute = HomeRoute,
@@ -486,14 +487,12 @@ fun OtoApp(
                     settingsViewModel = playerSettingsViewModel,
                     playerActions = playerActions,
                     playerNavigationActions = playerNavigationActions,
-                    glassEffectMode = activeGlassEffectMode,
                     appHazeState = hazeState
                 )
 
                 if (editViewModel != null) {
                     EditBookRoute(
                         editViewModel = editViewModel,
-                        glassEffectMode = activeGlassEffectMode,
                         hazeState = hazeState,
                         onSaveSuccess = {
                         }
@@ -504,7 +503,6 @@ fun OtoApp(
                     SearchRoute(
                         searchViewModel = searchViewModel,
                         hazeState = hazeState,
-                        glassEffectMode = activeGlassEffectMode,
                         activeSearchDetailBookId = if (
                             detailUiState.isVisible &&
                             detailUiState.entrySource == DetailEntrySource.Search
@@ -543,7 +541,6 @@ fun OtoApp(
                         appVersionName = appVersionName,
                         aboutLibraries = aboutLibraries,
                         settingsViewModel = settingsViewModel,
-                        glassEffectMode = activeGlassEffectMode,
                         appHazeState = hazeState,
                         openDownloadManagementRequest = openDownloadManagementRequest,
                         onOpenDownloadManagementConsumed = onOpenDownloadManagementConsumed,
@@ -561,7 +558,6 @@ fun OtoApp(
                 if (remoteConnectionViewModel != null) {
                     RemoteConnectionRoute(
                         remoteConnectionViewModel = remoteConnectionViewModel,
-                        glassEffectMode = activeGlassEffectMode,
                         hazeState = hazeState
                     )
                 }
@@ -570,7 +566,6 @@ fun OtoApp(
                 val absProgressConflictState by playbackViewModel.absProgressConflictDialogState.collectAsStateWithLifecycle()
                 OtoAppDialogHost(
                     hazeState = hazeState,
-                    glassEffectMode = activeGlassEffectMode,
                     feedbackDialogMessage = feedbackDialogMessage,
                     absProgressConflictState = absProgressConflictState,
                     trackUnavailableState = trackUnavailableState,

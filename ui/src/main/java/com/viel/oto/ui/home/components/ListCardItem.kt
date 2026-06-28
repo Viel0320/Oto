@@ -50,6 +50,8 @@ import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.CoverImageVariant
 import com.viel.oto.ui.common.LazyCoverImage
 import com.viel.oto.ui.common.formatPeopleSubtitle
+import com.viel.oto.ui.common.theme.LocalGlassEffectMode
+import com.viel.oto.ui.common.theme.LocalIsBlur
 import com.viel.oto.ui.common.theme.OtoTheme
 import com.viel.oto.ui.motion.LocalHomeRecent2DetailSourceScope
 import com.viel.oto.ui.motion.LocalSharedTransitionScope
@@ -76,7 +78,6 @@ fun Cardgroup(
     coverLastUpdated: Long = 0L,
     isDetailTargetActive: Boolean = false,
     onLongClick: () -> Unit = {},
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     sharedElementKey: String? = null,
     fillAvailableWidth: Boolean = false,
     preferredWidth: Dp = 160.dp,
@@ -116,7 +117,6 @@ fun Cardgroup(
             progressText = progressText,
             coverPath = coverPath,
             coverLastUpdated = coverLastUpdated,
-            glassEffectMode = glassEffectMode,
             isDetailTargetActive = isDetailTargetActive,
             sharedElementKey = sharedElementKey,
             modifier = Modifier
@@ -154,14 +154,13 @@ private fun RecentCoverSharedSource(
     progressText: String,
     coverPath: String?,
     coverLastUpdated: Long,
-    glassEffectMode: GlassEffectMode,
     isDetailTargetActive: Boolean,
     sharedElementKey: String?,
     modifier: Modifier = Modifier
 ) {
     val itemHazeState = remember { HazeState() }
     val sharedTransitionScope = LocalSharedTransitionScope.current
-    val isBlur = glassEffectMode == GlassEffectMode.Haze
+    val isBlur = LocalIsBlur.current
     val resolvedSharedElementKey = sharedElementKey
         ?: bookId.takeIf { it.isNotBlank() }?.let { SharedElementKeys.home2DetailCover(it) }
 
@@ -245,7 +244,6 @@ private fun RecentCoverSharedSource(
 
                     RecentCoverProgressBadge(
                         progressText = progressText,
-                        isBlur = isBlur,
                         itemHazeState = itemHazeState,
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
@@ -261,10 +259,10 @@ private fun RecentCoverSharedSource(
 @OptIn(ExperimentalHazeMaterialsApi::class)
 private fun RecentCoverProgressBadge(
     progressText: String,
-    isBlur: Boolean,
     itemHazeState: HazeState,
     modifier: Modifier = Modifier
 ) {
+    val isBlur = LocalIsBlur.current
 
     Surface(
         modifier = modifier.then(
@@ -323,15 +321,19 @@ fun CardgroupNewPreview() {
 fun CardgroupProgressPreview() {
     OtoTheme {
         Surface(modifier = Modifier.padding(16.dp)) {
-            Cardgroup(
-                bookId = "preview",
-                title = "In the Megachurch",
-                author = "Ryo Asai",
-                narrator = "Unknown",
-                progressText = "45%",
-                onClick = {},
-                glassEffectMode = GlassEffectMode.Haze
-            )
+            CompositionLocalProvider(
+                LocalIsBlur provides true,
+                LocalGlassEffectMode provides GlassEffectMode.Haze
+            ) {
+                Cardgroup(
+                    bookId = "preview",
+                    title = "In the Megachurch",
+                    author = "Ryo Asai",
+                    narrator = "Unknown",
+                    progressText = "45%",
+                    onClick = {}
+                )
+            }
         }
     }
 }

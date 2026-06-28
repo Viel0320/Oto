@@ -19,7 +19,10 @@ import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.shared.model.HomeFilter
 import com.viel.oto.ui.common.AudiobookActionDialog
 import com.viel.oto.ui.common.AudiobookActionDialogBook
+import com.viel.oto.ui.common.theme.LocalGlassEffectMode
+import com.viel.oto.ui.common.theme.LocalIsBlur
 import com.viel.oto.ui.common.theme.OtoTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import dev.chrisbanes.haze.HazeState
 import org.junit.Rule
 import org.junit.Test
@@ -48,11 +51,15 @@ class HomeChoiceAccessibilityTest {
             OtoTheme(dynamicColor = false) {
                 val homeHazeState = remember { HazeState() }
 
-                HomeContent(
-                    selectedFilter = HomeFilter.InProgress,
-                    glassEffectMode = GlassEffectMode.Haze,
-                    homeHazeState = homeHazeState
-                )
+                CompositionLocalProvider(
+                    LocalGlassEffectMode provides GlassEffectMode.Haze,
+                    LocalIsBlur provides true
+                ) {
+                    HomeContent(
+                        selectedFilter = HomeFilter.InProgress,
+                        homeHazeState = homeHazeState
+                    )
+                }
             }
         }
 
@@ -84,11 +91,15 @@ class HomeChoiceAccessibilityTest {
             OtoTheme(dynamicColor = false) {
                 val homeHazeState = remember { HazeState() }
 
-                HomeContent(
-                    selectedFilter = HomeFilter.InProgress,
-                    glassEffectMode = GlassEffectMode.Material,
-                    homeHazeState = homeHazeState
-                )
+                CompositionLocalProvider(
+                    LocalGlassEffectMode provides GlassEffectMode.Material,
+                    LocalIsBlur provides false
+                ) {
+                    HomeContent(
+                        selectedFilter = HomeFilter.InProgress,
+                        homeHazeState = homeHazeState
+                    )
+                }
             }
         }
 

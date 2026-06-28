@@ -29,8 +29,8 @@ import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.oto.shared.R
-import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.theme.LocalDarkTheme
+import com.viel.oto.ui.common.theme.LocalIsBlur
 import com.viel.oto.ui.common.theme.OtoTheme
 
 @Composable
@@ -43,7 +43,6 @@ fun AudioProgressBar(
     showKnob: Boolean = true,
     markers: List<Float> = emptyList(),
     enableProgressSemantics: Boolean = true,
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
     val currentOnProgressChange by rememberUpdatedState(onProgressChange)
 
@@ -54,7 +53,7 @@ fun AudioProgressBar(
     val markerRadiusPx = remember(density) { with(density) { 2.dp.toPx() } }
     val knobRadiusPx = remember(density) { with(density) { 8.dp.toPx() } }
     val isDark = LocalDarkTheme.current
-    val isBlur = glassEffectMode == GlassEffectMode.Haze
+    val isBlur = LocalIsBlur.current
     val secondaryColor = MaterialTheme.colorScheme.secondary
     val tertiaryColor = MaterialTheme.colorScheme.tertiary
     val progressContentDescription = stringResource(R.string.playback_progress_content_description)

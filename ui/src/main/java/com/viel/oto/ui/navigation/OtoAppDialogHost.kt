@@ -13,14 +13,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.viel.oto.shared.R
 import com.viel.oto.application.library.settings.SettingsRootItem
 import com.viel.oto.event.feedback.FeedbackMessage
 import com.viel.oto.event.feedback.render
+import com.viel.oto.shared.R
 import com.viel.oto.shared.policy.formatDate
 import com.viel.oto.shared.policy.formatTime
-import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.OtoDialogTemplate
+import com.viel.oto.ui.common.theme.LocalGlassEffectMode
 import com.viel.oto.ui.libraryManagement.AddLibrarySourceDialog
 import com.viel.oto.ui.player.PlaybackViewModel
 import dev.chrisbanes.haze.HazeState
@@ -34,7 +34,6 @@ import dev.chrisbanes.haze.HazeState
 @Composable
 fun OtoAppDialogHost(
     hazeState: HazeState?,
-    glassEffectMode: GlassEffectMode,
     feedbackDialogMessage: FeedbackMessage?,
     absProgressConflictState: PlaybackViewModel.AbsProgressConflictDialogState,
     trackUnavailableState: PlaybackViewModel.TrackUnavailableDialogState,
@@ -59,6 +58,7 @@ fun OtoAppDialogHost(
     onConfirmDeleteRoot: () -> Unit,
     onDismissDeleteRoot: () -> Unit
 ) {
+    val glassEffectMode = LocalGlassEffectMode.current
     if (showAddLibraryDialog) {
         AddLibrarySourceDialog(
             glassEffectMode = glassEffectMode,

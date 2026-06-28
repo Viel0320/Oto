@@ -101,7 +101,6 @@ fun SettingsSegmentedSleepModeItem(
             },
             selectedValue = selectedMode,
             onSelected = onModeSelected,
-            glassEffectMode = glassEffectMode,
             hazeState = hazeState
         )
     }
@@ -160,7 +159,6 @@ fun SettingsSegmentedThemeModeItem(
             },
             selectedValue = selectedMode,
             onSelected = onModeSelected,
-            glassEffectMode = glassEffectMode,
             hazeState = hazeState
         )
     }
@@ -214,7 +212,6 @@ fun SettingsSegmentedSeekStepItem(
             },
             selectedValue = selectedStep,
             onSelected = onStepSelected,
-            glassEffectMode = glassEffectMode,
             hazeState = hazeState
         )
     }
@@ -242,7 +239,6 @@ private fun <T : Any> SettingsDropdownControl(
     options: List<SettingsDropdownOption<T>>,
     selectedValue: T,
     onSelected: (T) -> Unit,
-    glassEffectMode: GlassEffectMode,
     hazeState: HazeState?
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -265,7 +261,6 @@ private fun <T : Any> SettingsDropdownControl(
         modifier = Modifier.selectableGroup(),
         selectedIndex = selectedIndex,
         panelWidth = OtoPopupWidth.Wrap,
-        hazeState = hazeState,
-        glassEffectMode = glassEffectMode
+        hazeState = hazeState
     )
 }

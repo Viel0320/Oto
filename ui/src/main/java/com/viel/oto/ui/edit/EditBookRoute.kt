@@ -5,7 +5,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.uiPerformanceTrace
 import dev.chrisbanes.haze.HazeState
 
@@ -18,7 +17,6 @@ import dev.chrisbanes.haze.HazeState
 @Composable
 fun EditBookRoute(
     editViewModel: EditBookViewModel,
-    glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     hazeState: HazeState? = null,
     onSaveSuccess: () -> Unit = {}
@@ -57,7 +55,6 @@ fun EditBookRoute(
                     newCoverUri = newCoverUri
                 )
             },
-            glassEffectMode = glassEffectMode,
             detailHazeState = hazeState
         )
     }

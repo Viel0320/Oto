@@ -39,7 +39,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mikepenz.aboutlibraries.entity.Library
 import com.viel.oto.application.library.settings.SettingsRootItem
 import com.viel.oto.i18n.AppLocaleController
-import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.ui.common.theme.LocalGlassEffectMode
+import com.viel.oto.ui.common.theme.LocalIsBlur
 import com.viel.oto.ui.common.uiPerformanceTrace
 import com.viel.oto.ui.settings.about.AboutLibrariesScreen
 import com.viel.oto.ui.settings.downloads.DownloadManagementScreen
@@ -64,7 +65,6 @@ fun SettingsOverlay(
     appVersionName: String = "unknown",
     aboutLibraries: List<Library>? = emptyList(),
     settingsViewModel: SettingsViewModel = koinViewModel(),
-    glassEffectMode: GlassEffectMode,
     openDownloadManagementRequest: Boolean = false,
     onOpenDownloadManagementConsumed: () -> Unit = {},
     onRequestAddLibrary: () -> Unit = {},
@@ -78,7 +78,8 @@ fun SettingsOverlay(
     val aboutHazeState = remember { HazeState() }
     val deletedRecoveryHazeState = remember { HazeState() }
     val downloadManagementHazeState = remember { HazeState() }
-    val isBlur = glassEffectMode == GlassEffectMode.Haze
+    val glassEffectMode = LocalGlassEffectMode.current
+    val isBlur = LocalIsBlur.current
     val scope = rememberCoroutineScope()
     val settingsDialogController = rememberSettingsDialogController()
 

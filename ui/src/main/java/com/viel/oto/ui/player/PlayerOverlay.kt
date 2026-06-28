@@ -30,7 +30,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
 import com.viel.oto.media.parser.ImageProcessor
-import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.CoverImageSourceSelector
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.oto.ui.common.theme.LocalAmoled
@@ -62,7 +61,6 @@ fun PlayerOverlay(
     settingsViewModel: PlayerSettingsViewModel,
     playerActions: PlayerActions,
     playerNavigationActions: PlayerNavigationActions,
-    glassEffectMode: GlassEffectMode,
     appHazeState: HazeState? = null
 ) {
     val settings by settingsViewModel.settingsState.collectAsStateWithLifecycle()
@@ -211,9 +209,8 @@ fun PlayerOverlay(
                                 isMediaAvailable = isMediaAvailable,
                                 actions = miniPlayerActions,
                                 hazeState = appHazeState,
-                                glassEffectMode = glassEffectMode,
                                 dynamicColorScheme = coverColorScheme,
-                                 onExpandClick = { settingsViewModel.openFullPlayerFromMini() }
+                                onExpandClick = { settingsViewModel.openFullPlayerFromMini() }
                             )
                         }
                     }
@@ -246,7 +243,6 @@ fun PlayerOverlay(
                                     settingsViewModel = settingsViewModel,
                                     actions = playerActions,
                                     navigationActions = playerNavigationActions,
-                                    glassEffectMode = glassEffectMode,
                                     hazeState = playerHazeState,
                                     coverColor = coverColor,
                                     onColorExtracted = { coverColor = it },
@@ -259,8 +255,7 @@ fun PlayerOverlay(
                                     metadata = metadata,
                                     settings = settings,
                                     actions = playerActions,
-                                    hazeState = playerHazeState,
-                                    glassEffectMode = glassEffectMode
+                                    hazeState = playerHazeState
                                 )
                             }
                         }
@@ -296,7 +291,6 @@ private fun MiniPlayerContent(
     isMediaAvailable: Boolean,
     actions: MiniPlayerActions,
     hazeState: HazeState?,
-    glassEffectMode: GlassEffectMode,
     dynamicColorScheme: androidx.compose.material3.ColorScheme?,
     onExpandClick: () -> Unit
 ) {
@@ -323,8 +317,7 @@ private fun MiniPlayerContent(
                     coverLastUpdated = metadata.coverLastUpdated,
                     actions = actions,
                     hazeState = hazeState,
-                    onClick = onExpandClick,
-                    glassEffectMode = glassEffectMode
+                    onClick = onExpandClick
                 )
             } else {
                 val displayProgress by miniPlayerProgress.collectAsStateWithLifecycle()
@@ -339,8 +332,7 @@ private fun MiniPlayerContent(
                     progress = { displayProgress },
                     actions = actions,
                     hazeState = hazeState,
-                    onClick = onExpandClick,
-                    glassEffectMode = glassEffectMode
+                    onClick = onExpandClick
                 )
             }
         }

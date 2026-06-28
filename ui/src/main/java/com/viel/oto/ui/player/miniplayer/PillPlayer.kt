@@ -42,11 +42,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.viel.oto.shared.R
-import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.CoverImage
 import com.viel.oto.ui.common.CoverImageVariant
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.oto.ui.common.theme.LocalDarkTheme
+import com.viel.oto.ui.common.theme.LocalHazeState
+import com.viel.oto.ui.common.theme.LocalIsBlur
 import com.viel.oto.ui.motion.LocalMini2PlayerSourceScope
 import com.viel.oto.ui.motion.LocalSharedTransitionScope
 import com.viel.oto.ui.motion.SharedElementKeys
@@ -70,7 +71,6 @@ fun PillCompactMediaPlayer(
     actions: MiniPlayerActions = MiniPlayerActions(),
     hazeState: HazeState? = null,
     onClick: () -> Unit = {},
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
 
     val sharedTransitionScope = LocalSharedTransitionScope.current
@@ -123,7 +123,7 @@ fun PillCompactMediaPlayer(
         Modifier
     }
 
-    val isBlurMode = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+    val isBlurMode = LocalIsBlur.current && (hazeState ?: LocalHazeState.current) != null
     val pillShape = RoundedCornerShape(animatedCornerRadius)
     val coverContentDescription = stringResource(R.string.media_cover_content_description)
     val playPauseContentDescription = stringResource(

@@ -19,6 +19,7 @@ import androidx.core.view.WindowCompat
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
 import com.materialkolor.ktx.animateColorScheme
+import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.oto.ui.common.layout.rememberAppWindowSizeClass
 
@@ -83,6 +84,10 @@ val LocalDarkTheme = androidx.compose.runtime.staticCompositionLocalOf { false }
 
 val LocalAmoled = androidx.compose.runtime.staticCompositionLocalOf { false }
 
+val LocalGlassEffectMode = androidx.compose.runtime.staticCompositionLocalOf { GlassEffectMode.Material }
+
+val LocalIsBlur = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 val LocalHazeState = androidx.compose.runtime.staticCompositionLocalOf<dev.chrisbanes.haze.HazeState?> { null }
 
 /**
@@ -94,6 +99,7 @@ fun OtoTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
     amoled: Boolean = false,
+    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
@@ -133,7 +139,9 @@ fun OtoTheme(
     CompositionLocalProvider(
         LocalAppWindowSizeClass provides windowClass,
         LocalDarkTheme provides darkTheme,
-        LocalAmoled provides amoled
+        LocalAmoled provides amoled,
+        LocalGlassEffectMode provides glassEffectMode,
+        LocalIsBlur provides (glassEffectMode == GlassEffectMode.Haze)
     ) {
         OtoExpressiveThemeLayer(
             colorScheme = colorScheme,

@@ -81,6 +81,7 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.theme.LocalHazeState
+import com.viel.oto.ui.common.theme.LocalIsBlur
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -245,7 +246,6 @@ fun OtoPopupSelector(
     panelWidth: OtoPopupWidth = OtoPopupWidth.MatchAnchor,
     panelMaxHeight: Dp = Dp.Unspecified,
     hazeState: HazeState? = null,
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     colors: OtoPopupColors = OtoPopupDefaults.colors(),
     shapes: OtoPopupShapes = OtoPopupDefaults.shapes(),
     collapsedHeight: Dp = PopupUnifiedHeight,
@@ -279,7 +279,6 @@ fun OtoPopupSelector(
                 shapes = shapes,
                 expanded = expanded,
                 hazeState = resolvedHazeState,
-                glassEffectMode = glassEffectMode,
                 onClick = { onExpandedChange(!expanded) },
                 onVisualBoundsMeasured = { anchorBounds = it },
                 collapsedHeight = collapsedHeight,
@@ -299,7 +298,6 @@ fun OtoPopupSelector(
                 panelWidth = panelWidth,
                 panelMaxHeight = panelMaxHeight,
                 hazeState = resolvedHazeState,
-                glassEffectMode = glassEffectMode,
                 density = density,
                 onSelect = onSelect,
                 onDismiss = { onExpandedChange(false) },
@@ -333,7 +331,6 @@ private fun CollapsedAnchor(
     shapes: OtoPopupShapes,
     expanded: Boolean,
     hazeState: HazeState?,
-    glassEffectMode: GlassEffectMode,
     onClick: () -> Unit,
     onVisualBoundsMeasured: (Rect) -> Unit,
     collapsedHeight: Dp,
@@ -345,7 +342,7 @@ private fun CollapsedAnchor(
     val borderColor = colors.collapsedBorder
     val contentColor = colors.content
 
-    val hazeModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
+    val hazeModifier = if (LocalIsBlur.current && hazeState != null) {
         Modifier.hazeEffect(state = hazeState, style = HazeMaterials.ultraThin())
     } else {
         Modifier
@@ -419,7 +416,6 @@ private fun PopupPanel(
     panelWidth: OtoPopupWidth,
     panelMaxHeight: Dp,
     hazeState: HazeState?,
-    glassEffectMode: GlassEffectMode,
     density: Density,
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
@@ -532,7 +528,6 @@ private fun PopupPanel(
                 colors = colors,
                 shapes = shapes,
                 hazeState = hazeState,
-                glassEffectMode = glassEffectMode,
                 density = density,
                 onSelect = onSelect,
                 onDismiss = onDismiss,
@@ -608,7 +603,6 @@ private fun PopupMorphSurface(
     colors: OtoPopupColors,
     shapes: OtoPopupShapes,
     hazeState: HazeState?,
-    glassEffectMode: GlassEffectMode,
     density: Density,
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
@@ -622,7 +616,8 @@ private fun PopupMorphSurface(
     val expandedElevationPx = with(density) { OtoPopupDefaults.ExpandedElevation.toPx() }
     val panelPaddingPx = with(density) { PopupPanelVerticalPadding.toPx() }
 
-    val hazeModifier = if (glassEffectMode == GlassEffectMode.Haze && hazeState != null) {
+    val isBlur = LocalIsBlur.current
+    val hazeModifier = if (isBlur && hazeState != null) {
         Modifier.hazeEffect(state = hazeState, style = HazeMaterials.ultraThin())
     } else {
         Modifier
@@ -651,7 +646,7 @@ private fun PopupMorphSurface(
                 val f = fractionProvider().coerceIn(0f, 1f)
                 val cornerPx = lerp(collapsedCornerPx, expandedCornerPx, f)
                 val corner = CornerRadius(cornerPx, cornerPx)
-                if (glassEffectMode != GlassEffectMode.Haze || hazeState == null) {
+                if (!isBlur || hazeState == null) {
                     val bg = lerp(colors.collapsedContainer, colors.expandedContainer, f)
                     drawRoundRect(color = bg, cornerRadius = corner)
                 }

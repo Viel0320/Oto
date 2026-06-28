@@ -35,14 +35,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.oto.shared.R
-import com.viel.oto.ui.presentation.SeekStepPresentation
-import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.shared.model.PlaybackSeekStepConfig
+import com.viel.oto.ui.common.theme.LocalHazeState
+import com.viel.oto.ui.common.theme.LocalIsBlur
 import com.viel.oto.ui.common.theme.OtoTheme
 import com.viel.oto.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.oto.ui.motion.LocalSharedTransitionScope
 import com.viel.oto.ui.motion.SharedElementKeys
 import com.viel.oto.ui.player.PlaybackControlActions
+import com.viel.oto.ui.presentation.SeekStepPresentation
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -63,7 +64,6 @@ fun PlaybackControls(
     actions: PlaybackControlActions,
     modifier: Modifier = Modifier,
     buttonColor: Color = MaterialTheme.colorScheme.primaryContainer,
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     hazeState: HazeState? = null
 ) {
     val previousChapterContentDescription = stringResource(R.string.playback_previous_chapter_content_description)
@@ -116,7 +116,7 @@ fun PlaybackControls(
             )
         }
 
-        val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+        val isBlur = LocalIsBlur.current && (hazeState ?: LocalHazeState.current) != null
 
         if (isBlur) {
             val playPauseShape = CircleShape

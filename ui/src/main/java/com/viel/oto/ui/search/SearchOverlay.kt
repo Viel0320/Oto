@@ -13,7 +13,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.ui.common.theme.LocalHazeState
+import com.viel.oto.ui.common.theme.LocalIsBlur
 import dev.chrisbanes.haze.HazeState
 
 /**
@@ -28,12 +29,11 @@ fun SearchOverlay(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     hazeState: HazeState? = null,
-    glassEffectMode: GlassEffectMode,
     content: @Composable () -> Unit
 ) {
     BackHandler(enabled = visible, onBack = onBack)
 
-    val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+    val isBlur = LocalIsBlur.current && (hazeState ?: LocalHazeState.current) != null
     AnimatedVisibility(
         visible = visible,
         enter = if (isBlur) {

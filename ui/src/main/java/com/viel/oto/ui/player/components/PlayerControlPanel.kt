@@ -13,7 +13,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.viel.oto.application.library.LibraryChapterSource
 import com.viel.oto.application.library.player.PlayerChapterItem
-import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.theme.OtoTheme
 import com.viel.oto.ui.player.BookMetadataState
 import com.viel.oto.ui.player.PlaybackProgressViewState
@@ -38,7 +37,6 @@ fun PlayerControlPanelStateful(
     settings: PlayerSettingsState,
     actions: PlayerActions,
     buttonColor: Color,
-    glassEffectMode: GlassEffectMode,
     hazeState: HazeState? = null
 ) {
     val progressState by playbackProgressState.collectAsStateWithLifecycle()
@@ -53,7 +51,6 @@ fun PlayerControlPanelStateful(
         settings = settings,
         actions = actions,
         buttonColor = buttonColor,
-        glassEffectMode = glassEffectMode,
         hazeState = hazeState,
         modifier = modifier
     )
@@ -75,7 +72,6 @@ fun PlayerControlPanelStateful(
  * @param settings The player UI settings state.
  * @param actions Aggregated player actions callback.
  * @param buttonColor The dominant color of the control buttons (the transition-animated dominant color of the book cover).
- * @param glassEffectMode The current glass effect mode (Material/Haze) for the player.
  * @param modifier The layout modifier passed from outside to elastically control width and alignment layout.
  */
 @Composable
@@ -91,7 +87,6 @@ fun PlayerControlPanel(
     settings: PlayerSettingsState,
     actions: PlayerActions,
     buttonColor: Color,
-    glassEffectMode: GlassEffectMode,
     hazeState: HazeState? = null
 ) {
     Column(
@@ -102,7 +97,6 @@ fun PlayerControlPanel(
             currentChapterTitle = currentChapter?.title ?: metadata.title,
             onChapterClick = actions.content.onShowChapterList,
             onBookmarkClick = actions.bookmarks.onShowDialog,
-            glassEffectMode = glassEffectMode,
             hazeState = hazeState,
             modifier = Modifier.fillMaxWidth()
         )
@@ -116,8 +110,7 @@ fun PlayerControlPanel(
             chapters = metadata.chapters,
             markers = metadata.getChapterMarkers(totalDuration),
             onSeek = { pos -> actions.playback.onSeek(pos, true) },
-            modifier = Modifier.fillMaxWidth(),
-            glassEffectMode = glassEffectMode
+            modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(24.dp))
 
@@ -126,7 +119,6 @@ fun PlayerControlPanel(
             playbackSeekStepConfig = settings.playbackSeekStepConfig,
             actions = actions.playback,
             buttonColor = buttonColor,
-            glassEffectMode = glassEffectMode,
             hazeState = hazeState,
             modifier = Modifier.fillMaxWidth()
         )
@@ -189,8 +181,7 @@ fun PlayerControlPanelPreview() {
             isPlaying = true,
             settings = PlayerSettingsState(),
             actions = PlayerActions(),
-            buttonColor = Color(0xFFE91E63),
-            glassEffectMode = GlassEffectMode.Material
+            buttonColor = Color(0xFFE91E63)
         )
     }
 }

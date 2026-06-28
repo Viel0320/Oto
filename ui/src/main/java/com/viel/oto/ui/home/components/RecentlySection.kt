@@ -17,9 +17,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.viel.oto.shared.R
 import com.viel.oto.application.library.home.HomeBookItem
-import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.shared.R
 import com.viel.oto.ui.common.CoverImageSourceSelector
 import com.viel.oto.ui.motion.SharedElementKeys
 
@@ -32,7 +31,6 @@ import com.viel.oto.ui.motion.SharedElementKeys
  * @param recentTitle Title text for the horizontal block, such as recently added or recently played.
  * @param recentBooks Audiobook projections shown in this recent row.
  * @param activeDetailBookId Currently visible Detail book ID, used to hide the matching source cover during shared-element handoff.
- * @param glassEffectMode Global frosted glass visual effect mode.
  * @param screenHorizontalPadding Horizontal alignment inset shared with the Home page.
  * @param onNavigateToDetail Opens the selected audiobook details.
  * @param onBookLongClick Opens the first-level audiobook action menu.
@@ -42,7 +40,6 @@ fun RecentlyAddedSection(
     recentTitle: String,
     recentBooks: List<HomeBookItem>,
     activeDetailBookId: String?,
-    glassEffectMode: GlassEffectMode,
     screenHorizontalPadding: Dp,
     onNavigateToDetail: (String) -> Unit,
     onBookLongClick: (HomeBookItem) -> Unit,
@@ -89,7 +86,6 @@ fun RecentlyAddedSection(
                     coverLastUpdated = book.lastScannedAt,
                     onClick = { onNavigateToDetail(book.id) },
                     onLongClick = { onBookLongClick(book) },
-                    glassEffectMode = glassEffectMode,
                     sharedElementKey = SharedElementKeys.home2DetailCover(book.id)
                 )
             }

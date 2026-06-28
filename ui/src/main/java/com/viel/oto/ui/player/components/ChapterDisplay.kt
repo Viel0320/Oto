@@ -32,7 +32,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.viel.oto.shared.R
-import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.ui.common.theme.LocalHazeState
+import com.viel.oto.ui.common.theme.LocalIsBlur
 import com.viel.oto.ui.common.theme.OtoTheme
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
@@ -47,10 +48,9 @@ fun ChapterDisplay(
     onBookmarkClick: () -> Unit,
     modifier: Modifier = Modifier,
     title: String? = null,
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
     hazeState: HazeState? = null
 ) {
-    val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
+    val isBlur = LocalIsBlur.current && (hazeState ?: LocalHazeState.current) != null
     val noChaptersText = stringResource(R.string.player_no_chapters)
     val addBookmarkContentDescription = stringResource(R.string.bookmark_add_title)
 

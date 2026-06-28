@@ -45,19 +45,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.viel.oto.shared.R
 import com.viel.oto.application.library.LibraryBookSourceType
 import com.viel.oto.application.library.LibraryBookStatus
 import com.viel.oto.application.library.LibraryReadStatus
 import com.viel.oto.application.library.home.HomeBookItem
-import com.viel.oto.shared.model.AppSettings
-import com.viel.oto.shared.model.GlassEffectMode
+import com.viel.oto.shared.R
 import com.viel.oto.shared.model.HomeFilter
 import com.viel.oto.shared.model.HomeViewStyle
 import com.viel.oto.ui.common.CoverImageSourceSelector
 import com.viel.oto.ui.common.OtoFilterChip
 import com.viel.oto.ui.common.layout.AppWindowSizeClass
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
+import com.viel.oto.ui.common.theme.LocalIsBlur
 import com.viel.oto.ui.common.theme.OtoTheme
 import com.viel.oto.ui.detail.DetailEntrySource
 import com.viel.oto.ui.home.components.Cardgroup
@@ -84,7 +83,6 @@ fun HomeContent(
     activeListDetailBookId: String? = null,
     shouldShowRecentBooks: Boolean = false,
     @StringRes recentTitleRes: Int = 0,
-    glassEffectMode: GlassEffectMode,
     homeHazeState: HazeState,
     homeViewStyle: HomeViewStyle = HomeViewStyle.List,
     homeTopBarScrollToTopRequest: Int = 0,
@@ -117,7 +115,7 @@ fun HomeContent(
     val gridEndPadding = safeDrawingPadding.calculateEndPadding(layoutDirection)
 
     val gridState = rememberLazyGridState()
-    val isBlur = glassEffectMode == GlassEffectMode.Haze
+    val isBlur = LocalIsBlur.current
 
     val topBarHeight = safeDrawingPadding.calculateTopPadding() + 64.dp
 
@@ -211,7 +209,6 @@ fun HomeContent(
                                     selected = filter == selectedFilter,
                                     onClick = { onFilterSelected(filter) },
                                     label = label,
-                                    glassEffectMode = glassEffectMode,
                                     hazeState = chipHazeState
                                 )
                             }
@@ -225,7 +222,6 @@ fun HomeContent(
                             recentTitle = recentTitle,
                             recentBooks = recentBooks,
                             activeDetailBookId = activeRecentDetailBookId,
-                            glassEffectMode = glassEffectMode,
                             screenHorizontalPadding = screenHorizontalPadding,
                             onNavigateToDetail = { bookId ->
                                 onNavigateToDetail(bookId, DetailEntrySource.HomeRecent)
@@ -312,7 +308,6 @@ fun HomeContent(
                                             isDetailTargetActive = book.id == activeListDetailBookId,
                                             onClick = { onNavigateToDetail(book.id, DetailEntrySource.HomeList) },
                                             onLongClick = { onBookActionsRequested(book) },
-                                            glassEffectMode = glassEffectMode,
                                             sharedElementKey = SharedElementKeys.homeList2DetailCover(book.id)
                                         )
                                     }
@@ -384,7 +379,6 @@ fun HomeNotStartedPreview() {
                 shouldShowRecentBooks = true,
                 recentTitleRes = R.string.recently_added_title,
                 isMiniPlayerVisible = false,
-                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE,
                 homeHazeState = previewHomeHazeState
             )
         }

@@ -99,7 +99,6 @@ fun HomeScreen(
             activeListDetailBookId = activeListDetailBookId,
             shouldShowRecentBooks = libraryUiState.shouldShowRecentBooks,
             recentTitleRes = libraryUiState.recentTitleRes,
-            glassEffectMode = libraryUiState.glassEffectMode,
             homeViewStyle = libraryUiState.homeViewStyle,
             homeHazeState = homeContentHazeState,
             homeTopBarScrollToTopRequest = homeTopBarScrollToTopRequest,

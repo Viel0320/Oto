@@ -14,11 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.viel.oto.shared.R
 import com.viel.oto.application.library.player.PlayerChapterItem
 import com.viel.oto.application.library.player.PlayerChapterTimeline
+import com.viel.oto.shared.R
 import com.viel.oto.shared.policy.formatTime
-import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.theme.OtoTheme
 
 /**
@@ -36,7 +35,6 @@ fun PlaybackProgress(
     markers: List<Float>,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    glassEffectMode: GlassEffectMode = GlassEffectMode.Material,
 ) {
     val currentChapter = remember(currentPosition, chapters) {
         PlayerChapterTimeline.currentChapter(chapters, currentPosition)
@@ -73,8 +71,7 @@ fun PlaybackProgress(
                 onSeek(targetPos)
             },
             markers = if (isChapterMode) emptyList() else markers,
-            modifier = Modifier.fillMaxWidth(),
-            glassEffectMode = glassEffectMode
+            modifier = Modifier.fillMaxWidth()
         )
 
         Row(

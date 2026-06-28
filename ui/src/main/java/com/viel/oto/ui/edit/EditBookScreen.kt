@@ -66,14 +66,14 @@ import com.materialkolor.dynamicColorScheme
 import com.viel.oto.application.library.edit.EditBookDraft
 import com.viel.oto.media.parser.ImageProcessor
 import com.viel.oto.shared.R
-import com.viel.oto.shared.model.AppSettings
-import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.CoverBackground
 import com.viel.oto.ui.common.PlayerCover
 import com.viel.oto.ui.common.layout.AppWindowSizeClass
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.oto.ui.common.theme.LocalAmoled
 import com.viel.oto.ui.common.theme.LocalDarkTheme
+import com.viel.oto.ui.common.theme.LocalHazeState
+import com.viel.oto.ui.common.theme.LocalIsBlur
 import com.viel.oto.ui.common.theme.OtoExpressiveThemeLayer
 import com.viel.oto.ui.common.theme.OtoTheme
 import dev.chrisbanes.haze.HazeState
@@ -91,7 +91,6 @@ import dev.chrisbanes.haze.materials.HazeMaterials
  * @param book The target edit draft. Shows a loading indicator if null.
  * @param onNavigationBack Callback invoked when the user exits or cancels editing, ensuring clean-up of temp files.
  * @param onSave Action callback triggered on confirm save, distributing updated parameters and cover paths.
- * @param glassEffectMode Specifies the glassmorphic rendering style.
  * @param modifier The modifier layout chain.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
@@ -100,7 +99,6 @@ fun EditBookScreen(
     book: EditBookDraft?,
     onNavigationBack: () -> Unit,
     onSave: (title: String, author: String, narrator: String, year: String, description: String, series: String, newCoverUri: String?) -> Unit,
-    glassEffectMode: GlassEffectMode,
     modifier: Modifier = Modifier,
     detailHazeState: HazeState? = null
 ) {
@@ -157,7 +155,7 @@ fun EditBookScreen(
     }
 
     val contentBlock = @Composable {
-    val isBlur = glassEffectMode == GlassEffectMode.Haze && detailHazeState != null
+    val isBlur = LocalIsBlur.current && (detailHazeState ?: LocalHazeState.current) != null
 
     val editContentColor = MaterialTheme.colorScheme.onSurface
 
@@ -604,8 +602,7 @@ fun EditBookScreenPortraitPreview() {
                     coverLastUpdated = 0L
                 ),
                 onNavigationBack = {},
-                onSave = { _, _, _, _, _, _, _ -> },
-                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
+                onSave = { _, _, _, _, _, _, _ -> }
             )
         }
     }
@@ -637,8 +634,7 @@ fun EditBookScreenLandscapePreview() {
                     coverLastUpdated = 0L
                 ),
                 onNavigationBack = {},
-                onSave = { _, _, _, _, _, _, _ -> },
-                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
+                onSave = { _, _, _, _, _, _, _ -> }
             )
         }
     }
@@ -670,8 +666,7 @@ fun EditBookScreenTabletLandscapePreview() {
                     coverLastUpdated = 0L
                 ),
                 onNavigationBack = {},
-                onSave = { _, _, _, _, _, _, _ -> },
-                glassEffectMode = AppSettings.DEFAULT_GLASS_EFFECT_MODE
+                onSave = { _, _, _, _, _, _, _ -> }
             )
         }
     }
