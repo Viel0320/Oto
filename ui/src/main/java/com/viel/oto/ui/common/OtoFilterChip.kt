@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
@@ -55,7 +54,7 @@ fun OtoFilterChip(
     hazeState: HazeState? = null
 ) {
     val isBlur = glassEffectMode == GlassEffectMode.Haze && hazeState != null
-    val chipShape = RoundedCornerShape(OtoFilterChipCornerRadius)
+    val chipShape = MaterialTheme.shapes.small
     val colors = aPlayerFilterChipColors(selected = selected, isBlur = isBlur)
     val interactionSource = remember { MutableInteractionSource() }
     val choiceStateDescription = stringResource(
@@ -148,7 +147,6 @@ fun OtoFilterChip(
 private val OtoFilterChipVisualHeight = 32.dp
 private val OtoFilterChipMinimumVisualWidth = 48.dp
 private val OtoFilterChipMinimumTouchTarget = 48.dp
-private val OtoFilterChipCornerRadius = 8.dp
 private val OtoFilterChipOutlineWidth = 1.dp
 private val OtoFilterChipLeadingIconSize = 18.dp
 private val OtoFilterChipIconLabelSpacing = 8.dp

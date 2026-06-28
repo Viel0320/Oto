@@ -39,8 +39,7 @@ class HomeFilterChipArchitectureTest {
         listOf(
             "OtoFilterChipVisualHeight = 32.dp",
             "OtoFilterChipMinimumTouchTarget = 48.dp",
-            "OtoFilterChipLeadingIconSize = 18.dp",
-            "OtoFilterChipCornerRadius = 8.dp"
+            "OtoFilterChipLeadingIconSize = 18.dp"
         ).forEach { requiredToken ->
             assertTrue(
                 "OtoFilterChip must retain $requiredToken.",
