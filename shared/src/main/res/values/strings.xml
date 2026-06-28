@@ -573,6 +573,9 @@
     <string name="feedback_settings_export_success">Data exported successfully</string>
     <string name="feedback_settings_export_failed">Export failed: %1$s</string>
     <string name="feedback_settings_import_failed">Import failed: %1$s</string>
+    <string name="settings_add_widget_title">Add Home Screen Widget</string>
+    <string name="settings_add_widget_subtitle">Add the player widget to your home screen</string>
+    <string name="feedback_widget_pin_unsupported">This launcher can\'t add widgets automatically. Please add it manually from the home screen.</string>
     <string name="feedback_settings_export_stream_failed">Failed to open destination file stream</string>
     <string name="feedback_settings_import_stream_failed">Failed to open backup file stream</string>
     <string name="feedback_settings_import_version_incompatible">Cannot import: backup database

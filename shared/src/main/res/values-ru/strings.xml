@@ -583,6 +583,9 @@
     <string name="feedback_settings_export_success">Данные успешно экспортированы</string>
     <string name="feedback_settings_export_failed">Ошибка экспорта: %1$s</string>
     <string name="feedback_settings_import_failed">Ошибка импорта: %1$s</string>
+    <string name="settings_add_widget_title">Добавить виджет на главный экран</string>
+    <string name="settings_add_widget_subtitle">Добавьте виджет плеера на главный экран</string>
+    <string name="feedback_widget_pin_unsupported">Этот лаунчер не может добавлять виджеты автоматически. Добавьте его вручную с главного экрана.</string>
     <string name="feedback_settings_export_stream_failed">Не удалось открыть поток целевого файла</string>
     <string name="feedback_settings_import_stream_failed">Не удалось открыть поток файла резервной
         копии</string>

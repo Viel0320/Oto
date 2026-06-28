@@ -479,6 +479,9 @@
     <string name="feedback_settings_export_success">数据已成功导出</string>
     <string name="feedback_settings_export_failed">导出失败：%1$s</string>
     <string name="feedback_settings_import_failed">导入失败：%1$s</string>
+    <string name="settings_add_widget_title">添加桌面小部件</string>
+    <string name="settings_add_widget_subtitle">在主屏幕添加播放器小部件</string>
+    <string name="feedback_widget_pin_unsupported">当前启动器不支持自动添加，请从桌面手动添加小部件。</string>
     <string name="feedback_settings_export_stream_failed">无法打开导出目标文件流</string>
     <string name="feedback_settings_import_stream_failed">无法打开备份输入文件流</string>
     <string name="feedback_settings_import_version_incompatible">无法导入：备份的数据库版本（%1$d）高于当前应用（%2$d）</string>

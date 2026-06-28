@@ -465,6 +465,9 @@
     <string name="feedback_settings_export_success">數據已成功匯出</string>
     <string name="feedback_settings_export_failed">匯出失敗：%1$s</string>
     <string name="feedback_settings_import_failed">匯入失敗：%1$s</string>
+    <string name="settings_add_widget_title">新增桌面小工具</string>
+    <string name="settings_add_widget_subtitle">在主畫面新增播放器小工具</string>
+    <string name="feedback_widget_pin_unsupported">目前的啟動器不支援自動新增，請從桌面手動新增小工具。</string>
     <string name="feedback_settings_export_stream_failed">無法開啟匯出目標檔案流</string>
     <string name="feedback_settings_import_stream_failed">無法開啟備份輸入檔案流</string>
     <string name="feedback_settings_import_version_incompatible">無法匯入：備份的數據庫版本（%1$d）高於當前應用（%2$d）</string>

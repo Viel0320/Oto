@@ -1,9 +1,9 @@
 package com.viel.oto.event.feedback
 
 import android.content.Context
-import com.viel.oto.shared.R
 import com.viel.oto.application.library.LibraryReadStatus
 import com.viel.oto.application.usecase.SettingsRootAvailabilityKind
+import com.viel.oto.shared.R
 import com.viel.oto.shared.model.PlaybackSourcePreflightBlockReason
 
 /**
@@ -340,6 +340,9 @@ object FeedbackMessages {
 
     fun settingsImportFailed(errorMessage: String?): FeedbackMessage =
         FeedbackMessage.Resource(R.string.feedback_settings_import_failed, listOf(errorMessage ?: ""))
+
+    fun widgetPinUnsupported(): FeedbackMessage =
+        FeedbackMessage.Resource(R.string.feedback_widget_pin_unsupported)
 
     /**
      * Appends the affected book title to blocking playback dialogs.

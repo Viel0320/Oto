@@ -573,6 +573,9 @@
     <string name="feedback_settings_export_success">Daten erfolgreich exportiert</string>
     <string name="feedback_settings_export_failed">Export fehlgeschlagen: %1$s</string>
     <string name="feedback_settings_import_failed">Import fehlgeschlagen: %1$s</string>
+    <string name="settings_add_widget_title">Widget zum Startbildschirm hinzufügen</string>
+    <string name="settings_add_widget_subtitle">Player-Widget auf dem Startbildschirm hinzufügen</string>
+    <string name="feedback_widget_pin_unsupported">Dieser Launcher kann Widgets nicht automatisch hinzufügen. Bitte füge es manuell über den Startbildschirm hinzu.</string>
     <string name="feedback_settings_export_stream_failed">Zieldateistream konnte nicht geöffnet
         werden</string>
     <string name="feedback_settings_import_stream_failed">Sicherungsdateistream konnte nicht

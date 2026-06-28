@@ -1,5 +1,6 @@
 package com.viel.oto.ui.settings
 
+import android.appwidget.AppWidgetManager
 import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -20,6 +21,7 @@ import com.viel.oto.event.AppEventSink
 import com.viel.oto.event.feedback.DataTransferFeedbackFacts
 import com.viel.oto.event.feedback.DownloadCacheFeedbackFacts
 import com.viel.oto.event.feedback.FeedbackFact
+import com.viel.oto.event.feedback.WidgetFeedbackFacts
 import com.viel.oto.logger.AbsLogSanitizer
 import com.viel.oto.shared.model.AppSettings
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -230,6 +232,26 @@ class SettingsViewModel(
 
     fun onDownloadNotificationPermissionDenied() {
         appEventSink.emitFeedback(DownloadCacheFeedbackFacts.notificationPermissionDenied())
+    }
+
+    /**
+     * Asks the launcher to pin the playback widget onto the home screen.
+     *
+     * The widget provider is resolved by package so the UI module stays decoupled from the widget module.
+     * Supported launchers present their own confirmation dialog, so only the unsupported case surfaces
+     * app feedback telling the listener to add the widget manually.
+     */
+    fun requestAddHomeWidget() {
+        val appWidgetManager = AppWidgetManager.getInstance(application)
+        val provider = appWidgetManager
+            .getInstalledProvidersForPackage(application.packageName, null)
+            .firstOrNull()
+            ?.provider
+        if (provider == null || !appWidgetManager.isRequestPinAppWidgetSupported) {
+            appEventSink.emitFeedback(WidgetFeedbackFacts.pinUnsupported())
+            return
+        }
+        appWidgetManager.requestPinAppWidget(provider, null, null)
     }
 
     private fun runDownloadCommand(

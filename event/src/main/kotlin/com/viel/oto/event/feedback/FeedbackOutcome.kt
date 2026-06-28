@@ -12,7 +12,8 @@ enum class FeedbackCategory {
     BOOK_MANAGEMENT,
     DOWNLOAD_CACHE,
     RECOVERY,
-    DATA_TRANSFER
+    DATA_TRANSFER,
+    DEVICE_INTEGRATION
 }
 
 /**

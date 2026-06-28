@@ -300,6 +300,7 @@ fun SettingsOverlay(
                                 onSeekForwardStepChange = { settingsViewModel.preferencesHandler.updateSeekForwardSeconds(it) },
                                 isNotificationAvoidanceEnabled = settingsState.isNotificationAvoidanceEnabled,
                                 onNotificationAvoidanceEnabledChange = { settingsViewModel.preferencesHandler.toggleNotificationAvoidanceEnabled(it) },
+                                onAddWidgetClick = { settingsViewModel.requestAddHomeWidget() },
                                 onExportClick = {
                                     val timestamp = java.time.LocalDateTime.now()
                                         .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))

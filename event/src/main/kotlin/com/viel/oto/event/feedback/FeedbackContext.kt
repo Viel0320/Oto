@@ -33,6 +33,14 @@ sealed interface FeedbackTopic {
      */
     data object DataExport : FeedbackTopic
     data object DataImport : FeedbackTopic
+
+    /**
+     * Pinning the playback widget onto the launcher home screen.
+     *
+     * Home-screen integration is app-wide rather than bound to a root, book, or access form, so this
+     * topic always pairs with [FeedbackContext.Global].
+     */
+    data object HomeScreenWidget : FeedbackTopic
 }
 
 /**

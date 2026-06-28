@@ -571,6 +571,9 @@
     <string name="feedback_settings_export_success">Datos exportados correctamente</string>
     <string name="feedback_settings_export_failed">Error al exportar: %1$s</string>
     <string name="feedback_settings_import_failed">Error al importar: %1$s</string>
+    <string name="settings_add_widget_title">Añadir widget a la pantalla de inicio</string>
+    <string name="settings_add_widget_subtitle">Añade el widget del reproductor a tu pantalla de inicio</string>
+    <string name="feedback_widget_pin_unsupported">Este launcher no puede añadir widgets automáticamente. Añádelo manualmente desde la pantalla de inicio.</string>
     <string name="feedback_settings_export_stream_failed">No se pudo abrir el flujo del archivo de
         destino</string>
     <string name="feedback_settings_import_stream_failed">No se pudo abrir el flujo del archivo de

@@ -494,6 +494,9 @@
     <string name="feedback_settings_export_success">データの書き出しに成功しました</string>
     <string name="feedback_settings_export_failed">書き出しに失敗しました: %1$s</string>
     <string name="feedback_settings_import_failed">読み込みに失敗しました: %1$s</string>
+    <string name="settings_add_widget_title">ホーム画面にウィジェットを追加</string>
+    <string name="settings_add_widget_subtitle">プレーヤーウィジェットをホーム画面に追加します</string>
+    <string name="feedback_widget_pin_unsupported">このランチャーはウィジェットを自動で追加できません。ホーム画面から手動で追加してください。</string>
     <string name="feedback_settings_export_stream_failed">出力先ファイルストリームのオープンに失敗しました</string>
     <string name="feedback_settings_import_stream_failed">バックアップファイルストリームのオープンに失敗しました</string>
     <string name="feedback_settings_import_version_incompatible">インポートできません:

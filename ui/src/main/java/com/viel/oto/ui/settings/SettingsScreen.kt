@@ -36,8 +36,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.viel.oto.shared.R
 import com.viel.oto.application.library.settings.SettingsRootItem
+import com.viel.oto.shared.R
 import com.viel.oto.shared.model.AppLanguage
 import com.viel.oto.shared.model.AppSettings
 import com.viel.oto.shared.model.GlassEffectMode
@@ -108,6 +108,7 @@ fun SettingsScreen(
     onSeekForwardStepChange: (SeekStepSeconds) -> Unit,
     isNotificationAvoidanceEnabled: Boolean,
     onNotificationAvoidanceEnabledChange: (Boolean) -> Unit,
+    onAddWidgetClick: () -> Unit,
     onExportClick: () -> Unit,
     onImportClick: () -> Unit,
     onAboutLibrariesClick: () -> Unit
@@ -204,6 +205,7 @@ fun SettingsScreen(
                             onSeekForwardStepChange = onSeekForwardStepChange,
                             isNotificationAvoidanceEnabled = isNotificationAvoidanceEnabled,
                             onNotificationAvoidanceEnabledChange = onNotificationAvoidanceEnabledChange,
+                            onAddWidgetClick = onAddWidgetClick,
                             glassEffectMode = glassEffectMode,
                             hazeState = resolvedSettingsHazeState,
                             modifier = Modifier.fillMaxWidth()
@@ -388,6 +390,7 @@ fun SettingsScreenPreview() {
                 onSeekForwardStepChange = {},
                 isNotificationAvoidanceEnabled = false,
                 onNotificationAvoidanceEnabledChange = {},
+                onAddWidgetClick = {},
                 onExportClick = {},
                 onImportClick = {},
                 onAboutLibrariesClick = {}

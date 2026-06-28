@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Vibration
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,8 +45,8 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.viel.oto.shared.R
 import com.viel.oto.application.library.settings.SettingsRootItem
+import com.viel.oto.shared.R
 import com.viel.oto.shared.model.AppLanguage
 import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.shared.model.PlaybackSeekStepConfig
@@ -276,6 +277,7 @@ fun PlaybackBehaviorSection(
     onSeekForwardStepChange: (SeekStepSeconds) -> Unit,
     isNotificationAvoidanceEnabled: Boolean,
     onNotificationAvoidanceEnabledChange: (Boolean) -> Unit,
+    onAddWidgetClick: () -> Unit,
     glassEffectMode: GlassEffectMode,
     hazeState: HazeState?,
     modifier: Modifier = Modifier
@@ -340,6 +342,12 @@ fun PlaybackBehaviorSection(
             icon = Icons.Rounded.NotificationsOff,
             checked = isNotificationAvoidanceEnabled,
             onCheckedChange = onNotificationAvoidanceEnabledChange
+        )
+        SettingsItem(
+            title = stringResource(R.string.settings_add_widget_title),
+            subtitle = stringResource(R.string.settings_add_widget_subtitle),
+            icon = Icons.Rounded.Widgets,
+            onClick = onAddWidgetClick
         )
     }
 }

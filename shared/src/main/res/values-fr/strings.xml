@@ -576,6 +576,9 @@
     <string name="feedback_settings_export_success">Données exportées avec succès</string>
     <string name="feedback_settings_export_failed">Échec de l\'exportation : %1$s</string>
     <string name="feedback_settings_import_failed">Échec de l\'importation : %1$s</string>
+    <string name="settings_add_widget_title">Ajouter le widget à l’écran d’accueil</string>
+    <string name="settings_add_widget_subtitle">Ajoutez le widget du lecteur à votre écran d’accueil</string>
+    <string name="feedback_widget_pin_unsupported">Ce lanceur ne peut pas ajouter de widgets automatiquement. Ajoutez-le manuellement depuis l’écran d’accueil.</string>
     <string name="feedback_settings_export_stream_failed">Échec de l\'ouverture du flux de fichier
         de destination</string>
     <string name="feedback_settings_import_stream_failed">Échec de l\'ouverture du flux de fichier
