@@ -3,7 +3,6 @@ package com.viel.oto
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -28,8 +27,6 @@ class MainActivity : ComponentActivity() {
         shouldOpenPlayerOverlay = intent?.getBooleanExtra(EXTRA_OPEN_PLAYER_OVERLAY, false) == true
         shouldOpenDownloadManagement = intent?.getBooleanExtra(EXTRA_OPEN_DOWNLOAD_MANAGEMENT, false) == true
         enableEdgeToEdge()
-
-        window.decorView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
 
         setContent {
             val aboutLibraries by produceLibraries(R.raw.aboutlibraries)
