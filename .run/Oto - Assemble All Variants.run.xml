@@ -1,0 +1,31 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Shared Gradle build entrypoint for Android Studio. This configuration assembles every app build type explicitly so maintainers can compile the full variant set from the Run Configuration dropdown without changing the active Build Variant panel selection. -->
+  <configuration default="false" name="Oto - Assemble All Variants" type="GradleRunConfiguration" factoryName="Gradle">
+    <ExternalSystemSettings>
+      <option name="executionName" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="scriptParameters" value="" />
+      <option name="taskDescriptions">
+        <list />
+      </option>
+      <option name="taskNames">
+        <list>
+          <option value=":app:assembleDebug" />
+          <option value=":app:assembleRelease" />
+          <option value=":app:assembleNonMinifiedRelease" />
+          <option value=":app:assembleBenchmarkRelease" />
+        </list>
+      </option>
+      <option name="vmOptions" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+    <ExternalSystemDebugDisabled>false</ExternalSystemDebugDisabled>
+    <DebugAllEnabled>false</DebugAllEnabled>
+    <RunAsTest>false</RunAsTest>
+    <GradleProfilingDisabled>false</GradleProfilingDisabled>
+    <GradleCoverageDisabled>false</GradleCoverageDisabled>
+    <method v="2" />
+  </configuration>
+</component>
