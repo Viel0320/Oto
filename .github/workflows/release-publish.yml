@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: "Git tag to publish for the dispatched commit."
-        required: true
+        description: "Git tag to publish (leave empty to use versionName(versionCode))."
+        required: false
         type: string
       release_name:
-        description: "Human-readable GitHub Release title."
+        description: "Human-readable GitHub Release title (defaults to tag name)."
         required: false
         type: string
       prerelease:
@@ -42,6 +42,23 @@ jobs:
           java-version: "21"
           cache: gradle
 
+      # Release Version Resolution (Extracts versionName and versionCode from the build script)
+      # Defaults to the format 'versionName(versionCode)' if no manual tag is provided via workflow dispatch.
+      - name: Resolve Release Version
+        id: version
+        shell: pwsh
+        run: |
+          $versionName = (Get-Content app/build.gradle.kts | Select-String 'versionName\s*=\s*"([^"]+)"').Matches.Groups[1].Value
+          $versionCode = (git rev-list --count HEAD).Trim()
+          $autoTag = "$versionName($versionCode)"
+          
+          $tagName = if ([string]::IsNullOrWhiteSpace("${{ inputs.tag_name }}")) { $autoTag } else { "${{ inputs.tag_name }}" }
+          $releaseName = if ([string]::IsNullOrWhiteSpace("${{ inputs.release_name }}")) { $tagName } else { "${{ inputs.release_name }}" }
+          
+          echo "tag_name=$tagName" >> $env:GITHUB_OUTPUT
+          echo "release_name=$releaseName" >> $env:GITHUB_OUTPUT
+          echo "Resolved Tag: $tagName"
+
       # Release Keystore Restore (Materializes the CI-only keystore file from GitHub Secrets)
       # The Gradle project receives only an ephemeral runner path, so no signing key bytes or passwords are committed.
       - name: Restore Release Keystore
@@ -62,14 +79,14 @@ jobs:
       - name: Build Signed Release Artifacts
         run: .\gradlew.bat assembleRelease bundleRelease
 
-      # GitHub Release Publish (Creates the manually requested release and uploads signed artifacts)
-      # Manual dispatch keeps publication separate from CI validation and prevents tag pushes from releasing automatically.
+      # GitHub Release Publish (Creates the release and uploads signed artifacts)
+      # Uses the resolved tag name from the build metadata.
       - name: Publish GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG_NAME: ${{ inputs.tag_name }}
-          RELEASE_NAME: ${{ inputs.release_name }}
+          RELEASE_TAG_NAME: ${{ steps.version.outputs.tag_name }}
+          RELEASE_NAME: ${{ steps.version.outputs.release_name }}
           RELEASE_PRERELEASE: ${{ inputs.prerelease }}
         run: |
           $releaseTitle = if ([string]::IsNullOrWhiteSpace($env:RELEASE_NAME)) {

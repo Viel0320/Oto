@@ -66,7 +66,7 @@ android {
         //noinspection OldTargetApi
         targetSdk = 36
         versionCode = getGitCommitCount()
-        versionName = "1.0"
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         @Suppress("UnstableApiUsage")
@@ -85,7 +85,7 @@ android {
     signingConfigs {
         if (hasCustomSigning) {
             register("releaseCustom") {
-                this.storeFile = rootProject.file(storeFile!!)
+                this.storeFile = rootProject.file(storeFile)
                 this.storePassword = storePassword
                 this.keyAlias = keyAlias
                 this.keyPassword = keyPassword
