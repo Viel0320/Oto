@@ -3,44 +3,79 @@ name: Android Release Publish
 on:
   workflow_dispatch:
     inputs:
-      tag_name:
-        description: "Git tag to publish (leave empty to use versionName(versionCode))."
-        required: false
-        type: string
-      release_name:
-        description: "Human-readable GitHub Release title (defaults to tag name)."
-        required: false
-        type: string
       prerelease:
         description: "Mark the GitHub Release as a prerelease."
         required: true
         default: true
         type: boolean
-      generate_changelog:
-        description: "Generate changelog from commit titles since the previous stable release."
+      publish:
+        description: "Create and publish the GitHub Release after all gates pass."
         required: true
-        default: true
+        default: false
         type: boolean
+      manual_changelog:
+        description: "Full CHANGELOG.md and release body. Leave empty to generate from commits."
+        required: false
+        type: string
+      highlights:
+        description: "Optional Highlights section for generated changelogs. Must be empty when manual_changelog is set."
+        required: false
+        type: string
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  TZ: Asia/Shanghai
 
 jobs:
-  publish-release:
-    name: Publish Signed Release
-    runs-on: windows-latest
-    env:
-      KEYSTORE_FILE: ${{ github.workspace }}\app\release-ci.jks
-      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+  workflow-meta-check:
+    name: Release Workflow Meta Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
         with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Check Release Workflow Static Invariants
+        shell: pwsh
+        run: ./.github/scripts/release-workflow-meta-check.ps1
+
+  build-verify:
+    name: Build And Verify Release
+    runs-on: ubuntu-latest
+    needs: workflow-meta-check
+    permissions:
+      contents: read
+    outputs:
+      publish_authorized: ${{ steps.verify.outputs.publish_authorized }}
+    steps:
+      - name: Source Ref Gate
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -ne "refs/heads/main" -and $env:GITHUB_REF -ne "refs/heads/master") {
+            throw "Release publishing is only allowed from refs/heads/main or refs/heads/master. Current ref: $env:GITHUB_REF"
+          }
+
+      - name: Capture Release Environment
+        id: release_env
+        shell: pwsh
+        run: |
+          $timeZone = [TimeZoneInfo]::FindSystemTimeZoneById("Asia/Shanghai")
+          $releaseDate = [TimeZoneInfo]::ConvertTimeFromUtc([DateTime]::UtcNow, $timeZone).ToString("yy.MM.dd", [Globalization.CultureInfo]::InvariantCulture)
+          $channel = if ("${{ inputs.prerelease }}" -eq "true") { "prerelease" } else { "stable" }
+          "release_date=$releaseDate" >> $env:GITHUB_OUTPUT
+          "channel=$channel" >> $env:GITHUB_OUTPUT
+
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
           fetch-depth: 0
-          # Release changelog generation compares the target commit against the
-          # latest stable GitHub Release tag, so tags must be present locally.
           fetch-tags: true
 
       - name: Set Up JDK 21
@@ -50,154 +85,59 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      # Release Version Resolution (Extracts versionName and versionCode from the build script)
-      # Defaults to the format 'versionName(versionCode)' if no manual tag is provided via workflow dispatch.
-      - name: Resolve Release Version
-        id: version
-        shell: pwsh
-        run: |
-          $versionName = (Get-Content app/build.gradle.kts | Select-String 'versionName\s*=\s*"([^"]+)"').Matches.Groups[1].Value
-          $versionCode = (git rev-list --count HEAD).Trim()
-          $autoTag = "$versionName($versionCode)"
-          
-          $tagName = if ([string]::IsNullOrWhiteSpace("${{ inputs.tag_name }}")) { $autoTag } else { "${{ inputs.tag_name }}" }
-          $releaseName = if ([string]::IsNullOrWhiteSpace("${{ inputs.release_name }}")) { $tagName } else { "${{ inputs.release_name }}" }
-          
-          echo "tag_name=$tagName" >> $env:GITHUB_OUTPUT
-          echo "release_name=$releaseName" >> $env:GITHUB_OUTPUT
-          echo "Resolved Tag: $tagName"
-
-      # Stable Release Changelog Generation (Uses only non-prerelease GitHub Releases as the comparison base)
-      # The generated body is built from commit subjects so release notes stay aligned with the repository history.
-      - name: Generate Stable Release Changelog
-        if: ${{ inputs.generate_changelog }}
-        id: changelog
+      - name: Build, Verify, And Stage Release
+        id: verify
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          $previousStableReleaseJson = gh release list --exclude-drafts --exclude-pre-releases --limit 1 --json tagName
-          if ($LASTEXITCODE -ne 0) {
-            throw "Failed to query GitHub Releases for the previous stable release."
-          }
-
-          $previousStableRelease = @($previousStableReleaseJson | ConvertFrom-Json) | Select-Object -First 1
-
-          $previousTag = if ($null -eq $previousStableRelease) {
-            ""
-          } else {
-            $previousStableRelease.tagName
-          }
-
-          $notesFile = Join-Path $env:RUNNER_TEMP "release-changelog.md"
-          $notes = [System.Collections.Generic.List[string]]::new()
-          $notes.Add("## Changelog")
-
-          if ([string]::IsNullOrWhiteSpace($previousTag)) {
-            $notes.Add("")
-            $notes.Add("Changes included in this release:")
-            $commitTitles = @(git log $env:GITHUB_SHA "--pretty=format:%s")
-          } else {
-            $previousTagRef = "refs/tags/$previousTag^{commit}"
-            git rev-parse --verify $previousTagRef | Out-Null
-            if ($LASTEXITCODE -ne 0) {
-              throw "The previous stable release tag '$previousTag' was not found in the checked out repository."
-            }
-
-            $notes.Add("")
-            $notes.Add("Changes since ``$previousTag``:")
-            $commitTitles = @(git log "$previousTag..$env:GITHUB_SHA" "--pretty=format:%s")
-          }
-
-          if ($LASTEXITCODE -ne 0) {
-            throw "Failed to read commit titles for the release changelog."
-          }
-
-          $commitTitles = @(
-            $commitTitles |
-              ForEach-Object { $_.Trim() } |
-              Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-          )
-
-          if ($commitTitles.Count -eq 0) {
-            $notes.Add("- No commits were found for this release range.")
-          } else {
-            foreach ($title in $commitTitles) {
-              $notes.Add("- $title")
-            }
-          }
-
-          [IO.File]::WriteAllLines($notesFile, $notes, [Text.UTF8Encoding]::new($false))
-          echo "notes_file=$notesFile" >> $env:GITHUB_OUTPUT
-          echo "Generated changelog from previous stable tag: $previousTag"
-
-      # Release Keystore Restore (Materializes the CI-only keystore file from GitHub Secrets)
-      # The Gradle project receives only an ephemeral runner path, so no signing key bytes or passwords are committed.
-      - name: Restore Release Keystore
-        shell: pwsh
-        env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:KEYSTORE_BASE64)) {
-            throw "Missing KEYSTORE_BASE64 secret."
-          }
-          [IO.File]::WriteAllBytes(
-            $env:KEYSTORE_FILE,
-            [Convert]::FromBase64String($env:KEYSTORE_BASE64)
-          )
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          SIGNING_CERTIFICATE_SHA256: ${{ vars.SIGNING_CERTIFICATE_SHA256 }}
+          RELEASE_CHANNEL: ${{ steps.release_env.outputs.channel }}
+          RELEASE_PUBLISH: ${{ inputs.publish }}
+          RELEASE_PRERELEASE: ${{ inputs.prerelease }}
+          RELEASE_MANUAL_CHANGELOG: ${{ inputs.manual_changelog }}
+          RELEASE_HIGHLIGHTS: ${{ inputs.highlights }}
+          RELEASE_VERSION_FLOOR_OVERRIDE: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE }}
+          RELEASE_VERSION_FLOOR_OVERRIDE_IGNORED_TAG: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE_IGNORED_TAG }}
+          RELEASE_VERSION_FLOOR_OVERRIDE_REASON: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE_REASON }}
+          OTO_RELEASE_DATE: ${{ steps.release_env.outputs.release_date }}
+        run: ./.github/scripts/release-build-verify.ps1
 
-      # Signed Artifact Build (Runs release packaging only after all signing inputs are available)
-      # assembleRelease creates the signed APK, while bundleRelease creates the signed AAB for store upload.
-      - name: Build Signed Release Artifacts
-        run: .\gradlew.bat assembleRelease bundleRelease
+      - name: Upload Publish Handoff Artifact
+        if: ${{ steps.verify.outputs.publish_authorized == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: oto-release-publish-handoff
+          path: ${{ steps.verify.outputs.handoff_dir }}
+          if-no-files-found: error
+          retention-days: 1
 
-      # GitHub Release Publish (Creates the release and uploads signed artifacts)
-      # Uses the resolved tag name from the build metadata.
-      - name: Publish GitHub Release
+  publish:
+    name: Publish Verified Release
+    runs-on: ubuntu-latest
+    needs: build-verify
+    if: ${{ needs.build-verify.outputs.publish_authorized == 'true' }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Scripts
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Download Publish Handoff Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-publish-handoff
+          path: ${{ runner.temp }}/oto-release-publish-handoff
+
+      - name: Publish Verified Draft Transaction
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG_NAME: ${{ steps.version.outputs.tag_name }}
-          RELEASE_NAME: ${{ steps.version.outputs.release_name }}
-          RELEASE_GENERATE_CHANGELOG: ${{ inputs.generate_changelog }}
-          RELEASE_NOTES_FILE: ${{ steps.changelog.outputs.notes_file }}
-          RELEASE_PRERELEASE: ${{ inputs.prerelease }}
-        run: |
-          $releaseTitle = if ([string]::IsNullOrWhiteSpace($env:RELEASE_NAME)) {
-            $env:RELEASE_TAG_NAME
-          } else {
-            $env:RELEASE_NAME
-          }
-          $artifacts = @(
-            Get-ChildItem -Path "app/build/outputs/apk/release" -Filter "*.apk" -File
-            Get-ChildItem -Path "app/build/outputs/bundle/release" -Filter "*.aab" -File
-          )
-          if ($artifacts.Count -eq 0) {
-            throw "No signed release artifacts were produced."
-          }
-          $releaseArgs = @(
-            "release",
-            "create",
-            $env:RELEASE_TAG_NAME
-          )
-          $releaseArgs += $artifacts.FullName
-          $releaseArgs += @(
-            "--title",
-            $releaseTitle,
-            "--target",
-            $env:GITHUB_SHA
-          )
-          if ($env:RELEASE_GENERATE_CHANGELOG -eq "true") {
-            $releaseArgs += @(
-              "--notes-file",
-              $env:RELEASE_NOTES_FILE
-            )
-          } else {
-            # GitHub generated notes remain the fallback when the maintainer disables
-            # commit-title changelog generation for an unusual release.
-            $releaseArgs += "--generate-notes"
-          }
-          if ($env:RELEASE_PRERELEASE -eq "true") {
-            $releaseArgs += "--prerelease"
-          }
-          gh @releaseArgs
+          RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
+        run: ./.github/scripts/release-publish-transaction.ps1

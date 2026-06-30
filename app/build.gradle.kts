@@ -1,4 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Properties
 
 plugins {
@@ -39,6 +42,32 @@ fun getGitHash(): String {
     }
 }
 
+fun getReleaseVersionName(): String {
+    val releaseDatePattern = Regex("\\d{2}\\.\\d{2}\\.\\d{2}")
+    val ciReleaseBuild = System.getenv("OTO_CI_RELEASE_BUILD").equals("true", ignoreCase = true)
+    val ciReleaseDate = System.getenv("OTO_RELEASE_DATE")?.trim().orEmpty()
+
+    if (ciReleaseBuild) {
+        if (ciReleaseDate.isBlank()) {
+            throw GradleException("OTO_RELEASE_DATE is required for CI release builds.")
+        }
+        if (!releaseDatePattern.matches(ciReleaseDate)) {
+            throw GradleException("OTO_RELEASE_DATE must use yy.MM.dd format.")
+        }
+        return ciReleaseDate
+    }
+
+    if (ciReleaseDate.isNotBlank()) {
+        if (!releaseDatePattern.matches(ciReleaseDate)) {
+            throw GradleException("OTO_RELEASE_DATE must use yy.MM.dd format.")
+        }
+        return ciReleaseDate
+    }
+
+    return LocalDate.now(ZoneId.of("Asia/Shanghai"))
+        .format(DateTimeFormatter.ofPattern("yy.MM.dd"))
+}
+
 android {
     namespace = "com.viel.oto"
     compileSdk = 37
@@ -52,11 +81,36 @@ android {
             println("Warning: Could not load keystore.properties file: ${e.message}")
         }
     }
-    val storeFile = properties.getProperty("KEYSTORE_FILE") ?: System.getenv("KEYSTORE_FILE")
-    val storePassword = properties.getProperty("KEYSTORE_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD")
-    val keyAlias = properties.getProperty("KEY_ALIAS") ?: System.getenv("KEY_ALIAS")
-    val keyPassword = properties.getProperty("KEY_PASSWORD") ?: System.getenv("KEY_PASSWORD")
-    val hasCustomSigning = storeFile != null && storePassword != null && keyAlias != null && keyPassword != null
+    // CI Release Signing Gate (Fail release publishing when the workflow requires a real release keystore)
+    // CI release mode accepts only environment-provided signing values so a workspace keystore.properties file cannot override the ephemeral runner keystore.
+    val requireReleaseSigning = System.getenv("OTO_REQUIRE_RELEASE_SIGNING").equals("true", ignoreCase = true)
+    val storeFile = if (requireReleaseSigning) {
+        System.getenv("KEYSTORE_FILE")
+    } else {
+        properties.getProperty("KEYSTORE_FILE") ?: System.getenv("KEYSTORE_FILE")
+    }
+    val storePassword = if (requireReleaseSigning) {
+        System.getenv("KEYSTORE_PASSWORD")
+    } else {
+        properties.getProperty("KEYSTORE_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD")
+    }
+    val keyAlias = if (requireReleaseSigning) {
+        System.getenv("KEY_ALIAS")
+    } else {
+        properties.getProperty("KEY_ALIAS") ?: System.getenv("KEY_ALIAS")
+    }
+    val keyPassword = if (requireReleaseSigning) {
+        System.getenv("KEY_PASSWORD")
+    } else {
+        properties.getProperty("KEY_PASSWORD") ?: System.getenv("KEY_PASSWORD")
+    }
+    val hasCustomSigning = !storeFile.isNullOrBlank() &&
+        !storePassword.isNullOrBlank() &&
+        !keyAlias.isNullOrBlank() &&
+        !keyPassword.isNullOrBlank()
+    if (requireReleaseSigning && !hasCustomSigning) {
+        throw GradleException("Release signing is required, but KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, or KEY_PASSWORD is missing.")
+    }
 
     defaultConfig {
         applicationId = "com.viel.oto"
@@ -66,7 +120,7 @@ android {
         //noinspection OldTargetApi
         targetSdk = 36
         versionCode = getGitCommitCount()
-        versionName = "1.0.1"
+        versionName = getReleaseVersionName()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         @Suppress("UnstableApiUsage")
