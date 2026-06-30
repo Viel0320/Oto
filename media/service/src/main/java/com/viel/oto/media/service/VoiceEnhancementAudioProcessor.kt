@@ -62,6 +62,13 @@ class VoiceEnhancementAudioProcessor : BaseAudioProcessor() {
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
+        if (!inputBuffer.hasRemaining()) {
+            // Media3 drains the pipeline by queuing AudioProcessor.EMPTY_BUFFER, including before the
+            // first PCM frame arrives. At that point replaceOutputBuffer() still hands back that same
+            // shared empty buffer, and ByteBuffer.put rejects copying a buffer onto itself even for
+            // zero bytes, so there is nothing to process here.
+            return
+        }
         val bytesToProcess = inputBuffer.remaining()
         val outputBuffer = replaceOutputBuffer(bytesToProcess)
         if (resetRequested) {

@@ -1,6 +1,7 @@
 package com.viel.oto.media.service
 
 import androidx.media3.common.C
+import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.AudioProcessor.AudioFormat
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -18,6 +19,21 @@ class VoiceEnhancementAudioProcessorTest {
 
         processor.queueInput(samples.toInputBuffer())
 
+        assertArrayEquals(samples, processor.getOutput().toShortArray())
+    }
+
+    @Test
+    fun `disabled processor tolerates the pipeline's empty drain buffer before first pcm frame`() {
+        val processor = configuredProcessor(enabled = false)
+
+        // DefaultAudioSink calls getOutput() before the first PCM frame, which drains the pipeline by
+        // queuing AudioProcessor.EMPTY_BUFFER. That aliases the processor's still-empty output buffer,
+        // and the passthrough copy previously threw "The source buffer is this buffer".
+        processor.queueInput(AudioProcessor.EMPTY_BUFFER)
+        assertEquals(0, processor.getOutput().remaining())
+
+        val samples = shortArrayOf(1200, -900, 600, -300)
+        processor.queueInput(samples.toInputBuffer())
         assertArrayEquals(samples, processor.getOutput().toShortArray())
     }
 
