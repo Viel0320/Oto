@@ -224,6 +224,8 @@
     <string name="settings_notification_avoidance_subtitle">失去音訊焦點時暫停播放，焦點恢復後繼續，避免降音時漏聽內容。</string>
     <string name="settings_skip_silence_toggle_title">自動跳過靜音期</string>
     <string name="settings_skip_silence_subtitle">播放有聲書時自動跳過朗讀停頓、換氣和章節尾端靜音。</string>
+    <string name="settings_voice_enhancement_title">人聲增強</string>
+    <string name="settings_voice_enhancement_subtitle">播放時減少低頻渾濁，並提升朗讀人聲清晰度。</string>
     <string name="settings_seek_backward_step_title">倒退步長</string>
     <string name="settings_seek_backward_step_subtitle">選擇倒退按鈕每次移動播放的位置。</string>
     <string name="settings_seek_forward_step_title">快轉步長</string>

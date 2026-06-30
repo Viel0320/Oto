@@ -62,6 +62,9 @@ class RepositoryAppSettingsAdapter(
     override suspend fun updateSkipSilenceEnabled(enabled: Boolean) =
         repository.updateSkipSilenceEnabled(enabled)
 
+    override suspend fun updateVoiceEnhancementEnabled(enabled: Boolean) =
+        repository.updateVoiceEnhancementEnabled(enabled)
+
     override suspend fun updateSleepFadeOutEnabled(enabled: Boolean) =
         repository.updateSleepFadeOutEnabled(enabled)
 

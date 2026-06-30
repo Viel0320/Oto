@@ -210,6 +210,24 @@ class AppSettingsRepositoryTest {
         assertEquals(com.viel.oto.shared.model.AppSettings.DEFAULT_PLAYBACK_BUFFER_MAX_BYTES, fallbackPreferences[playbackBufferMaxBytesKey])
     }
 
+    @Test
+    fun `write methods persist voice enhancement setting`() = runBlocking {
+        val dataStore = createSettingsDataStore(testName = "write-voice-enhancement")
+        val repository = AppSettingsRepository.createForTesting(dataStore)
+
+        repository.updateVoiceEnhancementEnabled(true)
+
+        val enabledSettings = repository.settingsFlow.first()
+        assertEquals(true, enabledSettings.isVoiceEnhancementEnabled)
+        assertEquals(true, dataStore.data.first()[isVoiceEnhancementEnabledKey])
+
+        repository.updateVoiceEnhancementEnabled(false)
+
+        val disabledSettings = repository.settingsFlow.first()
+        assertEquals(false, disabledSettings.isVoiceEnhancementEnabled)
+        assertEquals(false, dataStore.data.first()[isVoiceEnhancementEnabledKey])
+    }
+
     private fun createSettingsDataStore(testName: String) =
         PreferenceDataStoreFactory.create(
             produceFile = {
@@ -259,5 +277,7 @@ class AppSettingsRepositoryTest {
         private val legacyPlaybackBufferDurationMsKey = intPreferencesKey("playback_buffer_duration_ms")
 
         private val isDownloadWifiOnlyKey = booleanPreferencesKey("is_download_wifi_only")
+
+        private val isVoiceEnhancementEnabledKey = booleanPreferencesKey("is_voice_enhancement_enabled")
     }
 }

@@ -285,6 +285,9 @@
     <string name="settings_skip_silence_toggle_title">Omitir silencios</string>
     <string name="settings_skip_silence_subtitle">Omitir automáticamente pausas del narrador,
         respiraciones y silencio al final de capítulos.</string>
+    <string name="settings_voice_enhancement_title">Mejora de voz</string>
+    <string name="settings_voice_enhancement_subtitle">Reduce el ruido grave y realza la presencia
+        del narrador durante la reproducción.</string>
     <string name="settings_seek_backward_step_title">Paso de retroceso</string>
     <string name="settings_seek_backward_step_subtitle">Elige cuánto retrocede el botón de
         retroceso.</string>

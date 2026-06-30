@@ -275,6 +275,8 @@ fun SettingsOverlay(
                                 onAllowInsecureTlsChange = { settingsViewModel.preferencesHandler.toggleAllowInsecureTls(it) },
                                 isSkipSilenceEnabled = settingsState.isSkipSilenceEnabled,
                                 onSkipSilenceEnabledChange = { settingsViewModel.preferencesHandler.toggleSkipSilenceEnabled(it) },
+                                isVoiceEnhancementEnabled = settingsState.isVoiceEnhancementEnabled,
+                                onVoiceEnhancementEnabledChange = { settingsViewModel.preferencesHandler.toggleVoiceEnhancementEnabled(it) },
                                 isSleepFadeOutEnabled = settingsState.isSleepFadeOutEnabled,
                                 onSleepFadeOutEnabledChange = { settingsViewModel.preferencesHandler.toggleSleepFadeOutEnabled(it) },
                                 isShakeToResetEnabled = settingsState.isShakeToResetEnabled,

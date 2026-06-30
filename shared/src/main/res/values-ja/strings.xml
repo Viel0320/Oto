@@ -243,6 +243,8 @@
         音声フォーカスを失ったら一時停止し、戻ったら再開します。ダッキング中の聞き逃しを防ぎます。</string>
     <string name="settings_skip_silence_toggle_title">無音区間をスキップ</string>
     <string name="settings_skip_silence_subtitle">朗読の間、息継ぎ、章末の無音を自動的にスキップします。</string>
+    <string name="settings_voice_enhancement_title">音声明瞭化</string>
+    <string name="settings_voice_enhancement_subtitle">再生中の低域のこもりを抑え、朗読音声の存在感を高めます。</string>
     <string name="settings_seek_backward_step_title">巻き戻しステップ</string>
     <string name="settings_seek_backward_step_subtitle">巻き戻しボタンで移動する再生位置の量を選びます。</string>
     <string name="settings_seek_forward_step_title">早送りステップ</string>

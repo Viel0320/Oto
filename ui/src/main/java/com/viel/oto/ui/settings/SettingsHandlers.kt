@@ -62,6 +62,12 @@ class SettingsPreferencesHandler(
         }
     }
 
+    fun toggleVoiceEnhancementEnabled(enabled: Boolean) {
+        scope.launch {
+            settingsCommands.updateVoiceEnhancementEnabled(enabled)
+        }
+    }
+
     fun toggleSleepFadeOutEnabled(enabled: Boolean) {
         scope.launch {
             settingsCommands.updateSleepFadeOutEnabled(enabled)

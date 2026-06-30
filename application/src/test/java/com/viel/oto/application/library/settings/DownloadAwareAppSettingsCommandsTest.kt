@@ -68,6 +68,7 @@ class DownloadAwareAppSettingsCommandsTest {
         override suspend fun updateAllowInsecureTls(enabled: Boolean) = Unit
         override suspend fun updateCleartextTrafficAllowed(enabled: Boolean) = Unit
         override suspend fun updateSkipSilenceEnabled(enabled: Boolean) = Unit
+        override suspend fun updateVoiceEnhancementEnabled(enabled: Boolean) = Unit
         override suspend fun updateSleepFadeOutEnabled(enabled: Boolean) = Unit
         override suspend fun updateShakeToResetEnabled(enabled: Boolean) = Unit
         override suspend fun updateSleepMode(mode: SleepMode) = Unit

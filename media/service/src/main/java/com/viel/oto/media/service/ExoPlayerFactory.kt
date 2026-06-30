@@ -45,6 +45,7 @@ object ExoPlayerFactory {
      * @param context Application runtime context
      * @param listener Global playback status and exception event observer
      * @param isAutomaticAudioFocusAllowed Controls whether ExoPlayer handles system audio focus tracking internally
+     * @param voiceEnhancementAudioProcessor Runtime-controlled narrator enhancement pass injected by PlaybackService
      * @return Fully configured and initialized ExoPlayer kernel instance
      */
     @Suppress("DEPRECATION")
@@ -56,7 +57,8 @@ object ExoPlayerFactory {
         manualCache: Cache,
         playbackFileLookup: PlaybackFileLookup,
         playbackRootLookup: PlaybackRootLookup,
-        playbackStreamReader: VfsPlaybackStreamReader
+        playbackStreamReader: VfsPlaybackStreamReader,
+        voiceEnhancementAudioProcessor: VoiceEnhancementAudioProcessor
     ): ExoPlayer {
 
         val loadControl = DefaultLoadControl.Builder()
@@ -86,7 +88,7 @@ object ExoPlayerFactory {
                 val sonicProcessor = SonicAudioProcessor()
 
                 val sink = DefaultAudioSink.Builder(context)
-                    .setAudioProcessors(arrayOf(sonicProcessor))
+                    .setAudioProcessors(arrayOf(sonicProcessor, voiceEnhancementAudioProcessor))
                     .build()
 
                 return sink

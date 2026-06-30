@@ -157,6 +157,14 @@ data class AppSettings(
      * Automatically skips silent periods in audio streams; utilizes standard Media3 behaviours.
      */
     val isSkipSilenceEnabled: Boolean = false,
+    /**
+     * Enables the real-time narrator voice enhancement filter in the Media3 playback pipeline.
+     *
+     * The setting is intentionally app-wide because the audio processor works on rendered PCM
+     * frames after source decoding, so SAF, WebDAV, ABS, cached, and direct playback all share the
+     * same runtime behavior without changing stored media files or source-specific metadata.
+     */
+    val isVoiceEnhancementEnabled: Boolean = false,
     val isSleepFadeOutEnabled: Boolean = true,
     val isShakeToResetEnabled: Boolean = true,
     val sleepMode: SleepMode = SleepMode.Regular,

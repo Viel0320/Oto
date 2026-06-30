@@ -224,6 +224,8 @@
     <string name="settings_notification_avoidance_subtitle">失去音频焦点时暂停播放，焦点恢复后继续，避免降音时漏听内容。</string>
     <string name="settings_skip_silence_toggle_title">自动跳过静音期</string>
     <string name="settings_skip_silence_subtitle">播放有声书时自动跳过主播停顿、换气和章节末尾静音。</string>
+    <string name="settings_voice_enhancement_title">人声增强</string>
+    <string name="settings_voice_enhancement_subtitle">播放时减少低频浑浊，并提升朗读人声清晰度。</string>
     <string name="settings_seek_backward_step_title">快退步长</string>
     <string name="settings_seek_backward_step_subtitle">选择快退按钮每次移动播放的位置。</string>
     <string name="settings_seek_forward_step_title">快进步长</string>

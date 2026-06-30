@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Http
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.NotificationsOff
@@ -270,6 +271,8 @@ fun PlaybackBehaviorSection(
     onChapterProgressModeChange: (Boolean) -> Unit,
     isSkipSilenceEnabled: Boolean,
     onSkipSilenceEnabledChange: (Boolean) -> Unit,
+    isVoiceEnhancementEnabled: Boolean,
+    onVoiceEnhancementEnabledChange: (Boolean) -> Unit,
     autoRewindSeconds: Int,
     onAutoRewindSecondsChange: (Int) -> Unit,
     playbackSeekStepConfig: PlaybackSeekStepConfig,
@@ -297,6 +300,13 @@ fun PlaybackBehaviorSection(
             icon = Icons.Rounded.GraphicEq,
             checked = isSkipSilenceEnabled,
             onCheckedChange = onSkipSilenceEnabledChange
+        )
+        SettingsToggleItem(
+            title = stringResource(R.string.settings_voice_enhancement_title),
+            subtitle = stringResource(R.string.settings_voice_enhancement_subtitle),
+            icon = Icons.Rounded.RecordVoiceOver,
+            checked = isVoiceEnhancementEnabled,
+            onCheckedChange = onVoiceEnhancementEnabledChange
         )
         SettingsSegmentedSeekStepItem(
             title = stringResource(R.string.settings_seek_backward_step_title),

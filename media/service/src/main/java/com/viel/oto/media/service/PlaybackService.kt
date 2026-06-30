@@ -112,6 +112,7 @@ class PlaybackService : MediaSessionService(), KoinComponent {
     private lateinit var playbackCommandPresentation: PlaybackCommandPresentation
     private lateinit var resumptionPreflight: PlaybackResumptionPreflight
     private lateinit var notificationPlayer: NotificationProgressPlayer
+    private lateinit var voiceEnhancementAudioProcessor: VoiceEnhancementAudioProcessor
 
     private var notificationBookId: String? = null
     private var notificationFiles: List<BookFileEntity> = emptyList()
@@ -163,6 +164,10 @@ class PlaybackService : MediaSessionService(), KoinComponent {
             settingsRepository = settingsRepository,
             playbackEventSink = playbackEventSink
         )
+
+        voiceEnhancementAudioProcessor = VoiceEnhancementAudioProcessor().apply {
+            setVoiceEnhancementEnabled(settingsRepository.cachedSettings.isVoiceEnhancementEnabled)
+        }
 
         val playerInstance = ExoPlayerFactory.createExoPlayer(
             context = this,
@@ -232,7 +237,8 @@ class PlaybackService : MediaSessionService(), KoinComponent {
             manualCache = injectedManualCache,
             playbackFileLookup = injectedPlaybackFileLookup,
             playbackRootLookup = injectedPlaybackRootLookup,
-            playbackStreamReader = injectedVfsPlaybackStreamReader
+            playbackStreamReader = injectedVfsPlaybackStreamReader,
+            voiceEnhancementAudioProcessor = voiceEnhancementAudioProcessor
         )
         this.player = playerInstance
 
@@ -245,6 +251,7 @@ class PlaybackService : MediaSessionService(), KoinComponent {
                  * Updates dynamic silence skipping parameters using the standard ExoPlayer API.
                  */
                 playerInstance.skipSilenceEnabled = settings.isSkipSilenceEnabled
+                voiceEnhancementAudioProcessor.setVoiceEnhancementEnabled(settings.isVoiceEnhancementEnabled)
                 val seekConfig = settings.playbackSeekStepConfig
                 val backwardMs = seekConfig.backward.toMillis()
                 val forwardMs = seekConfig.forward.toMillis()

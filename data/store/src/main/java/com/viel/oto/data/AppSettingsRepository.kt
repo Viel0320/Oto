@@ -89,6 +89,7 @@ class AppSettingsRepository(private val dataStore: DataStore<Preferences>) : Clo
          * Unified under default system configurations; custom duration keys have been removed.
          */
         val IS_SKIP_SILENCE_ENABLED = booleanPreferencesKey("is_skip_silence_enabled")
+        val IS_VOICE_ENHANCEMENT_ENABLED = booleanPreferencesKey("is_voice_enhancement_enabled")
         val IS_SLEEP_FADE_OUT_ENABLED = booleanPreferencesKey("is_sleep_fade_out_enabled")
         val IS_SHAKE_TO_RESET_ENABLED = booleanPreferencesKey("is_shake_to_reset_enabled")
         val SLEEP_MODE = stringPreferencesKey("sleep_mode")
@@ -143,6 +144,7 @@ class AppSettingsRepository(private val dataStore: DataStore<Preferences>) : Clo
              * Custom threshold offsets and status notification settings have been pruned in this revision.
              */
             isSkipSilenceEnabled = preferences[PreferencesKeys.IS_SKIP_SILENCE_ENABLED] ?: false,
+            isVoiceEnhancementEnabled = preferences[PreferencesKeys.IS_VOICE_ENHANCEMENT_ENABLED] ?: false,
             isSleepFadeOutEnabled = preferences[PreferencesKeys.IS_SLEEP_FADE_OUT_ENABLED] ?: true,
             isShakeToResetEnabled = preferences[PreferencesKeys.IS_SHAKE_TO_RESET_ENABLED] ?: true,
             sleepMode = preferences[PreferencesKeys.SLEEP_MODE]
@@ -237,6 +239,16 @@ class AppSettingsRepository(private val dataStore: DataStore<Preferences>) : Clo
       */
     suspend fun updateSkipSilenceEnabled(enabled: Boolean) {
         dataStore.edit { it[PreferencesKeys.IS_SKIP_SILENCE_ENABLED] = enabled }
+    }
+
+    /**
+     * Persists the app-wide voice enhancement switch consumed by PlaybackService.
+     *
+     * Keeping this as DataStore-only state avoids any media-service dependency from the data
+     * module; active playback observes settingsFlow and applies the processor flag at runtime.
+     */
+    suspend fun updateVoiceEnhancementEnabled(enabled: Boolean) {
+        dataStore.edit { it[PreferencesKeys.IS_VOICE_ENHANCEMENT_ENABLED] = enabled }
     }
 
     suspend fun updateSleepFadeOutEnabled(enabled: Boolean) {

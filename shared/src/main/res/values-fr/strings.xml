@@ -290,6 +290,9 @@
     <string name="settings_skip_silence_toggle_title">Ignorer les silences</string>
     <string name="settings_skip_silence_subtitle">Ignorer automatiquement les pauses, respirations
         et silences de fin de chapitre pendant la lecture.</string>
+    <string name="settings_voice_enhancement_title">Amélioration vocale</string>
+    <string name="settings_voice_enhancement_subtitle">Réduit le grondement grave et renforce la
+        présence de la voix pendant la lecture.</string>
     <string name="settings_seek_backward_step_title">Pas de retour</string>
     <string name="settings_seek_backward_step_subtitle">Choisir la durée de recul du bouton de
         retour.</string>

@@ -307,6 +307,9 @@
     <string name="settings_skip_silence_toggle_title">Skip Silent Periods</string>
     <string name="settings_skip_silence_subtitle">Automatically skip narrator pauses, breaths, and
         chapter-tail silence during audiobook playback.</string>
+    <string name="settings_voice_enhancement_title">Voice Enhancement</string>
+    <string name="settings_voice_enhancement_subtitle">Reduce low-end rumble and lift narrator
+        presence during playback.</string>
     <string name="settings_seek_backward_step_title">Rewind Step</string>
     <string name="settings_seek_backward_step_subtitle">Choose how far the rewind button moves
         playback.</string>

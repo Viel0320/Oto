@@ -288,6 +288,9 @@
     <string name="settings_skip_silence_toggle_title">Stille überspringen</string>
     <string name="settings_skip_silence_subtitle">Pausen, Atemzüge und Stille am Kapitelende während
         der Hörbuchwiedergabe automatisch überspringen.</string>
+    <string name="settings_voice_enhancement_title">Stimmenverstärkung</string>
+    <string name="settings_voice_enhancement_subtitle">Reduziert tieffrequentes Dröhnen und hebt die
+        Sprecherstimme während der Wiedergabe hervor.</string>
     <string name="settings_seek_backward_step_title">Rücksprung-Schritt</string>
     <string name="settings_seek_backward_step_subtitle">Wählen, wie weit die Zurück-Taste die
         Wiedergabe verschiebt.</string>

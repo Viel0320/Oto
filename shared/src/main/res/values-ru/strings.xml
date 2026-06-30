@@ -298,6 +298,9 @@
     <string name="settings_skip_silence_toggle_title">Пропускать тишину</string>
     <string name="settings_skip_silence_subtitle">Автоматически пропускать паузы, вдохи и тишину в
         конце главы при воспроизведении аудиокниг.</string>
+    <string name="settings_voice_enhancement_title">Усиление голоса</string>
+    <string name="settings_voice_enhancement_subtitle">Уменьшает низкочастотный гул и делает голос
+        рассказчика заметнее при воспроизведении.</string>
     <string name="settings_seek_backward_step_title">Шаг назад</string>
     <string name="settings_seek_backward_step_subtitle">Выберите, на сколько кнопка назад сдвигает
         воспроизведение.</string>

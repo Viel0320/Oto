@@ -23,6 +23,13 @@ interface AppSettingsCommands {
     suspend fun updateAllowInsecureTls(enabled: Boolean)
     suspend fun updateCleartextTrafficAllowed(enabled: Boolean)
     suspend fun updateSkipSilenceEnabled(enabled: Boolean)
+    /**
+     * Persists whether active playback should apply the narrator voice enhancement processor.
+     *
+     * The command remains a pure settings boundary; PlaybackService observes the resulting
+     * AppSettings value and owns all Media3 processor details.
+     */
+    suspend fun updateVoiceEnhancementEnabled(enabled: Boolean)
     suspend fun updateSleepFadeOutEnabled(enabled: Boolean)
     suspend fun updateShakeToResetEnabled(enabled: Boolean)
     suspend fun updateSleepMode(mode: SleepMode)
