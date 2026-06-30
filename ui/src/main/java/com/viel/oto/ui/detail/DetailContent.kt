@@ -18,9 +18,6 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -76,6 +73,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Stateless L3 UI Skeleton.
@@ -196,7 +194,7 @@ fun DetailContent(
                         navigationIcon = {
                             IconButton(onClick = onBackClick) {
                                 Icon(
-                                    Icons.AutoMirrored.Rounded.ArrowBack,
+                                    OtoIcons.AutoMirrored.Rounded.ArrowBack,
                                     contentDescription = stringResource(R.string.back_content_description)
                                 )
                             }
@@ -205,7 +203,7 @@ fun DetailContent(
                             if (book != null) {
                                 IconButton(onClick = { showActionDialog = true }) {
                                     Icon(
-                                        Icons.Rounded.MoreVert,
+                                        OtoIcons.Rounded.MoreVert,
                                         contentDescription = stringResource(R.string.more_content_description)
                                     )
                                 }

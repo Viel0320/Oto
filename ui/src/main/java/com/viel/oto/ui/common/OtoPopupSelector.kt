@@ -29,8 +29,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -89,6 +87,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import com.viel.oto.ui.common.icons.OtoIcons
 
 // ==========================================
 // Public API
@@ -377,7 +376,7 @@ private fun CollapsedAnchor(
             horizontalArrangement = Arrangement.spacedBy(PopupSpacingBase),
         ) {
             Icon(
-                imageVector = Icons.Rounded.KeyboardArrowDown,
+                imageVector = OtoIcons.Rounded.KeyboardArrowDown,
                 contentDescription = null,
                 modifier = Modifier.size(PopupChevronSize),
                 tint = contentColor,

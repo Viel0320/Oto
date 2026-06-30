@@ -24,8 +24,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -55,6 +53,7 @@ import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.oto.ui.common.theme.OtoTheme
 import com.viel.oto.ui.motion.LocalSharedTransitionScope
 import com.viel.oto.ui.motion.SharedElementKeys
+import com.viel.oto.ui.common.icons.OtoIcons
 
 
 private val HomeListRowMinHeight = 72.dp
@@ -248,7 +247,7 @@ private fun DefaultListTrailingAction(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            Icons.Rounded.PlayArrow,
+            OtoIcons.Rounded.PlayArrow,
             contentDescription = contentDescription,
             tint = tint
         )
@@ -324,7 +323,7 @@ private fun ListCoverSharedSource(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            Icons.Rounded.PlayArrow,
+                            OtoIcons.Rounded.PlayArrow,
                             contentDescription = null,
                             tint = fallbackIconTint
                         )

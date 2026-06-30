@@ -17,9 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,6 +47,7 @@ import com.viel.oto.ui.settings.SettingsTemplateDialog
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import org.koin.androidx.compose.koinViewModel
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Connects the recovery ViewModel to the stateless screen.
@@ -150,7 +148,7 @@ fun DeletedBookRecoveryScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            OtoIcons.AutoMirrored.Rounded.ArrowBack,
                             contentDescription = stringResource(R.string.back_content_description)
                         )
                     }
@@ -247,7 +245,7 @@ private fun DeletedBookRecoveryTrailingAction(
             )
         } else {
             Icon(
-                imageVector = Icons.Rounded.Restore,
+                imageVector = OtoIcons.Rounded.Restore,
                 contentDescription = stringResource(R.string.deleted_book_recovery_restore_action)
             )
         }

@@ -21,11 +21,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -60,6 +55,7 @@ import com.viel.oto.application.library.LibraryReadStatus
 import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import dev.chrisbanes.haze.HazeState
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Reusable payload for audiobook action menus.
@@ -221,7 +217,7 @@ fun AudiobookActionDialog(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Edit,
+                                imageVector = OtoIcons.Rounded.Edit,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
@@ -261,7 +257,7 @@ fun AudiobookActionDialog(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Refresh,
+                            imageVector = OtoIcons.Rounded.Refresh,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurface
                         )
@@ -294,7 +290,7 @@ fun AudiobookActionDialog(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Delete,
+                            imageVector = OtoIcons.Rounded.Delete,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.error
                         )
@@ -335,7 +331,7 @@ fun AudiobookActionDialog(
             sectionSpacing = 0.dp,
             icon = {
                 Icon(
-                    imageVector = Icons.Rounded.Delete,
+                    imageVector = OtoIcons.Rounded.Delete,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier
@@ -582,7 +578,7 @@ private fun AudiobookActionCommandList(
 ) {
     if (onEditBook != null) {
         AudiobookActionCommandRow(
-            icon = Icons.Rounded.Edit,
+            icon = OtoIcons.Rounded.Edit,
             title = stringResource(R.string.edit_book_title),
             subtitle = stringResource(R.string.home_action_edit_subtitle),
             tint = MaterialTheme.colorScheme.onSurface,
@@ -596,7 +592,7 @@ private fun AudiobookActionCommandList(
     }
 
     AudiobookActionCommandRow(
-        icon = Icons.Rounded.Refresh,
+        icon = OtoIcons.Rounded.Refresh,
         title = stringResource(R.string.home_action_regenerate_title),
         subtitle = stringResource(R.string.home_action_regenerate_subtitle),
         tint = MaterialTheme.colorScheme.onSurface,
@@ -609,7 +605,7 @@ private fun AudiobookActionCommandList(
     )
 
     AudiobookActionCommandRow(
-        icon = Icons.Rounded.Delete,
+        icon = OtoIcons.Rounded.Delete,
         title = stringResource(R.string.home_action_remove_title),
         subtitle = stringResource(R.string.home_action_remove_subtitle),
         tint = MaterialTheme.colorScheme.error,
@@ -809,7 +805,7 @@ private fun AudiobookActionCover(
                 )
             } else {
                 Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
+                    imageVector = OtoIcons.Rounded.PlayArrow,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(32.dp)

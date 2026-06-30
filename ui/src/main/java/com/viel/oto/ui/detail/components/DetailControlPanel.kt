@@ -12,12 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Event
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material.icons.rounded.Timelapse
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -47,6 +41,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Renders the detail page's summary chips, cache shortcut, primary playback action, and source path.
@@ -91,20 +86,20 @@ fun DetailControlPanel(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             DetailInfoChip(
-                icon = Icons.Rounded.Event,
+                icon = OtoIcons.Rounded.Event,
                 value = book?.year?.takeIf { it.isNotBlank() } ?: unknownText,
                 glassEffectMode = glassEffectMode,
                 hazeState = hazeState
             )
             DetailInfoChip(
-                icon = Icons.Rounded.Timelapse,
+                icon = OtoIcons.Rounded.Timelapse,
                 value = formatTime(book?.totalDurationMs ?: 0L),
                 glassEffectMode = glassEffectMode,
                 hazeState = hazeState
             )
             if ((book?.totalFileSize ?: 0L) > 0) {
                 DetailInfoChip(
-                    icon = Icons.Rounded.Storage,
+                    icon = OtoIcons.Rounded.Storage,
                     value = formatFileSize(book?.totalFileSize ?: 0L),
                     glassEffectMode = glassEffectMode,
                     hazeState = hazeState
@@ -151,7 +146,7 @@ fun DetailControlPanel(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = if (displayProgress > 0) Icons.Rounded.History else Icons.Rounded.PlayArrow,
+                            imageVector = if (displayProgress > 0) OtoIcons.Rounded.History else OtoIcons.Rounded.PlayArrow,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp)
@@ -190,9 +185,9 @@ fun DetailControlPanel(
                     }
                 ) {
                     Icon(
-                        imageVector = if (!uiState.isAvailable) Icons.Rounded.Storage
-                        else if (displayProgress > 0) Icons.Rounded.History
-                        else Icons.Rounded.PlayArrow,
+                        imageVector = if (!uiState.isAvailable) OtoIcons.Rounded.Storage
+                        else if (displayProgress > 0) OtoIcons.Rounded.History
+                        else OtoIcons.Rounded.PlayArrow,
                         contentDescription = null,
                         modifier = Modifier.size(if (isLandscape) 20.dp else 24.dp)
                     )

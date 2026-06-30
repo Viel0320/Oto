@@ -26,10 +26,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -67,6 +63,7 @@ import com.viel.oto.ui.common.TextPopupItem
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * URL split into the parts the remote-connection forms edit independently.
@@ -725,7 +722,7 @@ private fun RemoteConnectionPageFrame(
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        OtoIcons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = stringResource(R.string.back_content_description)
                     )
                 }
@@ -812,7 +809,7 @@ private fun RemotePasswordField(
         trailingIcon = {
             IconButton(onClick = { passwordVisible = !passwordVisible }) {
                 Icon(
-                    imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    imageVector = if (passwordVisible) OtoIcons.Default.VisibilityOff else OtoIcons.Default.Visibility,
                     contentDescription = null
                 )
             }

@@ -27,8 +27,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -65,6 +63,7 @@ import com.viel.oto.ui.home.components.RecentlyAddedSection
 import com.viel.oto.ui.motion.SharedElementKeys
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Stateless Home Main Content UI.
@@ -163,7 +162,7 @@ fun HomeContent(
                             .size(64.dp)
                     ) {
                         Icon(
-                            Icons.Rounded.Add,
+                            OtoIcons.Rounded.Add,
                             contentDescription = stringResource(R.string.settings_add_library_title),
                             modifier = Modifier.size(32.dp)
                         )

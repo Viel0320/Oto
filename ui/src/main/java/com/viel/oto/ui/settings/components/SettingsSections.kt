@@ -9,33 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.VolumeDown
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Bedtime
-import androidx.compose.material.icons.rounded.BlurOn
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.CloudDownload
-import androidx.compose.material.icons.rounded.CloudUpload
-import androidx.compose.material.icons.rounded.Contrast
-import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.FastForward
-import androidx.compose.material.icons.rounded.FastRewind
-import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.FormatListNumbered
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.RecordVoiceOver
-import androidx.compose.material.icons.rounded.Http
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.NotificationsOff
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Replay
-import androidx.compose.material.icons.rounded.Restore
-import androidx.compose.material.icons.rounded.Security
-import androidx.compose.material.icons.rounded.Translate
-import androidx.compose.material.icons.rounded.Vibration
-import androidx.compose.material.icons.rounded.Widgets
-import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -57,6 +30,7 @@ import com.viel.oto.shared.model.ThemeMode
 import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.oto.ui.settings.appLanguageLabel
 import dev.chrisbanes.haze.HazeState
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * LibraryDirectoriesSection Composable: Renders media library folder locations and sync history statuses.
@@ -92,7 +66,7 @@ fun LibraryDirectoriesSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = if (isWebDavRoot || isAbsRoot) Icons.Rounded.Cloud else Icons.Rounded.FolderOpen,
+                    imageVector = if (isWebDavRoot || isAbsRoot) OtoIcons.Rounded.Cloud else OtoIcons.Rounded.FolderOpen,
                     contentDescription = null,
                     modifier = Modifier.size(24.dp),
                     tint = MaterialTheme.colorScheme.primary
@@ -145,13 +119,13 @@ fun LibraryDirectoriesSection(
         SettingsItem(
             title = stringResource(R.string.settings_add_library_title),
             subtitle = stringResource(R.string.settings_add_library_subtitle),
-            icon = Icons.Rounded.Add,
+            icon = OtoIcons.Rounded.Add,
             onClick = onAddLibraryClick
         )
         SettingsItem(
             title = stringResource(R.string.deleted_book_recovery_title),
             subtitle = stringResource(R.string.deleted_book_recovery_settings_subtitle),
-            icon = Icons.Rounded.Restore,
+            icon = OtoIcons.Rounded.Restore,
             onClick = onDeletedBookRecoveryClick
         )
     }
@@ -177,13 +151,13 @@ fun DownloadCacheSection(
         SettingsItem(
             title = stringResource(R.string.settings_download_management_title),
             subtitle = stringResource(R.string.settings_download_management_subtitle, downloadTaskCount),
-            icon = Icons.Rounded.CloudDownload,
+            icon = OtoIcons.Rounded.CloudDownload,
             onClick = onDownloadManagementClick
         )
         SettingsToggleItem(
             title = stringResource(R.string.settings_download_wifi_only_title),
             subtitle = stringResource(R.string.settings_download_wifi_only_subtitle),
-            icon = Icons.Rounded.Wifi,
+            icon = OtoIcons.Rounded.Wifi,
             checked = isDownloadWifiOnly,
             onCheckedChange = onDownloadWifiOnlyChange
         )
@@ -215,13 +189,13 @@ fun InterfaceSettingsSection(
         SettingsItem(
             title = stringResource(R.string.settings_language_title),
             subtitle = appLanguageLabel(appLanguage),
-            icon = Icons.Rounded.Translate,
+            icon = OtoIcons.Rounded.Translate,
             onClick = onLanguageClick
         )
         SettingsSegmentedThemeModeItem(
             title = stringResource(R.string.settings_theme_mode_title),
             subtitle = stringResource(R.string.settings_theme_mode_subtitle),
-            icon = Icons.Rounded.DarkMode,
+            icon = OtoIcons.Rounded.DarkMode,
             selectedMode = themeMode,
             onModeSelected = onThemeModeChange,
             glassEffectMode = glassEffectMode,
@@ -235,7 +209,7 @@ fun InterfaceSettingsSection(
             } else {
                 stringResource(R.string.settings_dynamic_color_unsupported_subtitle)
             },
-            icon = Icons.Rounded.Palette,
+            icon = OtoIcons.Rounded.Palette,
             checked = isDynamicColorEnabled,
             onCheckedChange = onDynamicColorEnabledChange,
             enabled = isDynamicColorSupported
@@ -243,14 +217,14 @@ fun InterfaceSettingsSection(
         SettingsToggleItem(
             title = stringResource(R.string.settings_amoled_title),
             subtitle = stringResource(R.string.settings_amoled_subtitle),
-            icon = Icons.Rounded.Contrast,
+            icon = OtoIcons.Rounded.Contrast,
             checked = isAmoledEnabled,
             onCheckedChange = onAmoledEnabledChange
         )
         SettingsToggleItem(
             title = stringResource(R.string.settings_haze_effect_title),
             subtitle = stringResource(R.string.settings_haze_effect_subtitle),
-            icon = Icons.Rounded.BlurOn,
+            icon = OtoIcons.Rounded.BlurOn,
             checked = glassEffectMode == GlassEffectMode.Haze,
             onCheckedChange = { isChecked ->
                 val newMode = if (isChecked) GlassEffectMode.Haze else GlassEffectMode.Material
@@ -290,28 +264,28 @@ fun PlaybackBehaviorSection(
         SettingsToggleItem(
             title = stringResource(R.string.chapter_progress_title),
             subtitle = stringResource(R.string.chapter_progress_subtitle),
-            icon = Icons.Rounded.FormatListNumbered,
+            icon = OtoIcons.Rounded.FormatListNumbered,
             checked = isChapterProgressMode,
             onCheckedChange = onChapterProgressModeChange
         )
         SettingsToggleItem(
             title = stringResource(R.string.settings_skip_silence_toggle_title),
             subtitle = stringResource(R.string.settings_skip_silence_subtitle),
-            icon = Icons.Rounded.GraphicEq,
+            icon = OtoIcons.Rounded.GraphicEq,
             checked = isSkipSilenceEnabled,
             onCheckedChange = onSkipSilenceEnabledChange
         )
         SettingsToggleItem(
             title = stringResource(R.string.settings_voice_enhancement_title),
             subtitle = stringResource(R.string.settings_voice_enhancement_subtitle),
-            icon = Icons.Rounded.RecordVoiceOver,
+            icon = OtoIcons.Rounded.RecordVoiceOver,
             checked = isVoiceEnhancementEnabled,
             onCheckedChange = onVoiceEnhancementEnabledChange
         )
         SettingsSegmentedSeekStepItem(
             title = stringResource(R.string.settings_seek_backward_step_title),
             subtitle = stringResource(R.string.settings_seek_backward_step_subtitle),
-            icon = Icons.Rounded.FastRewind,
+            icon = OtoIcons.Rounded.FastRewind,
             selectedStep = playbackSeekStepConfig.backward,
             onStepSelected = onSeekBackwardStepChange,
             glassEffectMode = glassEffectMode,
@@ -320,7 +294,7 @@ fun PlaybackBehaviorSection(
         SettingsSegmentedSeekStepItem(
             title = stringResource(R.string.settings_seek_forward_step_title),
             subtitle = stringResource(R.string.settings_seek_forward_step_subtitle),
-            icon = Icons.Rounded.FastForward,
+            icon = OtoIcons.Rounded.FastForward,
             selectedStep = playbackSeekStepConfig.forward,
             onStepSelected = onSeekForwardStepChange,
             glassEffectMode = glassEffectMode,
@@ -331,7 +305,7 @@ fun PlaybackBehaviorSection(
         SettingsSliderItem(
             title = stringResource(R.string.settings_auto_rewind_toggle_title),
             subtitle = stringResource(R.string.settings_auto_rewind_subtitle),
-            icon = Icons.Rounded.Replay,
+            icon = OtoIcons.Rounded.Replay,
             value = autoRewindSeconds.toFloat(),
             onValueChange = { onAutoRewindSecondsChange(it.toInt()) },
             valueRange = 0f..30f,
@@ -349,14 +323,14 @@ fun PlaybackBehaviorSection(
         SettingsToggleItem(
             title = stringResource(R.string.settings_notification_avoidance_title),
             subtitle = stringResource(R.string.settings_notification_avoidance_subtitle),
-            icon = Icons.Rounded.NotificationsOff,
+            icon = OtoIcons.Rounded.NotificationsOff,
             checked = isNotificationAvoidanceEnabled,
             onCheckedChange = onNotificationAvoidanceEnabledChange
         )
         SettingsItem(
             title = stringResource(R.string.settings_add_widget_title),
             subtitle = stringResource(R.string.settings_add_widget_subtitle),
-            icon = Icons.Rounded.Widgets,
+            icon = OtoIcons.Rounded.Widgets,
             onClick = onAddWidgetClick
         )
     }
@@ -379,14 +353,14 @@ fun NetworkSecuritySection(
         SettingsToggleItem(
             title = stringResource(R.string.settings_cleartext_title),
             subtitle = stringResource(R.string.settings_cleartext_subtitle),
-            icon = Icons.Rounded.Http,
+            icon = OtoIcons.Rounded.Http,
             checked = isCleartextTrafficAllowed,
             onCheckedChange = onCleartextTrafficAllowedChange
         )
         SettingsToggleItem(
             title = stringResource(R.string.settings_insecure_tls_title),
             subtitle = stringResource(R.string.settings_insecure_tls_subtitle),
-            icon = Icons.Rounded.Security,
+            icon = OtoIcons.Rounded.Security,
             checked = isAllowInsecureTls,
             onCheckedChange = onAllowInsecureTlsChange
         )
@@ -414,7 +388,7 @@ fun SleepTimerSection(
         SettingsSegmentedSleepModeItem(
             title = stringResource(R.string.settings_sleep_mode_title),
             subtitle = stringResource(R.string.settings_sleep_mode_subtitle),
-            icon = Icons.Rounded.Bedtime,
+            icon = OtoIcons.Rounded.Bedtime,
             selectedMode = sleepMode,
             onModeSelected = onSleepModeChange,
             glassEffectMode = glassEffectMode,
@@ -423,14 +397,14 @@ fun SleepTimerSection(
         SettingsToggleItem(
             title = stringResource(R.string.settings_sleep_fade_title),
             subtitle = stringResource(R.string.settings_sleep_fade_subtitle),
-            icon = Icons.AutoMirrored.Rounded.VolumeDown,
+            icon = OtoIcons.AutoMirrored.Rounded.VolumeDown,
             checked = isSleepFadeOutEnabled,
             onCheckedChange = onSleepFadeOutEnabledChange
         )
         SettingsToggleItem(
             title = stringResource(R.string.settings_shake_reset_title),
             subtitle = stringResource(R.string.settings_shake_reset_subtitle),
-            icon = Icons.Rounded.Vibration,
+            icon = OtoIcons.Rounded.Vibration,
             checked = isShakeToResetEnabled,
             onCheckedChange = onShakeToResetEnabledChange
         )
@@ -450,7 +424,7 @@ fun AboutSection(
         SettingsItem(
             title = stringResource(R.string.settings_open_source_license_title),
             subtitle = stringResource(R.string.settings_open_source_license_subtitle),
-            icon = Icons.Rounded.Info,
+            icon = OtoIcons.Rounded.Info,
             onClick = onAboutLibrariesClick
         )
     }
@@ -467,13 +441,13 @@ fun BackupRestoreSection(
         SettingsItem(
             title = stringResource(R.string.settings_export_data_title),
             subtitle = stringResource(R.string.settings_export_data_subtitle),
-            icon = Icons.Rounded.CloudUpload,
+            icon = OtoIcons.Rounded.CloudUpload,
             onClick = onExportClick
         )
         SettingsItem(
             title = stringResource(R.string.settings_import_data_title),
             subtitle = stringResource(R.string.settings_import_data_subtitle),
-            icon = Icons.Rounded.CloudDownload,
+            icon = OtoIcons.Rounded.CloudDownload,
             onClick = onImportClick
         )
     }

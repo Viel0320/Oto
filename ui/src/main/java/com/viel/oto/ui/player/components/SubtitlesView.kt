@@ -14,10 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Remove
-import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +40,7 @@ import com.viel.oto.media.subtitle.SubtitleLine
 import com.viel.oto.ui.common.theme.OtoTheme
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
+import com.viel.oto.ui.common.icons.OtoIcons
 
 private const val SUBTITLE_SYNC_STEP_MS = 250L
 
@@ -253,7 +250,7 @@ private fun SubtitleSyncControls(
             controlsActive = true
             onAdjustSubtitleSync(SUBTITLE_SYNC_STEP_MS)
         }) {
-            Icon(Icons.Rounded.Add, contentDescription = advanceText)
+            Icon(OtoIcons.Rounded.Add, contentDescription = advanceText)
         }
         Text(
             text = offsetText,
@@ -266,13 +263,13 @@ private fun SubtitleSyncControls(
             controlsActive = true
             onResetSubtitleSync()
         }) {
-            Icon(Icons.Rounded.RestartAlt, contentDescription = resetText)
+            Icon(OtoIcons.Rounded.RestartAlt, contentDescription = resetText)
         }
         IconButton(onClick = {
             controlsActive = true
             onAdjustSubtitleSync(-SUBTITLE_SYNC_STEP_MS)
         }) {
-            Icon(Icons.Rounded.Remove, contentDescription = delayText)
+            Icon(OtoIcons.Rounded.Remove, contentDescription = delayText)
         }
     }
 }

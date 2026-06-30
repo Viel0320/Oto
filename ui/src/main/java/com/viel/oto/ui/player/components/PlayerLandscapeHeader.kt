@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,6 +32,7 @@ import com.viel.oto.ui.player.BookMetadataState
 import com.viel.oto.ui.player.PlayerActions
 import com.viel.oto.ui.settings.PlayerSettingsState
 import dev.chrisbanes.haze.HazeState
+import com.viel.oto.ui.common.icons.OtoIcons
 
 @Composable
 fun PlayerLandscapeHeader(
@@ -77,7 +76,7 @@ fun PlayerLandscapeHeader(
         Box {
             IconButton(onClick = { showLandscapeMenu = true }) {
                 Icon(
-                    imageVector = Icons.Rounded.MoreVert,
+                    imageVector = OtoIcons.Rounded.MoreVert,
                     contentDescription = stringResource(R.string.more_content_description),
                     tint = MaterialTheme.colorScheme.onSurface
                 )

@@ -5,8 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Event
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,6 +43,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Locks compact controls and metadata chips under constrained layouts.
@@ -138,7 +137,7 @@ class StableBoundsAccessibilityTest {
                             .androidxComposeUiTestTag(rootTag)
                     ) {
                         DetailInfoChip(
-                            icon = Icons.Rounded.Event,
+                            icon = OtoIcons.Rounded.Event,
                             value = "Very long localized metadata value 2026",
                             modifier = Modifier
                                 .width(narrowWidth)

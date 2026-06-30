@@ -3,9 +3,6 @@ package com.viel.oto.ui.player.components
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -37,6 +34,7 @@ import com.viel.oto.ui.common.BlurDropdownMenu
 import com.viel.oto.ui.common.formatPeopleSubtitle
 import com.viel.oto.ui.common.theme.OtoTheme
 import dev.chrisbanes.haze.HazeState
+import com.viel.oto.ui.common.icons.OtoIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,7 +52,7 @@ fun PlayerAppBar(
     containerColor: Color = Color.Transparent,
     contentColor: Color = LocalContentColor.current
 ) {
-    val navIcon = navigationIcon ?: Icons.Rounded.KeyboardArrowDown
+    val navIcon = navigationIcon ?: OtoIcons.Rounded.KeyboardArrowDown
     var showMenu by remember { mutableStateOf(false) }
     val unknownText = stringResource(R.string.common_unknown)
     val showProgressText = stringResource(
@@ -99,7 +97,7 @@ fun PlayerAppBar(
             Box {
                 IconButton(onClick = { showMenu = true }) {
                     Icon(
-                        painter = rememberVectorPainter(Icons.Rounded.MoreVert),
+                        painter = rememberVectorPainter(OtoIcons.Rounded.MoreVert),
                         contentDescription = stringResource(R.string.more_content_description),
                         tint = MaterialTheme.colorScheme.onSurface
                     )

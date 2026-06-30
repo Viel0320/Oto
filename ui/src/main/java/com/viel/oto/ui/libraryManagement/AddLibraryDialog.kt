@@ -8,10 +8,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,6 +22,7 @@ import com.viel.oto.shared.R
 import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.OtoDialogTemplate
 import dev.chrisbanes.haze.HazeState
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * App-level "add library" source picker.
@@ -55,9 +52,9 @@ fun AddLibrarySourceDialog(
         },
         body = {
             Column(modifier = Modifier.fillMaxWidth()) {
-                AddLibrarySourceRow(Icons.Rounded.FolderOpen, R.string.settings_library_type_local_saf, onPickSaf)
-                AddLibrarySourceRow(Icons.Rounded.Cloud, R.string.settings_library_type_webdav, onPickWebDav)
-                AddLibrarySourceRow(Icons.Rounded.Sync, R.string.settings_library_type_abs, onPickAbs)
+                AddLibrarySourceRow(OtoIcons.Rounded.FolderOpen, R.string.settings_library_type_local_saf, onPickSaf)
+                AddLibrarySourceRow(OtoIcons.Rounded.Cloud, R.string.settings_library_type_webdav, onPickWebDav)
+                AddLibrarySourceRow(OtoIcons.Rounded.Sync, R.string.settings_library_type_abs, onPickAbs)
             }
         },
         actions = {

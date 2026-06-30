@@ -16,14 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Error
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -60,6 +52,7 @@ import com.viel.oto.ui.common.OtoGlassTopBar
 import com.viel.oto.ui.settings.SettingsTemplateDialog
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Settings-hosted manual cache task list.
@@ -139,7 +132,7 @@ fun DownloadManagementScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            OtoIcons.AutoMirrored.Rounded.ArrowBack,
                             contentDescription = stringResource(R.string.back_content_description)
                         )
                     }
@@ -148,7 +141,7 @@ fun DownloadManagementScreen(
                     if (tasks.isNotEmpty()) {
                         IconButton(onClick = { showDeleteAllConfirm = true }) {
                             Icon(
-                                Icons.Rounded.Delete,
+                                OtoIcons.Rounded.Delete,
                                 contentDescription = stringResource(R.string.download_management_delete_all_action)
                             )
                         }
@@ -335,7 +328,7 @@ private fun DownloadTaskActions(
         BookCacheState.DOWNLOADING -> {
             IconButton(onClick = { onPauseDownload(task.bookId) }) {
                 Icon(
-                    Icons.Rounded.Pause,
+                    OtoIcons.Rounded.Pause,
                     contentDescription = stringResource(R.string.detail_download_pause_action)
                 )
             }
@@ -343,7 +336,7 @@ private fun DownloadTaskActions(
         BookCacheState.PAUSED -> {
             IconButton(onClick = { onResumeDownload(task.bookId) }) {
                 Icon(
-                    Icons.Rounded.PlayArrow,
+                    OtoIcons.Rounded.PlayArrow,
                     contentDescription = stringResource(R.string.detail_download_resume_action)
                 )
             }
@@ -351,7 +344,7 @@ private fun DownloadTaskActions(
         BookCacheState.FAILED -> {
             IconButton(onClick = { onRetryDownload(task.bookId) }) {
                 Icon(
-                    Icons.Rounded.Replay,
+                    OtoIcons.Rounded.Replay,
                     contentDescription = stringResource(R.string.detail_download_retry_action)
                 )
             }
@@ -362,7 +355,7 @@ private fun DownloadTaskActions(
     }
     IconButton(onClick = { onDeleteRequest(task) }) {
         Icon(
-            Icons.Rounded.Delete,
+            OtoIcons.Rounded.Delete,
             contentDescription = stringResource(R.string.detail_download_delete_action),
             tint = MaterialTheme.colorScheme.error
         )
@@ -405,15 +398,16 @@ private fun BookCacheStatus.labelRes(): Int =
         BookCacheState.FAILED -> R.string.download_management_status_failed
     }
 
+@Composable
 private fun BookCacheStatus.statusIcon() =
     when (state) {
-        BookCacheState.COMPLETED -> Icons.Rounded.CheckCircle
-        BookCacheState.PAUSED -> Icons.Rounded.Pause
-        BookCacheState.FAILED -> Icons.Rounded.Error
+        BookCacheState.COMPLETED -> OtoIcons.Rounded.CheckCircle
+        BookCacheState.PAUSED -> OtoIcons.Rounded.Pause
+        BookCacheState.FAILED -> OtoIcons.Rounded.Error
         BookCacheState.NONE,
         BookCacheState.QUEUED,
         BookCacheState.DOWNLOADING,
-        BookCacheState.LOCAL -> Icons.Rounded.CheckCircle
+        BookCacheState.LOCAL -> OtoIcons.Rounded.CheckCircle
     }
 
 private fun BookCacheStatus.statusContentDescriptionRes(): Int = labelRes()

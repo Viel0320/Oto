@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,6 +35,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Custom homepage filter item with Material-like sizing and Haze support.
@@ -126,7 +125,7 @@ fun OtoFilterChip(
             ) {
                 if (selected) {
                     Icon(
-                        imageVector = Icons.Rounded.Check,
+                        imageVector = OtoIcons.Rounded.Check,
                         contentDescription = null,
                         modifier = Modifier.size(OtoFilterChipLeadingIconSize),
                         tint = colors.contentColor

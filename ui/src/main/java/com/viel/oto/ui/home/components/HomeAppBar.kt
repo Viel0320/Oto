@@ -1,10 +1,6 @@
 package com.viel.oto.ui.home.components
 
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.ViewModule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -19,6 +15,7 @@ import com.viel.oto.shared.R
 import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.OtoGlassTopBar
 import dev.chrisbanes.haze.HazeState
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Overlay header rendering for the library home screen.
@@ -65,7 +62,7 @@ fun HomeAppBar(
                 onClick = onNavigateToSearch,
             ) {
                 Icon(
-                    Icons.Rounded.Search,
+                    OtoIcons.Rounded.Search,
                     contentDescription = stringResource(R.string.search_content_description)
                 )
             }
@@ -75,7 +72,7 @@ fun HomeAppBar(
                 onClick = onHomeViewOptionsClick
             ) {
                 Icon(
-                    Icons.Rounded.ViewModule,
+                    OtoIcons.Rounded.ViewModule,
                     contentDescription = homeViewOptionsContentDescription
                 )
             }
@@ -83,7 +80,7 @@ fun HomeAppBar(
                 onClick = onNavigateToSettings,
             ) {
                 Icon(
-                    Icons.Rounded.Tune,
+                    OtoIcons.Rounded.Tune,
                     contentDescription = stringResource(R.string.settings_title)
                 )
             }

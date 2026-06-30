@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +41,7 @@ import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.OtoDialogTemplate
 import com.viel.oto.ui.common.theme.OtoTheme
 import dev.chrisbanes.haze.HazeState
+import com.viel.oto.ui.common.icons.OtoIcons
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -204,7 +203,7 @@ fun BookmarkListView(
 
                 IconButton(onClick = { onRequestDelete(bookmark) }) {
                     Icon(
-                        Icons.Rounded.Delete,
+                        OtoIcons.Rounded.Delete,
                         contentDescription = stringResource(R.string.bookmark_delete_title),
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(20.dp)

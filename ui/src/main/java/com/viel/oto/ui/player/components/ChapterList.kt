@@ -15,8 +15,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -65,6 +63,7 @@ import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.UUID
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Owns the stateful shell for the chapter list sheet.
@@ -300,7 +299,7 @@ fun ChapterListContent(
                         trailingContent = {
                             if (isMissing) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Warning,
+                                    imageVector = OtoIcons.Rounded.Warning,
                                     contentDescription = stringResource(R.string.chapter_file_unavailable_description),
                                     tint = MaterialTheme.colorScheme.error
                                 )

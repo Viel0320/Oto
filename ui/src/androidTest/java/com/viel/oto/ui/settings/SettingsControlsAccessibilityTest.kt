@@ -1,8 +1,6 @@
 package com.viel.oto.ui.settings
 
 import androidx.activity.ComponentActivity
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.LinearScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.state.ToggleableState
@@ -22,6 +20,7 @@ import com.viel.oto.ui.settings.components.SettingsToggleItem
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Locks Settings row semantics for TalkBack.
@@ -47,7 +46,7 @@ class SettingsControlsAccessibilityTest {
                 SettingsToggleItem(
                     title = title,
                     subtitle = subtitle,
-                    icon = Icons.Rounded.LinearScale,
+                    icon = OtoIcons.Rounded.LinearScale,
                     checked = true,
                     onCheckedChange = {}
                 )
@@ -75,7 +74,7 @@ class SettingsControlsAccessibilityTest {
                 SettingsSegmentedSeekStepItem(
                     title = title,
                     subtitle = subtitle,
-                    icon = Icons.Rounded.LinearScale,
+                    icon = OtoIcons.Rounded.LinearScale,
                     selectedStep = SeekStepSeconds.Ten,
                     onStepSelected = {}
                 )

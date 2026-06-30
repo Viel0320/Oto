@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -42,6 +40,7 @@ import com.viel.oto.ui.motion.LocalMini2PlayerTargetScope
 import com.viel.oto.ui.motion.LocalSharedTransitionScope
 import com.viel.oto.ui.motion.Mini2PlayerSourceCover
 import com.viel.oto.ui.motion.SharedElementKeys
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Adaptive player cover component.
@@ -363,7 +362,7 @@ private fun CoverArtworkLayer(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.PlayArrow,
+                imageVector = OtoIcons.Rounded.PlayArrow,
                 contentDescription = null,
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)

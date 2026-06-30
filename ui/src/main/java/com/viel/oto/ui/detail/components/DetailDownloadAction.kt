@@ -7,11 +7,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.CloudDownload
-import androidx.compose.material.icons.rounded.Error
-import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularWavyProgressIndicator
@@ -36,6 +31,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Render one compact manual-cache status control.
@@ -53,13 +49,13 @@ fun DetailDownloadAction(
     modifier: Modifier = Modifier
 ) {
     val icon = when (cacheStatus.state) {
-        BookCacheState.COMPLETED -> Icons.Rounded.CheckCircle
-        BookCacheState.PAUSED -> Icons.Rounded.Pause
-        BookCacheState.FAILED -> Icons.Rounded.Error
+        BookCacheState.COMPLETED -> OtoIcons.Rounded.CheckCircle
+        BookCacheState.PAUSED -> OtoIcons.Rounded.Pause
+        BookCacheState.FAILED -> OtoIcons.Rounded.Error
         BookCacheState.NONE,
         BookCacheState.QUEUED,
         BookCacheState.DOWNLOADING,
-        BookCacheState.LOCAL -> Icons.Rounded.CloudDownload
+        BookCacheState.LOCAL -> OtoIcons.Rounded.CloudDownload
     }
     val description = when (cacheStatus.state) {
         BookCacheState.NONE -> R.string.detail_download_action_none

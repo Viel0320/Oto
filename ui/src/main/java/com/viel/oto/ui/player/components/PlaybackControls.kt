@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,6 +45,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Renders explicit playback transport controls.
@@ -102,7 +100,7 @@ fun PlaybackControls(
     ) {
         IconButton(onClick = actions.onPreviousChapter, modifier = Modifier.size(56.dp)) {
             Icon(
-                imageVector = Icons.Rounded.SkipPrevious,
+                imageVector = OtoIcons.Rounded.SkipPrevious,
                 contentDescription = previousChapterContentDescription,
                 modifier = Modifier.size(32.dp)
             )
@@ -177,7 +175,7 @@ fun PlaybackControls(
 
         IconButton(onClick = actions.onNextChapter, modifier = Modifier.size(56.dp)) {
             Icon(
-                imageVector = Icons.Rounded.SkipNext,
+                imageVector = OtoIcons.Rounded.SkipNext,
                 contentDescription = nextChapterContentDescription,
                 modifier = Modifier.size(32.dp)
             )
@@ -191,7 +189,7 @@ fun PlaybackControls(
  * The single `avd_play_pause` asset starts as the play triangle and morphs into
  * the pause bars, so [isPlaying] simply drives `atEnd`: false shows play, true
  * morphs to pause, and toggling reverses the same animation instead of swapping
- * two static icons. The asset is white fill+stroke, so the active [tint] is
+ * two static vector icons. The asset is white fill+stroke, so the active [tint] is
  * applied at the call site to match each render branch (primary on glass,
  * computed contentColor on the filled button).
  */

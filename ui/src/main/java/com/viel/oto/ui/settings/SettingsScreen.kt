@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -60,6 +58,7 @@ import com.viel.oto.ui.settings.components.SectionsColumns
 import com.viel.oto.ui.settings.components.SleepTimerSection
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * SettingsScreen Composable: Defines the top-level settings controller view, handling local inputs, dialog visibility, and adaptive setting sections.
@@ -257,7 +256,7 @@ fun SettingsScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            OtoIcons.AutoMirrored.Rounded.ArrowBack,
                             contentDescription = stringResource(R.string.back_content_description)
                         )
                     }

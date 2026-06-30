@@ -8,10 +8,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +25,7 @@ import com.viel.oto.application.library.settings.SettingsRootItem
 import com.viel.oto.shared.model.GlassEffectMode
 import com.viel.oto.ui.common.OtoDialogTemplate
 import dev.chrisbanes.haze.HazeState
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * App-level actions menu for a library root (edit / sync or rescan / delete).
@@ -61,7 +58,7 @@ fun LibraryRootActionsDialog(
         body = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 RootActionRow(
-                    icon = Icons.Rounded.Info,
+                    icon = OtoIcons.Rounded.Info,
                     label = if (root.isSafRoot) {
                         R.string.settings_root_action_relocate_saf
                     } else {
@@ -73,7 +70,7 @@ fun LibraryRootActionsDialog(
                     }
                 )
                 RootActionRow(
-                    icon = Icons.Rounded.Refresh,
+                    icon = OtoIcons.Rounded.Refresh,
                     label = if (root.isAbsRoot) {
                         R.string.settings_root_action_sync
                     } else {
@@ -85,7 +82,7 @@ fun LibraryRootActionsDialog(
                     }
                 )
                 RootActionRow(
-                    icon = Icons.Rounded.Delete,
+                    icon = OtoIcons.Rounded.Delete,
                     label = R.string.settings_root_action_remove,
                     destructive = true,
                     onClick = { onRequestDelete(root) }

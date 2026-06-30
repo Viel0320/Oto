@@ -21,8 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -61,6 +59,7 @@ import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.oto.ui.common.icons.OtoIcons
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalSharedTransitionApi::class,
     ExperimentalHazeMaterialsApi::class
@@ -233,7 +232,7 @@ private fun RecentCoverSharedSource(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    Icons.Rounded.PlayArrow,
+                                    OtoIcons.Rounded.PlayArrow,
                                     contentDescription = null,
                                     modifier = Modifier.size(48.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)

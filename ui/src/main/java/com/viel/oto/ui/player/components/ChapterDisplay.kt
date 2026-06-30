@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.List
-import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +36,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.oto.ui.common.icons.OtoIcons
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -88,7 +86,7 @@ fun ChapterDisplay(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.List,
+                        imageVector = OtoIcons.AutoMirrored.Rounded.List,
                         contentDescription = null,
                         modifier = Modifier.size(SuggestionChipDefaults.IconSize),
                     )
@@ -114,7 +112,7 @@ fun ChapterDisplay(
                 },
                 icon = {
                     Icon(
-                        Icons.AutoMirrored.Rounded.List,
+                        OtoIcons.AutoMirrored.Rounded.List,
                         contentDescription = null,
                         modifier = Modifier.size(SuggestionChipDefaults.IconSize)
                     )
@@ -131,7 +129,7 @@ fun ChapterDisplay(
             onClick = onBookmarkClick,
             modifier = Modifier.padding(start = 16.dp)
         ) {
-            Icon(Icons.Rounded.BookmarkAdd, contentDescription = addBookmarkContentDescription)
+            Icon(OtoIcons.Rounded.BookmarkAdd, contentDescription = addBookmarkContentDescription)
         }
     }
 }

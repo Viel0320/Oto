@@ -21,11 +21,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Clear
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,6 +66,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Stateless search screen adapter.
@@ -231,7 +227,7 @@ fun SearchContent(
                                 modifier = Modifier.padding(start = 4.dp)
                             ) {
                                 Icon(
-                                    Icons.AutoMirrored.Rounded.ArrowBack,
+                                    OtoIcons.AutoMirrored.Rounded.ArrowBack,
                                     contentDescription = backContentDescription,
                                     tint = MaterialTheme.colorScheme.onSurface
                                 )
@@ -244,7 +240,7 @@ fun SearchContent(
                                     modifier = Modifier.padding(end = 4.dp)
                                 ) {
                                     Icon(
-                                        Icons.Rounded.Clear,
+                                        OtoIcons.Rounded.Clear,
                                         contentDescription = clearContentDescription,
                                         tint = MaterialTheme.colorScheme.onSurface
                                     )
@@ -343,7 +339,7 @@ fun SearchContent(
                                     },
                                     leadingContent = {
                                         Icon(
-                                            Icons.Rounded.History,
+                                            OtoIcons.Rounded.History,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -351,7 +347,7 @@ fun SearchContent(
                                     trailingContent = {
                                         IconButton(onClick = { onDeleteHistory(history) }) {
                                             Icon(
-                                                Icons.Rounded.Clear,
+                                                OtoIcons.Rounded.Clear,
                                                 contentDescription = removeHistoryContentDescription,
                                                 modifier = Modifier.size(18.dp)
                                             )
@@ -434,7 +430,7 @@ fun SearchContent(
                                     },
                                     leadingContent = {
                                         Icon(
-                                            Icons.Rounded.Search,
+                                            OtoIcons.Rounded.Search,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary
                                         )

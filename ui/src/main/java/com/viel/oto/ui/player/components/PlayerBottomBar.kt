@@ -22,9 +22,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Snooze
-import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -55,6 +52,7 @@ import com.viel.oto.ui.common.layout.LocalAppWindowSizeClass
 import com.viel.oto.ui.common.theme.OtoTheme
 import com.viel.oto.ui.player.PlaybackControlActions
 import com.viel.oto.ui.player.PlayerScreenMode
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Slot-based bottom bar scaffold for the player screen.
@@ -259,7 +257,7 @@ private fun PlayerSpeedBottomButton(
     ) {
         if (playbackSpeed == 1.0f && !isSpeedManualMode) {
             Icon(
-                Icons.Rounded.Speed,
+                OtoIcons.Rounded.Speed,
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),
                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f)
@@ -302,7 +300,7 @@ private fun PlayerSleepTimerBottomButton(
     ) {
         if (selectedSleepTimer == 0) {
             Icon(
-                Icons.Rounded.Snooze,
+                OtoIcons.Rounded.Snooze,
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),
                 tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f)

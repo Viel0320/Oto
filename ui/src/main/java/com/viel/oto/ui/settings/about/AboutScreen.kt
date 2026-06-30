@@ -29,10 +29,6 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -79,6 +75,7 @@ import com.viel.oto.ui.common.theme.OtoTheme
 import com.viel.oto.ui.settings.components.SectionsColumns
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Generated open-source licenses view.
@@ -163,7 +160,7 @@ fun AboutLibrariesScreen(
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        imageVector = OtoIcons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = stringResource(R.string.back_content_description)
                     )
                 }
@@ -263,7 +260,7 @@ private fun BrandHeaderCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Info,
+                    imageVector = OtoIcons.Rounded.Info,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(44.dp)
@@ -477,7 +474,7 @@ private fun GeneratedLibraryCard(
                             )
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                                imageVector = OtoIcons.AutoMirrored.Rounded.OpenInNew,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp)
                             )

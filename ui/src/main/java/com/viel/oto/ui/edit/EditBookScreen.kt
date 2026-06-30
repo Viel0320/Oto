@@ -25,10 +25,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -80,6 +76,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import com.viel.oto.ui.common.icons.OtoIcons
 
 /**
  * Edit Book Screen: Stateless Composable layout for modification of audiobook metadata details.
@@ -224,7 +221,7 @@ fun EditBookScreen(
                                 modifier = Modifier
                             ) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                                    imageVector = OtoIcons.AutoMirrored.Rounded.ArrowBack,
                                     contentDescription = stringResource(R.string.back_content_description)
                                 )
                             }
@@ -370,7 +367,7 @@ fun EditBookScreen(
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Add,
+                                    imageVector = OtoIcons.Rounded.Add,
                                     contentDescription = stringResource(R.string.edit_book_change_cover)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -422,7 +419,7 @@ fun EditBookScreen(
                                     horizontalArrangement = Arrangement.Center
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Rounded.Save,
+                                        imageVector = OtoIcons.Rounded.Save,
                                         contentDescription = stringResource(R.string.action_save)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -460,7 +457,7 @@ fun EditBookScreen(
                                     horizontalArrangement = Arrangement.Center
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Rounded.Save,
+                                        imageVector = OtoIcons.Rounded.Save,
                                         contentDescription = stringResource(R.string.action_save),
                                         tint = MaterialTheme.colorScheme.onPrimary
                                     )
