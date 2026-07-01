@@ -45,21 +45,30 @@ jobs:
         shell: pwsh
         run: ./.github/scripts/release-workflow-meta-check.ps1
 
-  build-verify:
-    name: Build And Verify Release
+  source-ref-gate:
+    name: Source Ref Gate
     runs-on: ubuntu-latest
     needs: workflow-meta-check
     permissions:
       contents: read
     outputs:
-      publish_authorized: ${{ steps.verify.outputs.publish_authorized }}
+      release_date: ${{ steps.release_env.outputs.release_date }}
+      channel: ${{ steps.release_env.outputs.channel }}
     steps:
-      - name: Source Ref Gate
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Run Checkout Token Gate
         shell: pwsh
-        run: |
-          if ($env:GITHUB_REF -ne "refs/heads/main" -and $env:GITHUB_REF -ne "refs/heads/master") {
-            throw "Release publishing is only allowed from refs/heads/main or refs/heads/master. Current ref: $env:GITHUB_REF"
-          }
+        run: ./.github/scripts/release-checkout-token-gate.ps1
+
+      - name: Run Source Ref Gate
+        shell: pwsh
+        run: ./.github/scripts/release-source-ref-gate.ps1
 
       - name: Capture Release Environment
         id: release_env
@@ -71,12 +80,25 @@ jobs:
           "release_date=$releaseDate" >> $env:GITHUB_OUTPUT
           "channel=$channel" >> $env:GITHUB_OUTPUT
 
+  release-build:
+    name: Build Signed Release APK
+    runs-on: ubuntu-latest
+    needs:
+      - workflow-meta-check
+      - source-ref-gate
+    permissions:
+      contents: read
+    steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 0
           fetch-tags: true
+
+      - name: Run Checkout Token Gate
+        shell: pwsh
+        run: ./.github/scripts/release-checkout-token-gate.ps1
 
       - name: Set Up JDK 21
         uses: actions/setup-java@v4
@@ -85,43 +107,377 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      - name: Build, Verify, And Stage Release
-        id: verify
+      - name: Build Signed Release APK
         shell: pwsh
         env:
-          GH_TOKEN: ${{ github.token }}
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          SIGNING_CERTIFICATE_SHA256: ${{ vars.SIGNING_CERTIFICATE_SHA256 }}
-          RELEASE_CHANNEL: ${{ steps.release_env.outputs.channel }}
-          RELEASE_PUBLISH: ${{ inputs.publish }}
-          RELEASE_PRERELEASE: ${{ inputs.prerelease }}
-          RELEASE_MANUAL_CHANGELOG: ${{ inputs.manual_changelog }}
-          RELEASE_HIGHLIGHTS: ${{ inputs.highlights }}
-          RELEASE_VERSION_FLOOR_OVERRIDE: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE }}
-          RELEASE_VERSION_FLOOR_OVERRIDE_IGNORED_TAG: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE_IGNORED_TAG }}
-          RELEASE_VERSION_FLOOR_OVERRIDE_REASON: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE_REASON }}
-          OTO_RELEASE_DATE: ${{ steps.release_env.outputs.release_date }}
-        run: ./.github/scripts/release-build-verify.ps1
+          OTO_RELEASE_DATE: ${{ needs.source-ref-gate.outputs.release_date }}
+        run: |
+          $requiredSecrets = @(
+            "KEYSTORE_BASE64",
+            "KEYSTORE_PASSWORD",
+            "KEY_ALIAS",
+            "KEY_PASSWORD"
+          )
+          foreach ($secretName in $requiredSecrets) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($secretName))) {
+              throw "Missing required release signing secret: $secretName"
+            }
+          }
 
-      - name: Upload Publish Handoff Artifact
-        if: ${{ steps.verify.outputs.publish_authorized == 'true' }}
+          $keystorePath = Join-Path $env:RUNNER_TEMP "release-ci.jks"
+          [IO.File]::WriteAllBytes($keystorePath, [Convert]::FromBase64String($env:KEYSTORE_BASE64))
+          try {
+            $env:KEYSTORE_FILE = $keystorePath
+            $env:OTO_REQUIRE_RELEASE_SIGNING = "true"
+            $env:OTO_CI_RELEASE_BUILD = "true"
+            bash ./gradlew assembleRelease
+            if ($LASTEXITCODE -ne 0) {
+              throw "Gradle release build failed."
+            }
+          } finally {
+            if (Test-Path -LiteralPath $keystorePath) {
+              Remove-Item -LiteralPath $keystorePath -Force
+            }
+          }
+
+      - name: Upload Raw Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: oto-release-publish-handoff
-          path: ${{ steps.verify.outputs.handoff_dir }}
+          name: oto-release-apk-raw
+          path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 1
 
-  publish:
-    name: Publish Verified Release
+  apk-file-gate:
+    name: APK File Gate
     runs-on: ubuntu-latest
-    needs: build-verify
-    if: ${{ needs.build-verify.outputs.publish_authorized == 'true' }}
+    needs: release-build
     permissions:
-      contents: write
+      contents: read
+    steps:
+      - name: Checkout Scripts
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Download Raw Release APK Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-apk-raw
+          path: ${{ runner.temp }}/oto-release-apk-raw
+
+      - name: Run APK File Gate
+        id: apk_file
+        shell: pwsh
+        env:
+          RELEASE_APK_INPUT_DIR: ${{ runner.temp }}/oto-release-apk-raw
+          RELEASE_APK_OUTPUT_DIR: ${{ runner.temp }}/oto-release-apk
+        run: ./.github/scripts/release-apk-file-gate.ps1
+
+      - name: Upload Normalized Release APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oto-release-apk
+          path: ${{ runner.temp }}/oto-release-apk/release.apk
+          if-no-files-found: error
+          retention-days: 1
+
+  apk-metadata-gate:
+    name: APK Metadata Gate
+    runs-on: ubuntu-latest
+    needs: apk-file-gate
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Scripts
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Set Up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set Up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android Build Tools
+        shell: pwsh
+        run: sdkmanager "build-tools;36.0.0" "platforms;android-36"
+
+      - name: Download Release APK Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-apk
+          path: ${{ runner.temp }}/oto-release-apk
+
+      - name: Run APK Metadata Gate
+        shell: pwsh
+        env:
+          RELEASE_APK_PATH: ${{ runner.temp }}/oto-release-apk/release.apk
+          RELEASE_APK_METADATA_PATH: ${{ runner.temp }}/release-apk-metadata.json
+        run: ./.github/scripts/release-apk-metadata-gate.ps1
+
+      - name: Upload APK Metadata Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oto-release-apk-metadata
+          path: ${{ runner.temp }}/release-apk-metadata.json
+          if-no-files-found: error
+          retention-days: 1
+
+  signing-gate:
+    name: APK Signing Gate
+    runs-on: ubuntu-latest
+    needs: apk-file-gate
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Scripts
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Set Up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set Up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android Build Tools
+        shell: pwsh
+        run: sdkmanager "build-tools;36.0.0" "platforms;android-36"
+
+      - name: Download Release APK Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-apk
+          path: ${{ runner.temp }}/oto-release-apk
+
+      - name: Run APK Signing Gate
+        shell: pwsh
+        env:
+          RELEASE_APK_PATH: ${{ runner.temp }}/oto-release-apk/release.apk
+          RELEASE_SIGNING_METADATA_PATH: ${{ runner.temp }}/release-signing-metadata.json
+          RELEASE_EXPECTED_SIGNING_CERT_SHA256: ${{ vars.SIGNING_CERTIFICATE_SHA256 }}
+          RELEASE_DEBUG_SIGNING_CERT_SHA256_DENYLIST: ${{ vars.RELEASE_DEBUG_SIGNING_CERT_SHA256_DENYLIST }}
+        run: ./.github/scripts/release-signing-gate.ps1
+
+      - name: Upload Signing Metadata Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oto-release-signing-metadata
+          path: ${{ runner.temp }}/release-signing-metadata.json
+          if-no-files-found: error
+          retention-days: 1
+
+  version-tag-gate:
+    name: Version And Tag Gate
+    runs-on: ubuntu-latest
+    needs:
+      - source-ref-gate
+      - apk-metadata-gate
+    permissions:
+      contents: read
+    outputs:
+      tag_name: ${{ steps.version.outputs.tag_name }}
+      release_name: ${{ steps.version.outputs.release_name }}
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Download APK Metadata Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-apk-metadata
+          path: ${{ runner.temp }}/oto-release-metadata
+
+      - name: Run Version And Tag Gate
+        id: version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_APK_METADATA_PATH: ${{ runner.temp }}/oto-release-metadata/release-apk-metadata.json
+          RELEASE_VERSION_METADATA_PATH: ${{ runner.temp }}/release-version-metadata.json
+          RELEASE_CHANNEL: ${{ needs.source-ref-gate.outputs.channel }}
+          RELEASE_PRERELEASE: ${{ inputs.prerelease }}
+          OTO_RELEASE_DATE: ${{ needs.source-ref-gate.outputs.release_date }}
+          RELEASE_VERSION_FLOOR_OVERRIDE: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE }}
+          RELEASE_VERSION_FLOOR_OVERRIDE_IGNORED_TAG: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE_IGNORED_TAG }}
+          RELEASE_VERSION_FLOOR_OVERRIDE_REASON: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE_REASON }}
+        run: ./.github/scripts/release-version-tag-gate.ps1
+
+      - name: Upload Version Metadata Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oto-release-version-metadata
+          path: ${{ runner.temp }}/release-version-metadata.json
+          if-no-files-found: error
+          retention-days: 1
+
+  changelog-generate:
+    name: Generate Release Changelog
+    runs-on: ubuntu-latest
+    needs: source-ref-gate
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Generate Changelog
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_CHANNEL: ${{ needs.source-ref-gate.outputs.channel }}
+          RELEASE_CHANGELOG_OUTPUT_DIR: ${{ runner.temp }}/oto-release-changelog
+          RELEASE_MANUAL_CHANGELOG: ${{ inputs.manual_changelog }}
+          RELEASE_HIGHLIGHTS: ${{ inputs.highlights }}
+        run: ./.github/scripts/release-changelog-generate.ps1
+
+      - name: Upload Changelog Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oto-release-changelog
+          path: ${{ runner.temp }}/oto-release-changelog
+          if-no-files-found: error
+          retention-days: 1
+
+  changelog-gate:
+    name: Changelog Gate
+    runs-on: ubuntu-latest
+    needs:
+      - version-tag-gate
+      - changelog-generate
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Download Version Metadata Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-version-metadata
+          path: ${{ runner.temp }}/oto-release-version
+
+      - name: Download Changelog Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-changelog
+          path: ${{ runner.temp }}/oto-release-changelog
+
+      - name: Run Changelog Gate
+        shell: pwsh
+        env:
+          RELEASE_VERSION_METADATA_PATH: ${{ runner.temp }}/oto-release-version/release-version-metadata.json
+          RELEASE_CHANGELOG_DIR: ${{ runner.temp }}/oto-release-changelog
+          RELEASE_MANUAL_CHANGELOG: ${{ inputs.manual_changelog }}
+        run: ./.github/scripts/release-changelog-gate.ps1
+
+  handoff-gate:
+    name: Publish Handoff Gate
+    runs-on: ubuntu-latest
+    needs:
+      - apk-file-gate
+      - apk-metadata-gate
+      - signing-gate
+      - version-tag-gate
+      - changelog-gate
+    permissions:
+      contents: read
+    outputs:
+      publish_authorized: ${{ steps.handoff.outputs.publish_authorized }}
+    steps:
+      - name: Checkout Scripts
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Download Release APK Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-apk
+          path: ${{ runner.temp }}/oto-release-apk
+
+      - name: Download APK Metadata Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-apk-metadata
+          path: ${{ runner.temp }}/oto-release-metadata
+
+      - name: Download Signing Metadata Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-signing-metadata
+          path: ${{ runner.temp }}/oto-release-signing
+
+      - name: Download Version Metadata Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-version-metadata
+          path: ${{ runner.temp }}/oto-release-version
+
+      - name: Download Changelog Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-changelog
+          path: ${{ runner.temp }}/oto-release-changelog
+
+      - name: Run Publish Handoff Gate
+        id: handoff
+        shell: pwsh
+        env:
+          RELEASE_APK_PATH: ${{ runner.temp }}/oto-release-apk/release.apk
+          RELEASE_APK_METADATA_PATH: ${{ runner.temp }}/oto-release-metadata/release-apk-metadata.json
+          RELEASE_SIGNING_METADATA_PATH: ${{ runner.temp }}/oto-release-signing/release-signing-metadata.json
+          RELEASE_VERSION_METADATA_PATH: ${{ runner.temp }}/oto-release-version/release-version-metadata.json
+          RELEASE_CHANGELOG_DIR: ${{ runner.temp }}/oto-release-changelog
+          RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
+          RELEASE_PUBLISH: ${{ inputs.publish }}
+        run: ./.github/scripts/release-handoff-gate.ps1
+
+      - name: Upload Publish Handoff Artifact
+        if: ${{ steps.handoff.outputs.publish_authorized == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: oto-release-publish-handoff
+          path: ${{ steps.handoff.outputs.handoff_dir }}
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-preflight-gate:
+    name: Publish Preflight Gate
+    runs-on: ubuntu-latest
+    needs: handoff-gate
+    if: ${{ needs.handoff-gate.outputs.publish_authorized == 'true' }}
+    permissions:
+      contents: read
     steps:
       - name: Checkout Scripts
         uses: actions/checkout@v4
@@ -135,9 +491,294 @@ jobs:
           name: oto-release-publish-handoff
           path: ${{ runner.temp }}/oto-release-publish-handoff
 
-      - name: Publish Verified Draft Transaction
+      - name: Run Publish Preflight Gate
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
-        run: ./.github/scripts/release-publish-transaction.ps1
+          RELEASE_VERSION_FLOOR_OVERRIDE: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE }}
+          RELEASE_VERSION_FLOOR_OVERRIDE_IGNORED_TAG: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE_IGNORED_TAG }}
+          RELEASE_VERSION_FLOOR_OVERRIDE_REASON: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE_REASON }}
+        run: ./.github/scripts/release-publish-preflight-gate.ps1
+
+  publish-draft:
+    name: Create Draft Release And Upload Assets
+    runs-on: ubuntu-latest
+    needs:
+      - handoff-gate
+      - publish-preflight-gate
+    if: ${{ needs.handoff-gate.outputs.publish_authorized == 'true' }}
+    permissions:
+      contents: write
+    steps:
+      - name: Download Publish Handoff Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-publish-handoff
+          path: ${{ runner.temp }}/oto-release-publish-handoff
+
+      - name: Create Draft Release
+        id: create_draft
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
+          RELEASE_DRAFT_STATE_DIR: ${{ runner.temp }}/oto-release-draft-state
+        run: |
+          $ErrorActionPreference = "Stop"
+          $metadata = Get-Content -LiteralPath (Join-Path $env:RELEASE_HANDOFF_DIR "release-metadata.json") -Raw | ConvertFrom-Json
+          $bodyPath = Join-Path $env:RELEASE_HANDOFF_DIR $metadata.releaseBodyFileName
+          $createArgs = @(
+            "release",
+            "create",
+            $metadata.tagName,
+            "--draft",
+            "--title",
+            $metadata.releaseName,
+            "--notes-file",
+            $bodyPath,
+            "--target",
+            $metadata.targetCommit
+          )
+          if ([bool]$metadata.prerelease) {
+            $createArgs += "--prerelease"
+          }
+          & gh @createArgs
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to create draft GitHub Release."
+          }
+
+          $repo = $env:GITHUB_REPOSITORY
+          $releaseViewOutput = & gh api "repos/$repo/releases/tags/$($metadata.tagName)" 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to inspect the draft GitHub Release after creation."
+          }
+          $release = (($releaseViewOutput | Out-String).Trim() | ConvertFrom-Json)
+          if ($release.tag_name -ne $metadata.tagName -or -not $release.draft -or $release.target_commitish -ne $metadata.targetCommit) {
+            throw "Created draft GitHub Release does not match handoff metadata."
+          }
+          if ($null -eq $release.id -or [string]::IsNullOrWhiteSpace([string]$release.node_id)) {
+            throw "Created draft GitHub Release did not return stable release identifiers."
+          }
+
+          if (Test-Path -LiteralPath $env:RELEASE_DRAFT_STATE_DIR) {
+            Remove-Item -LiteralPath $env:RELEASE_DRAFT_STATE_DIR -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $env:RELEASE_DRAFT_STATE_DIR | Out-Null
+
+          # Draft Ownership Record
+          # Cleanup is allowed to delete a remote draft only when this durable record proves that this exact workflow run created it.
+          $draftState = [ordered]@{
+            createdRelease = $true
+            releaseDatabaseId = [int64]$release.id
+            releaseNodeId = [string]$release.node_id
+            repository = $env:GITHUB_REPOSITORY
+            tagName = $metadata.tagName
+            targetCommit = $metadata.targetCommit
+            createdByRunId = $env:GITHUB_RUN_ID
+            createdByRunAttempt = $env:GITHUB_RUN_ATTEMPT
+          }
+          [IO.File]::WriteAllText(
+            (Join-Path $env:RELEASE_DRAFT_STATE_DIR "draft-state.json"),
+            (($draftState | ConvertTo-Json -Depth 8) + "`n"),
+            [Text.UTF8Encoding]::new($false)
+          )
+
+      - name: Upload Draft State Artifact
+        id: upload_draft_state
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: oto-release-draft-state
+          path: ${{ runner.temp }}/oto-release-draft-state/draft-state.json
+          if-no-files-found: ignore
+          retention-days: 1
+
+      - name: Cleanup Draft If State Artifact Upload Fails
+        if: ${{ steps.create_draft.outcome == 'success' && steps.upload_draft_state.outcome != 'success' }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_DRAFT_STATE_DIR: ${{ runner.temp }}/oto-release-draft-state
+        run: |
+          $ErrorActionPreference = "Stop"
+          $draftStatePath = Join-Path $env:RELEASE_DRAFT_STATE_DIR "draft-state.json"
+          $draftState = Get-Content -LiteralPath $draftStatePath -Raw | ConvertFrom-Json
+          $releaseViewOutput = & gh api "repos/$($draftState.repository)/releases/tags/$($draftState.tagName)" 2>&1
+          if ($LASTEXITCODE -eq 0) {
+            $release = (($releaseViewOutput | Out-String).Trim() | ConvertFrom-Json)
+            if ([int64]$release.id -eq [int64]$draftState.releaseDatabaseId -and
+                $release.node_id -eq $draftState.releaseNodeId -and
+                $release.tag_name -eq $draftState.tagName -and
+                $release.draft -and
+                $release.target_commitish -eq $draftState.targetCommit) {
+              & gh release delete $draftState.tagName --yes --cleanup-tag
+              if ($LASTEXITCODE -ne 0) {
+                throw "Failed to delete draft release after draft ownership artifact upload failed."
+              }
+            }
+          }
+          throw "Failed to upload the draft ownership record; any matching draft created by this run was cleaned up before asset upload."
+
+      - name: Upload Draft Release Assets
+        if: ${{ steps.create_draft.outcome == 'success' && steps.upload_draft_state.outcome == 'success' }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
+        run: |
+          $ErrorActionPreference = "Stop"
+          $metadata = Get-Content -LiteralPath (Join-Path $env:RELEASE_HANDOFF_DIR "release-metadata.json") -Raw | ConvertFrom-Json
+          $assetPaths = @(
+            Join-Path $env:RELEASE_HANDOFF_DIR $metadata.apkAssetName,
+            Join-Path $env:RELEASE_HANDOFF_DIR $metadata.sha256AssetName,
+            Join-Path $env:RELEASE_HANDOFF_DIR $metadata.changelogAssetName,
+            Join-Path $env:RELEASE_HANDOFF_DIR $metadata.manifestAssetName
+          )
+          $uploadArgs = @("release", "upload", $metadata.tagName) + $assetPaths
+          & gh @uploadArgs
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to upload release assets."
+          }
+
+  publish-remote-gate:
+    name: Publish Remote Gate
+    runs-on: ubuntu-latest
+    needs:
+      - handoff-gate
+      - publish-draft
+    if: ${{ needs.handoff-gate.outputs.publish_authorized == 'true' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Scripts
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Download Publish Handoff Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-publish-handoff
+          path: ${{ runner.temp }}/oto-release-publish-handoff
+
+      - name: Run Publish Remote Gate
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
+        run: ./.github/scripts/release-publish-remote-gate.ps1
+
+  publish:
+    name: Publish Verified Release
+    runs-on: ubuntu-latest
+    needs:
+      - handoff-gate
+      - publish-remote-gate
+    if: ${{ needs.handoff-gate.outputs.publish_authorized == 'true' }}
+    permissions:
+      contents: write
+    steps:
+      - name: Download Publish Handoff Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-publish-handoff
+          path: ${{ runner.temp }}/oto-release-publish-handoff
+
+      - name: Publish Verified Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
+        run: |
+          $ErrorActionPreference = "Stop"
+          $metadata = Get-Content -LiteralPath (Join-Path $env:RELEASE_HANDOFF_DIR "release-metadata.json") -Raw | ConvertFrom-Json
+          $editArgs = @("release", "edit", $metadata.tagName, "--draft=false")
+          if ([bool]$metadata.prerelease) {
+            $editArgs += "--prerelease"
+          }
+          & gh @editArgs
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to publish verified draft release."
+          }
+
+          Write-Host "Published release $($metadata.tagName)."
+
+  publish-cleanup-draft:
+    name: Cleanup Failed Draft Release
+    runs-on: ubuntu-latest
+    needs:
+      - handoff-gate
+      - publish-preflight-gate
+      - publish-draft
+      - publish-remote-gate
+      - publish
+    if: ${{ always() && needs.handoff-gate.outputs.publish_authorized == 'true' && needs.publish-preflight-gate.result == 'success' && needs.publish.result != 'success' && (needs.publish-draft.result == 'failure' || needs.publish-draft.result == 'cancelled' || needs.publish-remote-gate.result == 'failure' || needs.publish-remote-gate.result == 'cancelled' || needs.publish.result == 'failure' || needs.publish.result == 'cancelled') }}
+    permissions:
+      contents: write
+    steps:
+      - name: Download Publish Handoff Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-publish-handoff
+          path: ${{ runner.temp }}/oto-release-publish-handoff
+
+      - name: Download Draft State Artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: oto-release-draft-state
+          path: ${{ runner.temp }}/oto-release-draft-state
+
+      - name: Delete Draft Release Created By This Run
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
+          RELEASE_DRAFT_STATE_DIR: ${{ runner.temp }}/oto-release-draft-state
+        run: |
+          $ErrorActionPreference = "Stop"
+          $metadata = Get-Content -LiteralPath (Join-Path $env:RELEASE_HANDOFF_DIR "release-metadata.json") -Raw | ConvertFrom-Json
+          if ([string]::IsNullOrWhiteSpace($metadata.createdByRunId) -or $metadata.createdByRunId -ne $env:GITHUB_RUN_ID) {
+            throw "Handoff artifact was not created by this workflow run."
+          }
+
+          $draftStatePath = Join-Path $env:RELEASE_DRAFT_STATE_DIR "draft-state.json"
+          if (-not (Test-Path -LiteralPath $draftStatePath)) {
+            Write-Host "No draft ownership record found; cleanup will not delete any remote release."
+            exit 0
+          }
+
+          $draftState = Get-Content -LiteralPath $draftStatePath -Raw | ConvertFrom-Json
+          if (-not [bool]$draftState.createdRelease -or
+              $null -eq $draftState.releaseDatabaseId -or
+              [string]::IsNullOrWhiteSpace([string]$draftState.releaseNodeId) -or
+              $draftState.repository -ne $env:GITHUB_REPOSITORY -or
+              $draftState.tagName -ne $metadata.tagName -or
+              $draftState.targetCommit -ne $metadata.targetCommit -or
+              $draftState.createdByRunId -ne $env:GITHUB_RUN_ID) {
+            throw "Draft ownership record does not match this workflow run."
+          }
+
+          # Draft Cleanup Ownership Gate
+          # A remote delete is permitted only when GitHub's current release id still matches the id captured immediately after draft creation.
+          $viewOutput = & gh api "repos/$($env:GITHUB_REPOSITORY)/releases/tags/$($metadata.tagName)" 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "No draft release found for cleanup."
+            exit 0
+          }
+          $release = (($viewOutput | Out-String).Trim() | ConvertFrom-Json)
+          if ([int64]$release.id -ne [int64]$draftState.releaseDatabaseId -or
+              $release.node_id -ne $draftState.releaseNodeId -or
+              $release.tag_name -ne $metadata.tagName -or
+              -not $release.draft -or
+              $release.target_commitish -ne $metadata.targetCommit) {
+            Write-Host "Remote release does not match cleanup criteria."
+            exit 0
+          }
+          & gh release delete $metadata.tagName --yes --cleanup-tag
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to delete failed draft release."
+          }
