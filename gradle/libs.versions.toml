@@ -9,11 +9,11 @@ junitVersion = "1.3.0"
 espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.11.0"
 activityCompose = "1.13.0"
-composeBom = "2026.06.00"
-material3Expressive = "1.5.0-alpha08"
+composeBom = "2026.06.01"
+material3Expressive = "1.5.0-alpha23"
 mockwebserver = "5.4.0"
 # Upgrade Navigation System (Transition to Jetpack Navigation 3 runtime and UI library) Add Navigation 3 dependency coordinates to support state-driven back stack control.
-nav3 = "1.1.3"
+nav3 = "1.1.4"
 media3 = "1.10.1"
 room = "2.8.4"
 work = "2.11.2"
@@ -36,7 +36,7 @@ haze = "1.7.2"
 materialKolor = "4.1.1"
 # AboutLibraries Metadata UI (Match the app's AGP 9, Kotlin 2.4, Compose 1.11, and compileSdk 37 toolchain)
 # The Android plugin generates the license metadata resource consumed by the Compose Material 3 screen.
-aboutLibraries = "15.0.0-rc01"
+aboutLibraries = "15.0.2"
 # Koin Dependency Injection (Replaces manual DI graphs with Koin modules)
 # Provides android, compose, viewmodel, and test artifacts aligned with Kotlin 2.4 / Compose 1.11.
 koin = "4.2.2"

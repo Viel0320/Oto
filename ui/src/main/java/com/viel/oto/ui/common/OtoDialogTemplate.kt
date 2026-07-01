@@ -3,11 +3,11 @@ package com.viel.oto.ui.common
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.ButtonGroup
-import androidx.compose.material3.ButtonGroupScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,7 +22,6 @@ import dev.chrisbanes.haze.HazeState
  * Provides the common dialog container, padding rhythm, optional header slots, optional body slot, and trailing action row.
  * Page-level DialogHost components should derive concrete dialogs from this template while keeping business state and click handling outside the shared shell.
  */
-@Suppress("DEPRECATION")
 @Composable
 fun OtoDialogTemplate(
     onDismissRequest: () -> Unit,
@@ -42,7 +41,7 @@ fun OtoDialogTemplate(
     body: (@Composable ColumnScope.() -> Unit)? = null,
     confirmButton: (@Composable () -> Unit)? = null,
     dismissButton: (@Composable () -> Unit)? = null,
-    actions: (@Composable ButtonGroupScope.() -> Unit)? = null
+    actions: (@Composable RowScope.() -> Unit)? = null
 ) {
     BlurDialog(
         onDismissRequest = onDismissRequest,
@@ -65,16 +64,20 @@ fun OtoDialogTemplate(
             body?.invoke(this)
 
             if (actions != null) {
-                ButtonGroup(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(actionsSpacing, Alignment.End)
+                    horizontalArrangement = Arrangement.spacedBy(actionsSpacing, Alignment.End),
+                    verticalArrangement = Arrangement.spacedBy(actionsSpacing),
+                    itemVerticalAlignment = Alignment.CenterVertically
                 ) {
                     actions()
                 }
             } else if (confirmButton != null || dismissButton != null) {
-                ButtonGroup(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(actionsSpacing, Alignment.End)
+                    horizontalArrangement = Arrangement.spacedBy(actionsSpacing, Alignment.End),
+                    verticalArrangement = Arrangement.spacedBy(actionsSpacing),
+                    itemVerticalAlignment = Alignment.CenterVertically
                 ) {
                     dismissButton?.invoke()
                     confirmButton?.invoke()
