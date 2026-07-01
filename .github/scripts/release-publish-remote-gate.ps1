@@ -49,7 +49,9 @@ function Invoke-CheckedCommand {
     $joined = ($output | Out-String).Trim()
     throw "$FailureMessage`n$joined"
   }
-  return @($output)
+  # Unary comma keeps single-line command output as a 1-element array instead of
+  # letting PowerShell unwrap it to a scalar string on return.
+  return ,@($output)
 }
 
 function Assert-ExactFileSet {
