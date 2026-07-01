@@ -26,7 +26,7 @@ class AppDatabaseDownloadMetadataMigrationTest {
 
     @Test
     fun `migration 41 to 42 should rebuild bookmarks with indices and preserve existing rows`() {
-        val databasePath = RuntimeEnvironment.getApplication().getDatabasePath(BOOKMARK_MIGRATION_DATABASE).absolutePath
+        val databasePath = resolveDatabasePath(BOOKMARK_MIGRATION_DATABASE)
 
         helper.createDatabase(databasePath, 41).apply {
             seedBookmarkRow()
@@ -48,7 +48,7 @@ class AppDatabaseDownloadMetadataMigrationTest {
 
     @Test
     fun `migration 42 to 43 should create download metadata and preserve existing rows`() {
-        val databasePath = RuntimeEnvironment.getApplication().getDatabasePath(TEST_DATABASE).absolutePath
+        val databasePath = resolveDatabasePath(TEST_DATABASE)
 
         helper.createDatabase(databasePath, 42).apply {
             seedExistingRows()
@@ -152,6 +152,12 @@ class AppDatabaseDownloadMetadataMigrationTest {
             )
             """.trimIndent()
         )
+    }
+
+    private fun resolveDatabasePath(databaseName: String): String {
+        val databaseFile = RuntimeEnvironment.getApplication().getDatabasePath(databaseName)
+        databaseFile.parentFile?.mkdirs()
+        return databaseFile.absolutePath
     }
 
     private fun SupportSQLiteDatabase.singleString(sql: String): String =
