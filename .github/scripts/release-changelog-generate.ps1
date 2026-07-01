@@ -128,6 +128,24 @@ function Test-MergeNoiseTitle {
           $value -match "(?i)^Merge commit .+$")
 }
 
+<#
+  Filters commit subjects that describe repository maintenance rather than a
+  user-visible app change, keeping generated release notes focused on users.
+#>
+function Test-UserVisibleCommitTitle {
+  param([Parameter(Mandatory = $true)][string]$Title)
+
+  $value = $Title.Trim()
+  $lower = $value.ToLowerInvariant()
+  if ($lower -match "^(build|chore|ci|deps?|dependencies|documentation|docs?|gradle|lint|refactor|release|style|test|tests|workflow)(\([^)]+\))?!?:") {
+    return $false
+  }
+  if ($lower -match "\b(github actions?|workflow|ci|gradle|release pipeline|unit tests?|tests?|documentation|docs?|changelog|dependencies|dependency updates?)\b") {
+    return $false
+  }
+  return $true
+}
+
 function Test-GitHubLogin {
   param([Parameter(Mandatory = $true)][string]$Value)
   return $Value -match "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"
@@ -213,7 +231,6 @@ function Get-CommitCategory {
   if ($lower -match "^(feat|feature)(\([^)]+\))?!?:" -or $lower -match "\b(add|new)\b") { return "New Features" }
   if ($lower -match "^(perf|improve|improvement|enhance|enhancement)(\([^)]+\))?!?:" -or $lower -match "\b(improve|improves|improved|enhance|enhances|enhanced|optimize|optimise)\b") { return "Improvements" }
   if ($lower -match "^(fix|bugfix|hotfix)(\([^)]+\))?!?:" -or $lower -match "\b(crash|bug|fix)\b") { return "Fixes" }
-  if ($lower -match "^(docs?|documentation|i18n|l10n|translation|translations|locale|locales)(\([^)]+\))?!?:" -or $lower -match "\b(doc|docs|documentation|translation|translations|locale|locales)\b") { return "Docs & Translations" }
   return "Changes"
 }
 
@@ -280,9 +297,8 @@ if ($manualTrimmed.Length -gt 0) {
   $sectionOrder = @(
     "New Features",
     "Improvements",
-    "Changes",
     "Fixes",
-    "Docs & Translations"
+    "Changes"
   )
   $sections = @{}
   foreach ($section in $sectionOrder) {
@@ -301,6 +317,9 @@ if ($manualTrimmed.Length -gt 0) {
     if (Test-MergeNoiseTitle $title) {
       continue
     }
+    if (-not (Test-UserVisibleCommitTitle $title)) {
+      continue
+    }
 
     $category = Get-CommitCategory $title
     $entry = ConvertTo-SafeMarkdownListText $title
@@ -312,15 +331,19 @@ if ($manualTrimmed.Length -gt 0) {
   }
 
   foreach ($section in $sectionOrder) {
+    if ($sections[$section].Count -eq 0) {
+      continue
+    }
+
     $notes.Add("### $section")
     $notes.Add("")
-    if ($sections[$section].Count -eq 0) {
-      $notes.Add("- No changes.")
-    } else {
-      foreach ($line in $sections[$section]) {
-        $notes.Add($line)
-      }
+    foreach ($line in $sections[$section]) {
+      $notes.Add($line)
     }
+    $notes.Add("")
+  }
+  if (($sectionOrder | Where-Object { $sections[$_].Count -gt 0 }).Count -eq 0) {
+    $notes.Add("- No user-facing changes.")
     $notes.Add("")
   }
 

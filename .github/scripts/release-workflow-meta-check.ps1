@@ -96,6 +96,7 @@ foreach ($entry in ([ordered]@{
 Assert-Condition ($sourceRefJob -match "release-source-ref-gate\.ps1") "source-ref-gate must run release-source-ref-gate.ps1."
 Assert-Condition ($sourceRefJob -match "release-checkout-token-gate\.ps1") "source-ref-gate must run release-checkout-token-gate.ps1."
 Assert-Condition ($releaseBuildJob -match "source-ref-gate") "release-build must depend on source-ref-gate before signing secret injection."
+Assert-Condition ($releaseBuildJob -match "changelog-generate") "release-build must depend on changelog-generate so changelog generation blocks the signed APK build."
 Assert-Condition ($releaseBuildJob -match "release-checkout-token-gate\.ps1") "release-build must run release-checkout-token-gate.ps1."
 Assert-Condition ($releaseBuildJob.IndexOf("release-checkout-token-gate.ps1", [StringComparison]::Ordinal) -lt $releaseBuildJob.IndexOf("KEYSTORE_BASE64", [StringComparison]::Ordinal)) "release-build must run checkout token gate before signing secret injection."
 Assert-Condition ($releaseBuildJob -match "KEYSTORE_BASE64") "release-build must own signing secret injection."

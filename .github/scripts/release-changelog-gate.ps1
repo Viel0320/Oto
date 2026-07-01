@@ -63,22 +63,28 @@ function Assert-AllowedRawLinks {
   }
 }
 
-function Assert-HeadingsInOrder {
+<#
+  Allows auto changelog output to omit empty categories while still rejecting
+  internal-only headings and preserving the user-facing category order.
+#>
+function Assert-CategoryHeadingsInOrder {
   param(
     [Parameter(Mandatory = $true)][string]$Text,
     [Parameter(Mandatory = $true)][string[]]$Headings
   )
 
-  $lastIndex = -1
-  foreach ($heading in $Headings) {
-    $index = $Text.IndexOf($heading, [StringComparison]::Ordinal)
-    if ($index -lt 0) {
-      throw "Generated changelog is missing required heading: $heading"
+  $lastOrder = -1
+  $matches = [regex]::Matches($Text, "(?m)^### (?<name>.+)$")
+  foreach ($match in $matches) {
+    $heading = "### $($match.Groups["name"].Value)"
+    $order = [Array]::IndexOf($Headings, $heading)
+    if ($order -lt 0) {
+      throw "Generated changelog contains a category heading outside the release plan taxonomy: $heading"
     }
-    if ($index -le $lastIndex) {
-      throw "Generated changelog headings are not in the required order."
+    if ($order -le $lastOrder) {
+      throw "Generated changelog category headings are not in the required order."
     }
-    $lastIndex = $index
+    $lastOrder = $order
   }
 }
 
@@ -137,16 +143,14 @@ if ($manualTrimmed.Length -eq 0) {
   if ($changelog -notmatch "(?m)^## What's Changed$") {
     throw "Generated changelog is missing the What's Changed section."
   }
-  Assert-HeadingsInOrder $changelog @(
-    "## What's Changed",
+  Assert-CategoryHeadingsInOrder $changelog @(
     "### New Features",
     "### Improvements",
-    "### Changes",
     "### Fixes",
-    "### Docs & Translations"
+    "### Changes"
   )
-  if ($changelog -match "(?m)^### (Features|Dependencies, Build, And Release|Documentation|Tests|Internal Maintenance|Other Changes)$") {
-    throw "Generated changelog contains a category heading outside the release plan taxonomy."
+  if ($changelog -match "(?m)^### (Dependencies, Build, And Release|Docs & Translations|Documentation|Tests|Internal Maintenance|Other Changes)$") {
+    throw "Generated changelog contains an internal-only category heading."
   }
 }
 

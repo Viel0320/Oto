@@ -4,13 +4,14 @@ import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
@@ -24,9 +25,21 @@ class AppDatabaseDownloadMetadataMigrationTest {
         FrameworkSQLiteOpenHelperFactory()
     )
 
+    private val createdDatabaseFiles = mutableSetOf<File>()
+
+    /**
+     * Cleans migration databases even when an assertion fails so failed CI runs do
+     * not leave SQLite files that can change later tests in the same Gradle task.
+     */
+    @After
+    fun cleanCreatedMigrationDatabases() {
+        createdDatabaseFiles.forEach(::deleteDatabaseFiles)
+        createdDatabaseFiles.clear()
+    }
+
     @Test
     fun `migration 41 to 42 should rebuild bookmarks with indices and preserve existing rows`() {
-        val databasePath = resolveDatabasePath(BOOKMARK_MIGRATION_DATABASE)
+        val databasePath = freshDatabasePath(BOOKMARK_MIGRATION_DATABASE)
 
         helper.createDatabase(databasePath, 41).apply {
             seedBookmarkRow()
@@ -48,7 +61,7 @@ class AppDatabaseDownloadMetadataMigrationTest {
 
     @Test
     fun `migration 42 to 43 should create download metadata and preserve existing rows`() {
-        val databasePath = resolveDatabasePath(TEST_DATABASE)
+        val databasePath = freshDatabasePath(TEST_DATABASE)
 
         helper.createDatabase(databasePath, 42).apply {
             seedExistingRows()
@@ -154,10 +167,31 @@ class AppDatabaseDownloadMetadataMigrationTest {
         )
     }
 
-    private fun resolveDatabasePath(databaseName: String): String {
-        val databaseFile = RuntimeEnvironment.getApplication().getDatabasePath(databaseName)
-        databaseFile.parentFile?.mkdirs()
+    /**
+     * Uses a short absolute file path instead of Robolectric's per-test database
+     * directory because Windows CI paths include the full test method name and can
+     * exceed SQLite's practical open-path limit before migration code runs.
+     */
+    private fun freshDatabasePath(baseName: String): String {
+        val databaseDirectory = File(System.getProperty("java.io.tmpdir"), "oto-room")
+        databaseDirectory.mkdirs()
+        val databaseFile = File(databaseDirectory, "$baseName-${System.nanoTime()}.db")
+        deleteDatabaseFiles(databaseFile)
+        createdDatabaseFiles += databaseFile
         return databaseFile.absolutePath
+    }
+
+    /**
+     * Removes the primary SQLite file and its rollback/WAL sidecars so each migration
+     * test starts from a single schema fixture and leaves no state for later tests.
+     */
+    private fun deleteDatabaseFiles(databaseFile: File) {
+        sequenceOf(
+            databaseFile,
+            File("${databaseFile.path}-journal"),
+            File("${databaseFile.path}-wal"),
+            File("${databaseFile.path}-shm")
+        ).forEach { it.delete() }
     }
 
     private fun SupportSQLiteDatabase.singleString(sql: String): String =

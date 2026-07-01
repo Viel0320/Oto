@@ -65,9 +65,10 @@
 | --- | --- | --- | --- | --- | --- |
 | Static workflow check | `workflow-meta-check` | `contents: read` | workflow YAML and release scripts | static invariant pass/fail | read signing secrets or publish |
 | Source setup | `source-ref-gate` | `contents: read` | workflow inputs, `github.ref` | channel, fixed `releaseDate` | read signing secrets before Source Ref Gate |
+| Changelog generation | `changelog-generate` | `contents: read` | channel, GitHub Latest stable baseline, changelog inputs | `CHANGELOG.md`, release body | build APK, read signing secrets, mutate releases, or wait for APK metadata |
 | Build | `release-build` | `contents: read`, signing secrets | release keystore, Gradle, Android SDK, fixed `releaseDate` | raw signed release APK | create/update/delete GitHub Release, tag, or asset; retain keystore after build |
 | APK verification | `apk-file-gate`, `apk-metadata-gate`, `signing-gate` | `contents: read` | raw or normalized APK, Android SDK tooling, expected certificate variable | normalized APK, APK metadata, signing certificate metadata | publish or inspect current auto-tag remote assets |
-| Version and changelog | `version-tag-gate`, `changelog-generate`, `changelog-gate` | `contents: read` | APK metadata, historical release list metadata, GitHub Latest stable baseline, changelog inputs | auto tag, release name, version metadata, `CHANGELOG.md`, release body | read/reuse current auto-tag assets or mutate releases |
+| Version and changelog validation | `version-tag-gate`, `changelog-gate` | `contents: read` | APK metadata, historical release list metadata, generated changelog artifact | auto tag, release name, version metadata, validated changelog/release body | read/reuse current auto-tag assets or mutate releases |
 | Staging and publish switch | `handoff-gate` | `contents: read` | APK, APK/signing/version/changelog metadata, `publish` input | verified handoff artifact only when publish is authorized | upload handoff artifact when `publish=false` or any gate failed |
 | Publish preflight | `publish-preflight-gate` | `contents: read` without signing secrets | verified handoff artifact | current tag/release availability recheck | run Gradle, restore keystore, mutate releases, or accept unverified handoff contents |
 | Publish transaction | draft create/upload, remote verify, finalize/cleanup jobs | `contents: write` without signing secrets | verified handoff artifact and recorded draft state | draft release, uploaded assets, published stable/prerelease release | run Gradle, access signing secrets, or read existing release assets as source of truth |
@@ -139,18 +140,19 @@ The detailed target pipeline, gate sections, and phase checklists below intentio
 2. 维护者只输入 `prerelease`、`publish`、可选 `manual_changelog`、可选 `highlights`。
 3. `workflow-meta-check` 校验 workflow 静态约束，workflow-level 权限保持 `contents: read`。
 4. `source-ref-gate` 使用完整 checkout，禁用 persisted credentials，校验发布 ref，并捕获一次 `releaseDate` 和 channel。
-5. `release-build` 在 `contents: read` job 中注入 signing secrets，还原 runner temp keystore，传入 `OTO_RELEASE_DATE`，执行 `assembleRelease`，并在上传 raw APK artifact 前清理 materialized keystore。
-6. `apk-file-gate` 归一化唯一 release APK。
-7. `apk-metadata-gate` 使用 Android SDK tooling 回读 package、`versionCode`、`versionName`、minSdk、targetSdk。
-8. `signing-gate` 用 `apksigner verify --print-certs` 回读 APK signing certificate SHA-256，并与 repository variable `SIGNING_CERTIFICATE_SHA256` 比对。
-9. `version-tag-gate` 基于 APK metadata、captured release date 和 channel 自动生成 tag/release name，检查当前 tag/ref/release，计算 package-global floor，并处理 stable bootstrap 规则。
-10. `changelog-generate` 和 `changelog-gate` 生成并校验 `CHANGELOG.md` 与 release body。
-11. `handoff-gate` 生成固定 asset set：universal APK、APK `.sha256`、`CHANGELOG.md`、`oto-update.json`、release body 和 handoff metadata；`publish=false` 时 successful dry-run，不上传 publish handoff artifact。
-12. `publish-preflight-gate` 在无 signing secrets 的 `contents: read` job 中复验 handoff，并重新检查当前自动 tag/ref/release。
-13. `publish-draft` 在 `contents: write` job 中创建 draft GitHub Release，持久化 draft ownership artifact，并上传 staged assets；该 job 不 checkout、不运行 Gradle、不接收 signing secrets。
-14. `publish-remote-gate` 下载并复验远端 release body、asset set、sizes、hashes 和 manifest。
-15. `publish` 将通过远端复验的 draft 切换为 stable 或 prerelease；GitHub 按默认规则维护 Latest release 指针，workflow 不创建 `latest` tag。
-16. `publish-cleanup-draft` 只在 publish path 失败后清理同时匹配当前 run handoff metadata 和 draft ownership artifact 的 draft release/tag。
+5. `changelog-generate` 在 signing secrets 注入和 APK build 前生成 `CHANGELOG.md` 与 release body；失败时 `release-build` 不启动。
+6. `release-build` 在 `contents: read` job 中注入 signing secrets，还原 runner temp keystore，传入 `OTO_RELEASE_DATE`，执行 `assembleRelease`，并在上传 raw APK artifact 前清理 materialized keystore。
+7. `apk-file-gate` 归一化唯一 release APK。
+8. `apk-metadata-gate` 使用 Android SDK tooling 回读 package、`versionCode`、`versionName`、minSdk、targetSdk。
+9. `signing-gate` 用 `apksigner verify --print-certs` 回读 APK signing certificate SHA-256，并与 repository variable `SIGNING_CERTIFICATE_SHA256` 比对。
+10. `version-tag-gate` 基于 APK metadata、captured release date 和 channel 自动生成 tag/release name，检查当前 tag/ref/release，计算 package-global floor，并处理 stable bootstrap 规则。
+11. `changelog-gate` 在 `version-tag-gate` 之后校验已生成的 `CHANGELOG.md` 与 release body。
+12. `handoff-gate` 生成固定 asset set：universal APK、APK `.sha256`、`CHANGELOG.md`、`oto-update.json`、release body 和 handoff metadata；`publish=false` 时 successful dry-run，不上传 publish handoff artifact。
+13. `publish-preflight-gate` 在无 signing secrets 的 `contents: read` job 中复验 handoff，并重新检查当前自动 tag/ref/release。
+14. `publish-draft` 在 `contents: write` job 中创建 draft GitHub Release，持久化 draft ownership artifact，并上传 staged assets；该 job 不 checkout、不运行 Gradle、不接收 signing secrets。
+15. `publish-remote-gate` 下载并复验远端 release body、asset set、sizes、hashes 和 manifest。
+16. `publish` 将通过远端复验的 draft 切换为 stable 或 prerelease；GitHub 按默认规则维护 Latest release 指针，workflow 不创建 `latest` tag。
+17. `publish-cleanup-draft` 只在 publish path 失败后清理同时匹配当前 run handoff metadata 和 draft ownership artifact 的 draft release/tag。
 
 当前剩余缺口：
 
@@ -182,7 +184,7 @@ The detailed target pipeline, gate sections, and phase checklists below intentio
 18. build/verify job 查询当前自动 tag 的 Git tag/ref 和 GitHub Release 状态，GitHub Release 查询必须包含 draft release。
 19. Git tag/ref 或 GitHub Release（包含 draft）任一已存在时失败，不读取或复用任何既有远端 release 资产。
 20. build/verify job 在同 tag/ref/release gate 通过后，基于非 draft GitHub Releases 的新格式 tag 解析 package-global 最大 `versionCode` floor，并校验新 `versionCode` 更大。
-21. changelog generation 不依赖 `version-tag-gate`；stable bootstrap 必须使用 manual source，其他自动 changelog 以 GitHub Latest stable release tag 作为 baseline，并生成 `CHANGELOG.md`。
+21. changelog generation 不依赖 `version-tag-gate`，但必须在 signed APK build 前通过；stable bootstrap 必须使用 manual source，其他自动 changelog 以 GitHub Latest stable release tag 作为 baseline，并生成 `CHANGELOG.md`。
 22. build/verify job 计算 APK hash、APK size、changelog hash。
 23. build/verify job 生成 `oto-update.json`，其中 `channel` 等于当前 channel。
 24. build/verify job 将已校验的 APK signing certificate SHA-256 写入 `oto-update.json.signingCertificateSha256`。
@@ -205,8 +207,9 @@ The detailed target pipeline, gate sections, and phase checklists below intentio
 执行模型：
 
 - 上述目标流程描述 gate 依赖和失败语义，不要求 CI step 全部串行执行。
+- `changelog-generate` 运行在 `release-build` 前面；changelog 生成失败时，workflow 不注入 signing secrets，也不启动 signed APK build。
 - tag name 和 release name 必须在 APK metadata 回读通过后生成；CI 不在 build 前查询当前自动 tag。
-- release preparation 中签名/APK 构建、changelog 生成、GitHub Latest release 查询和历史 release list metadata 查询可以并行；`changelog-generate` 不等待 `version-tag-gate`。
+- release preparation 中 GitHub Latest release 查询和历史 release list metadata 查询可以与各自 gate 并行；`changelog-generate` 不等待 `version-tag-gate`，但不能与 `release-build` 并行。
 - 当前自动 tag/ref/release gate 必须等待 APK metadata 生成自动 tag 后执行；Git tag/ref 或 GitHub Release 任一已存在时失败，不读取任何既有远端 release assets。
 - 当前自动 tag/ref/release gate 中的 GitHub Release 查询必须包含 draft release；残留 draft 也会占用 tag name 并阻塞发布。
 - package-global `versionCode` floor 只能在自动 tag 已生成且同 tag/ref/release gate 通过后计算；前置并行查询只能读取 release list metadata。
@@ -226,7 +229,9 @@ flowchart TD
     A[workflow_dispatch]
     A --> MC[workflow-meta-check<br/>static workflow invariants]
     MC --> SR[source-ref-gate<br/>checkout token gate<br/>source ref gate<br/>capture releaseDate/channel]
-    SR --> RB[release-build<br/>checkout token gate<br/>restore keystore<br/>build signed APK<br/>cleanup keystore]
+    SR --> CG[changelog-generate<br/>manual or non-bootstrap GitHub Latest stable baseline]
+    CG --> RB[release-build<br/>checkout token gate<br/>restore keystore<br/>build signed APK<br/>cleanup keystore]
+    SR --> RB
     RB --> AF[apk-file-gate<br/>require exactly one universal APK]
 
     subgraph READ[contents: read verification DAG]
@@ -234,7 +239,6 @@ flowchart TD
         AF --> AM[apk-metadata-gate<br/>read package/version/sdk metadata]
         AF --> SG[signing-gate<br/>verify APK certificate SHA-256]
         AM --> VT[version-tag-gate<br/>derive tag/release name<br/>check current tag/release<br/>compute floor]
-        SR --> CG[changelog-generate<br/>manual or non-bootstrap GitHub Latest stable baseline]
         CG --> CK[changelog-gate<br/>validate body, hash, and changelog outputs]
         VT --> CK
         AF --> HG[handoff-gate<br/>stage APK, hashes, changelog, oto-update.json]
@@ -617,7 +621,7 @@ artifact 选择规则：
 - 当前 channel 为 prerelease 时，changelog range 仍使用 GitHub Latest stable release tag 到当前 commit；多个 prerelease 之间不会以上一 prerelease 作为 baseline。
 - 找不到 GitHub Latest stable release 指向的 baseline tag 时失败。
 - GitHub Latest stable baseline tag 必须是当前 `HEAD` 的 ancestor。
-- `auto` 模式中，commit subject 是 changelog category 和条目标题的唯一自动输入；贡献者 handle 是从 GitHub commit metadata 批量解析出的附加 attribution，不参与分类、不改变条目标题。
+- `auto` 模式中，commit subject 是 changelog category、内部维护过滤和条目标题的唯一自动输入；贡献者 handle 是从 GitHub commit metadata 批量解析出的附加 attribution，不参与分类、不改变条目标题。
 - `auto` 模式中，贡献者 handle 必须按 changelog range 批量解析，例如使用 GitHub compare API 的分页结果生成 `commit sha -> handle` 映射；禁止对每个 commit 串行调用 GitHub commit API。
 - GitHub compare API 的 commit 列表存在 250 commit 上限；超过上限时，`git log` 仍生成完整 changelog 正文，未出现在 compare 结果中的 commit 只是不附带 contributor handle，这不是发布阻塞条件。
 - `auto` 模式中，维护者 login 必须从 GitHub Actions 环境自动解析（优先 `GITHUB_REPOSITORY_OWNER`，否则从 `GITHUB_REPOSITORY` owner 解析）并从贡献者 handle 中排除；禁止在脚本里硬编码个人 GitHub login。
@@ -628,15 +632,14 @@ artifact 选择规则：
 - GitHub Release body 内容必须等于 `CHANGELOG.md` 内容。
 - 不引入 `git-cliff` 作为首版方案。
 
-`auto` 模式固定输出层级：
+`auto` 模式输出层级：
 
 1. `## Highlights`（仅在 `highlights` 非空时生成）
 2. `## What's Changed`
-3. `### New Features`
-4. `### Improvements`
-5. `### Changes`
-6. `### Fixes`
-7. `### Docs & Translations`
+3. `### New Features`（仅在有条目时生成）
+4. `### Improvements`（仅在有条目时生成）
+5. `### Fixes`（仅在有条目时生成）
+6. `### Changes`（仅在有条目时生成）
 
 `auto` 模式 Markdown 模板：
 
@@ -647,25 +650,21 @@ artifact 选择规则：
 
 ## What's Changed
 
-#### New Features
+### New Features
 
 - feat: add library import progress
 
-#### Improvements
+### Improvements
 
 - perf: reduce playback startup latency
 
-#### Changes
-
-- refactor: simplify release workflow inputs
-
-#### Fixes
+### Fixes
 
 - fix: prevent debug-signed release upload
 
-#### Docs & Translations
+### Changes
 
-- docs: update release policy
+- update playback queue behavior
 ```
 
 模板规则：
@@ -673,7 +672,7 @@ artifact 选择规则：
 - `Highlights` 使用二级标题 `## Highlights`，只在 `auto` 模式且 maintainer 填写 `highlights` 时输出。
 - `What's Changed` 使用二级标题 `## What's Changed`，auto 模式始终输出。
 - category 使用三级标题，且只能作为 `What's Changed` 的子标题输出。
-- 空 category 保留标题并输出 `- No changes.`，让 release body 的分类骨架保持稳定。
+- 空 category 不输出；当 changelog range 内没有用户可见条目时，`What's Changed` 下输出 `- No user-facing changes.`。
 - `CHANGELOG.md` 和 GitHub Release body 必须使用同一份模板渲染结果。
 
 `Highlights` 固定规则：
@@ -691,10 +690,10 @@ artifact 选择规则：
 
 - `feat` 进入 `New Features`。
 - `fix` 进入 `Fixes`。
-- `docs`、`i18n`、`l10n`、`locale`、`translation`、`translations` 进入 `Docs & Translations`。
 - `perf`、`ui` 进入 `Improvements`。
-- `build`、`ci`、`workflow`、`release`、`gradle`、`test`、`refactor`、`style`、`chore`、`changes` 进入 `Changes`。
-- 未识别 type 进入 `Changes`。
+- `build`、`chore`、`ci`、`deps`、`dependencies`、`docs`、`documentation`、`gradle`、`lint`、`refactor`、`release`、`style`、`test`、`tests`、`workflow` 这类内部维护 type 不进入 changelog。
+- 标题包含 GitHub Actions、workflow、CI、Gradle、release pipeline、unit tests、tests、documentation、docs、changelog、dependencies 或 dependency update 等内部维护语义时不进入 changelog。
+- 未被过滤且未识别 type 的提交进入 `Changes`。
 
 贡献者规则：
 
@@ -707,15 +706,15 @@ artifact 选择规则：
 排序规则：
 
 - commit 输入顺序使用 `git log <range> --pretty=format:%s`，保持 newest first。
-- category 顺序固定为 `New Features`、`Improvements`、`Changes`、`Fixes`、`Docs & Translations`。
+- category 顺序固定为 `New Features`、`Improvements`、`Fixes`、`Changes`。
 - 每个 category 内保持 newest first。
-- 没有条目的 category 输出 `- No changes.`。
+- 没有条目的 category 不输出。
 - 不设置 changelog 行数上限。
 - 不设置 category 条目数上限。
 
 Content rules：
 
-- 过滤空行；`git log` 不排除 merge commit，但生成时过滤常见 merge-noise title。
+- 过滤空行和内部维护提交；`git log` 不排除 merge commit，但生成时过滤常见 merge-noise title。
 - auto 模式清理控制字符、HTML、markdown image；清理含义是移除不安全片段，而不是转义后保留。
 - manual 模式遇到 HTML、markdown image 或不允许的 raw link 时失败，不自动清理，以免 maintainer 手写正文被静默改写。
 - raw links 只允许 GitHub release URL。
@@ -909,7 +908,8 @@ Source Ref Gate is an anti-footgun gate, not a standalone security boundary: a u
 - `manual_changelog` 非空时禁止 `highlights` 非空。
 - `manual_changelog` 为空时使用 auto changelog source，复用现有 commit-title changelog 输入；stable bootstrap 禁止使用 auto changelog source。
 - 新增脚本内 commit subject parser。
-- 按固定 category 顺序生成 changelog。
+- 按用户可见 category 顺序生成 changelog，并省略没有条目的 category。
+- 过滤 `chore`、`docs`、`tests`、`workflow`、`ci`、`build` 等内部维护提交。
 - auto changelog source 下，manual `highlights` 只生成 `Highlights` section。
 - auto changelog source 下，未填写 `highlights` 时不输出 `Highlights` section。
 - `CHANGELOG.md` 由 `release-changelog.full.md` 复制生成。
@@ -928,6 +928,8 @@ Source Ref Gate is an anti-footgun gate, not a standalone security boundary: a u
 - prerelease changelog baseline 始终使用 GitHub Latest stable release 指向的 tag；找不到该 baseline tag 时失败。
 - GitHub Latest stable baseline tag 是当前 `HEAD` 的 ancestor。
 - 常见 merge-noise title 不进入 changelog。
+- 内部维护提交不进入 changelog。
+- auto changelog 没有用户可见条目时输出 `- No user-facing changes.`。
 - manual changelog source 下，不输出自动 `Highlights`、`What's Changed` 或 category section。
 - GitHub Release body 内容等于 `CHANGELOG.md` 内容。
 - GitHub Release body 超过平台长度上限时，在 build/verify job 失败，不进入 publish job。

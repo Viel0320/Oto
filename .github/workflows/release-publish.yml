@@ -80,12 +80,45 @@ jobs:
           "release_date=$releaseDate" >> $env:GITHUB_OUTPUT
           "channel=$channel" >> $env:GITHUB_OUTPUT
 
+  changelog-generate:
+    name: Generate Release Changelog
+    runs-on: ubuntu-latest
+    needs: source-ref-gate
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Generate Changelog
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_CHANNEL: ${{ needs.source-ref-gate.outputs.channel }}
+          RELEASE_CHANGELOG_OUTPUT_DIR: ${{ runner.temp }}/oto-release-changelog
+          RELEASE_MANUAL_CHANGELOG: ${{ inputs.manual_changelog }}
+          RELEASE_HIGHLIGHTS: ${{ inputs.highlights }}
+        run: ./.github/scripts/release-changelog-generate.ps1
+
+      - name: Upload Changelog Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oto-release-changelog
+          path: ${{ runner.temp }}/oto-release-changelog
+          if-no-files-found: error
+          retention-days: 1
+
   release-build:
     name: Build Signed Release APK
     runs-on: ubuntu-latest
     needs:
       - workflow-meta-check
       - source-ref-gate
+      - changelog-generate
     permissions:
       contents: read
     steps:
@@ -328,38 +361,6 @@ jobs:
         with:
           name: oto-release-version-metadata
           path: ${{ runner.temp }}/release-version-metadata.json
-          if-no-files-found: error
-          retention-days: 1
-
-  changelog-generate:
-    name: Generate Release Changelog
-    runs-on: ubuntu-latest
-    needs: source-ref-gate
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Generate Changelog
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_CHANNEL: ${{ needs.source-ref-gate.outputs.channel }}
-          RELEASE_CHANGELOG_OUTPUT_DIR: ${{ runner.temp }}/oto-release-changelog
-          RELEASE_MANUAL_CHANGELOG: ${{ inputs.manual_changelog }}
-          RELEASE_HIGHLIGHTS: ${{ inputs.highlights }}
-        run: ./.github/scripts/release-changelog-generate.ps1
-
-      - name: Upload Changelog Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: oto-release-changelog
-          path: ${{ runner.temp }}/oto-release-changelog
           if-no-files-found: error
           retention-days: 1
 
