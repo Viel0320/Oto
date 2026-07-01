@@ -134,11 +134,10 @@ jobs:
         run: ./.github/scripts/release-checkout-token-gate.ps1
 
       - name: Set Up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
-          cache: gradle
 
       - name: Build Signed Release APK
         shell: pwsh
@@ -234,7 +233,7 @@ jobs:
           fetch-depth: 1
 
       - name: Set Up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
@@ -281,7 +280,7 @@ jobs:
           fetch-depth: 1
 
       - name: Set Up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
