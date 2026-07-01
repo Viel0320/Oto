@@ -83,7 +83,7 @@
 | Date/version derivation | Phase 1 | Runtime | Capture `releaseDate` once; Gradle release build must fail in CI if it lacks that value. |
 | APK metadata readback | Phase 1 | Runtime | Use Android SDK tooling such as `aapt2 dump badging` or `apkanalyzer`; do not infer metadata from filenames or logs. |
 | Current tag/ref/release availability | Phase 1, repeated in Phase 5 | Runtime | Query Git ref and GitHub Release including draft; any existing object blocks release. |
-| Package-global version floor | Phase 1 | Runtime + runbook | Parse non draft new-format release metadata after current tag gate; use audited floor override only for recovery. |
+| Package-global version floor | Phase 1 | Runtime + runbook | Parse non draft new-format release metadata after current tag gate; any floor greater than or equal to the current APK `versionCode` blocks release. |
 | Stable manifest bootstrap | Phase 1 | Runtime | First new-format stable release establishes the manifest baseline through a successful publish transaction and must provide full `manual_changelog`; prerelease before that baseline fails. |
 | Signing certificate | Phase 2 | Runtime | Compare APK certificate SHA-256 from `apksigner verify --print-certs` with repository variable. |
 | Changelog source/body/hash | Phase 3 | Runtime | Manual changelog is full body; non-bootstrap auto changelog baseline is the GitHub Latest stable release. Body must equal `CHANGELOG.md`. |
@@ -381,15 +381,10 @@ Static invariants（PR lint / review checklist / workflow meta-check job）：
 - release title 必须为 `Oto <versionName> (<versionCode>) [<channel>]`，并与 tag 中的 channel、`versionName`、`versionCode` 一致。
 - CI 不下载历史 `oto-update.json` 来计算 version floor；历史 manifest 仍是发布契约的一部分，但 floor 只依赖 release metadata。
 - 新 APK `versionCode` 必须大于所有 post-bootstrap 新格式 release tag 中解析出的最大 `versionCode`。
-- 由于 floor 只信任历史 release tag/title metadata，CI 必须对解析出的 floor 做 sanity gate：历史 floor 不得大于当前 CI 按 `git rev-list --count HEAD` 复算的期望 `versionCode`。
-- 若历史 release metadata 被手工错误发布为虚高 `versionCode`，默认行为是失败；维护者必须删除/清理该错误 release，或使用受审计的 floor override 恢复发布。
-- floor override 不是常规发布路径；它必须显式记录被忽略的错误 release tag、恢复使用的 floor、原因和操作者，并且 override floor 仍必须小于当前 APK 实际 `versionCode`。
-- floor override 由 GitHub Actions Repository/Organization Variables 提供，不是 workflow input、不是 secret，也不需要 GitHub Environment。默认必须为空，只在运维恢复窗口临时设置，发布完成后立即清空。
-- `RELEASE_VERSION_FLOOR_OVERRIDE` 是可选数字变量，表示临时恢复使用的 floor；只有当当前 APK `versionCode` 不大于历史 floor 时才会读取，且必须小于当前 APK 实际 `versionCode`。
-- `RELEASE_VERSION_FLOOR_OVERRIDE_IGNORED_TAG` 在 override 生效时必填，用于记录被忽略的错误 release tag。
-- `RELEASE_VERSION_FLOOR_OVERRIDE_REASON` 在 override 生效时必填，用于记录恢复原因。
-- override 操作者不通过变量手填，由 workflow 运行时的 `GITHUB_ACTOR` 自动记录。
-- floor override 只允许在 `version-tag-gate` / `release-version-tag-gate.ps1` 中消费，不能传入 build、signing、artifact staging 或 publish write jobs。
+- 由于 floor 只信任历史 release tag/title metadata，CI 必须对解析出的 floor 做 sanity gate：当前 CI 按 `git rev-list --count HEAD` 复算的期望 `versionCode` 必须大于历史 floor。
+- 若历史 release metadata 被手工错误发布为虚高 `versionCode`，默认行为是失败；维护者必须删除或清理该错误 release 后重新触发 workflow。
+- workflow 不提供恢复绕过变量、workflow input 或 secret；version floor 恢复不能绕过 package-global 单调递增门禁。
+- build、signing、artifact staging、publish preflight 和 publish write jobs 都不能接收或消费 version floor 绕过输入。
 - 首个新格式 stable release 是 post-bootstrap 边界；边界之前的 legacy releases 不参与后续 floor。
 - post-bootstrap 边界之后出现非新格式、title 不匹配或 tag/title 不一致的非 draft release 时，workflow 失败。
 - `versionCode = git rev-list --count HEAD` 是刻意约束：prerelease 会消耗 package-global `versionCode` 空间，prerelease 不能在同 commit 原样 promote 为 stable，历史重写或切换到提交数更低的发布分支会触发 floor gate 失败。
@@ -440,8 +435,7 @@ baseline resolver 顺序：
 - post-bootstrap release tag 不是新格式。
 - post-bootstrap release title 与 tag 解析结果不一致。
 - 新 APK `versionCode` 不大于 package-global 最大 `versionCode` floor。
-- 解析出的历史 floor 大于当前 CI 期望 `versionCode`，且没有受审计的 floor override。
-- floor override 缺少被忽略 release tag、恢复 floor、原因或操作者记录。
+- 解析出的历史 floor 大于或等于当前 CI 期望 `versionCode`。
 - 当前自动生成的 Git tag/ref 或 GitHub Release 任一已存在。
 - 自动 tag 生成前计算 package-global floor，或同 tag/ref/release gate 失败后继续解析历史 release metadata。
 - publish job 复查 Git tag/ref 和 GitHub Release 状态与 build/verify job 输出的 publish handoff artifact 不匹配。
@@ -856,8 +850,7 @@ Source Ref Gate is an anti-footgun gate, not a standalone security boundary: a u
 - 当前自动 GitHub Release 已存在时失败。
 - post-bootstrap release tag/title 不符合新格式契约时失败。
 - 新 `versionCode` 不大于 package-global 最大 `versionCode` floor 时失败。
-- 历史 floor 大于当前 CI 期望 `versionCode` 且没有受审计 floor override 时失败。
-- floor override 缺少被忽略 release tag、恢复 floor、原因或操作者记录时失败。
+- 历史 floor 大于或等于当前 CI 期望 `versionCode` 时失败。
 - prerelease 与 stable 指向同 commit 时，stable 因 `versionCode` 不大于 floor 而失败；该限制是 `versionCode = git rev-list --count HEAD` 的已知发布约束。
 - 首个 stable manifest bootstrap 必须提供完整 `manual_changelog`，且不解析旧 tag floor。
 - workflow 在版本派生前已固定 `TZ=Asia/Shanghai`。
@@ -1073,8 +1066,8 @@ Source Ref Gate is an anti-footgun gate, not a standalone security boundary: a u
 ### Known Risks And Operational Decisions
 
 - `versionCode = git rev-list --count HEAD` 是有意保留的版本策略，但它带来 package-global 限制：prerelease 不能在同一 commit 上原样 promote 成 stable；prerelease 会消耗后续 stable 可用的 `versionCode`；发布分支历史重写或切换到较短历史时可能被 floor gate 锁死。
-- package-global floor 默认只从非 draft GitHub Releases 的新格式 tag/title metadata 解析，不下载历史 APK、manifest 或 `oto-update.json`。手工发布的虚高新格式 tag 会抬高 floor；默认恢复方式是清理错误 release，例外恢复必须使用受审计的 floor override。
-- floor override 不是常规发布路径。override 记录必须包含被忽略 release tag、恢复使用的 floor、原因和操作者；override floor 仍必须小于当前 APK 实际 `versionCode`。
+- package-global floor 默认只从非 draft GitHub Releases 的新格式 tag/title metadata 解析，不下载历史 APK、manifest 或 `oto-update.json`。手工发布的虚高新格式 tag 会抬高 floor；恢复方式是清理错误 release 后重新触发 workflow。
+- workflow 不支持 version floor 绕过入口。当前 APK `versionCode` 不大于 package-global floor 时必须失败。
 - draft release 必须纳入当前自动 tag/release 存在性查询。残留 draft 匹配当前自动 tag 时阻塞发布；workflow 不自动接管或删除其他 run 的 draft，维护者清理后重新触发。
 - GitHub Latest release 指针不作为客户端更新模型输入，也不参与 version floor 或 bootstrap version floor；非 bootstrap 自动 changelog 只读使用它作为 stable baseline，GitHub 按默认发布语义正常维护该指针。
 - 首个新格式 stable release 必须提供完整 `manual_changelog`，并通过 publish transaction 生成和远端复验 `oto-update.json` 后建立 manifest baseline。prerelease 在尚无该 baseline 时失败；stable bootstrap 之后自动 changelog baseline 始终取 GitHub Latest stable release。

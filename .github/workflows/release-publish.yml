@@ -350,9 +350,6 @@ jobs:
           RELEASE_CHANNEL: ${{ needs.source-ref-gate.outputs.channel }}
           RELEASE_PRERELEASE: ${{ inputs.prerelease }}
           OTO_RELEASE_DATE: ${{ needs.source-ref-gate.outputs.release_date }}
-          RELEASE_VERSION_FLOOR_OVERRIDE: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE }}
-          RELEASE_VERSION_FLOOR_OVERRIDE_IGNORED_TAG: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE_IGNORED_TAG }}
-          RELEASE_VERSION_FLOOR_OVERRIDE_REASON: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE_REASON }}
         run: ./.github/scripts/release-version-tag-gate.ps1
 
       - name: Upload Version Metadata Artifact
@@ -496,9 +493,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
-          RELEASE_VERSION_FLOOR_OVERRIDE: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE }}
-          RELEASE_VERSION_FLOOR_OVERRIDE_IGNORED_TAG: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE_IGNORED_TAG }}
-          RELEASE_VERSION_FLOOR_OVERRIDE_REASON: ${{ vars.RELEASE_VERSION_FLOOR_OVERRIDE_REASON }}
         run: ./.github/scripts/release-publish-preflight-gate.ps1
 
   publish-draft:

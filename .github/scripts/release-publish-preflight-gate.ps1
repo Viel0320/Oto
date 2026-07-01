@@ -218,22 +218,6 @@ if (Test-GitHubReleaseExists $metadata.tagName) {
 $versionCodeInt = [int]$metadata.versionCode
 $floor = Get-PackageGlobalVersionFloor
 if ($versionCodeInt -le $floor) {
-  $overrideRaw = Get-EnvValue "RELEASE_VERSION_FLOOR_OVERRIDE" $false
-  if (-not [string]::IsNullOrWhiteSpace($overrideRaw)) {
-    $ignoredTag = Get-EnvValue "RELEASE_VERSION_FLOOR_OVERRIDE_IGNORED_TAG"
-    $reason = Get-EnvValue "RELEASE_VERSION_FLOOR_OVERRIDE_REASON"
-    if ($overrideRaw -notmatch "^\d+$") {
-      throw "RELEASE_VERSION_FLOOR_OVERRIDE must be numeric."
-    }
-    $overrideFloor = [int]$overrideRaw
-    if ($overrideFloor -ge $versionCodeInt) {
-      throw "RELEASE_VERSION_FLOOR_OVERRIDE must be lower than the current APK versionCode."
-    }
-    Write-Host "Using audited floor override $overrideFloor. Ignored tag: $ignoredTag. Reason: $reason. Operator: $env:GITHUB_ACTOR."
-    $floor = $overrideFloor
-  }
-}
-if ($versionCodeInt -le $floor) {
   throw "APK versionCode $versionCodeInt must be greater than package-global release floor $floor. A concurrent release likely advanced the floor after version-tag-gate."
 }
 
