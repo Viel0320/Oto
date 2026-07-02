@@ -168,7 +168,9 @@ foreach ($entry in ([ordered]@{
    - source-ref-gate runs before signing material can appear;
    - changelog generation blocks the signed APK build;
    - verify/handoff/publish jobs consume the expected upstream artifacts;
-   - publish jobs run only after the handoff gate authorizes publishing. #>
+   - publish jobs run only after the handoff gate authorizes publishing;
+   - changelog GitHub API endpoints keep PowerShell variable names separated
+     from query-string markers before the StrictMode runtime sees them. #>
 Assert-Condition ($sourceRefJob -match "release-source-ref-gate\.ps1") "source-ref-gate must run release-source-ref-gate.ps1."
 Assert-Condition ($sourceRefJob -match "release-checkout-token-gate\.ps1") "source-ref-gate must run release-checkout-token-gate.ps1."
 Assert-Condition ($releaseBuildJob -match "source-ref-gate") "release-build must depend on source-ref-gate before signing secret injection."
@@ -184,6 +186,7 @@ Assert-Condition ($versionJob -match "release-build-metadata\.json") "version-ta
 Assert-Condition ($versionScript -match 'oto-\$channel') "version-tag-gate must generate the prefixed release identity tag."
 Assert-Condition (($changelogScript + $publishPreflightScript + $versionScript) -notmatch '\(\?:oto-\)\?') "Release tag parsing must not accept legacy no-prefix tags."
 Assert-Condition (($changelogScript + $publishPreflightScript + $versionScript) -match '\^oto-\(stable\|prerelease\)') "Release tag parsing must require the prefixed release identity."
+Assert-Condition ($changelogScript -notmatch '\$[A-Za-z_][A-Za-z0-9_]*\?') "release-changelog-generate.ps1 must delimit PowerShell variables before query strings."
 Assert-Condition ($changelogGenerateJob -match "release-changelog-generate\.ps1") "changelog-generate must run release-changelog-generate.ps1."
 Assert-Condition ($changelogGenerateJob -match "source-ref-gate") "changelog-generate must depend on source-ref-gate for channel resolution."
 Assert-Condition ($changelogGenerateJob -notmatch "version-tag-gate") "changelog-generate must not depend on version-tag-gate."

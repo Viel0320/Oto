@@ -224,6 +224,11 @@ function Normalize-ContributorHandle {
   return "@$handle"
 }
 
+<#
+  Queries GitHub's compare API for commit handles in the release range. The
+  endpoint is formatted outside interpolation so a query-string marker cannot
+  be parsed as part of the preceding PowerShell variable name under StrictMode.
+#>
 function Get-CommitContributorHandles {
   param(
     [Parameter(Mandatory = $true)][string]$BaseRef,
@@ -232,7 +237,8 @@ function Get-CommitContributorHandles {
   )
 
   $repo = Get-EnvValue "GITHUB_REPOSITORY"
-  $output = & gh api --paginate "repos/$repo/compare/$($BaseRef)...$HeadRef?per_page=100" --jq '.commits[] | [.sha, (.author.login // .committer.login // "")] | @tsv' 2>&1
+  $compareEndpoint = "repos/{0}/compare/{1}...{2}?per_page=100" -f $repo, $BaseRef, $HeadRef
+  $output = & gh api --paginate $compareEndpoint --jq '.commits[] | [.sha, (.author.login // .committer.login // "")] | @tsv' 2>&1
   if ($LASTEXITCODE -ne 0) {
     $joined = ($output | Out-String).Trim()
     throw "Failed to resolve contributor handles for changelog range '$BaseRef...$HeadRef'.`n$joined"
