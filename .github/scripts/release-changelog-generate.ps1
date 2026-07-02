@@ -375,11 +375,15 @@ if ($manualTrimmed.Length -gt 0) {
     $sections[$category].Add("- $entry")
   }
 
+  # StrictMode treats an empty pipeline as $null, so track emitted sections
+  # explicitly instead of reading .Count from a filtered pipeline result.
+  $hasUserFacingSection = $false
   foreach ($section in $sectionOrder) {
     if ($sections[$section].Count -eq 0) {
       continue
     }
 
+    $hasUserFacingSection = $true
     $notes.Add("### $section")
     $notes.Add("")
     foreach ($line in $sections[$section]) {
@@ -387,7 +391,7 @@ if ($manualTrimmed.Length -gt 0) {
     }
     $notes.Add("")
   }
-  if (($sectionOrder | Where-Object { $sections[$_].Count -gt 0 }).Count -eq 0) {
+  if (-not $hasUserFacingSection) {
     $notes.Add("- No user-facing changes.")
     $notes.Add("")
   }
