@@ -51,7 +51,7 @@ Oto 采用分层多模块架构，业务边界由架构测试守护：
 
 - JDK 21
 - Android SDK：compileSdk 37、targetSdk 36、minSdk 33
-- Gradle Wrapper（已固定 Gradle 9.6.0，无需单独安装）
+- Gradle Wrapper（已固定 Gradle 9.6.1，无需单独安装）
 
 ## 快速开始
 
