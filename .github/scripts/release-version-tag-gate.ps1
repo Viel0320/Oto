@@ -261,3 +261,11 @@ Write-JsonFile $outputPath $versionMetadata
 Write-StepOutput "tag_name" $tagName
 Write-StepOutput "release_name" $releaseName
 Write-Host "Version/tag gate passed for $tagName."
+
+# GitHub Actions Pwsh Exit Boundary
+# Expected negative GitHub CLI probes, such as a missing latest stable release
+# during bootstrap, leave LASTEXITCODE set to 1 even after this script handles
+# that absence as valid state. Reset it after all gate outputs are written so
+# the GitHub Actions pwsh wrapper reports the gate result instead of the last
+# handled native-command probe.
+$global:LASTEXITCODE = 0
