@@ -414,6 +414,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
           RELEASE_DRAFT_STATE_DIR: ${{ runner.temp }}/oto-release-draft-state
         run: |
@@ -492,6 +493,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_DRAFT_STATE_DIR: ${{ runner.temp }}/oto-release-draft-state
         run: |
           $ErrorActionPreference = "Stop"
@@ -518,6 +520,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
         run: |
           $ErrorActionPreference = "Stop"
@@ -560,6 +563,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
         run: ./.github/scripts/release-publish-remote-gate.ps1
 
@@ -583,6 +587,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
         run: |
           $ErrorActionPreference = "Stop"
@@ -628,6 +633,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
           RELEASE_DRAFT_STATE_DIR: ${{ runner.temp }}/oto-release-draft-state
         run: |
