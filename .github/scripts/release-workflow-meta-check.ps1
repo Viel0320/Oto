@@ -90,6 +90,25 @@ function Assert-WriteJobBoundary {
   Assert-Condition ($JobBlock -notmatch "KEYSTORE_|KEY_ALIAS|KEY_PASSWORD|SIGNING_CERTIFICATE|gradlew|assembleRelease|apksigner") "$JobName must not access signing secrets, Gradle, Android build, or APK signing verification."
 }
 
+<#
+  Allows the remote verification gate to hold write-scoped contents permission
+  because GitHub hides draft releases from read-only tokens. The job may run the
+  checked-in remote gate script, but it must keep persisted checkout credentials
+  disabled and must not perform release mutation, signing, or Android build work.
+#>
+function Assert-RemoteGateBoundary {
+  param(
+    [Parameter(Mandatory = $true)][string]$JobName,
+    [Parameter(Mandatory = $true)][string]$JobBlock
+  )
+
+  Assert-JobPermission $JobName $JobBlock "write"
+  Assert-ReadJobCheckout $JobName $JobBlock
+  Assert-Condition ($JobBlock -match "release-publish-remote-gate\.ps1") "$JobName must run the remote verification gate script."
+  Assert-Condition ($JobBlock -notmatch "release (create|edit|delete|upload)") "$JobName must not mutate GitHub Releases."
+  Assert-Condition ($JobBlock -notmatch "KEYSTORE_|KEY_ALIAS|KEY_PASSWORD|SIGNING_CERTIFICATE|gradlew|assembleRelease|apksigner") "$JobName must not access signing secrets, Gradle, Android build, or APK signing verification."
+}
+
 $workflowPath = Join-Path (Get-Location) ".github/workflows/release-publish.yml"
 $workflow = Get-Content -LiteralPath $workflowPath -Raw
 $workflowInputs = Get-WorkflowDispatchInputsBlock $workflow
@@ -122,13 +141,13 @@ $readOnlyJobs = [ordered]@{
   "release-verify" = $releaseVerifyJob
   "handoff-gate" = $handoffJob
   "publish-preflight-gate" = $publishPreflightJob
-  "publish-remote-gate" = $publishRemoteJob
 }
 
 foreach ($entry in $readOnlyJobs.GetEnumerator()) {
   Assert-JobPermission $entry.Key $entry.Value "read"
   Assert-ReadJobCheckout $entry.Key $entry.Value
 }
+Assert-RemoteGateBoundary "publish-remote-gate" $publishRemoteJob
 foreach ($entry in ([ordered]@{
   "publish-draft" = $publishDraftJob
   "publish" = $publishJob
@@ -183,7 +202,7 @@ Assert-Condition ($publishDraftJob -match "gh @createArgs") "publish-draft must 
 Assert-Condition ($publishDraftJob -match "oto-release-draft-state") "publish-draft must persist a draft ownership artifact."
 Assert-Condition ($publishDraftJob -match "gh @uploadArgs") "publish-draft must upload release assets inline."
 Assert-Condition ($publishJob -match "--draft=false") "publish must finalize the verified draft release inline."
-Assert-Condition (($publishDraftJob + $publishJob + $publishCleanupJob) -notmatch "--latest") "publish write jobs must not actively maintain the GitHub Latest pointer."
+Assert-Condition (($publishDraftJob + $publishRemoteJob + $publishJob + $publishCleanupJob) -notmatch "--latest") "publish write jobs must not actively maintain the GitHub Latest pointer."
 Assert-Condition ($publishCleanupJob -match "release delete") "publish-cleanup-draft must remove failed draft releases."
 Assert-Condition ($publishCleanupJob -match "oto-release-draft-state") "publish-cleanup-draft must require the draft ownership artifact."
 

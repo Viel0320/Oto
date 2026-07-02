@@ -105,19 +105,42 @@ function Assert-ManifestMatchesMetadata {
   }
 }
 
+<#
+  Draft Release Visibility Boundary
+  GitHub keeps draft releases hidden from read-only release lookups, so this
+  gate runs with write-scoped contents permission while still performing only
+  remote reads. The explicit repository and short retry keep the check tied to
+  the workflow repository and tolerate brief draft visibility propagation.
+#>
 function Get-ReleaseView {
-  param([Parameter(Mandatory = $true)][string]$TagName)
-  $json = Invoke-CheckedCommand "gh" @("release", "view", $TagName, "--json", "tagName,name,isDraft,isPrerelease,body,assets,targetCommitish") "Failed to inspect GitHub Release."
-  return (($json | Out-String).Trim() | ConvertFrom-Json)
+  param(
+    [Parameter(Mandatory = $true)][string]$TagName,
+    [Parameter(Mandatory = $true)][string]$Repository
+  )
+
+  $output = $null
+  for ($attempt = 1; $attempt -le 5; $attempt++) {
+    $output = & gh release view $TagName --repo $Repository --json tagName,name,isDraft,isPrerelease,body,assets,targetCommitish 2>&1
+    if ($LASTEXITCODE -eq 0) {
+      return (($output | Out-String).Trim() | ConvertFrom-Json)
+    }
+    if ($attempt -lt 5) {
+      Start-Sleep -Seconds 2
+    }
+  }
+
+  $joined = ($output | Out-String).Trim()
+  throw "Failed to inspect GitHub Release.`n$joined"
 }
 
 $handoffDir = Get-EnvValue "RELEASE_HANDOFF_DIR"
+$repository = Get-EnvValue "GITHUB_REPOSITORY"
 $metadata = Read-JsonFile (Join-Path $handoffDir "release-metadata.json")
 if ([string]::IsNullOrWhiteSpace($metadata.createdByRunId) -or $metadata.createdByRunId -ne (Get-EnvValue "GITHUB_RUN_ID")) {
   throw "Handoff artifact was not created by this workflow run."
 }
 
-$remote = Get-ReleaseView $metadata.tagName
+$remote = Get-ReleaseView $metadata.tagName $repository
 if (-not $remote.isDraft) {
   throw "GitHub Release was not left as draft before remote verification."
 }
@@ -149,7 +172,7 @@ if (Test-Path -LiteralPath $downloadDir) {
   Remove-Item -LiteralPath $downloadDir -Recurse -Force
 }
 New-Item -ItemType Directory -Path $downloadDir | Out-Null
-Invoke-CheckedCommand "gh" @("release", "download", $metadata.tagName, "--dir", $downloadDir, "--pattern", "*") "Failed to download uploaded release assets for verification." | Out-Null
+Invoke-CheckedCommand "gh" @("release", "download", $metadata.tagName, "--repo", $repository, "--dir", $downloadDir, "--pattern", "*") "Failed to download uploaded release assets for verification." | Out-Null
 Assert-ExactFileSet $downloadDir @($metadata.apkAssetName, $metadata.sha256AssetName, $metadata.changelogAssetName, $metadata.manifestAssetName)
 
 if ((Get-Sha256 (Join-Path $downloadDir $metadata.apkAssetName)) -ne $metadata.apkSha256) {

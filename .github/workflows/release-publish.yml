@@ -565,8 +565,12 @@ jobs:
       - handoff-gate
       - publish-draft
     if: ${{ needs.handoff-gate.outputs.publish_authorized == 'true' }}
+    # Draft Release Visibility Boundary
+    # GitHub hides draft releases from read-only tokens, so this verification
+    # job needs write-scoped contents visibility while the meta-check keeps it
+    # away from signing material, Gradle, and release mutation commands.
     permissions:
-      contents: read
+      contents: write
     steps:
       - name: Checkout Scripts
         uses: actions/checkout@v5
