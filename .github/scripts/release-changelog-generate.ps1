@@ -97,6 +97,15 @@ function Get-ReleaseList {
   return @($json | ConvertFrom-Json)
 }
 
+<#
+  Identifies release tags that participate in manifest bootstrap detection. Only
+  the current `oto-<channel>-<versionName>-<versionCode>` identity is managed;
+  earlier no-prefix tags are treated as unmanaged historical releases.
+#>
+function Get-ManagedReleaseTagRegex {
+  return "^oto-(stable|prerelease)-\d{2}\.\d{2}\.\d{2}-\d+$"
+}
+
 function Get-LatestStableReleaseTag {
   $repo = Get-EnvValue "GITHUB_REPOSITORY"
   $output = & gh api "repos/$repo/releases/latest" 2>&1
@@ -276,7 +285,8 @@ if ($channel -ne "stable" -and $channel -ne "prerelease") {
 }
 
 $releaseList = Get-ReleaseList
-$hasNewFormatStable = @($releaseList | Where-Object { -not $_.isDraft -and $_.tagName -match "^stable-\d{2}\.\d{2}\.\d{2}-\d+$" }).Count -gt 0
+$managedReleaseTagRegex = Get-ManagedReleaseTagRegex
+$hasNewFormatStable = @($releaseList | Where-Object { -not $_.isDraft -and $_.tagName -match $managedReleaseTagRegex -and $Matches[1] -eq "stable" }).Count -gt 0
 $isStableManifestBootstrap = -not $hasNewFormatStable
 
 # Stable bootstrap intentionally has no trusted automatic release-note baseline yet.

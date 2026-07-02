@@ -163,7 +163,11 @@ if (Test-Path -LiteralPath $handoffDir) {
 }
 New-Item -ItemType Directory -Path $handoffDir | Out-Null
 
-$apkAssetName = "oto-$($versionMetadata.channel)-$($versionMetadata.versionName)-$($versionMetadata.versionCode)-universal.apk"
+# Release Identity Asset Naming
+# The version gate owns the release identity in tagName. The APK asset appends
+# only its artifact role suffix, keeping tag and versioned asset names aligned
+# while fixed support files such as oto-update.json keep their stable names.
+$apkAssetName = "$($versionMetadata.tagName)-universal.apk"
 $stagedApk = Join-Path $handoffDir $apkAssetName
 Copy-Item -LiteralPath $apkPath -Destination $stagedApk
 $apkSha256sum = Get-Sha256 $stagedApk

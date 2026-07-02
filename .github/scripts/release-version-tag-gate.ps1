@@ -133,6 +133,15 @@ function Test-GitHubReleaseExists {
   throw "Failed to query GitHub Release '$TagName'. $message"
 }
 
+<#
+  Matches release tags managed by the CI version floor. The generated
+  `oto-<channel>-<versionName>-<versionCode>` identity is now the only managed
+  contract; no-prefix tags are excluded from bootstrap and floor calculation.
+#>
+function Get-ManagedReleaseTagRegex {
+  return "^oto-(stable|prerelease)-(\d{2}\.\d{2}\.\d{2})-(\d+)$"
+}
+
 $metadata = Read-JsonFile (Get-EnvValue "RELEASE_APK_METADATA_PATH")
 $outputPath = Get-EnvValue "RELEASE_VERSION_METADATA_PATH"
 $channel = Get-EnvValue "RELEASE_CHANNEL"
@@ -163,8 +172,9 @@ if ($metadata.packageName -ne "com.viel.oto") {
   throw "APK package name '$($metadata.packageName)' does not match com.viel.oto."
 }
 
-$tagName = "$channel-$($metadata.versionName)-$($metadata.versionCode)"
-if ($tagName -notmatch "^(stable|prerelease)-\d{2}\.\d{2}\.\d{2}-\d+$") {
+$releaseIdentity = "oto-$channel-$($metadata.versionName)-$($metadata.versionCode)"
+$tagName = $releaseIdentity
+if ($tagName -notmatch "^oto-(stable|prerelease)-\d{2}\.\d{2}\.\d{2}-\d+$") {
   throw "Generated tag '$tagName' does not match the release tag contract."
 }
 $releaseName = "Oto $($metadata.versionName) ($($metadata.versionCode)) [$channel]"
@@ -183,7 +193,7 @@ if ($matchingRelease.Count -gt 0) {
 }
 
 $nonDraftReleases = @($releases | Where-Object { -not $_.isDraft })
-$tagRegex = "^(stable|prerelease)-(\d{2}\.\d{2}\.\d{2})-(\d+)$"
+$tagRegex = Get-ManagedReleaseTagRegex
 $newFormatReleases = @()
 foreach ($release in $nonDraftReleases) {
   if ($release.tagName -match $tagRegex) {

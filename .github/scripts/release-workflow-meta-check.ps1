@@ -112,8 +112,14 @@ function Assert-RemoteGateBoundary {
 $workflowPath = Join-Path (Get-Location) ".github/workflows/release-publish.yml"
 $workflow = Get-Content -LiteralPath $workflowPath -Raw
 $workflowInputs = Get-WorkflowDispatchInputsBlock $workflow
+$changelogScriptPath = Join-Path (Get-Location) ".github/scripts/release-changelog-generate.ps1"
+$changelogScript = Get-Content -LiteralPath $changelogScriptPath -Raw
 $handoffScriptPath = Join-Path (Get-Location) ".github/scripts/release-handoff-gate.ps1"
 $handoffScript = Get-Content -LiteralPath $handoffScriptPath -Raw
+$publishPreflightScriptPath = Join-Path (Get-Location) ".github/scripts/release-publish-preflight-gate.ps1"
+$publishPreflightScript = Get-Content -LiteralPath $publishPreflightScriptPath -Raw
+$versionScriptPath = Join-Path (Get-Location) ".github/scripts/release-version-tag-gate.ps1"
+$versionScript = Get-Content -LiteralPath $versionScriptPath -Raw
 
 Assert-Condition ($workflow -match "(?ms)^permissions:`r?`n  contents: read`r?`n") "Workflow-level permissions must stay contents: read."
 Assert-Condition ($workflow -notmatch "(?ms)^permissions:`r?`n  contents: write`r?`n") "Workflow-level contents: write is forbidden."
@@ -175,6 +181,9 @@ Assert-Condition ($releaseBuildJob -match "release-build-artifact-stage\.ps1") "
 Assert-Condition ($releaseBuildJob -match "oto-release-build") "release-build must upload the combined release build artifact."
 Assert-Condition ($versionJob -match "release-version-tag-gate\.ps1") "version-tag-gate must run release-version-tag-gate.ps1."
 Assert-Condition ($versionJob -match "release-build-metadata\.json") "version-tag-gate must derive tag metadata from release-build producer metadata."
+Assert-Condition ($versionScript -match 'oto-\$channel') "version-tag-gate must generate the prefixed release identity tag."
+Assert-Condition (($changelogScript + $publishPreflightScript + $versionScript) -notmatch '\(\?:oto-\)\?') "Release tag parsing must not accept legacy no-prefix tags."
+Assert-Condition (($changelogScript + $publishPreflightScript + $versionScript) -match '\^oto-\(stable\|prerelease\)') "Release tag parsing must require the prefixed release identity."
 Assert-Condition ($changelogGenerateJob -match "release-changelog-generate\.ps1") "changelog-generate must run release-changelog-generate.ps1."
 Assert-Condition ($changelogGenerateJob -match "source-ref-gate") "changelog-generate must depend on source-ref-gate for channel resolution."
 Assert-Condition ($changelogGenerateJob -notmatch "version-tag-gate") "changelog-generate must not depend on version-tag-gate."
@@ -194,6 +203,7 @@ Assert-Condition ($handoffJob -match "release-handoff-gate\.ps1") "handoff-gate 
 Assert-Condition ($handoffJob -match "oto-release-verified") "handoff-gate must consume the verified release payload."
 Assert-Condition ($handoffJob -match "RELEASE_VERIFIED_DIR") "handoff-gate must receive the verified release payload directory."
 Assert-Condition ($handoffJob -notmatch "KEYSTORE_|KEY_ALIAS|KEY_PASSWORD|gradlew|assembleRelease") "handoff-gate must not access signing secrets or build the APK."
+Assert-Condition ($handoffScript -match 'versionMetadata\.tagName\)-universal\.apk') "handoff-gate must derive the universal APK asset name from the release tag."
 Assert-Condition ($handoffScript -match "manifestSha256sumAssetName") "handoff-gate must publish the oto-update.json sha256sum sidecar."
 Assert-Condition ($handoffScript -notmatch '\$apkAssetName\.sha256') "handoff-gate must not publish an APK SHA-256 sidecar asset."
 Assert-Condition ($publishPreflightJob -match "release-publish-preflight-gate\.ps1") "publish-preflight-gate must run release-publish-preflight-gate.ps1."

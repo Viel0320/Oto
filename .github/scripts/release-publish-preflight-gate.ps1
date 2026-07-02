@@ -134,6 +134,15 @@ function Get-ReleaseList {
 }
 
 <#
+  Matches release tags managed by the CI floor gate. The publish-time recheck is
+  intentionally limited to the current prefixed identity so legacy no-prefix
+  tags cannot keep participating in the package-global version floor.
+#>
+function Get-ManagedReleaseTagRegex {
+  return "^oto-(stable|prerelease)-(\d{2}\.\d{2}\.\d{2})-(\d+)$"
+}
+
+<#
   Recomputes the package-global version floor from a fresh GitHub Releases
   snapshot taken at publish time. version-tag-gate computes the floor from a
   read-only snapshot much earlier in the run, so a concurrently publishing run
@@ -145,7 +154,7 @@ function Get-ReleaseList {
 function Get-PackageGlobalVersionFloor {
   $releases = Get-ReleaseList
   $nonDraftReleases = @($releases | Where-Object { -not $_.isDraft })
-  $tagRegex = "^(stable|prerelease)-(\d{2}\.\d{2}\.\d{2})-(\d+)$"
+  $tagRegex = Get-ManagedReleaseTagRegex
   $newFormatVersionCodes = @()
   foreach ($release in $nonDraftReleases) {
     if ($release.tagName -match $tagRegex) {
@@ -153,7 +162,7 @@ function Get-PackageGlobalVersionFloor {
     }
   }
 
-  $hasNewFormatStable = @($nonDraftReleases | Where-Object { $_.tagName -match "^stable-\d{2}\.\d{2}\.\d{2}-\d+$" }).Count -gt 0
+  $hasNewFormatStable = @($nonDraftReleases | Where-Object { $_.tagName -match $tagRegex -and $Matches[1] -eq "stable" }).Count -gt 0
   if (-not $hasNewFormatStable) {
     return 0
   }
