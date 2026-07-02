@@ -542,12 +542,16 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $metadata = Get-Content -LiteralPath (Join-Path $env:RELEASE_HANDOFF_DIR "release-metadata.json") -Raw | ConvertFrom-Json
-          $assetPaths = @(
-            Join-Path $env:RELEASE_HANDOFF_DIR $metadata.apkAssetName,
-            Join-Path $env:RELEASE_HANDOFF_DIR $metadata.sha256AssetName,
-            Join-Path $env:RELEASE_HANDOFF_DIR $metadata.changelogAssetName,
-            Join-Path $env:RELEASE_HANDOFF_DIR $metadata.manifestAssetName
+          # Keep the Join-Path calls outside the comma-delimited array literal.
+          # PowerShell can otherwise bind the next array item as AdditionalChildPath,
+          # which turns the release asset list into a parameter conversion failure.
+          $assetNames = @(
+            $metadata.apkAssetName,
+            $metadata.sha256AssetName,
+            $metadata.changelogAssetName,
+            $metadata.manifestAssetName
           )
+          $assetPaths = @($assetNames | ForEach-Object { Join-Path $env:RELEASE_HANDOFF_DIR $_ })
           $uploadArgs = @("release", "upload", $metadata.tagName) + $assetPaths
           & gh @uploadArgs
           if ($LASTEXITCODE -ne 0) {
