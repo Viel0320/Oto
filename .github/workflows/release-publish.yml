@@ -441,16 +441,30 @@ jobs:
             throw "Failed to create draft GitHub Release."
           }
 
-          $repo = $env:GITHUB_REPOSITORY
-          $releaseViewOutput = & gh api "repos/$repo/releases/tags/$($metadata.tagName)" 2>&1
-          if ($LASTEXITCODE -ne 0) {
-            throw "Failed to inspect the draft GitHub Release after creation."
+          # GitHub can expose a just-created draft with an untagged web URL until
+          # the draft is published, so the REST "releases/tags" endpoint is not a
+          # reliable ownership source at this point. The gh release view command
+          # resolves draft releases by tag and returns both the GraphQL node id and
+          # database id needed by the cleanup ownership record.
+          $releaseViewOutput = $null
+          $releaseViewExitCode = 1
+          for ($attempt = 1; $attempt -le 5; $attempt++) {
+            $releaseViewOutput = & gh release view $metadata.tagName --json tagName,isDraft,targetCommitish,databaseId,id 2>&1
+            $releaseViewExitCode = $LASTEXITCODE
+            if ($releaseViewExitCode -eq 0) {
+              break
+            }
+            Start-Sleep -Seconds 2
+          }
+          if ($releaseViewExitCode -ne 0) {
+            $releaseViewMessage = ($releaseViewOutput | Out-String).Trim()
+            throw "Failed to inspect the draft GitHub Release after creation. $releaseViewMessage"
           }
           $release = (($releaseViewOutput | Out-String).Trim() | ConvertFrom-Json)
-          if ($release.tag_name -ne $metadata.tagName -or -not $release.draft -or $release.target_commitish -ne $metadata.targetCommit) {
+          if ($release.tagName -ne $metadata.tagName -or -not $release.isDraft -or $release.targetCommitish -ne $metadata.targetCommit) {
             throw "Created draft GitHub Release does not match handoff metadata."
           }
-          if ($null -eq $release.id -or [string]::IsNullOrWhiteSpace([string]$release.node_id)) {
+          if ($null -eq $release.databaseId -or [string]::IsNullOrWhiteSpace([string]$release.id)) {
             throw "Created draft GitHub Release did not return stable release identifiers."
           }
 
@@ -463,8 +477,8 @@ jobs:
           # Cleanup is allowed to delete a remote draft only when this durable record proves that this exact workflow run created it.
           $draftState = [ordered]@{
             createdRelease = $true
-            releaseDatabaseId = [int64]$release.id
-            releaseNodeId = [string]$release.node_id
+            releaseDatabaseId = [int64]$release.databaseId
+            releaseNodeId = [string]$release.id
             repository = $env:GITHUB_REPOSITORY
             tagName = $metadata.tagName
             targetCommit = $metadata.targetCommit
@@ -499,14 +513,17 @@ jobs:
           $ErrorActionPreference = "Stop"
           $draftStatePath = Join-Path $env:RELEASE_DRAFT_STATE_DIR "draft-state.json"
           $draftState = Get-Content -LiteralPath $draftStatePath -Raw | ConvertFrom-Json
-          $releaseViewOutput = & gh api "repos/$($draftState.repository)/releases/tags/$($draftState.tagName)" 2>&1
+          # Use the same draft-aware lookup as the creation step. A failed
+          # ownership artifact upload must not leave a matching draft behind just
+          # because GitHub still reports its browser URL as untagged.
+          $releaseViewOutput = & gh release view $draftState.tagName --repo $draftState.repository --json tagName,isDraft,targetCommitish,databaseId,id 2>&1
           if ($LASTEXITCODE -eq 0) {
             $release = (($releaseViewOutput | Out-String).Trim() | ConvertFrom-Json)
-            if ([int64]$release.id -eq [int64]$draftState.releaseDatabaseId -and
-                $release.node_id -eq $draftState.releaseNodeId -and
-                $release.tag_name -eq $draftState.tagName -and
-                $release.draft -and
-                $release.target_commitish -eq $draftState.targetCommit) {
+            if ([int64]$release.databaseId -eq [int64]$draftState.releaseDatabaseId -and
+                $release.id -eq $draftState.releaseNodeId -and
+                $release.tagName -eq $draftState.tagName -and
+                $release.isDraft -and
+                $release.targetCommitish -eq $draftState.targetCommit) {
               & gh release delete $draftState.tagName --yes --cleanup-tag
               if ($LASTEXITCODE -ne 0) {
                 throw "Failed to delete draft release after draft ownership artifact upload failed."
@@ -662,17 +679,20 @@ jobs:
 
           # Draft Cleanup Ownership Gate
           # A remote delete is permitted only when GitHub's current release id still matches the id captured immediately after draft creation.
-          $viewOutput = & gh api "repos/$($env:GITHUB_REPOSITORY)/releases/tags/$($metadata.tagName)" 2>&1
+          # Cleanup verifies the current draft through a draft-aware tag lookup
+          # before deleting anything, preserving the release id/node id ownership
+          # gate even while GitHub keeps the draft's public URL untagged.
+          $viewOutput = & gh release view $metadata.tagName --json tagName,isDraft,targetCommitish,databaseId,id 2>&1
           if ($LASTEXITCODE -ne 0) {
             Write-Host "No draft release found for cleanup."
             exit 0
           }
           $release = (($viewOutput | Out-String).Trim() | ConvertFrom-Json)
-          if ([int64]$release.id -ne [int64]$draftState.releaseDatabaseId -or
-              $release.node_id -ne $draftState.releaseNodeId -or
-              $release.tag_name -ne $metadata.tagName -or
-              -not $release.draft -or
-              $release.target_commitish -ne $metadata.targetCommit) {
+          if ([int64]$release.databaseId -ne [int64]$draftState.releaseDatabaseId -or
+              $release.id -ne $draftState.releaseNodeId -or
+              $release.tagName -ne $metadata.tagName -or
+              -not $release.isDraft -or
+              $release.targetCommitish -ne $metadata.targetCommit) {
             Write-Host "Remote release does not match cleanup criteria."
             exit 0
           }
