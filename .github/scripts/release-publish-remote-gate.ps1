@@ -133,6 +133,25 @@ function Get-ReleaseView {
   throw "Failed to inspect GitHub Release.`n$joined"
 }
 
+<#
+  Downloads the exact asset names declared by the handoff metadata instead of a
+  catch-all glob. GitHub-hosted PowerShell can expand "*" before gh receives the
+  pattern, which turns the release tag command into many positional arguments;
+  exact-name downloads keep the remote verification input set deterministic.
+#>
+function Download-ExpectedReleaseAssets {
+  param(
+    [Parameter(Mandatory = $true)][string]$TagName,
+    [Parameter(Mandatory = $true)][string]$Repository,
+    [Parameter(Mandatory = $true)][string]$Directory,
+    [Parameter(Mandatory = $true)][string[]]$AssetNames
+  )
+
+  foreach ($assetName in $AssetNames) {
+    Invoke-CheckedCommand "gh" @("release", "download", $TagName, "--repo", $Repository, "--dir", $Directory, "--pattern", $assetName) "Failed to download uploaded release asset for verification: $assetName" | Out-Null
+  }
+}
+
 $handoffDir = Get-EnvValue "RELEASE_HANDOFF_DIR"
 $repository = Get-EnvValue "GITHUB_REPOSITORY"
 $metadata = Read-JsonFile (Join-Path $handoffDir "release-metadata.json")
@@ -172,8 +191,8 @@ if (Test-Path -LiteralPath $downloadDir) {
   Remove-Item -LiteralPath $downloadDir -Recurse -Force
 }
 New-Item -ItemType Directory -Path $downloadDir | Out-Null
-Invoke-CheckedCommand "gh" @("release", "download", $metadata.tagName, "--repo", $repository, "--dir", $downloadDir, "--pattern", "*") "Failed to download uploaded release assets for verification." | Out-Null
-Assert-ExactFileSet $downloadDir @($metadata.apkAssetName, $metadata.sha256AssetName, $metadata.changelogAssetName, $metadata.manifestAssetName)
+Download-ExpectedReleaseAssets $metadata.tagName $repository $downloadDir $expectedAssetNames
+Assert-ExactFileSet $downloadDir $expectedAssetNames
 
 if ((Get-Sha256 (Join-Path $downloadDir $metadata.apkAssetName)) -ne $metadata.apkSha256) {
   throw "Remote APK hash does not match handoff metadata."
