@@ -199,14 +199,14 @@ function Read-ApkSourceFacts {
   }
 
   return [pscustomobject]@{
-    ApkSha256 = Get-Sha256 $ApkPath
+    ApkSha256sum = Get-Sha256 $ApkPath
     ApkSizeBytes = Get-FileSize $ApkPath
     PackageName = $packageName
     VersionCode = $versionCode
     VersionName = $versionName
     MinSdk = $minSdk
     TargetSdk = $targetSdk
-    SigningCertificateSha256 = Normalize-Sha256 $Matches[1]
+    SigningCertificateSha256sum = Normalize-Sha256 $Matches[1]
   }
 }
 
@@ -228,14 +228,14 @@ function Assert-BuildMetadataMatchesApk {
   }
 
   $facts = Read-ApkSourceFacts $apkPath
-  Assert-StringEquals ([string]$metadata.apkSha256) $facts.ApkSha256 "Release build metadata apkSha256"
+  Assert-StringEquals ([string]$metadata.apkSha256sum) $facts.ApkSha256sum "Release build metadata apkSha256sum"
   Assert-Int64Equals ([int64]$metadata.apkSizeBytes) ([int64]$facts.ApkSizeBytes) "Release build metadata apkSizeBytes"
   Assert-StringEquals ([string]$metadata.packageName) $facts.PackageName "Release build metadata packageName"
   Assert-StringEquals ([string]$metadata.versionCode) $facts.VersionCode "Release build metadata versionCode"
   Assert-StringEquals ([string]$metadata.versionName) $facts.VersionName "Release build metadata versionName"
   Assert-StringEquals ([string]$metadata.minSdk) $facts.MinSdk "Release build metadata minSdk"
   Assert-StringEquals ([string]$metadata.targetSdk) $facts.TargetSdk "Release build metadata targetSdk"
-  Assert-StringEquals (Normalize-Sha256 ([string]$metadata.signingCertificateSha256)) $facts.SigningCertificateSha256 "Release build metadata signingCertificateSha256"
+  Assert-StringEquals (Normalize-Sha256 ([string]$metadata.signingCertificateSha256sum)) $facts.SigningCertificateSha256sum "Release build metadata signingCertificateSha256sum"
 }
 
 <#
@@ -264,9 +264,9 @@ function Assert-ChangelogMetadataMatchesFiles {
     throw "Release changelog files drifted from the producer body."
   }
 
-  Assert-StringEquals ([string]$metadata.changelogSha256) (Get-Sha256 $changelogPath) "Release changelog metadata changelogSha256"
+  Assert-StringEquals ([string]$metadata.changelogSha256sum) (Get-Sha256 $changelogPath) "Release changelog metadata changelogSha256sum"
   Assert-Int64Equals ([int64]$metadata.changelogSizeBytes) (Get-FileSize $changelogPath) "Release changelog metadata changelogSizeBytes"
-  Assert-StringEquals ([string]$metadata.releaseBodySha256) (Get-Sha256 $releaseBodyPath) "Release changelog metadata releaseBodySha256"
+  Assert-StringEquals ([string]$metadata.releaseBodySha256sum) (Get-Sha256 $releaseBodyPath) "Release changelog metadata releaseBodySha256sum"
   Assert-Int64Equals ([int64]$metadata.releaseBodySizeBytes) (Get-FileSize $releaseBodyPath) "Release changelog metadata releaseBodySizeBytes"
   Assert-Int64Equals ([int64]$metadata.bodyLengthCharacters) ([int64]$changelog.Length) "Release changelog metadata bodyLengthCharacters"
 }

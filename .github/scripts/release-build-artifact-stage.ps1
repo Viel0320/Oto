@@ -252,23 +252,27 @@ $certLine = @($certOutput | Where-Object { $_ -match "SHA-256 digest:\s*([0-9A-F
 if ($certLine.Count -eq 0 -or $certLine[0] -notmatch "SHA-256 digest:\s*([0-9A-Fa-f:]+)") {
   throw "Failed to parse APK signing certificate SHA-256.`n$certText"
 }
-$signingCertificateSha256 = Normalize-Sha256 $Matches[1]
-Assert-NotDebugSigningCertificate $certText $signingCertificateSha256
+$signingCertificateSha256sum = Normalize-Sha256 $Matches[1]
+Assert-NotDebugSigningCertificate $certText $signingCertificateSha256sum
 
 $metadataPath = Join-Path $outputDir "release-build-metadata.json"
+# Release Build Metadata Contract
+# Digest fields use the sha256sum suffix because later release assets publish
+# sha256sum-compatible sidecars, and every JSON stage should expose the same
+# checksum vocabulary instead of mixing hash and sidecar terminology.
 $metadata = [ordered]@{
   schemaVersion = 1
   artifactKind = "release-build"
   sourceApkFileName = $apks[0].Name
   apkFileName = "release.apk"
-  apkSha256 = Get-Sha256 $apkPath
+  apkSha256sum = Get-Sha256 $apkPath
   apkSizeBytes = Get-FileSize $apkPath
   packageName = $packageName
   versionCode = $versionCode
   versionName = $versionName
   minSdk = $minSdk
   targetSdk = $targetSdk
-  signingCertificateSha256 = $signingCertificateSha256
+  signingCertificateSha256sum = $signingCertificateSha256sum
   targetCommit = Get-EnvValue "GITHUB_SHA"
   createdByRunId = Get-EnvValue "GITHUB_RUN_ID"
   createdByRunAttempt = Get-EnvValue "GITHUB_RUN_ATTEMPT" $false

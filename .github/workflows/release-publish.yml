@@ -547,7 +547,7 @@ jobs:
           # which turns the release asset list into a parameter conversion failure.
           $assetNames = @(
             $metadata.apkAssetName,
-            $metadata.sha256AssetName,
+            $metadata.manifestSha256sumAssetName,
             $metadata.changelogAssetName,
             $metadata.manifestAssetName
           )

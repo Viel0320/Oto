@@ -75,11 +75,11 @@ function Assert-ManifestMatchesMetadata {
       [int]$Manifest.minSdk -ne [int]$Metadata.minSdk -or
       [int]$Manifest.targetSdk -ne [int]$Metadata.targetSdk -or
       $Manifest.apkAssetName -ne $Metadata.apkAssetName -or
-      $Manifest.apkSha256 -ne $Metadata.apkSha256 -or
+      $Manifest.apkSha256sum -ne $Metadata.apkSha256sum -or
       [int64]$Manifest.apkSizeBytes -ne [int64]$Metadata.apkSizeBytes -or
-      $Manifest.signingCertificateSha256 -ne $Metadata.signingCertificateSha256 -or
+      $Manifest.signingCertificateSha256sum -ne $Metadata.signingCertificateSha256sum -or
       $Manifest.changelogAssetName -ne $Metadata.changelogAssetName -or
-      $Manifest.changelogSha256 -ne $Metadata.changelogSha256 -or
+      $Manifest.changelogSha256sum -ne $Metadata.changelogSha256sum -or
       [int64]$Manifest.changelogSizeBytes -ne [int64]$Metadata.changelogSizeBytes -or
       $Manifest.changelogFormat -ne "markdown" -or
       $Manifest.changelogFormat -ne $Metadata.changelogFormat -or
@@ -170,7 +170,7 @@ if ([string]::IsNullOrWhiteSpace($metadata.createdByRunId) -or $metadata.created
 
 Assert-ExactFileSet $handoffDir @(
   $metadata.apkAssetName,
-  $metadata.sha256AssetName,
+  $metadata.manifestSha256sumAssetName,
   $metadata.changelogAssetName,
   $metadata.manifestAssetName,
   $metadata.releaseBodyFileName,
@@ -178,27 +178,35 @@ Assert-ExactFileSet $handoffDir @(
 )
 
 $apkPath = Join-Path $handoffDir $metadata.apkAssetName
-$shaPath = Join-Path $handoffDir $metadata.sha256AssetName
+$manifestShaPath = Join-Path $handoffDir $metadata.manifestSha256sumAssetName
 $changelogPath = Join-Path $handoffDir $metadata.changelogAssetName
 $manifestPath = Join-Path $handoffDir $metadata.manifestAssetName
 $bodyPath = Join-Path $handoffDir $metadata.releaseBodyFileName
 
-if ((Get-Sha256 $apkPath) -ne $metadata.apkSha256) {
+if ((Get-Sha256 $apkPath) -ne $metadata.apkSha256sum) {
   throw "APK hash does not match handoff metadata."
 }
 if ((Get-FileSize $apkPath) -ne [int64]$metadata.apkSizeBytes) {
   throw "APK size does not match handoff metadata."
 }
-if ((Get-Sha256 $changelogPath) -ne $metadata.changelogSha256) {
+if ((Get-Sha256 $changelogPath) -ne $metadata.changelogSha256sum) {
   throw "CHANGELOG.md hash does not match handoff metadata."
 }
 if ((Get-FileSize $changelogPath) -ne [int64]$metadata.changelogSizeBytes) {
   throw "CHANGELOG.md size does not match handoff metadata."
 }
 
-$shaContent = Normalize-Text (Get-Content -LiteralPath $shaPath -Raw)
-if ($shaContent -ne "$($metadata.apkSha256)  $($metadata.apkAssetName)`n") {
-  throw "APK SHA-256 asset content does not match sha256sum format."
+# Manifest Sidecar Preflight
+# The publish bundle no longer carries an APK sha256 sidecar. The APK is still
+# verified directly against release-metadata.json, while the sidecar must now
+# bind oto-update.json to the metadata before any draft release can be created.
+if ((Get-Sha256 $manifestPath) -ne $metadata.manifestSha256sum) {
+  throw "oto-update.json hash does not match handoff metadata."
+}
+
+$manifestShaContent = Normalize-Text (Get-Content -LiteralPath $manifestShaPath -Raw)
+if ($manifestShaContent -ne "$($metadata.manifestSha256sum)  $($metadata.manifestAssetName)`n") {
+  throw "oto-update.json sha256sum asset content does not match sha256sum format."
 }
 
 if ((Normalize-Text (Get-Content -LiteralPath $changelogPath -Raw)) -ne (Normalize-Text (Get-Content -LiteralPath $bodyPath -Raw))) {

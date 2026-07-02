@@ -394,6 +394,8 @@ Copy-Item -LiteralPath $fullChangelogPath -Destination $releaseBodyPath -Force
 # Changelog Producer Metadata
 # The verify gate treats these fields as the changelog job's declaration and
 # cross-checks them against the downloaded files, version metadata, and run id.
+# Digest fields intentionally use the sha256sum suffix so every generated JSON
+# artifact uses the same checksum vocabulary as the published sidecar files.
 $metadata = [ordered]@{
   schemaVersion = 1
   artifactKind = "release-changelog"
@@ -402,9 +404,9 @@ $metadata = [ordered]@{
   targetCommit = Get-EnvValue "GITHUB_SHA"
   previousStableTag = $previousStableTag
   isStableManifestBootstrap = [bool]$isStableManifestBootstrap
-  changelogSha256 = Get-Sha256 $changelogPath
+  changelogSha256sum = Get-Sha256 $changelogPath
   changelogSizeBytes = Get-FileSize $changelogPath
-  releaseBodySha256 = Get-Sha256 $releaseBodyPath
+  releaseBodySha256sum = Get-Sha256 $releaseBodyPath
   releaseBodySizeBytes = Get-FileSize $releaseBodyPath
   bodyLengthCharacters = $changelog.Length
   createdByRunId = Get-EnvValue "GITHUB_RUN_ID"

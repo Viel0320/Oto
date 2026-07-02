@@ -101,11 +101,11 @@ function Assert-ManifestMatchesMetadata {
       [int]$Manifest.minSdk -ne [int]$Metadata.minSdk -or
       [int]$Manifest.targetSdk -ne [int]$Metadata.targetSdk -or
       $Manifest.apkAssetName -ne $Metadata.apkAssetName -or
-      $Manifest.apkSha256 -ne $Metadata.apkSha256 -or
+      $Manifest.apkSha256sum -ne $Metadata.apkSha256sum -or
       [int64]$Manifest.apkSizeBytes -ne [int64]$Metadata.apkSizeBytes -or
-      $Manifest.signingCertificateSha256 -ne $Metadata.signingCertificateSha256 -or
+      $Manifest.signingCertificateSha256sum -ne $Metadata.signingCertificateSha256sum -or
       $Manifest.changelogAssetName -ne $Metadata.changelogAssetName -or
-      $Manifest.changelogSha256 -ne $Metadata.changelogSha256 -or
+      $Manifest.changelogSha256sum -ne $Metadata.changelogSha256sum -or
       [int64]$Manifest.changelogSizeBytes -ne [int64]$Metadata.changelogSizeBytes -or
       $Manifest.changelogFormat -ne "markdown" -or
       $Manifest.changelogFormat -ne $Metadata.changelogFormat -or
@@ -166,10 +166,8 @@ New-Item -ItemType Directory -Path $handoffDir | Out-Null
 $apkAssetName = "oto-$($versionMetadata.channel)-$($versionMetadata.versionName)-$($versionMetadata.versionCode)-universal.apk"
 $stagedApk = Join-Path $handoffDir $apkAssetName
 Copy-Item -LiteralPath $apkPath -Destination $stagedApk
-$apkSha256 = Get-Sha256 $stagedApk
+$apkSha256sum = Get-Sha256 $stagedApk
 $apkSize = Get-FileSize $stagedApk
-$shaAssetName = "$apkAssetName.sha256"
-Write-Utf8NoBomFile (Join-Path $handoffDir $shaAssetName) "$apkSha256  $apkAssetName`n"
 
 $changelogPath = Join-Path $changelogDir "CHANGELOG.md"
 $releaseBodyPath = Join-Path $changelogDir "release-body.md"
@@ -181,7 +179,7 @@ Copy-Item -LiteralPath $releaseBodyPath -Destination (Join-Path $handoffDir "rel
 
 $stagedChangelogPath = Join-Path $handoffDir "CHANGELOG.md"
 $stagedReleaseBodyPath = Join-Path $handoffDir "release-body.md"
-$changelogSha256 = Get-Sha256 $stagedChangelogPath
+$changelogSha256sum = Get-Sha256 $stagedChangelogPath
 $changelogSize = Get-FileSize $stagedChangelogPath
 if ((Normalize-Text (Get-Content -LiteralPath $stagedChangelogPath -Raw)) -ne (Normalize-Text (Get-Content -LiteralPath $stagedReleaseBodyPath -Raw))) {
   throw "Release body does not match CHANGELOG.md."
@@ -199,16 +197,26 @@ $manifest = [ordered]@{
   minSdk = [int]$versionMetadata.minSdk
   targetSdk = [int]$versionMetadata.targetSdk
   apkAssetName = $apkAssetName
-  apkSha256 = $apkSha256
+  apkSha256sum = $apkSha256sum
   apkSizeBytes = $apkSize
-  signingCertificateSha256 = $signingMetadata.signingCertificateSha256
+  signingCertificateSha256sum = $signingMetadata.signingCertificateSha256sum
   changelogAssetName = "CHANGELOG.md"
-  changelogSha256 = $changelogSha256
+  changelogSha256sum = $changelogSha256sum
   changelogSizeBytes = $changelogSize
   changelogFormat = "markdown"
   fullChangelogUrl = $fullChangelogUrl
 }
-Write-Utf8NoBomFile (Join-Path $handoffDir "oto-update.json") (($manifest | ConvertTo-Json -Depth 8) + "`n")
+# Manifest Integrity Asset
+# The release publishes a sha256sum sidecar for oto-update.json instead of the APK.
+# The APK digest remains inside the manifest as apkSha256sum, while this sidecar lets
+# external consumers verify that the manifest asset itself was not changed after
+# the handoff bundle was staged.
+$manifestAssetName = "oto-update.json"
+$manifestSha256sumAssetName = "$manifestAssetName.sha256sum"
+$manifestPath = Join-Path $handoffDir $manifestAssetName
+Write-Utf8NoBomFile $manifestPath (($manifest | ConvertTo-Json -Depth 8) + "`n")
+$manifestSha256sum = Get-Sha256 $manifestPath
+Write-Utf8NoBomFile (Join-Path $handoffDir $manifestSha256sumAssetName) "$manifestSha256sum  $manifestAssetName`n"
 
 $handoffMetadata = [ordered]@{
   tagName = $versionMetadata.tagName
@@ -219,17 +227,18 @@ $handoffMetadata = [ordered]@{
   createdByRunId = $versionMetadata.createdByRunId
   createdByRunAttempt = $versionMetadata.createdByRunAttempt
   apkAssetName = $apkAssetName
-  sha256AssetName = $shaAssetName
+  manifestSha256sumAssetName = $manifestSha256sumAssetName
   changelogAssetName = "CHANGELOG.md"
-  manifestAssetName = "oto-update.json"
+  manifestAssetName = $manifestAssetName
   releaseBodyFileName = "release-body.md"
-  apkSha256 = $apkSha256
+  apkSha256sum = $apkSha256sum
   apkSizeBytes = $apkSize
-  changelogSha256 = $changelogSha256
+  manifestSha256sum = $manifestSha256sum
+  changelogSha256sum = $changelogSha256sum
   changelogSizeBytes = $changelogSize
   changelogFormat = "markdown"
   fullChangelogUrl = $fullChangelogUrl
-  signingCertificateSha256 = $signingMetadata.signingCertificateSha256
+  signingCertificateSha256sum = $signingMetadata.signingCertificateSha256sum
   packageName = $versionMetadata.packageName
   versionCode = [int]$versionMetadata.versionCode
   versionName = $versionMetadata.versionName
@@ -238,19 +247,19 @@ $handoffMetadata = [ordered]@{
   releaseDate = $versionMetadata.releaseDate
   versionFloor = [int]$versionMetadata.versionFloor
   previousStableTag = $versionMetadata.previousStableTag
-  uploadAssets = @($apkAssetName, $shaAssetName, "CHANGELOG.md", "oto-update.json")
+  uploadAssets = @($apkAssetName, $manifestSha256sumAssetName, "CHANGELOG.md", $manifestAssetName)
 }
 Write-Utf8NoBomFile (Join-Path $handoffDir "release-metadata.json") (($handoffMetadata | ConvertTo-Json -Depth 8) + "`n")
 
-Assert-ExactFileSet $handoffDir @($apkAssetName, $shaAssetName, "CHANGELOG.md", "oto-update.json", "release-body.md", "release-metadata.json")
-if ((Get-Sha256 $stagedApk) -ne $apkSha256) {
+Assert-ExactFileSet $handoffDir @($apkAssetName, $manifestSha256sumAssetName, "CHANGELOG.md", $manifestAssetName, "release-body.md", "release-metadata.json")
+if ((Get-Sha256 $stagedApk) -ne $apkSha256sum) {
   throw "Staged APK hash changed after staging."
 }
-if ((Get-Sha256 $stagedChangelogPath) -ne $changelogSha256) {
+if ((Get-Sha256 $stagedChangelogPath) -ne $changelogSha256sum) {
   throw "Staged changelog hash changed after staging."
 }
 
-$stagedManifest = Read-JsonFile (Join-Path $handoffDir "oto-update.json")
+$stagedManifest = Read-JsonFile $manifestPath
 $stagedMetadata = Read-JsonFile (Join-Path $handoffDir "release-metadata.json")
 Assert-ManifestMatchesMetadata $stagedManifest $stagedMetadata
 

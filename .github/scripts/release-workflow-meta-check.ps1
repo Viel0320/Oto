@@ -112,6 +112,8 @@ function Assert-RemoteGateBoundary {
 $workflowPath = Join-Path (Get-Location) ".github/workflows/release-publish.yml"
 $workflow = Get-Content -LiteralPath $workflowPath -Raw
 $workflowInputs = Get-WorkflowDispatchInputsBlock $workflow
+$handoffScriptPath = Join-Path (Get-Location) ".github/scripts/release-handoff-gate.ps1"
+$handoffScript = Get-Content -LiteralPath $handoffScriptPath -Raw
 
 Assert-Condition ($workflow -match "(?ms)^permissions:`r?`n  contents: read`r?`n") "Workflow-level permissions must stay contents: read."
 Assert-Condition ($workflow -notmatch "(?ms)^permissions:`r?`n  contents: write`r?`n") "Workflow-level contents: write is forbidden."
@@ -192,6 +194,8 @@ Assert-Condition ($handoffJob -match "release-handoff-gate\.ps1") "handoff-gate 
 Assert-Condition ($handoffJob -match "oto-release-verified") "handoff-gate must consume the verified release payload."
 Assert-Condition ($handoffJob -match "RELEASE_VERIFIED_DIR") "handoff-gate must receive the verified release payload directory."
 Assert-Condition ($handoffJob -notmatch "KEYSTORE_|KEY_ALIAS|KEY_PASSWORD|gradlew|assembleRelease") "handoff-gate must not access signing secrets or build the APK."
+Assert-Condition ($handoffScript -match "manifestSha256sumAssetName") "handoff-gate must publish the oto-update.json sha256sum sidecar."
+Assert-Condition ($handoffScript -notmatch '\$apkAssetName\.sha256') "handoff-gate must not publish an APK SHA-256 sidecar asset."
 Assert-Condition ($publishPreflightJob -match "release-publish-preflight-gate\.ps1") "publish-preflight-gate must run release-publish-preflight-gate.ps1."
 Assert-Condition ($publishRemoteJob -match "release-publish-remote-gate\.ps1") "publish-remote-gate must run release-publish-remote-gate.ps1."
 Assert-Condition ($publishPreflightJob -match "needs: handoff-gate") "publish-preflight-gate must wait for handoff-gate."

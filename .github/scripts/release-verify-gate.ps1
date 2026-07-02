@@ -198,7 +198,7 @@ if ($buildMetadata.createdByRunId -ne $currentRunId -or $buildMetadata.targetCom
 }
 
 $apkPath = Join-Path $buildDir "release.apk"
-if ((Get-Sha256 $apkPath) -ne $buildMetadata.apkSha256) {
+if ((Get-Sha256 $apkPath) -ne $buildMetadata.apkSha256sum) {
   throw "Release APK hash does not match producer metadata."
 }
 if ((Get-FileSize $apkPath) -ne [int64]$buildMetadata.apkSizeBytes) {
@@ -213,8 +213,8 @@ if ($buildMetadata.packageName -ne $versionMetadata.packageName -or
   throw "Release build metadata and version metadata disagree."
 }
 
-$actualSigningSha256 = Normalize-Sha256 ([string]$buildMetadata.signingCertificateSha256)
-if ($actualSigningSha256 -ne $expectedSigningSha256) {
+$actualSigningSha256sum = Normalize-Sha256 ([string]$buildMetadata.signingCertificateSha256sum)
+if ($actualSigningSha256sum -ne $expectedSigningSha256) {
   throw "APK signing certificate SHA-256 does not match expected certificate."
 }
 
@@ -229,7 +229,7 @@ if (-not [string]::IsNullOrWhiteSpace($denylistRaw)) {
     if ($deniedHash -notmatch "^[0-9a-f]{64}$") {
       throw "RELEASE_DEBUG_SIGNING_CERT_SHA256_DENYLIST contains an invalid SHA-256 digest."
     }
-    if ($actualSigningSha256 -eq $deniedHash) {
+    if ($actualSigningSha256sum -eq $deniedHash) {
       throw "APK signing certificate SHA-256 is in the debug certificate denylist."
     }
   }
@@ -256,13 +256,13 @@ if ([bool]$versionMetadata.isStableManifestBootstrap -and $changelogMetadata.sou
 
 $changelogPath = Join-Path $changelogDir "CHANGELOG.md"
 $releaseBodyPath = Join-Path $changelogDir "release-body.md"
-if ((Get-Sha256 $changelogPath) -ne $changelogMetadata.changelogSha256) {
+if ((Get-Sha256 $changelogPath) -ne $changelogMetadata.changelogSha256sum) {
   throw "CHANGELOG.md hash does not match producer metadata."
 }
 if ((Get-FileSize $changelogPath) -ne [int64]$changelogMetadata.changelogSizeBytes) {
   throw "CHANGELOG.md size does not match producer metadata."
 }
-if ((Get-Sha256 $releaseBodyPath) -ne $changelogMetadata.releaseBodySha256) {
+if ((Get-Sha256 $releaseBodyPath) -ne $changelogMetadata.releaseBodySha256sum) {
   throw "release-body.md hash does not match producer metadata."
 }
 if ((Get-FileSize $releaseBodyPath) -ne [int64]$changelogMetadata.releaseBodySizeBytes) {
@@ -310,7 +310,7 @@ $apkMetadata = [ordered]@{
   targetSdk = [string]$buildMetadata.targetSdk
 }
 $signingMetadata = [ordered]@{
-  signingCertificateSha256 = $actualSigningSha256
+  signingCertificateSha256sum = $actualSigningSha256sum
 }
 $verifyMetadata = [ordered]@{
   schemaVersion = 1
@@ -319,11 +319,11 @@ $verifyMetadata = [ordered]@{
   releaseName = $versionMetadata.releaseName
   targetCommit = $targetCommit
   channel = $versionMetadata.channel
-  apkSha256 = $buildMetadata.apkSha256
+  apkSha256sum = $buildMetadata.apkSha256sum
   apkSizeBytes = [int64]$buildMetadata.apkSizeBytes
-  changelogSha256 = $changelogMetadata.changelogSha256
+  changelogSha256sum = $changelogMetadata.changelogSha256sum
   changelogSizeBytes = [int64]$changelogMetadata.changelogSizeBytes
-  signingCertificateSha256 = $actualSigningSha256
+  signingCertificateSha256sum = $actualSigningSha256sum
   changelogSource = $changelogMetadata.source
   createdByRunId = $currentRunId
   createdByRunAttempt = $currentRunAttempt

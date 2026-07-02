@@ -92,11 +92,11 @@ function Assert-ManifestMatchesMetadata {
       [int]$Manifest.minSdk -ne [int]$Metadata.minSdk -or
       [int]$Manifest.targetSdk -ne [int]$Metadata.targetSdk -or
       $Manifest.apkAssetName -ne $Metadata.apkAssetName -or
-      $Manifest.apkSha256 -ne $Metadata.apkSha256 -or
+      $Manifest.apkSha256sum -ne $Metadata.apkSha256sum -or
       [int64]$Manifest.apkSizeBytes -ne [int64]$Metadata.apkSizeBytes -or
-      $Manifest.signingCertificateSha256 -ne $Metadata.signingCertificateSha256 -or
+      $Manifest.signingCertificateSha256sum -ne $Metadata.signingCertificateSha256sum -or
       $Manifest.changelogAssetName -ne $Metadata.changelogAssetName -or
-      $Manifest.changelogSha256 -ne $Metadata.changelogSha256 -or
+      $Manifest.changelogSha256sum -ne $Metadata.changelogSha256sum -or
       [int64]$Manifest.changelogSizeBytes -ne [int64]$Metadata.changelogSizeBytes -or
       $Manifest.changelogFormat -ne "markdown" -or
       $Manifest.changelogFormat -ne $Metadata.changelogFormat -or
@@ -175,7 +175,7 @@ if ((Normalize-Text $remote.body).TrimEnd() -ne (Normalize-Text (Get-Content -Li
 
 $remoteAssets = @($remote.assets)
 $remoteAssetNames = @($remoteAssets | ForEach-Object { $_.name } | Sort-Object)
-$expectedAssetNames = @($metadata.apkAssetName, $metadata.sha256AssetName, $metadata.changelogAssetName, $metadata.manifestAssetName) | Sort-Object
+$expectedAssetNames = @($metadata.apkAssetName, $metadata.manifestSha256sumAssetName, $metadata.changelogAssetName, $metadata.manifestAssetName) | Sort-Object
 if ($null -ne (Compare-Object -ReferenceObject $expectedAssetNames -DifferenceObject $remoteAssetNames)) {
   throw "Remote asset set does not match handoff metadata."
 }
@@ -194,16 +194,24 @@ New-Item -ItemType Directory -Path $downloadDir | Out-Null
 Download-ExpectedReleaseAssets $metadata.tagName $repository $downloadDir $expectedAssetNames
 Assert-ExactFileSet $downloadDir $expectedAssetNames
 
-if ((Get-Sha256 (Join-Path $downloadDir $metadata.apkAssetName)) -ne $metadata.apkSha256) {
+if ((Get-Sha256 (Join-Path $downloadDir $metadata.apkAssetName)) -ne $metadata.apkSha256sum) {
   throw "Remote APK hash does not match handoff metadata."
 }
-if ((Get-Sha256 (Join-Path $downloadDir $metadata.changelogAssetName)) -ne $metadata.changelogSha256) {
+if ((Get-Sha256 (Join-Path $downloadDir $metadata.changelogAssetName)) -ne $metadata.changelogSha256sum) {
   throw "Remote changelog hash does not match handoff metadata."
 }
 
-$remoteShaContent = Normalize-Text (Get-Content -LiteralPath (Join-Path $downloadDir $metadata.sha256AssetName) -Raw)
-if ($remoteShaContent -ne "$($metadata.apkSha256)  $($metadata.apkAssetName)`n") {
-  throw "Remote APK SHA-256 asset content does not match handoff metadata."
+# Manifest Sidecar Remote Gate
+# Remote verification checks the uploaded oto-update.json bytes and its
+# sha256sum sidecar separately so the published asset set proves manifest
+# integrity without publishing a redundant APK hash file.
+if ((Get-Sha256 (Join-Path $downloadDir $metadata.manifestAssetName)) -ne $metadata.manifestSha256sum) {
+  throw "Remote oto-update.json hash does not match handoff metadata."
+}
+
+$remoteManifestShaContent = Normalize-Text (Get-Content -LiteralPath (Join-Path $downloadDir $metadata.manifestSha256sumAssetName) -Raw)
+if ($remoteManifestShaContent -ne "$($metadata.manifestSha256sum)  $($metadata.manifestAssetName)`n") {
+  throw "Remote oto-update.json sha256sum asset content does not match handoff metadata."
 }
 
 $remoteManifest = Read-JsonFile (Join-Path $downloadDir $metadata.manifestAssetName)
