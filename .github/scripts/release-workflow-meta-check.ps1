@@ -38,7 +38,7 @@ $workflow = Get-Content -LiteralPath $workflowPath -Raw
 $workflowInputs = Get-WorkflowDispatchInputsBlock $workflow
 $versionTagGateScript = Get-Content -LiteralPath (Join-Path (Get-Location) ".github/scripts/release-version-tag-gate.ps1") -Raw
 $changelogGenerateScript = Get-Content -LiteralPath (Join-Path (Get-Location) ".github/scripts/release-changelog-generate.ps1") -Raw
-$changelogGateScript = Get-Content -LiteralPath (Join-Path (Get-Location) ".github/scripts/release-changelog-gate.ps1") -Raw
+$metadataVerifyScript = Get-Content -LiteralPath (Join-Path (Get-Location) ".github/scripts/release-metadata-verify.ps1") -Raw
 
 Assert-Condition ($workflow -match "(?ms)^permissions:`r?`n  contents: read`r?`n") "Workflow-level permissions must stay contents: read."
 Assert-Condition ($workflow -notmatch "(?ms)^permissions:`r?`n  contents: write`r?`n") "Workflow-level contents: write is forbidden."
@@ -49,12 +49,9 @@ Assert-Condition ($workflowInputs -notmatch "(?m)^      generate_changelog:") "g
 $metaJob = Get-JobBlock $workflow "workflow-meta-check"
 $sourceRefJob = Get-JobBlock $workflow "source-ref-gate"
 $releaseBuildJob = Get-JobBlock $workflow "release-build"
-$apkFileJob = Get-JobBlock $workflow "apk-file-gate"
-$apkMetadataJob = Get-JobBlock $workflow "apk-metadata-gate"
-$signingJob = Get-JobBlock $workflow "signing-gate"
 $versionJob = Get-JobBlock $workflow "version-tag-gate"
 $changelogGenerateJob = Get-JobBlock $workflow "changelog-generate"
-$changelogJob = Get-JobBlock $workflow "changelog-gate"
+$releaseVerifyJob = Get-JobBlock $workflow "release-verify"
 $handoffJob = Get-JobBlock $workflow "handoff-gate"
 $publishPreflightJob = Get-JobBlock $workflow "publish-preflight-gate"
 $publishDraftJob = Get-JobBlock $workflow "publish-draft"
@@ -66,12 +63,9 @@ $readOnlyJobs = [ordered]@{
   "workflow-meta-check" = $metaJob
   "source-ref-gate" = $sourceRefJob
   "release-build" = $releaseBuildJob
-  "apk-file-gate" = $apkFileJob
-  "apk-metadata-gate" = $apkMetadataJob
-  "signing-gate" = $signingJob
   "version-tag-gate" = $versionJob
   "changelog-generate" = $changelogGenerateJob
-  "changelog-gate" = $changelogJob
+  "release-verify" = $releaseVerifyJob
   "handoff-gate" = $handoffJob
   "publish-preflight-gate" = $publishPreflightJob
   "publish-remote-gate" = $publishRemoteJob
@@ -102,15 +96,12 @@ Assert-Condition ($releaseBuildJob.IndexOf("release-checkout-token-gate.ps1", [S
 Assert-Condition ($releaseBuildJob -match "KEYSTORE_BASE64") "release-build must own signing secret injection."
 Assert-Condition ($releaseBuildJob -match "Missing required release signing secret") "release-build must fail when release signing secrets are incomplete."
 Assert-Condition ($releaseBuildJob -match "bash ./gradlew assembleRelease") "release-build must build the signed release APK."
-
-Assert-Condition ($apkFileJob -match "release-apk-file-gate\.ps1") "apk-file-gate must run release-apk-file-gate.ps1."
-Assert-Condition ($apkMetadataJob -match "android-actions/setup-android@v3") "apk-metadata-gate must set up Android SDK tools."
-Assert-Condition ($apkMetadataJob -match 'sdkmanager "build-tools;36\.0\.0" "platforms;android-36"') "apk-metadata-gate must install Android build tools."
-Assert-Condition ($apkMetadataJob -match "release-apk-metadata-gate\.ps1") "apk-metadata-gate must run release-apk-metadata-gate.ps1."
-Assert-Condition ($signingJob -match "android-actions/setup-android@v3") "signing-gate must set up Android SDK tools."
-Assert-Condition ($signingJob -match 'sdkmanager "build-tools;36\.0\.0" "platforms;android-36"') "signing-gate must install Android build tools."
-Assert-Condition ($signingJob -match "release-signing-gate\.ps1") "signing-gate must run release-signing-gate.ps1."
+Assert-Condition ($releaseBuildJob -match "android-actions/setup-android@v3") "release-build must set up Android SDK tools for producer metadata."
+Assert-Condition ($releaseBuildJob -match 'sdkmanager "build-tools;36\.0\.0" "platforms;android-36" "platforms;android-37"') "release-build must install Android build tools and compile SDK platform for producer metadata."
+Assert-Condition ($releaseBuildJob -match "release-build-artifact-stage\.ps1") "release-build must stage the APK and producer metadata together."
+Assert-Condition ($releaseBuildJob -match "oto-release-build") "release-build must upload the combined release build artifact."
 Assert-Condition ($versionJob -match "release-version-tag-gate\.ps1") "version-tag-gate must run release-version-tag-gate.ps1."
+Assert-Condition ($versionJob -match "release-build-metadata\.json") "version-tag-gate must derive tag metadata from release-build producer metadata."
 Assert-Condition ($versionTagGateScript -match "releases/latest") "version-tag-gate must use GitHub Latest release as the stable changelog baseline."
 Assert-Condition ($versionTagGateScript -notmatch "Sort-Object CreatedAt -Descending \| Select-Object -First 1") "version-tag-gate must not derive the stable changelog baseline by release-list ordering."
 Assert-Condition ($versionTagGateScript -match "isStableManifestBootstrap") "version-tag-gate must expose stable manifest bootstrap metadata."
@@ -119,10 +110,29 @@ Assert-Condition ($changelogGenerateJob -match "release-changelog-generate\.ps1"
 Assert-Condition ($changelogGenerateJob -match "source-ref-gate") "changelog-generate must depend on source-ref-gate for channel resolution."
 Assert-Condition ($changelogGenerateJob -notmatch "version-tag-gate") "changelog-generate must not depend on version-tag-gate."
 Assert-Condition ($changelogGenerateJob -match "RELEASE_CHANNEL") "changelog-generate must receive the resolved release channel directly."
-Assert-Condition ($changelogJob -match "release-changelog-gate\.ps1") "changelog-gate must run release-changelog-gate.ps1."
+Assert-Condition ($changelogGenerateScript -match "release-changelog-metadata\.json") "changelog-generate must produce changelog producer metadata."
+Assert-Condition ($releaseVerifyJob -match "release-verify-gate\.ps1") "release-verify must run release-verify-gate.ps1."
+Assert-Condition ($releaseVerifyJob -match "release-build") "release-verify must depend on release-build."
+Assert-Condition ($releaseVerifyJob -match "version-tag-gate") "release-verify must depend on version-tag-gate."
+Assert-Condition ($releaseVerifyJob -match "changelog-generate") "release-verify must depend on changelog-generate."
+Assert-Condition ($releaseVerifyJob -match "oto-release-build") "release-verify must consume the release build artifact."
+Assert-Condition ($releaseVerifyJob -match "oto-release-changelog") "release-verify must consume the changelog artifact."
+Assert-Condition ($releaseVerifyJob -match "oto-release-version-metadata") "release-verify must consume version metadata."
+Assert-Condition ($releaseVerifyJob -match "android-actions/setup-android@v3") "release-verify must set up Android SDK tools for producer metadata source verification."
+Assert-Condition ($releaseVerifyJob -match 'sdkmanager "build-tools;36\.0\.0" "platforms;android-36" "platforms;android-37"') "release-verify must install Android build tools for producer metadata source verification."
+Assert-Condition ($releaseVerifyJob -match "release-metadata-verify\.ps1") "release-verify must run release-metadata-verify.ps1."
+Assert-Condition ($releaseVerifyJob.IndexOf("release-metadata-verify.ps1", [StringComparison]::Ordinal) -lt $releaseVerifyJob.IndexOf("release-verify-gate.ps1", [StringComparison]::Ordinal)) "release-verify must check producer metadata sources before the final release verify gate."
+Assert-Condition ($releaseVerifyJob -match "oto-release-verified") "release-verify must upload the verified release payload."
+Assert-Condition ($releaseVerifyJob -match "SIGNING_CERTIFICATE_SHA256") "release-verify must compare producer signing metadata with the configured release certificate."
+Assert-Condition ($metadataVerifyScript -match "release-build-metadata\.json" -and $metadataVerifyScript -match "release-changelog-metadata\.json") "metadata verify must check both producer metadata files."
+Assert-Condition ($metadataVerifyScript -match "apksigner" -and $metadataVerifyScript -match "Read-BadgingOutput") "metadata verify must re-read APK metadata and signing facts from the APK source file."
+Assert-Condition ($metadataVerifyScript -match "release-changelog\.full\.md" -and $metadataVerifyScript -match "bodyLengthCharacters") "metadata verify must re-check changelog metadata against generated Markdown files."
 Assert-Condition ($changelogGenerateScript -match "isStableManifestBootstrap" -and $changelogGenerateScript -match "Stable manifest bootstrap requires manual_changelog") "changelog-generate must require manual_changelog during stable manifest bootstrap."
-Assert-Condition ($changelogGateScript -match "isStableManifestBootstrap" -and $changelogGateScript -match "Stable manifest bootstrap requires manual_changelog") "changelog-gate must require manual_changelog during stable manifest bootstrap."
+Assert-Condition ($workflow -notmatch "(?m)^  (apk-file-gate|apk-metadata-gate|signing-gate|changelog-gate):") "Legacy split artifact gates must not be reintroduced."
+Assert-Condition ($workflow -notmatch "release-apk-file-gate\.ps1|release-apk-metadata-gate\.ps1|release-signing-gate\.ps1|release-changelog-gate\.ps1") "Release workflow must use producer metadata plus release-verify instead of legacy gate scripts."
 Assert-Condition ($handoffJob -match "release-handoff-gate\.ps1") "handoff-gate must run release-handoff-gate.ps1."
+Assert-Condition ($handoffJob -match "oto-release-verified") "handoff-gate must consume the verified release payload."
+Assert-Condition ($handoffJob -match "RELEASE_VERIFIED_DIR") "handoff-gate must receive the verified release payload directory."
 Assert-Condition ($publishPreflightJob -match "release-publish-preflight-gate\.ps1") "publish-preflight-gate must run release-publish-preflight-gate.ps1."
 Assert-Condition ($publishRemoteJob -match "release-publish-remote-gate\.ps1") "publish-remote-gate must run release-publish-remote-gate.ps1."
 Assert-Condition ($publishDraftJob -match "gh @createArgs") "publish-draft must create the draft release inline."

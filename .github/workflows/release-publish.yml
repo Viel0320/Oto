@@ -139,6 +139,13 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Set Up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android Build Tools
+        shell: pwsh
+        run: sdkmanager "build-tools;36.0.0" "platforms;android-36" "platforms;android-37"
+
       - name: Build Signed Release APK
         shell: pwsh
         env:
@@ -176,142 +183,20 @@ jobs:
             }
           }
 
-      - name: Upload Raw Release APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: oto-release-apk-raw
-          path: app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
-          retention-days: 1
-
-  apk-file-gate:
-    name: APK File Gate
-    runs-on: ubuntu-latest
-    needs: release-build
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout Scripts
-        uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-          fetch-depth: 1
-
-      - name: Download Raw Release APK Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: oto-release-apk-raw
-          path: ${{ runner.temp }}/oto-release-apk-raw
-
-      - name: Run APK File Gate
-        id: apk_file
+      - name: Stage Release Build Artifact
+        id: build_artifact
         shell: pwsh
         env:
-          RELEASE_APK_INPUT_DIR: ${{ runner.temp }}/oto-release-apk-raw
-          RELEASE_APK_OUTPUT_DIR: ${{ runner.temp }}/oto-release-apk
-        run: ./.github/scripts/release-apk-file-gate.ps1
-
-      - name: Upload Normalized Release APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: oto-release-apk
-          path: ${{ runner.temp }}/oto-release-apk/release.apk
-          if-no-files-found: error
-          retention-days: 1
-
-  apk-metadata-gate:
-    name: APK Metadata Gate
-    runs-on: ubuntu-latest
-    needs: apk-file-gate
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout Scripts
-        uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-          fetch-depth: 1
-
-      - name: Set Up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Set Up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android Build Tools
-        shell: pwsh
-        run: sdkmanager "build-tools;36.0.0" "platforms;android-36"
-
-      - name: Download Release APK Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: oto-release-apk
-          path: ${{ runner.temp }}/oto-release-apk
-
-      - name: Run APK Metadata Gate
-        shell: pwsh
-        env:
-          RELEASE_APK_PATH: ${{ runner.temp }}/oto-release-apk/release.apk
-          RELEASE_APK_METADATA_PATH: ${{ runner.temp }}/release-apk-metadata.json
-        run: ./.github/scripts/release-apk-metadata-gate.ps1
-
-      - name: Upload APK Metadata Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: oto-release-apk-metadata
-          path: ${{ runner.temp }}/release-apk-metadata.json
-          if-no-files-found: error
-          retention-days: 1
-
-  signing-gate:
-    name: APK Signing Gate
-    runs-on: ubuntu-latest
-    needs: apk-file-gate
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout Scripts
-        uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-          fetch-depth: 1
-
-      - name: Set Up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Set Up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android Build Tools
-        shell: pwsh
-        run: sdkmanager "build-tools;36.0.0" "platforms;android-36"
-
-      - name: Download Release APK Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: oto-release-apk
-          path: ${{ runner.temp }}/oto-release-apk
-
-      - name: Run APK Signing Gate
-        shell: pwsh
-        env:
-          RELEASE_APK_PATH: ${{ runner.temp }}/oto-release-apk/release.apk
-          RELEASE_SIGNING_METADATA_PATH: ${{ runner.temp }}/release-signing-metadata.json
-          RELEASE_EXPECTED_SIGNING_CERT_SHA256: ${{ vars.SIGNING_CERTIFICATE_SHA256 }}
+          RELEASE_APK_INPUT_DIR: app/build/outputs/apk/release
+          RELEASE_BUILD_ARTIFACT_DIR: ${{ runner.temp }}/oto-release-build
           RELEASE_DEBUG_SIGNING_CERT_SHA256_DENYLIST: ${{ vars.RELEASE_DEBUG_SIGNING_CERT_SHA256_DENYLIST }}
-        run: ./.github/scripts/release-signing-gate.ps1
+        run: ./.github/scripts/release-build-artifact-stage.ps1
 
-      - name: Upload Signing Metadata Artifact
+      - name: Upload Release Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: oto-release-signing-metadata
-          path: ${{ runner.temp }}/release-signing-metadata.json
+          name: oto-release-build
+          path: ${{ steps.build_artifact.outputs.artifact_dir }}
           if-no-files-found: error
           retention-days: 1
 
@@ -320,7 +205,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - source-ref-gate
-      - apk-metadata-gate
+      - release-build
     permissions:
       contents: read
     outputs:
@@ -334,18 +219,18 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Download APK Metadata Artifact
+      - name: Download Release Build Artifact
         uses: actions/download-artifact@v4
         with:
-          name: oto-release-apk-metadata
-          path: ${{ runner.temp }}/oto-release-metadata
+          name: oto-release-build
+          path: ${{ runner.temp }}/oto-release-build
 
       - name: Run Version And Tag Gate
         id: version
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_APK_METADATA_PATH: ${{ runner.temp }}/oto-release-metadata/release-apk-metadata.json
+          RELEASE_APK_METADATA_PATH: ${{ runner.temp }}/oto-release-build/release-build-metadata.json
           RELEASE_VERSION_METADATA_PATH: ${{ runner.temp }}/release-version-metadata.json
           RELEASE_CHANNEL: ${{ needs.source-ref-gate.outputs.channel }}
           RELEASE_PRERELEASE: ${{ inputs.prerelease }}
@@ -360,10 +245,11 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  changelog-gate:
-    name: Changelog Gate
+  release-verify:
+    name: Release Verify Gate
     runs-on: ubuntu-latest
     needs:
+      - release-build
       - version-tag-gate
       - changelog-generate
     permissions:
@@ -376,6 +262,12 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Download Release Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oto-release-build
+          path: ${{ runner.temp }}/oto-release-build
+
       - name: Download Version Metadata Artifact
         uses: actions/download-artifact@v4
         with:
@@ -388,23 +280,46 @@ jobs:
           name: oto-release-changelog
           path: ${{ runner.temp }}/oto-release-changelog
 
-      - name: Run Changelog Gate
+      - name: Set Up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android Build Tools
+        shell: pwsh
+        run: sdkmanager "build-tools;36.0.0" "platforms;android-36" "platforms;android-37"
+
+      - name: Verify Producer Metadata Sources
         shell: pwsh
         env:
+          RELEASE_BUILD_ARTIFACT_DIR: ${{ runner.temp }}/oto-release-build
+          RELEASE_CHANGELOG_DIR: ${{ runner.temp }}/oto-release-changelog
+        run: ./.github/scripts/release-metadata-verify.ps1
+
+      - name: Run Release Verify Gate
+        id: release_verify
+        shell: pwsh
+        env:
+          RELEASE_BUILD_ARTIFACT_DIR: ${{ runner.temp }}/oto-release-build
           RELEASE_VERSION_METADATA_PATH: ${{ runner.temp }}/oto-release-version/release-version-metadata.json
           RELEASE_CHANGELOG_DIR: ${{ runner.temp }}/oto-release-changelog
-          RELEASE_MANUAL_CHANGELOG: ${{ inputs.manual_changelog }}
-        run: ./.github/scripts/release-changelog-gate.ps1
+          RELEASE_VERIFIED_OUTPUT_DIR: ${{ runner.temp }}/oto-release-verified
+          RELEASE_EXPECTED_SIGNING_CERT_SHA256: ${{ vars.SIGNING_CERTIFICATE_SHA256 }}
+          RELEASE_DEBUG_SIGNING_CERT_SHA256_DENYLIST: ${{ vars.RELEASE_DEBUG_SIGNING_CERT_SHA256_DENYLIST }}
+        run: ./.github/scripts/release-verify-gate.ps1
+
+      - name: Upload Verified Release Payload
+        uses: actions/upload-artifact@v4
+        with:
+          name: oto-release-verified
+          path: ${{ steps.release_verify.outputs.verified_dir }}
+          if-no-files-found: error
+          retention-days: 1
 
   handoff-gate:
     name: Publish Handoff Gate
     runs-on: ubuntu-latest
     needs:
-      - apk-file-gate
-      - apk-metadata-gate
-      - signing-gate
+      - release-verify
       - version-tag-gate
-      - changelog-gate
     permissions:
       contents: read
     outputs:
@@ -416,23 +331,11 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
-      - name: Download Release APK Artifact
+      - name: Download Verified Release Payload
         uses: actions/download-artifact@v4
         with:
-          name: oto-release-apk
-          path: ${{ runner.temp }}/oto-release-apk
-
-      - name: Download APK Metadata Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: oto-release-apk-metadata
-          path: ${{ runner.temp }}/oto-release-metadata
-
-      - name: Download Signing Metadata Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: oto-release-signing-metadata
-          path: ${{ runner.temp }}/oto-release-signing
+          name: oto-release-verified
+          path: ${{ runner.temp }}/oto-release-verified
 
       - name: Download Version Metadata Artifact
         uses: actions/download-artifact@v4
@@ -440,21 +343,12 @@ jobs:
           name: oto-release-version-metadata
           path: ${{ runner.temp }}/oto-release-version
 
-      - name: Download Changelog Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: oto-release-changelog
-          path: ${{ runner.temp }}/oto-release-changelog
-
       - name: Run Publish Handoff Gate
         id: handoff
         shell: pwsh
         env:
-          RELEASE_APK_PATH: ${{ runner.temp }}/oto-release-apk/release.apk
-          RELEASE_APK_METADATA_PATH: ${{ runner.temp }}/oto-release-metadata/release-apk-metadata.json
-          RELEASE_SIGNING_METADATA_PATH: ${{ runner.temp }}/oto-release-signing/release-signing-metadata.json
+          RELEASE_VERIFIED_DIR: ${{ runner.temp }}/oto-release-verified
           RELEASE_VERSION_METADATA_PATH: ${{ runner.temp }}/oto-release-version/release-version-metadata.json
-          RELEASE_CHANGELOG_DIR: ${{ runner.temp }}/oto-release-changelog
           RELEASE_HANDOFF_DIR: ${{ runner.temp }}/oto-release-publish-handoff
           RELEASE_PUBLISH: ${{ inputs.publish }}
         run: ./.github/scripts/release-handoff-gate.ps1

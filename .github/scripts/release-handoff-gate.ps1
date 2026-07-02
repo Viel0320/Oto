@@ -114,13 +114,37 @@ function Assert-ManifestMatchesMetadata {
   }
 }
 
-$apkPath = Get-EnvValue "RELEASE_APK_PATH"
-$apkMetadata = Read-JsonFile (Get-EnvValue "RELEASE_APK_METADATA_PATH")
-$signingMetadata = Read-JsonFile (Get-EnvValue "RELEASE_SIGNING_METADATA_PATH")
+$verifiedDir = Get-EnvValue "RELEASE_VERIFIED_DIR"
 $versionMetadata = Read-JsonFile (Get-EnvValue "RELEASE_VERSION_METADATA_PATH")
-$changelogDir = Get-EnvValue "RELEASE_CHANGELOG_DIR"
 $handoffDir = Get-EnvValue "RELEASE_HANDOFF_DIR"
 $publish = Test-Truthy (Get-EnvValue "RELEASE_PUBLISH")
+
+# Verified Payload Boundary
+# Handoff consumes one already-verified payload instead of rebuilding the same
+# checks from separate APK, signing, and changelog artifacts.
+Assert-ExactFileSet $verifiedDir @(
+  "release.apk",
+  "release-apk-metadata.json",
+  "release-build-metadata.json",
+  "release-changelog-metadata.json",
+  "release-signing-metadata.json",
+  "release-verify-metadata.json",
+  "CHANGELOG.md",
+  "release-body.md"
+)
+
+$apkPath = Join-Path $verifiedDir "release.apk"
+$apkMetadata = Read-JsonFile (Join-Path $verifiedDir "release-apk-metadata.json")
+$signingMetadata = Read-JsonFile (Join-Path $verifiedDir "release-signing-metadata.json")
+$verifyMetadata = Read-JsonFile (Join-Path $verifiedDir "release-verify-metadata.json")
+$changelogDir = $verifiedDir
+
+if ($verifyMetadata.createdByRunId -ne (Get-EnvValue "GITHUB_RUN_ID") -or
+    $verifyMetadata.tagName -ne $versionMetadata.tagName -or
+    $verifyMetadata.releaseName -ne $versionMetadata.releaseName -or
+    $verifyMetadata.targetCommit -ne $versionMetadata.targetCommit) {
+  throw "Verified release payload does not match version metadata."
+}
 
 if (-not (Test-Path -LiteralPath $apkPath)) {
   throw "APK does not exist: $apkPath"

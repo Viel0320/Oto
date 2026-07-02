@@ -35,6 +35,33 @@ function Write-Utf8NoBomFile {
   [IO.File]::WriteAllText($Path, $Content, [Text.UTF8Encoding]::new($false))
 }
 
+<#
+  Writes producer metadata with the same UTF-8/no-BOM convention as the
+  generated Markdown files, keeping later hash checks stable across platforms.
+#>
+function Write-JsonFile {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)]$Value
+  )
+
+  $parent = [IO.Path]::GetDirectoryName($Path)
+  if (-not [string]::IsNullOrWhiteSpace($parent)) {
+    New-Item -ItemType Directory -Force -Path $parent | Out-Null
+  }
+  [IO.File]::WriteAllText($Path, (($Value | ConvertTo-Json -Depth 8) + "`n"), [Text.UTF8Encoding]::new($false))
+}
+
+function Get-Sha256 {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Get-FileSize {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  return (Get-Item -LiteralPath $Path).Length
+}
+
 function Invoke-CheckedCommand {
   param(
     [Parameter(Mandatory = $true)][string]$FilePath,
@@ -242,6 +269,8 @@ $maintainerLogin = Get-MaintainerLogin
 
 $manualTrimmed = $manualChangelog.Trim()
 $highlightsTrimmed = $highlights.Trim()
+$changelogSource = if ($manualTrimmed.Length -gt 0) { "manual" } else { "generated" }
+$previousStableTag = ""
 if ($channel -ne "stable" -and $channel -ne "prerelease") {
   throw "Invalid release channel for changelog generation: $channel"
 }
@@ -356,7 +385,30 @@ if ($changelog.Length -gt 125000) {
 }
 
 $fullChangelogPath = Join-Path $outputDir "release-changelog.full.md"
+$changelogPath = Join-Path $outputDir "CHANGELOG.md"
+$releaseBodyPath = Join-Path $outputDir "release-body.md"
 Write-Utf8NoBomFile $fullChangelogPath $changelog
-Copy-Item -LiteralPath $fullChangelogPath -Destination (Join-Path $outputDir "CHANGELOG.md") -Force
-Copy-Item -LiteralPath $fullChangelogPath -Destination (Join-Path $outputDir "release-body.md") -Force
+Copy-Item -LiteralPath $fullChangelogPath -Destination $changelogPath -Force
+Copy-Item -LiteralPath $fullChangelogPath -Destination $releaseBodyPath -Force
+
+# Changelog Producer Metadata
+# The verify gate treats these fields as the changelog job's declaration and
+# cross-checks them against the downloaded files, version metadata, and run id.
+$metadata = [ordered]@{
+  schemaVersion = 1
+  artifactKind = "release-changelog"
+  source = $changelogSource
+  channel = $channel
+  targetCommit = Get-EnvValue "GITHUB_SHA"
+  previousStableTag = $previousStableTag
+  isStableManifestBootstrap = [bool]$isStableManifestBootstrap
+  changelogSha256 = Get-Sha256 $changelogPath
+  changelogSizeBytes = Get-FileSize $changelogPath
+  releaseBodySha256 = Get-Sha256 $releaseBodyPath
+  releaseBodySizeBytes = Get-FileSize $releaseBodyPath
+  bodyLengthCharacters = $changelog.Length
+  createdByRunId = Get-EnvValue "GITHUB_RUN_ID"
+  createdByRunAttempt = Get-EnvValue "GITHUB_RUN_ATTEMPT" $false
+}
+Write-JsonFile (Join-Path $outputDir "release-changelog-metadata.json") $metadata
 Write-Host "Generated changelog for $channel release."
