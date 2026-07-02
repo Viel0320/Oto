@@ -27,7 +27,7 @@ jobs:
         run: .\gradlew.bat assembleNonMinifiedRelease
 
       - name: Upload NonMinified Release APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: non-minified-release-apk
           path: app/build/outputs/apk/nonMinifiedRelease/**/*.apk

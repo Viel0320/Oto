@@ -105,7 +105,7 @@ jobs:
         run: ./.github/scripts/release-changelog-generate.ps1
 
       - name: Upload Changelog Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: oto-release-changelog
           path: ${{ runner.temp }}/oto-release-changelog
@@ -140,11 +140,13 @@ jobs:
           java-version: "21"
 
       - name: Set Up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Android Build Tools
         shell: pwsh
-        run: sdkmanager "build-tools;36.0.0" "platforms;android-36" "platforms;android-37"
+        # Android SDK Provisioning Boundary
+        # GitHub-hosted runners currently expose android-36 through sdkmanager, while android-37 is not available for release builds.
+        run: sdkmanager "build-tools;36.0.0" "platforms;android-36"
 
       - name: Build Signed Release APK
         shell: pwsh
@@ -193,7 +195,7 @@ jobs:
         run: ./.github/scripts/release-build-artifact-stage.ps1
 
       - name: Upload Release Build Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: oto-release-build
           path: ${{ steps.build_artifact.outputs.artifact_dir }}
@@ -220,7 +222,7 @@ jobs:
           fetch-tags: true
 
       - name: Download Release Build Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: oto-release-build
           path: ${{ runner.temp }}/oto-release-build
@@ -238,7 +240,7 @@ jobs:
         run: ./.github/scripts/release-version-tag-gate.ps1
 
       - name: Upload Version Metadata Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: oto-release-version-metadata
           path: ${{ runner.temp }}/release-version-metadata.json
@@ -263,29 +265,31 @@ jobs:
           fetch-tags: true
 
       - name: Download Release Build Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: oto-release-build
           path: ${{ runner.temp }}/oto-release-build
 
       - name: Download Version Metadata Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: oto-release-version-metadata
           path: ${{ runner.temp }}/oto-release-version
 
       - name: Download Changelog Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: oto-release-changelog
           path: ${{ runner.temp }}/oto-release-changelog
 
       - name: Set Up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Android Build Tools
         shell: pwsh
-        run: sdkmanager "build-tools;36.0.0" "platforms;android-36" "platforms;android-37"
+        # Android SDK Provisioning Boundary
+        # Producer metadata verification reuses the same android-36 toolchain as the APK build so a missing preview platform cannot fail the gate.
+        run: sdkmanager "build-tools;36.0.0" "platforms;android-36"
 
       - name: Verify Producer Metadata Sources
         shell: pwsh
@@ -307,7 +311,7 @@ jobs:
         run: ./.github/scripts/release-verify-gate.ps1
 
       - name: Upload Verified Release Payload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: oto-release-verified
           path: ${{ steps.release_verify.outputs.verified_dir }}
@@ -332,13 +336,13 @@ jobs:
           fetch-depth: 1
 
       - name: Download Verified Release Payload
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: oto-release-verified
           path: ${{ runner.temp }}/oto-release-verified
 
       - name: Download Version Metadata Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: oto-release-version-metadata
           path: ${{ runner.temp }}/oto-release-version
@@ -355,7 +359,7 @@ jobs:
 
       - name: Upload Publish Handoff Artifact
         if: ${{ steps.handoff.outputs.publish_authorized == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: oto-release-publish-handoff
           path: ${{ steps.handoff.outputs.handoff_dir }}
@@ -377,7 +381,7 @@ jobs:
           fetch-depth: 1
 
       - name: Download Publish Handoff Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: oto-release-publish-handoff
           path: ${{ runner.temp }}/oto-release-publish-handoff
@@ -400,7 +404,7 @@ jobs:
       contents: write
     steps:
       - name: Download Publish Handoff Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: oto-release-publish-handoff
           path: ${{ runner.temp }}/oto-release-publish-handoff
@@ -476,7 +480,7 @@ jobs:
         id: upload_draft_state
         if: ${{ always() }}
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: oto-release-draft-state
           path: ${{ runner.temp }}/oto-release-draft-state/draft-state.json
@@ -547,7 +551,7 @@ jobs:
           fetch-depth: 1
 
       - name: Download Publish Handoff Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: oto-release-publish-handoff
           path: ${{ runner.temp }}/oto-release-publish-handoff
@@ -570,7 +574,7 @@ jobs:
       contents: write
     steps:
       - name: Download Publish Handoff Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: oto-release-publish-handoff
           path: ${{ runner.temp }}/oto-release-publish-handoff
@@ -608,13 +612,13 @@ jobs:
       contents: write
     steps:
       - name: Download Publish Handoff Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: oto-release-publish-handoff
           path: ${{ runner.temp }}/oto-release-publish-handoff
 
       - name: Download Draft State Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         continue-on-error: true
         with:
           name: oto-release-draft-state
