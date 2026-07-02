@@ -330,13 +330,6 @@ fun SearchContent(
                                         focusManager.clearFocus()
                                         onSearch(history.query)
                                     },
-                                    headlineContent = {
-                                        Text(
-                                            text = history.query,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    },
                                     leadingContent = {
                                         Icon(
                                             OtoIcons.Rounded.History,
@@ -354,7 +347,13 @@ fun SearchContent(
                                         }
                                     },
                                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                                )
+                                ) {
+                                    Text(
+                                        text = history.query,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         } else {
                             item {
@@ -414,13 +413,6 @@ fun SearchContent(
                                             selection = TextRange(newCursorPos)
                                         ))
                                     },
-                                    headlineContent = {
-                                        Text(
-                                            text = cmd.token,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    },
                                     supportingContent = {
                                         Text(
                                             text = stringResource(cmd.descriptionRes),
@@ -436,7 +428,13 @@ fun SearchContent(
                                         )
                                     },
                                     colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                                )
+                                ) {
+                                    Text(
+                                        text = cmd.token,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
 

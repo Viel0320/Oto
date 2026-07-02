@@ -1,21 +1,16 @@
 package com.viel.oto.ui.common.layout
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
-import android.content.res.Configuration
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowHeightSizeClass
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
-import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -37,7 +32,7 @@ data class AppWindowSizeClass(
      */
     val heightSizeClass: WindowHeightSizeClass,
     /**
-     * True when the current configuration is landscape.
+     * True when the current window container is wider than it is tall.
      */
     val isLandscape: Boolean,
     /**
@@ -149,57 +144,33 @@ val LocalAppWindowSizeClass: ProvidableCompositionLocal<AppWindowSizeClass> = st
 }
 
 /**
- * Finds the host Activity by walking through Context wrappers.
- *
- * Prevents crashes inside Compose Previews or unconfigured environments where context is not a direct Activity.
- */
-private tailrec fun Context.findActivity(): Activity? {
-    if (this is Activity) return this
-    return if (this is ContextWrapper) {
-        baseContext.findActivity()
-    } else {
-        null
-    }
-}
-
-/**
  * Computes the app window class inside the Compose composition.
  *
- * Integrates with Jetpack Compose calculateWindowSizeClass API to natively support multi-window / split-screen bounds.
- * Falls back to LocalConfiguration and calculateFromSize during compose previews.
+ * Uses the Compose window container size so adaptive decisions track the actual composition bounds instead of
+ * Android configuration values that can be rounded or include different inset behavior across target SDK levels.
  */
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
 fun rememberAppWindowSizeClass(): AppWindowSizeClass {
-    val context = LocalContext.current
-    val activity = remember(context) { context.findActivity() }
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    
-    val widthSizeClass: WindowWidthSizeClass
-    val heightSizeClass: WindowHeightSizeClass
-    val widthDp: Dp
-    val heightDp: Dp
-
-    if (activity != null) {
-        val windowSize = calculateWindowSizeClass(activity)
-        widthSizeClass = windowSize.widthSizeClass
-        heightSizeClass = windowSize.heightSizeClass
-        widthDp = configuration.screenWidthDp.dp
-        heightDp = configuration.screenHeightDp.dp
-    } else {
-        widthDp = configuration.screenWidthDp.dp
-        heightDp = configuration.screenHeightDp.dp
-        val size = DpSize(widthDp, heightDp)
-        val windowSize = WindowSizeClass.calculateFromSize(size)
-        widthSizeClass = windowSize.widthSizeClass
-        heightSizeClass = windowSize.heightSizeClass
+    val density = LocalDensity.current
+    val containerSize = LocalWindowInfo.current.containerSize
+    val windowDpSize = remember(containerSize, density) {
+        with(density) {
+            DpSize(
+                width = containerSize.width.toDp(),
+                height = containerSize.height.toDp()
+            )
+        }
     }
+    val windowSize = remember(windowDpSize) { WindowSizeClass.calculateFromSize(windowDpSize) }
+    val widthDp = windowDpSize.width
+    val heightDp = windowDpSize.height
+    val isLandscape = containerSize.width > containerSize.height
 
-    return remember(widthSizeClass, heightSizeClass, isLandscape, widthDp, heightDp) {
+    return remember(windowSize.widthSizeClass, windowSize.heightSizeClass, isLandscape, widthDp, heightDp) {
         AppWindowSizeClass(
-            widthSizeClass = widthSizeClass,
-            heightSizeClass = heightSizeClass,
+            widthSizeClass = windowSize.widthSizeClass,
+            heightSizeClass = windowSize.heightSizeClass,
             isLandscape = isLandscape,
             screenWidthDp = widthDp,
             screenHeightDp = heightDp

@@ -267,13 +267,6 @@ private fun DownloadTaskRow(
 ) {
     val status = task.cacheStatus
     ListItem(
-        headlineContent = {
-            Text(
-                text = task.headlineText(status),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        },
         supportingContent = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
@@ -308,7 +301,13 @@ private fun DownloadTaskRow(
                 )
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
+    ) {
+        Text(
+            text = task.headlineText(status),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
 }
 
 /**

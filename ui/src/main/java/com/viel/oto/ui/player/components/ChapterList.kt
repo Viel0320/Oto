@@ -25,7 +25,7 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -117,7 +117,7 @@ fun ChapterListSheet(
     onMissingChapterClick: (bookId: String) -> Unit,
     hazeState: HazeState? = null,
     glassEffectMode: GlassEffectMode,
-    sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
 ) {
     val density = LocalDensity.current
     val windowInfo = LocalWindowInfo.current
@@ -270,19 +270,6 @@ fun ChapterListContent(
                     }
                     val rowShape = RoundedCornerShape(8.dp)
                     ListItem(
-                        headlineContent = {
-                            Text(
-                                text = chapter.title,
-                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isMissing) {
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                                } else if (isCurrent) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
-                                }
-                            )
-                        },
                         leadingContent = {
                             Text(
                                 text = (index + 1).toString(),
@@ -328,7 +315,19 @@ fun ChapterListContent(
                                 selectedContainerColor
                             else Color.Transparent
                         )
-                    )
+                    ) {
+                        Text(
+                            text = chapter.title,
+                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isMissing) {
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                            } else if (isCurrent) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            }
+                        )
+                    }
                 }
 
                 item(key = "bottom_spacer") {
@@ -353,7 +352,7 @@ fun ChapterListSheetStatefulPreview() {
                 metadata = BookMetadataState(title = "The Three-Body Problem"),
                 settings = PlayerSettingsState(isChapterListVisible = true),
                 actions = PlayerActions(),
-                sheetState = rememberModalBottomSheetState(),
+                sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden),
                 hazeState = null,
                 glassEffectMode = GlassEffectMode.Material
             )
